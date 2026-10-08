@@ -86,10 +86,31 @@ function renderMemories(memories = []) {
     return;
   }
 
-  list.innerHTML = memories.slice().reverse().map(memory => {
-    const date = new Date(memory.timestamp);
-    const dateText = Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString('pt-BR');
-    return `<article class="memory-card"><header><strong>${escapeHtml(memory.title)}</strong><small>${escapeHtml(memory.type)} · ${dateText}</small></header><p>${escapeHtml(memory.content)}</p></article>`;
+  const companion = currentState?.identity?.name ?? 'Mayuna';
+  const person = currentState?.profile?.companionOf?.name ?? 'Didi';
+  const groups = [
+    { title: `Sobre ${person}`, test: memory => memory.title.toLocaleLowerCase('pt-BR').includes(person.toLocaleLowerCase('pt-BR')) },
+    { title: `Sobre ${companion}`, test: memory => memory.title.toLocaleLowerCase('pt-BR').includes(companion.toLocaleLowerCase('pt-BR')) },
+    { title: 'História compartilhada', test: () => true }
+  ];
+  const remaining = new Set(memories);
+  list.innerHTML = groups.map(group => {
+    const entries = memories.slice().reverse().filter(memory => remaining.has(memory) && group.test(memory));
+    entries.forEach(memory => remaining.delete(memory));
+    if (!entries.length) return '';
+    const cards = entries.map(memory => {
+      const date = new Date(memory.timestamp);
+      const dateText = Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString('pt-BR');
+      const legacyPrefix = `${person} gosta de `;
+      const legacyLike = memory.title.toLocaleLowerCase('pt-BR').startsWith(legacyPrefix.toLocaleLowerCase('pt-BR'));
+      const legacyValue = legacyLike ? memory.title.slice(legacyPrefix.length).split(/\b(?:tbm|tamb[eé]m)\b|[,!?]/i)[0]?.trim() : '';
+      const title = legacyValue ? `${person} gosta de ${legacyValue}` : memory.title;
+      const content = legacyValue && legacyLike && memory.title.slice(legacyPrefix.length) !== legacyValue
+        ? `${person} comentou que gosta de ${legacyValue}.`
+        : memory.content;
+      return `<article class="memory-card"><header><strong>${escapeHtml(title)}</strong><small>${escapeHtml(memory.type)} · ${dateText}</small></header><p>${escapeHtml(content)}</p></article>`;
+    }).join('');
+    return `<section class="memory-group"><h3>${escapeHtml(group.title)}</h3>${cards}</section>`;
   }).join('');
 }
 

@@ -101,7 +101,7 @@ export class InteractionEngine {
         guard.response;
     }
 
-    const companionPreference = this.extractCompanionPreference(
+    const companionMemories = this.extractCompanionMemories(
       state,
       normalizedMessage,
       response
@@ -135,9 +135,7 @@ export class InteractionEngine {
         }
       );
 
-    const memoriesToSave = companionPreference
-      ? [...extractedMemories, companionPreference]
-      : extractedMemories;
+    const memoriesToSave = [...extractedMemories, ...companionMemories];
 
     for (const extractedMemory of memoriesToSave) {
       this.core.addMemory(
@@ -178,10 +176,8 @@ export class InteractionEngine {
     state: CompanionState,
     message: string
   ): Array<{ type: MemoryType; title: string; content: string; emotionalWeight: number }> {
-    const normalized = message.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     const personName = state.profile.companionOf.name;
     const address = state.profile.companionOf.preferredAddress;
-    const companionName = state.profile.name;
     const extracted: Array<{ type: MemoryType; title: string; content: string; emotionalWeight: number }> = [];
 
     // Only store an asserted value. A question such as "qual é minha cor?"
@@ -200,18 +196,21 @@ export class InteractionEngine {
       if (!alreadyKnown) extracted.push({ type: 'IDENTITY_FORMING', ...fact, emotionalWeight: 100 });
     }
 
-    const likesMatch = message.match(/(?:eu\s+)?gosto\s+(?:muito\s+)?de\s+(.+)$/i);
-    if (likesMatch) {
-      const thing = likesMatch[1].trim().replace(/[.!?]+$/, '');
-      if (thing.length >= 3 && !normalized.includes('voce gosta')) {
-        extracted.push({ type: 'SIGNIFICANT', title: `${address} gosta de ${thing}`, content: `${address} contou a ${companionName} que gosta de ${thing}.`, emotionalWeight: 70 });
+    for (const thing of this.extractDeclaredLikes(message)) {
+      const title = `${address} gosta de ${thing}`;
+      const alreadyKnown = state.memories.some(memory =>
+        memory.title.toLowerCase() === title.toLowerCase() && memory.content.toLowerCase().includes(thing.toLowerCase())
+      );
+      if (!alreadyKnown) {
+        extracted.push({ type: 'SIGNIFICANT', title, content: `${address} contou que gosta de ${thing}.`, emotionalWeight: 70 });
       }
     }
 
     const identityMatch = message.match(/^eu\s+sou\s+(.+)$/i);
     if (identityMatch) {
-      const statement = identityMatch[1].trim().replace(/[.!?]+$/, '');
-      if (statement.length >= 3) extracted.push({ type: 'IDENTITY_FORMING', title: `Algo sobre ${address}`, content: `${address} contou que ${statement}.`, emotionalWeight: 85 });
+      const statement = identityMatch[1].split(/[,.!?]/, 1)[0].trim().replace(/^(?:o|a)\s+/i, '');
+      const knownName = statement.toLowerCase() === personName.toLowerCase() || statement.toLowerCase() === address.toLowerCase();
+      if (statement.length >= 3 && !knownName) extracted.push({ type: 'IDENTITY_FORMING', title: `Algo sobre ${address}`, content: `${address} contou que ${statement}.`, emotionalWeight: 85 });
     }
     return extracted;
   }
@@ -220,15 +219,50 @@ export class InteractionEngine {
     return value.trim()
       .replace(/\s*(?::d|:p|;)\s*$/i, '')
       .replace(/\s*(?:kkk+|haha+|rsrs+|rss+)[\s.!?,:;]*$/i, '')
+      .replace(/\s+(?:tbm|tamb[eé]m)\s*$/i, '')
       .replace(/[.!?,:;]+$/, '')
       .replace(/^(?:a|o|as|os|um|uma)\s+/i, '')
       .trim();
   }
 
+  private extractDeclaredLikes(text: string): string[] {
+    const clauses = text.split(/[.!?]+/).flatMap(sentence => sentence.split(/,\s*/));
+    const likes: string[] = [];
+    for (const clause of clauses) {
+      const match = clause.trim().replace(/^(?:e|mas|tamb[eé]m|tbm)\s+/i, '').match(/^(?:eu\s+)?(?:gosto(?:\s+muito)?\s+de|adoro|amo(?:\s+muito)?|prefiro)\s+(.+?)\s*$/i);
+      if (!match) continue;
+      let value = this.cleanPreferenceValue(match[1]);
+      value = value.replace(/^observar\s+/i, '').replace(/^de\s+/i, '').trim();
+      if (value.length >= 2 && !likes.some(existing => existing.toLowerCase() === value.toLowerCase())) likes.push(value);
+    }
+    return likes;
+  }
+
+  private extractCompanionMemories(
+    state: CompanionState,
+    question: string,
+    response: string
+  ): Array<{ type: MemoryType; title: string; content: string; emotionalWeight: number }> {
+    const favorite = this.extractCompanionPreference(state, question, response);
+    if (favorite) return [favorite];
+
+    const name = state.profile.name;
+    return this.extractDeclaredLikes(response)
+      .filter(thing => !state.memories.some(memory =>
+        memory.title.toLowerCase() === `${name} gosta de ${thing}`.toLowerCase()
+      ))
+      .map(thing => ({
+        type: 'SIGNIFICANT' as const,
+        title: `${name} gosta de ${thing}`,
+        content: `${name} disse que gosta de ${thing}.`,
+        emotionalWeight: 75
+      }));
+  }
+
   private extractFavoriteAnimals(message: string, personName: string, address: string): Array<{title: string; content: string; value: string}> {
     const raw = message.toLowerCase();
     const facts: Array<{title: string; content: string; value: string}> = [];
-    const singular = raw.match(/\b(?:meu|minha)\s+(?:animal|bicho)\s+favorito\s*(?:(?:também|tambem|tbm)\s*)?(?:é|e|seria|seriam|:)\s+([^,.!?]+)/i)
+    const singular = raw.match(/\b(?:meu|minha)\s+(?:animal|bicho)\s+favorito\s*(?:(?:também|tambem|tbm)\s*)?(?:é|e|são|sao|seria|seriam|:)\s+([^,.!?]+)/i)
       ?? raw.match(/\banimais?\s+[^,.!?]*[,;]\s*(?:o\s+)?meu\s+favorito\s*(?:é|e|seria|seriam)\s+([^,.!?]+)/i);
     const plural = raw.match(/\b(?:meus|minhas)\s+(?:animais|bichos)\s+(?:místicos?\s+)?favoritos\s*(?:são|sao|seriam|:)\s+([^,.!?]+)/i)
       ?? raw.match(/\b([^,.!?]+?)\s+(?:são|sao|seriam)\s+meus\s+(?:animais|bichos)\s+(?:místicos?\s+)?favoritos\b/i);
@@ -254,10 +288,13 @@ export class InteractionEngine {
     const title = asksMysticBird ? `Pássaro místico favorito de ${name}` : `Animal favorito de ${name}`;
     if (state.memories.some(memory => memory.title.toLowerCase() === title.toLowerCase())) return null;
 
+    const declaredLikes = this.extractDeclaredLikes(response);
     const match = asksMysticBird
       ? rawResponse.match(/(?:imaginei (?:um|uma)|meu pássaro místico favorito (?:seria|é|e))\s+([^.!?]+)/i)
-      : rawResponse.match(/(?:meu animal favorito (?:é|e|seria)|eu escolheria|gosto (?:muito )?de observar|gosto de)\s+(?:um|uma|os|as)?\s*([^.!?]+)/i);
-    const value = match?.[1] ? this.cleanPreferenceValue(match[1]) : '';
+      : null;
+    const value = asksMysticBird
+      ? (match?.[1] ? this.cleanPreferenceValue(match[1]) : '')
+      : (declaredLikes[0] ?? this.cleanPreferenceValue(rawResponse.match(/(?:meu animal favorito (?:é|e|seria)|eu escolheria)\s+(?:um|uma|os|as)?\s*([^.!?]+)/i)?.[1] ?? ''));
     if (value.length < 2 || /^(?:ainda nao|nao sei|nao tenho)/.test(value)) return null;
 
     return {

@@ -13,6 +13,8 @@ test('context addresses Didi directly in second person', () => {
   const context = AIContextBuilder.build(state, 'Oi, voltei!');
   assert.match(context.systemPrompt, /conversando diretamente com Didi/);
   assert.match(context.systemPrompt, /não fale dele na terceira pessoa/);
+  assert.match(context.systemPrompt, /mundo de fantasia/i);
+  assert.match(context.systemPrompt, /dragões, fênix e monstros/);
   assert.equal(context.companionPreferences.favoriteColor, 'azul-safira');
 });
 
@@ -43,6 +45,31 @@ test('questions are not mistaken for facts; explicit color and animal preference
   assert.match(resolveIdentityQuestion(animalContext), /lobos/);
   const mythicalContext = AIContextBuilder.build(core.getState(), 'Quais são meus animais místicos favoritos?');
   assert.match(resolveIdentityQuestion(mythicalContext), /dragões/);
+});
+
+test('likes are saved as short facts under the person who expressed them', async () => {
+  const core = CompanionCore.create(MAYUNA_PROFILE);
+  const engine = new InteractionEngine(core, {
+    name: 'test',
+    async generateResponse() { return 'Eu adoro pássaros! Eles são incríveis, e Didi também gosta deles.'; }
+  }, new ConversationHistory(6));
+  await engine.interact('Eu gosto de pássaros tbm, são incríveis, qual seu pássaro místico favorito?');
+
+  const memories = core.getState().memories;
+  const didi = memories.find(memory => memory.title === 'Didi gosta de pássaros');
+  const mayuna = memories.find(memory => memory.title === 'Mayuna gosta de pássaros');
+  assert.ok(didi, 'the user preference should be stored separately');
+  assert.ok(mayuna, 'Mayuna’s direct first-person preference should be stored');
+  assert.doesNotMatch(didi.title, /incríveis|favorito|místico/i);
+  assert.match(AIContextBuilder.build(core.getState(), 'Você gosta de pássaros?').systemPrompt, /Mayuna gosta de pássaros/);
+});
+
+test('plural favorite animals remain available in a later conversation', async () => {
+  const core = CompanionCore.create(MAYUNA_PROFILE);
+  const engine = new InteractionEngine(core, { name: 'test', async generateResponse() { return 'Entendi, Didi!'; } }, new ConversationHistory(6));
+  await engine.interact('Meu animal favorito são lobos e dragões.');
+  const context = AIContextBuilder.build(core.getState(), 'Qual é o meu animal favorito?');
+  assert.match(resolveIdentityQuestion(context), /lobos e dragões/);
 });
 
 test('favorite color question about Mayuna uses the profile value', () => {
