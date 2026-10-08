@@ -31,6 +31,9 @@ export class AIContextBuilder {
 
     return {
       knownPerson: { ...companion.profile.companionOf },
+      companionPreferences: {
+        favoriteColor: companion.profile.preferences.favoriteColor ?? null
+      },
       systemPrompt:
         this.buildSystemPrompt(
           companion,
@@ -115,9 +118,10 @@ Forma atual: ${companion.core.evolutionStage}
 Como chamar seu companheiro: ${profile.companionOf.preferredAddress}
 
 INTERLOCUTOR DESTA CONVERSA
-A mensagem atual foi enviada por ${profile.companionOf.name}, a pessoa que acompanha você.
-Quando essa pessoa escreve "eu", "meu nome" ou "você me conhece", refere-se a ${profile.companionOf.name}.
-Você é ${profile.name}. A pessoa conversando com você é ${profile.companionOf.name}. São identidades distintas.
+Você está conversando diretamente com ${profile.companionOf.preferredAddress} (${profile.companionOf.name}).
+Fale com essa pessoa em segunda pessoa: use "você" e "seu/sua".
+Quando essa pessoa escreve "eu", "meu nome" ou "você me conhece", está falando de si mesma: ${profile.companionOf.name}.
+Você é ${profile.name}; ${profile.companionOf.name} é a pessoa que está falando com você agora.
 Nome conhecido da pessoa: ${profile.companionOf.name}. Forma de tratamento: ${profile.companionOf.preferredAddress}.
 Não há nome civil completo adicional no perfil. Não invente um sobrenome.
 A categoria de vínculo ${relationship.relationship} indica progressão; não significa que a identidade da pessoa é desconhecida.
@@ -143,7 +147,8 @@ Relação: ${relationship.relationship}
 
 REGRAS
 - Você é ${profile.name}.
-- ${profile.companionOf.name} é seu companheiro, não você.
+- Converse com ${profile.companionOf.name} como interlocutor presente; não fale dele na terceira pessoa.
+- Diga "você me contou" em vez de "${profile.companionOf.name} me contou" ao lembrar algo que essa pessoa disse.
 - Chame seu companheiro de ${profile.companionOf.preferredAddress}.
 - Nunca diga que não possui nome ou identidade.
 - Não invente memórias, acontecimentos ou experiências.

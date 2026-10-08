@@ -195,7 +195,7 @@ export class InteractionEngine {
 
     const colorMatch =
       message.match(
-        /(?:minha|meu)\s+cor\s+(?:favorita|preferida)\s+(?:é|e|:)?\s*(.+)$/i
+        /(?:a\s+)?minha\s+cor\s+(?:favorita|preferida)\s+(?:é|e|:)?\s*(.+)$/i
       );
 
     if (colorMatch) {
@@ -208,14 +208,8 @@ export class InteractionEngine {
         const alreadyKnown =
           state.memories.some(
             memory =>
-              memory.title
-                .toLowerCase()
-                .includes('cor') &&
-              memory.content
-                .toLowerCase()
-                .includes(
-                  color.toLowerCase()
-                )
+              memory.title.toLowerCase().includes('cor favorita') &&
+              memory.content.toLowerCase().includes(color.toLowerCase())
           );
 
         if (!alreadyKnown) {
@@ -224,7 +218,7 @@ export class InteractionEngine {
               'IDENTITY_FORMING',
 
             title:
-              `A Cor de ${companionPersonName}`,
+              `Cor favorita de ${companionPersonName}`,
 
             content:
               `${preferredAddress} contou que sua cor favorita é ${color}.`,
@@ -232,6 +226,22 @@ export class InteractionEngine {
             emotionalWeight: 100
           };
         }
+      }
+    }
+
+    const animalList = this.extractFavoriteAnimals(message);
+    if (animalList) {
+      const alreadyKnown = state.memories.some(memory =>
+        memory.title.toLowerCase().includes('animal favorito') &&
+        memory.content.toLowerCase().includes(animalList.toLowerCase())
+      );
+      if (!alreadyKnown) {
+        return {
+          type: 'IDENTITY_FORMING',
+          title: `Animal favorito de ${companionPersonName}`,
+          content: `${preferredAddress} contou que seus animais místicos favoritos são ${animalList}.`,
+          emotionalWeight: 100
+        };
       }
     }
 
@@ -295,5 +305,22 @@ export class InteractionEngine {
     }
 
     return null;
+  }
+
+  private extractFavoriteAnimals(message: string): string | null {
+    const normalized = message
+      .toLowerCase()
+      .replace(/[.!?]+$/, '')
+      .trim();
+
+    const patterns = [
+      /(?:meus|minhas)\s+animais?\s+(?:místicos?\s+)?favoritos?\s+(?:são|sao|e|:)\s+(.+)$/,
+      /(?:meus|minhas)\s+bichos?\s+favoritos?\s+(?:sao|e|:)\s+(.+)$/,
+      /^(.+?)\s+(?:são|sao)\s+meus\s+animais?\s+(?:místicos?\s+)?favoritos?$/,
+      /^(.+?)\s+(?:são|sao)\s+meus\s+bichos?\s+favoritos?$/
+    ];
+    const match = patterns.map(pattern => normalized.match(pattern)).find(Boolean);
+    const animals = match?.[1]?.trim();
+    return animals && animals.length >= 3 ? animals : null;
   }
 }

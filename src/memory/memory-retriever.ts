@@ -40,15 +40,24 @@ import type {
   
         let score = 0;
   
-        score += this.countMatches(
+        const titleMatches = this.countMatches(
           queryTokens,
           titleTokens
-        ) * 10;
+        );
   
-        score += this.countMatches(
+        const contentMatches = this.countMatches(
           queryTokens,
           contentTokens
-        ) * 4;
+        );
+
+        // Memory importance and name mentions must not make an unrelated
+        // fact eligible (for example, returning a color for an animal query).
+        if (titleMatches === 0 && contentMatches === 0) {
+          return { memory, score: 0 };
+        }
+
+        score += titleMatches * 10;
+        score += contentMatches * 4;
   
         score += this.getMemoryTypeBonus(memory.type);
   

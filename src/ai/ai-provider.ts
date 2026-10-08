@@ -1,6 +1,7 @@
 export interface AIContext {
     systemPrompt: string;
     knownPerson?: { name: string; preferredAddress: string };
+    companionPreferences?: { favoriteColor: string | null };
   
     identity: {
       name: string;
