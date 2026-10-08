@@ -35,9 +35,20 @@ try {
   assert.ok(bounds.doc[0]<=width && bounds.doc[1]<=height,`${width}×${height}: document overflow`);
   for(const {selector,rect} of bounds.controls) assert.ok(rect.x>=0&&rect.y>=0&&rect.right<=width+1&&rect.bottom<=height+1,`${width}×${height}: ${selector} outside viewport`);
   assert.ok(bounds.chat.x>=0&&bounds.chat.y>=0&&bounds.chat.right<=width+1&&bounds.chat.bottom<=height+1,`${width}×${height}: inline chat outside viewport`);
+  assert.equal(await page.locator('#appShell').getAttribute('data-view-mode'),'refugio');
+  if(width>920){
+   const desktopWorld=page.locator('.desktop-nav [data-view-mode="world"]');await desktopWorld.click();
+   assert.equal(await page.locator('#appShell').getAttribute('data-view-mode'),'world');assert.equal(await page.locator('#panel-chat').isVisible(),false);assert.ok(await page.locator('.bottom-hud').isVisible());
+   await page.locator('.desktop-nav [data-view-mode="refugio"]').click();
+   assert.equal(await page.locator('#panel-chat').isVisible(),true);assert.equal(await page.locator('.bottom-hud').isVisible(),false);
+   assert.equal(await page.locator('#panel-chat').evaluate(el=>getComputedStyle(el).resize),'both');
+  }else{
+   await page.locator('.mobile-dock [data-view-mode="world"]').click();assert.equal(await page.locator('#mobileHotbar').isVisible(),true);assert.equal(await page.locator('#panel-chat').isVisible(),false);
+   await page.locator('.mobile-dock [data-view-mode="refugio"]').click();assert.equal(await page.locator('#mobileHotbar').isVisible(),false);assert.equal(await page.locator('#panel-chat').isVisible(),true);
+  }
   const open=width>920?'.companion-summary [data-open-panel="chat"]':'.mobile-dock [data-open-panel="chat"]';await page.locator(open).click();
   assert.equal(await page.locator('#overlay').isVisible(),false,`${width}×${height}: chat must stay inline, without modal overlay`);
-  const chat=await page.locator('#panel-chat').boundingBox();const rail=await page.locator(width>920?'.bottom-hud':'#mobileHotbar').boundingBox();assert.ok(chat.x>=0&&chat.y>=0&&chat.x+chat.width<=width+1&&chat.y+chat.height<=height+1,`${width}×${height}: inline chat must stay in viewport`);assert.ok(chat.y+chat.height<=rail.y+1||chat.x+chat.width<=rail.x||chat.x>=rail.x+rail.width,`${width}×${height}: chat overlaps hotbar`);
+  const chat=await page.locator('#panel-chat').boundingBox();assert.ok(chat.x>=0&&chat.y>=0&&chat.x+chat.width<=width+1&&chat.y+chat.height<=height+1,`${width}×${height}: inline chat must stay in viewport`);assert.equal(await page.locator('#panel-chat .chat-header').isVisible(),false,`${width}×${height}: chat should have no framed titlebar`);
   assert.equal(await page.locator('#chatInput').isFocused(),true);
   if(process.env.MAYUNA_SCREENSHOT_DIR && [1440,390].includes(width))await page.screenshot({path:path.join(process.env.MAYUNA_SCREENSHOT_DIR,`hud-${width}.png`)});
  }

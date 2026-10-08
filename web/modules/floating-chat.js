@@ -7,7 +7,7 @@ export class FloatingChat {
     this.world = world;
     this.header = root.querySelector('.chat-header');
     this.button = root.querySelector('#minimizeChat');
-    this.button.addEventListener('click', () => this.setMinimized(!root.classList.contains('is-chat-minimized')));
+    this.button?.addEventListener('click', () => this.setMinimized(!root.classList.contains('is-chat-minimized')));
     this.header.addEventListener('pointerdown', event => {
       if (event.button !== 0 || event.target.closest('button')) return;
       this.drag = { id: event.pointerId, x: event.clientX, y: event.clientY, left: root.offsetLeft, top: root.offsetTop };
@@ -33,6 +33,13 @@ export class FloatingChat {
       else this.place(root.offsetLeft, root.offsetTop);
     });
     this.observer.observe(world);
+    this.observer.observe(root);
+    this.sizeObserver = new ResizeObserver(() => {
+      if (this.layout === 'desktop') {
+        preferences.set('mayuna-chat-size-desktop', JSON.stringify({ width: root.offsetWidth, height: root.offsetHeight }));
+      }
+    });
+    this.sizeObserver.observe(root);
   }
 
   place(left, top) {
@@ -46,6 +53,15 @@ export class FloatingChat {
   }
 
   restore() {
+    if (this.layout === 'desktop') {
+      try {
+        const size = JSON.parse(preferences.get('mayuna-chat-size-desktop'));
+        if (Number.isFinite(size?.width) && Number.isFinite(size?.height)) {
+          this.root.style.width = `${Math.max(300, Math.min(size.width, this.world.clientWidth - 16))}px`;
+          this.root.style.height = `${Math.max(250, Math.min(size.height, this.world.clientHeight - 72))}px`;
+        }
+      } catch {}
+    }
     let position;
     try { position = JSON.parse(preferences.get(`mayuna-chat-position-${this.layout}`)); } catch {}
     if (position && Number.isFinite(position.x) && Number.isFinite(position.y)) this.place(position.x * this.world.clientWidth, position.y * this.world.clientHeight);
@@ -54,9 +70,16 @@ export class FloatingChat {
 
   setMinimized(value) {
     this.root.classList.toggle('is-chat-minimized', value);
-    this.button.textContent = value ? '+' : '—';
-    this.button.setAttribute('aria-label', value ? 'Restaurar conversa' : 'Minimizar conversa');
-    this.button.setAttribute('aria-expanded', String(!value));
+    if (this.button) {
+      this.button.textContent = value ? '+' : '—';
+      this.button.setAttribute('aria-label', value ? 'Restaurar conversa' : 'Minimizar conversa');
+      this.button.setAttribute('aria-expanded', String(!value));
+    }
+    this.place(this.root.offsetLeft, this.root.offsetTop);
+  }
+
+  refreshPosition() {
+    if (!this.world.clientWidth || !this.world.clientHeight) return;
     this.place(this.root.offsetLeft, this.root.offsetTop);
   }
 }

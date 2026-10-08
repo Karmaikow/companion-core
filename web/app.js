@@ -140,6 +140,7 @@ function applyState(state) {
   renderInventory(state.inventory);
   renderPersonality(state.personality);
   renderMemories(state.memories);
+  setViewMode($('#appShell').dataset.viewMode, false);
 }
 
 function setConnection(status, text) {
@@ -152,6 +153,33 @@ function setConnection(status, text) {
   $('#connectionLabel').textContent = text;
   $('#worldConnection').textContent = text;
   viewport?.setPresence(status === 'online' ? 'idle' : 'offline');
+}
+
+function setViewMode(view, persist = true) {
+  const selected = view === 'world' ? 'world' : 'refugio';
+  const app = $('#appShell');
+  app.dataset.viewMode = selected;
+  $$('[data-view-mode]').forEach(button => {
+    const active = button.dataset.viewMode === selected;
+    button.classList.toggle('is-active', active);
+    button.setAttribute('aria-pressed', String(active));
+  });
+  const world = selected === 'world';
+  $('#worldProvider').textContent = world ? 'COMPANION WORLD' : 'REFÚGIO';
+  $('#roomName').textContent = world ? 'Companion World' : `Refúgio de ${currentState?.identity?.name || 'Mayuna'}`;
+  $('#roomCoordinate').textContent = world ? 'MUNDO EXTERNO · EM DESENVOLVIMENTO' : 'ESPAÇO PRIVADO';
+  $('#roomEyebrow').textContent = world ? 'COMPANION WORLD' : 'NOSSA HISTÓRIA';
+  $('#roomHeading').textContent = world ? 'O mundo aguarda' : 'Um espaço nosso';
+  $('#roomDescription').textContent = world
+    ? 'A interface de batalha está separada do Refúgio e será expandida com o mundo externo.'
+    : 'Converse, lembre e evolua ao lado da Mayuna.';
+  $('#roomFooter').textContent = world ? 'Exploração e batalhas' : 'Refúgio da Companion';
+  $('#roomFootnote').textContent = world
+    ? 'Área de combate em preparação.'
+    : 'Um lugar para conversa, memórias e evolução.';
+  if (persist) preferences.set('mayuna-view-mode', selected);
+  if (world) closeDrawer();
+  requestAnimationFrame(() => floatingChat?.refreshPosition());
 }
 
 async function loadState() {
@@ -169,6 +197,7 @@ async function loadState() {
 
 function openDrawer(name) {
   if (name === 'chat') {
+    setViewMode('refugio');
     closeDrawer();
     floatingChat?.setMinimized(false);
     $('#chatInput').focus({ preventScroll: true });
@@ -255,9 +284,10 @@ async function verifyCore(target = '#verifyResult') {
 
 function bindUi() {
   $$('[data-open-panel]').forEach(button => button.addEventListener('click', () => openDrawer(button.dataset.openPanel)));
+  $$('[data-view-mode]').forEach(button => button.addEventListener('click', () => setViewMode(button.dataset.viewMode)));
   $$('[data-close-drawer]').forEach(button => button.addEventListener('click', () => closeDrawer()));
   $('#overlay').addEventListener('click', () => closeDrawer());
-  $$('[data-action="focus-world"]').forEach(button => button.addEventListener('click', () => closeDrawer()));
+  $$('[data-action="focus-refuge"]').forEach(button => button.addEventListener('click', () => { closeDrawer(); setViewMode('refugio'); }));
 
   $('#chatForm').addEventListener('submit', event => {
     event.preventDefault();
@@ -316,6 +346,7 @@ function init() {
   bindHudEffects();
   renderHotbars();
   bindUi();
+  setViewMode(preferences.get('mayuna-view-mode') || 'refugio', false);
   const setImmersive = value => {
     $('#appShell').classList.toggle('hud-immersive', value);
     $('#immersiveToggle').setAttribute('aria-pressed', String(value));

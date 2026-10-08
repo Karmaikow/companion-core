@@ -105,7 +105,7 @@ import type {
   
       return results
         .filter(result => result.score > 0)
-        .sort((a, b) => b.score - a.score)
+      .sort((a, b) => b.score - a.score || b.memory.timestamp.localeCompare(a.memory.timestamp))
         .slice(0, Math.max(1, limit));
     }
   
