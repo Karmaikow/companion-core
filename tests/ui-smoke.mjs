@@ -30,11 +30,12 @@ try {
   await page.setViewportSize({width,height});await page.goto(`http://127.0.0.1:${port}`);await unlock();await page.waitForFunction(()=>document.querySelector('#connectionLabel').textContent==='Core ativo');
   const bounds=await page.evaluate(()=>{
    const selectors=innerWidth>920?['.bottom-hud','.skill-slots','.passive-list','#hotbar']:['#mobileHotbar','.mobile-passives','.mobile-dock'];
-   return {doc:[document.body.scrollWidth,document.body.scrollHeight],chat:document.querySelector('#panel-chat').getBoundingClientRect().toJSON(),controls:selectors.map(selector=>({selector,rect:document.querySelector(selector).getBoundingClientRect().toJSON()}))};
+   return {doc:[document.body.scrollWidth,document.body.scrollHeight],chat:document.querySelector('#panel-chat').getBoundingClientRect().toJSON(),world:document.querySelector('#worldFrame').getBoundingClientRect().toJSON(),heading:document.querySelector('.world-heading').getBoundingClientRect().toJSON(),controls:selectors.map(selector=>({selector,rect:document.querySelector(selector).getBoundingClientRect().toJSON()}))};
   });
   assert.ok(bounds.doc[0]<=width && bounds.doc[1]<=height,`${width}×${height}: document overflow`);
   for(const {selector,rect} of bounds.controls) assert.ok(rect.x>=0&&rect.y>=0&&rect.right<=width+1&&rect.bottom<=height+1,`${width}×${height}: ${selector} outside viewport`);
   assert.ok(bounds.chat.x>=0&&bounds.chat.y>=0&&bounds.chat.right<=width+1&&bounds.chat.bottom<=height+1,`${width}×${height}: inline chat outside viewport`);
+  if(width>920){assert.ok(Math.abs(bounds.world.bottom-bounds.chat.bottom-12)<2,`${width}×${height}: chat should stay anchored to the bottom of the Refuge panel`);assert.ok(bounds.heading.bottom<=bounds.chat.top,`${width}×${height}: Refuge title should remain above the chat`);}
   assert.equal(await page.locator('#appShell').getAttribute('data-view-mode'),'refugio');
   if(width>920){
    const desktopWorld=page.locator('.desktop-nav [data-view-mode="world"]');await desktopWorld.click();

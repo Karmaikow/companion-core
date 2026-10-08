@@ -31,16 +31,16 @@
 #worldFrame > .main-chat {
   position: absolute;
   z-index: 8;
-  right: auto;
-  bottom: auto;
+  right: 12px;
+  bottom: 12px;
   left: auto;
   top: auto;
   width: clamp(320px, 32vw, 460px);
-  height: clamp(280px, 58%, 520px);
+  height: clamp(280px, 64%, 560px);
   min-width: 290px;
   min-height: 240px;
   max-width: calc(100% - 16px);
-  max-height: calc(100% - 48px);
+  max-height: max(240px, calc(100% - 190px));
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto;
   overflow: hidden;
@@ -105,6 +105,11 @@
   border-radius: 50%;
 }
 
+#appShell[data-view-mode="refugio"] #worldFrame .world-heading {
+  top: 12%;
+  transform: translate(-50%, 0);
+}
+
 @media (min-width: 921px) {
   #appShell[data-view-mode="refugio"] .desktop-layout {
     grid-template-columns: minmax(210px, 250px) minmax(0, 1fr);
@@ -129,6 +134,8 @@
   #worldFrame > .main-chat {
     width: min(430px, calc(100% - 20px));
     height: min(43dvh, 380px);
+    right: 10px;
+    bottom: 10px;
     min-width: 0;
     min-height: 190px;
     max-height: calc(100% - 20px);
@@ -157,6 +164,8 @@
   #worldFrame > .main-chat {
     width: min(340px, calc(100% - 88px));
     height: min(72dvh, 280px);
+    right: 10px;
+    bottom: 10px;
     min-height: 138px;
   }
 }
