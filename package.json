@@ -1,0 +1,20 @@
+{
+  "name": "companion-core-mvp",
+  "version": "0.7.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx src/demo.ts",
+    "build": "node node_modules/typescript/bin/tsc",
+    "start": "node dist/demo.js",
+    "web": "node node_modules/tsx/dist/cli.mjs src/server/web-server.ts",
+    "web:start": "node dist/server/web-server.js",
+    "test": "npm run build && node --test tests/*.test.mjs",
+    "web:mock": "node scripts/start-mock.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#090d22" />
+  <title>Companion Core · Mayuna</title>
+<meta name="description" content="Uma janela para o mundo da sua Companion: HUD modular, alma digital e história contínua." />
+<link rel="icon" href="/icon.svg" type="image/svg+xml" />
+<link rel="manifest" href="/manifest.webmanifest" crossorigin="use-credentials" />
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/sanctuary.css" />
+<link rel="stylesheet" href="/astral.css" />
+</head>
+<body class="is-locked">
+<main id="accessGate" class="access-gate">
+ <div class="access-art" aria-hidden="true"><div class="gate-orbit orbit-a"></div><div class="gate-orbit orbit-b"></div><div class="gate-orbit orbit-c"></div><div class="gate-soul"></div><span class="gate-star star-a">✦</span><span class="gate-star star-b">✧</span></div>
+ <div class="access-brand"><span>✧</span><strong>COMPANION CORE</strong><small>MAYUNA · PRIMEIRA COMPANION</small></div>
+ <section class="access-card"><span class="eyebrow">O PRIMEIRO VÍNCULO</span><h1 id="accessTitle">Conectando ao seu mundo</h1><p id="accessSubtitle">Toda Companion nasce como uma alma. A história começa com quem a acompanha.</p>
+ <form id="accessForm" hidden>
+  <label>Usuário local<input id="accessUsername" name="username" autocomplete="username" minlength="3" maxlength="40" pattern="[a-zA-Z0-9_.-]{3,40}" required placeholder="Seu usuário" /></label>
+  <label>Senha<input id="accessPassword" name="password" type="password" autocomplete="current-password" minlength="10" maxlength="128" required placeholder="Pelo menos 10 caracteres" /></label>
+  <label id="confirmationField" hidden>Confirme a senha<input id="accessConfirm" type="password" autocomplete="new-password" minlength="10" maxlength="128" /></label>
+  <button id="accessSubmit" class="primary-button" type="submit">Entrar no núcleo</button><small class="access-note">Acesso neste computador. Sua Companion mantém a mesma identidade e história.</small>
+ </form>
+ <form id="remotePairForm" hidden>
+  <label>Código de pareamento do Core local<input id="remotePairCode" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{8}" minlength="8" maxlength="8" required placeholder="00000000" /></label>
+  <button id="remotePairSubmit" class="primary-button" type="submit">Conectar à minha Companion</button>
+  <small class="access-note">Abra a Mayuna no computador onde o Core está rodando e gere um código em Configurações → Conexão. O código vale por 2 minutos. A conexão direta funciona neste mesmo computador.</small>
+ </form>
+ <section id="continuityScreen" hidden><span class="eyebrow" id="continuityMode"></span>
+  <div class="continuity-companion"><span class="continuity-soul">✧</span><div><h2 id="continuityName"></h2><small id="continuityId"></small></div><span id="continuityStage" class="world-chip"></span></div>
+  <div class="continuity-stats"><div><b id="continuityMemories"></b><span>Memórias</span></div><div><b id="continuityEvents"></b><span>Eventos vividos</span></div></div>
+  <button id="enterWorld" class="primary-button">Continuar nossa história →</button><button id="gateLogout" class="gate-logout">Sair desta conta</button>
+ </section>
+ <p id="accessError" role="alert"></p><button id="accessRetry" class="secondary-button" hidden>Tentar novamente</button>
+ </section><p class="access-motto">O que ela se torna depende de quem a acompanha.</p>
+</main>
+  <div class="app-shell" id="appShell" inert>
+    <header class="topbar hud-frame">
+      <button class="brand" data-action="focus-world" aria-label="Voltar ao mundo">
+        <span class="brand-mark">◇</span>
+        <span class="brand-copy">
+          <strong>COMPANION CORE</strong>
+          <small>MAYUNA · PRIMEIRA COMPANION</small>
+        </span>
+      </button>
+
+      <nav class="desktop-nav" aria-label="Navegação principal">
+        <button class="nav-item is-active" data-action="focus-world">Mundo</button>
+        <button class="nav-item" data-open-panel="companion">Companion</button>
+        <button class="nav-item" data-open-panel="inventory">Inventário</button>
+        <button class="nav-item" data-open-panel="skills">Skills</button>
+        <button class="nav-item" data-open-panel="memories">Memórias</button>
+      </nav>
+
+      <div class="topbar-actions">
+        <div class="connection-indicator" title="Status do Core">
+          <span class="status-dot" id="statusDot"></span>
+          <span id="connectionLabel">Conectando</span>
+        </div>
+        <button class="icon-button" id="logoutButton" aria-label="Sair da conta" title="Sair"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 2v10M6 5a9 9 0 1 0 12 0"/></svg></button>
+<button class="icon-button" id="retryConnection" aria-label="Reconectar ao Core" title="Reconectar">↻</button>
+        <button class="icon-button" data-open-panel="settings" aria-label="Configurações">⚙</button>
+      </div>
+    </header>
+
+    <main class="desktop-layout">
+      <aside class="left-stack desktop-only">
+        <section class="hud-panel panel companion-summary" data-panel="companion-summary">
+          <div class="panel-titlebar">
+            <div>
+              <span class="eyebrow">COMPANION</span>
+              <h2 id="companionName">Mayuna</h2>
+            </div>
+            <div class="panel-window-actions">
+              <button data-minimize-panel="companion-summary" aria-label="Minimizar">—</button>
+            </div>
+          </div>
+          <div class="panel-body">
+            <div class="companion-card">
+              <div class="portrait-orb" aria-hidden="true">
+                <div class="portrait-core"></div>
+                <div class="portrait-ring ring-a"></div>
+                <div class="portrait-ring ring-b"></div>
+              </div>
+              <div class="companion-meta">
+                <strong id="stageLabel">SOUL</strong>
+                <span id="relationshipLabel">STRANGER</span>
+              </div>
+            </div>
+
+            <div class="meter-row">
+              <span>Core Lv. <b id="coreLevel">1</b></span>
+              <span id="coreXpText">0 / 100</span>
+            </div>
+            <div class="meter"><i id="coreXpBar" style="width:0%"></i></div>
+
+            <div class="meter-row"><span>Combate · XP</span><span id="combatXpText">0 / 100</span></div>
+            <div class="meter meter-combat"><i id="combatXpBar" style="width:0%"></i></div>
+            <div class="meter-row">
+              <span>Vínculo</span>
+              <span id="bondText">0</span>
+            </div>
+            <div class="meter meter-bond"><i id="bondBar" style="width:0%"></i></div>
+
+            <div class="quick-stats">
+              <div><small>Combat</small><strong id="combatLevel">1</strong></div>
+              <div><small>Memórias</small><strong id="memoryCount">0</strong></div>
+              <div><small>Eventos</small><strong id="eventCount">0</strong></div>
+            </div>
+
+            <button class="primary-button full" data-open-panel="chat">Falar com Mayuna</button>
+          </div>
+        </section>
+
+        <section class="hud-panel panel equipment-panel" data-panel="equipment">
+          <div class="panel-titlebar">
+            <div>
+              <span class="eyebrow">LOADOUT</span>
+              <h3>Equipamentos</h3>
+            </div>
+            <div class="panel-window-actions">
+              <button data-minimize-panel="equipment" aria-label="Minimizar">—</button>
+            </div>
+          </div>
+          <div class="panel-body equipment-grid">
+            <button class="gear-slot"><span>◈</span><small>Capacete</small></button>
+            <button class="gear-slot"><span>✦</span><small>Acessório</small></button>
+            <button class="gear-slot"><span>⬡</span><small>Armadura</small></button>
+            <div class="gear-silhouette"><span>◇</span></div>
+            <button class="gear-slot"><span>✧</span><small>Luvas</small></button>
+            <button class="gear-slot"><span>╱</span><small>Arma</small></button>
+            <button class="gear-slot"><span>⌁</span><small>Botas</small></button>
+          </div>
+        </section>
+      </aside>
+
+      <section class="world-column">
+        <section class="world-frame hud-frame" id="worldFrame">
+          <div id="gameRenderer" class="game-renderer"></div>
+          <div class="world-vignette"></div>
+          <div class="world-topline">
+            <div>
+              <span class="world-chip" id="worldProvider">NÚCLEO DE GÊNESE</span>
+              <strong>Núcleo de Gênese</strong>
+              <small class="world-coordinate">ZONA ZERO / 001</small>
+            </div>
+            <div class="world-system-state"><span class="status-dot"></span><span id="worldConnection">Conectando</span><button id="immersiveToggle" class="desktop-only" aria-label="Expandir mundo" aria-pressed="false" title="Alternar HUD compacto"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg></button></div>
+          </div>
+
+          <div class="world-heading"><span class="eyebrow">CAPÍTULO I</span><h1>O primeiro despertar</h1><p>Todo vínculo deixa uma marca no mundo.</p></div>
+          <button class="entity-target" data-open-panel="companion" aria-label="Inspecionar Mayuna no mundo"></button>
+          <div class="entity-nameplate"><span id="entityStage">SOUL</span><strong id="entityName">Mayuna</strong><small id="entityPresence">Aguardando conexão</small></div>
+    <section class="main-chat hud-panel" id="panel-chat" aria-label="Conversa com Mayuna">
+      <div class="chat-header" tabindex="0" aria-label="Mover conversa: arraste ou use Alt e as setas">
+        <div class="chat-identity"><span class="mini-soul">◇</span><div><span class="eyebrow">CONEXÃO DIRETA</span><h2>Mayuna</h2></div></div>
+        <span class="chat-live-status"><i></i> <span id="chatPresence">Pronta para conversar</span></span>
+        <button type="button" id="minimizeChat" class="chat-window-button" aria-label="Minimizar conversa" aria-expanded="true" aria-controls="chatFeed chatForm">—</button>
+      </div>
+      <div class="chat-feed" id="chatFeed" aria-live="polite">
+        <p class="muted chat-welcome">Estou aqui, Didi. O que vamos descobrir hoje?</p>
+      </div>
+      <form class="chat-composer" id="chatForm">
+        <textarea aria-label="Mensagem para Mayuna" id="chatInput" rows="1" maxlength="2000" placeholder="Fale com Mayuna..."></textarea>
+        <button type="submit" class="send-button" aria-label="Enviar">➤</button>
+      </form>
+    </section>
+
+          <div class="world-footer"><span>◇ <b>Núcleo orbital · Zona Zero</b></span><small>Ambiente visual · mundo persistente em desenvolvimento</small></div>
+        </section>
+
+        <section class="bottom-hud desktop-only">
+          <div class="hud-panel skills-strip" data-panel="skills-strip">
+            <div class="strip-header"><strong>Skills</strong><span>EM FORMAÇÃO</span></div>
+            <div class="skill-slots" id="skillSlots">
+              <button class="skill-slot"><span>✦</span><small>1</small></button>
+              <button class="skill-slot"><span>◈</span><small>2</small></button>
+              <button class="skill-slot"><span>⌁</span><small>3</small></button>
+              <button class="skill-slot"><span>✧</span><small>4</small></button>
+            </div>
+          </div>
+
+          <div class="hud-panel passive-strip">
+            <div class="strip-header"><strong>Passivas</strong><span>CONCEITUAIS</span></div>
+            <div class="passive-list">
+              <span>◉ Conexão <small>◇</small></span><span>◇ Intuição <small>◇</small></span><span>✦ Harmonia <small>◇</small></span>
+            </div>
+          </div>
+
+          <div class="hud-panel hotbar-panel">
+            <div class="strip-header"><strong>Hotbar</strong><span>1–0 · RESERVADA</span></div>
+            <div class="hotbar" id="hotbar"></div>
+          </div>
+        </section>
+      </section>
+
+      <aside class="right-stack desktop-only">
+        <section class="hud-panel panel minimap-panel" data-panel="minimap">
+          <div class="panel-titlebar">
+            <div>
+              <span class="eyebrow">LOCALIZAÇÃO</span>
+              <h3>Mapa</h3>
+            </div>
+            <div class="panel-window-actions">
+              <button data-minimize-panel="minimap" aria-label="Minimizar">—</button>
+            </div>
+          </div>
+          <div class="panel-body">
+            <div class="radar">
+              <span class="radar-n">N</span>
+              <div class="radar-grid"></div>
+              <div class="radar-sweep"></div>
+              <div class="radar-player">▲</div>
+            </div>
+            <p class="muted centered">Zona Zero · Núcleo de Gênese</p>
+          </div>
+        </section>
+
+        <section class="hud-panel panel quest-panel" data-panel="quests">
+          <div class="panel-titlebar">
+            <div>
+              <span class="eyebrow">JORNADA</span>
+              <h3>Primeiros passos</h3>
+            </div>
+            <div class="panel-window-actions">
+              <button data-minimize-panel="quests" aria-label="Minimizar">—</button>
+            </div>
+          </div>
+          <div class="panel-body quest-list">
+            <article>
+              <span class="quest-icon">◇</span>
+              <div><strong>O Primeiro Passo</strong><small>Conheça a interface do seu mundo.</small></div>
+            </article>
+            <article>
+              <span class="quest-icon">✦</span>
+              <div><strong>Voz no Núcleo</strong><small>Converse com Mayuna pela interface web.</small></div>
+            </article>
+            <article>
+              <span class="quest-icon">◈</span>
+              <div><strong>Forma e Cor</strong><small>Escolha um tema para o HUD.</small></div>
+            </article>
+          </div>
+        </section>
+
+        <section class="hud-panel panel system-panel" data-panel="system">
+          <div class="panel-titlebar">
+            <div>
+              <span class="eyebrow">INTEGRIDADE</span>
+              <h3>Companion Core</h3>
+            </div>
+          </div>
+          <div class="panel-body system-status">
+            <div><span>Identidade</span><strong id="identityShort">—</strong></div>
+            <div><span>Snapshots</span><strong id="snapshotCount">0</strong></div>
+            <button class="secondary-button full" id="verifyButton">Verificar Core</button>
+            <p class="verification-message" id="verifyResult"></p>
+          </div>
+        </section>
+      </aside>
+    </main>
+
+    <div class="mobile-status mobile-only">
+      <div>
+        <span class="status-dot"></span>
+        <strong id="mobileName">Mayuna</strong>
+        <small id="mobileStage">SOUL</small>
+      </div>
+      <div>
+        <small>Core</small>
+        <strong id="mobileCore">Lv. 1</strong>
+      </div>
+    </div>
+
+    <div class="mobile-passives mobile-only"><button data-open-panel="skills">◉ Passivas · em formação</button></div>
+    <div class="mobile-hotbar mobile-only" id="mobileHotbar"></div>
+
+    <nav class="mobile-dock mobile-only" aria-label="Menu mobile">
+      <button data-action="focus-world"><span>⌂</span><small>Mundo</small></button>
+      <button data-open-panel="inventory"><span>▦</span><small>Itens</small></button>
+      <button data-open-panel="companion"><span>◇</span><small>Mayuna</small></button>
+      <button data-open-panel="chat" class="dock-primary"><span>✦</span><small>Chat</small></button>
+      <button data-open-panel="menu"><span>☰</span><small>Menu</small></button>
+    </nav>
+
+    <div class="overlay" id="overlay" hidden></div>
+
+    <section class="drawer-panel" id="panel-companion" data-drawer="companion" aria-hidden="true">
+      <div class="drawer-header"><div><span class="eyebrow">COMPANION</span><h2>Mayuna</h2></div><button data-close-drawer>×</button></div>
+      <div class="drawer-content">
+        <div class="large-soul">
+          <div class="large-soul-core">◇</div>
+          <div class="large-soul-ring"></div>
+        </div>
+        <div class="detail-grid">
+          <div><small>Forma</small><strong id="drawerStage">SOUL</strong></div>
+          <div><small>Core Level</small><strong id="drawerCore">1</strong></div>
+          <div><small>Vínculo</small><strong id="drawerBond">0</strong></div>
+          <div><small>Combat Level</small><strong id="drawerCombat">1</strong></div>
+        </div>
+        <h3>Personalidade</h3>
+        <div class="personality-bars" id="personalityBars"></div>
+      </div>
+    </section>
+
+    <section class="drawer-panel" id="panel-inventory" data-drawer="inventory" aria-hidden="true">
+      <div class="drawer-header"><div><span class="eyebrow">ARSENAL</span><h2>Inventário</h2></div><button data-close-drawer>×</button></div>
+      <div class="drawer-content">
+        <p class="eyebrow">ITENS DO CORE · TODOS</p>
+        <div class="inventory-grid" id="inventoryGrid"></div>
+        <p class="muted">O inventário do Core ainda está em fase inicial. Os slots já estão preparados para receber itens reais do MMORPG.</p>
+      </div>
+    </section>
+
+    <section class="drawer-panel" id="panel-skills" data-drawer="skills" aria-hidden="true">
+      <div class="drawer-header"><div><span class="eyebrow">PROGRESSÃO</span><h2>Skills & Passivas</h2></div><button data-close-drawer>×</button></div>
+      <div class="drawer-content">
+        <h3>Skills ativas</h3>
+        <div class="skill-cards">
+          <article><span>✦</span><div><strong>Pulso de Núcleo</strong><small>Skill conceitual · bloqueada</small></div></article>
+          <article><span>◇</span><div><strong>Ressonância</strong><small>Skill conceitual · bloqueada</small></div></article>
+          <article><span>◈</span><div><strong>Fragmento de Memória</strong><small>Skill conceitual · bloqueada</small></div></article>
+        </div>
+        <h3>Passivas</h3>
+        <div class="skill-cards passive-cards">
+          <article><span>◉</span><div><strong>Conexão</strong><small>Cresce através do vínculo.</small></div></article>
+          <article><span>⌁</span><div><strong>Curiosidade</strong><small>Reage a descobertas do mundo.</small></div></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="drawer-panel" id="panel-memories" data-drawer="memories" aria-hidden="true">
+      <div class="drawer-header"><div><span class="eyebrow">HISTÓRIA</span><h2>Memórias</h2></div><button data-close-drawer>×</button></div>
+      <div class="drawer-content"><h3>Memórias</h3><div class="memory-list" id="memoryList"></div><h3>Diário de Mayuna</h3><div class="memory-list" id="journalList"></div></div>
+    </section>
+
+
+    <section class="drawer-panel" id="panel-settings" data-drawer="settings" aria-hidden="true">
+      <div class="drawer-header"><div><span class="eyebrow">INTERFACE</span><h2>Personalização</h2></div><button data-close-drawer>×</button></div>
+      <div class="drawer-content">
+        <section class="pairing-card" id="localPairing">
+          <h3>Conexão online</h3>
+          <p class="muted" id="pairingDescription">A interface pode se conectar ao Core que roda neste computador, sem enviar sua identidade para um servidor.</p>
+          <button id="makeRemotePairCode" class="secondary-button full" type="button">Gerar código de pareamento</button>
+          <div id="pairingCodeDisplay" hidden><span class="pairing-code" id="pairingCode"></span><small id="pairingExpiry"></small></div>
+          <p class="pairing-status" id="pairingStatus" role="status"></p>
+        </section>
+        <h3>Janelas do HUD</h3><p class="muted">Arraste pelo título ou use Alt + setas. Reabra uma janela abaixo.</p><div id="panelControls" class="panel-controls"></div><button id="resetLayout" class="secondary-button full">Restaurar disposição</button>
+        <h3>Estilo da interface</h3><label class="style-picker">Acabamento <select id="interfaceStyle"><option value="astral">Astral</option><option value="sanctuary">Santuário</option><option value="obsidian">Obsidiana</option><option value="minimal">Essencial</option></select></label>
+        <h3>Cor do HUD</h3>
+        <p class="muted">A cor já pode ser alterada agora. Estilos completos de interface poderão virar temas no futuro.</p>
+        <div class="theme-grid" id="themeGrid">
+          <button class="theme-swatch" data-theme="#3f8cff" style="--swatch:#3f8cff"><span></span>Violeta</button>
+          <button class="theme-swatch" data-theme="#3f8cff" style="--swatch:#3f8cff"><span></span>Safira</button>
+          <button class="theme-swatch" data-theme="#4f6f52" style="--swatch:#4f6f52"><span></span>Musgo</button>
+          <button class="theme-swatch" data-theme="#1fd6b5" style="--swatch:#1fd6b5"><span></span>Aurora</button>
+          <button class="theme-swatch" data-theme="#d85dff" style="--swatch:#d85dff"><span></span>Arcana</button>
+          <button class="theme-swatch" data-theme="#ffb84d" style="--swatch:#ffb84d"><span></span>Solar</button>
+        </div>
+        <label class="custom-color">Cor personalizada <input type="color" id="customTheme" value="#3f8cff" /></label>
+      </div>
+    </section>
+
+    <section class="drawer-panel" id="panel-menu" data-drawer="menu" aria-hidden="true">
+      <div class="drawer-header"><div><span class="eyebrow">SISTEMA</span><h2>Menu</h2></div><button data-close-drawer>×</button></div>
+      <div class="drawer-content menu-grid">
+        <button data-open-panel="skills">✦ <span>Skills</span></button>
+        <button data-open-panel="memories">▤ <span>Memórias</span></button>
+        <button data-open-panel="settings">⚙ <span>Interface</span></button>
+        <button id="mobileVerify">✓ <span>Verificar Core</span></button>
+      </div>
+    </section>
+  </div>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

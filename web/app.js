@@ -1,0 +1,400 @@
+import { mode } from './modules/runtime-mode.js';
+import { AccessGate } from './modules/access-gate.js';
+import { bindHudEffects } from './modules/hud-effects.js';
+import { api } from './modules/api.js';
+import { GameViewport } from './modules/game-viewport.js';
+import { PanelManager } from './modules/panel-manager.js';
+import { FloatingChat } from './modules/floating-chat.js';
+import { preferences } from './modules/preferences.js';
+
+let currentState = null;
+let activeDrawer = null;
+let chatBusy = false;
+let viewport;
+let floatingChat;
+let previousFocus;
+let initialized = false, accessEpoch = 0;
+let pairingTimer;
+
+const $ = (selector, root = document) => root.querySelector(selector);
+const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function hexToRgb(hex) {
+  const value = hex.replace('#', '');
+  const normalized = value.length === 3 ? value.split('').map(x => x + x).join('') : value;
+  const number = Number.parseInt(normalized, 16);
+  return {
+    r: (number >> 16) & 255,
+    g: (number >> 8) & 255,
+    b: number & 255
+  };
+}
+
+function mixWithWhite({ r, g, b }, amount = .32) {
+  const mix = c => Math.round(c + (255 - c) * amount);
+  return `rgb(${mix(r)}, ${mix(g)}, ${mix(b)})`;
+}
+
+function applyTheme(hex, persist = true) {
+  if (!/^#[0-9a-f]{6}$/i.test(hex)) hex = '#3f8cff';
+  const rgb = hexToRgb(hex);
+  const root = document.documentElement;
+  root.style.setProperty('--accent', hex);
+  root.style.setProperty('--accent-rgb', `${rgb.r}, ${rgb.g}, ${rgb.b}`);
+  root.style.setProperty('--accent-soft', mixWithWhite(rgb));
+  $('#customTheme').value = hex;
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', hex);
+  if (persist) preferences.set('mayuna-theme', hex);
+  viewport?.setTheme(`${rgb.r}, ${rgb.g}, ${rgb.b}`);
+}
+
+function renderHotbars() {
+  const symbols = ['✦', '◇', '◈', '⌁', '✧', '◆', '○', '△', '□', '◎'];
+  const keys = ['1','2','3','4','5','6','7','8','9','0'];
+  const markup = keys.map((key, index) => `<button class="hotkey" data-hotkey="${key}" title="Slot reservado · ver skills" aria-label="Slot ${key}: ver skills em formação"><small>${key}</small><b>${symbols[index]}</b></button>`).join('');
+  $('#hotbar').innerHTML = markup;
+  $('#mobileHotbar').innerHTML = markup;
+}
+
+function renderInventory(items = []) {
+  const slots = 24;
+  const symbols = ['◈','✦','◇','◆','⌁','✧'];
+  $('#inventoryGrid').innerHTML = Array.from({ length: slots }, (_, index) => {
+    const item = items[index];
+    return `<div class="inventory-slot ${item ? 'is-filled' : ''}" title="${escapeHtml(item ?? 'Slot vazio')}">${item ? symbols[index % symbols.length] : ''}</div>`;
+  }).join('');
+}
+
+function renderPersonality(personality) {
+  const labels = {
+    loyalty: 'Lealdade', curiosity: 'Curiosidade', humor: 'Humor', courage: 'Coragem', empathy: 'Empatia', autonomy: 'Autonomia'
+  };
+  $('#personalityBars').innerHTML = Object.entries(labels).map(([key, label]) => {
+    const value = clamp(Number(personality?.[key] ?? 0), 0, 100);
+    return `<div class="personality-row"><span>${label}</span><div class="mini-meter"><i style="width:${value}%"></i></div><b>${value}</b></div>`;
+  }).join('');
+}
+
+function renderMemories(memories = []) {
+  const list = $('#memoryList');
+  if (!memories.length) {
+    list.innerHTML = '<p class="muted">Mayuna ainda não possui memórias registradas.</p>';
+    return;
+  }
+
+  list.innerHTML = memories.slice().reverse().map(memory => {
+    const date = new Date(memory.timestamp);
+    const dateText = Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString('pt-BR');
+    return `<article class="memory-card"><header><strong>${escapeHtml(memory.title)}</strong><small>${escapeHtml(memory.type)} · ${dateText}</small></header><p>${escapeHtml(memory.content)}</p></article>`;
+  }).join('');
+}
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
+function applyState(state) {
+  currentState = state;
+  viewport?.setState(state);
+  $('#entityName').textContent = state.identity.name;
+  $('#entityStage').textContent = state.core.evolutionStage;
+  $('#worldProvider').textContent = state.meta.provider === 'mock' ? 'PRÉVIA · IA SIMULADA' : state.meta.provider === 'openai' ? 'CORE LOCAL · IA ONLINE' : 'CORE LOCAL · OLLAMA';
+  $('#combatXpText').textContent = `${state.combat.xp} / ${state.combat.xpToNextLevel}`;
+  $('#combatXpBar').style.width = `${clamp(state.combat.xp / state.combat.xpToNextLevel * 100, 0, 100)}%`;
+  $('#journalList').innerHTML = state.journal.slice().reverse().map(entry => `<article class="memory-card"><header><strong>${escapeHtml(entry.title)}</strong></header><p>${escapeHtml(entry.content)}</p></article>`).join('') || '<p class="muted">O diário aguarda novos capítulos.</p>';
+  const corePercent = state.core.xpToNextLevel > 0 ? (state.core.xp / state.core.xpToNextLevel) * 100 : 0;
+  const bondPercent = Math.min((state.bond.value / 100) * 100, 100);
+
+  $('#companionName').textContent = state.identity.name;
+  $('#stageLabel').textContent = state.core.evolutionStage;
+  $('#relationshipLabel').textContent = state.bond.relationship;
+  $('#coreLevel').textContent = state.core.level;
+  $('#coreXpText').textContent = `${state.core.xp} / ${state.core.xpToNextLevel}`;
+  $('#coreXpBar').style.width = `${clamp(corePercent, 0, 100)}%`;
+  $('#bondText').textContent = state.bond.value;
+  $('#bondBar').style.width = `${clamp(bondPercent, 0, 100)}%`;
+  $('#combatLevel').textContent = state.combat.level;
+  $('#memoryCount').textContent = state.memories.length;
+  $('#eventCount').textContent = state.meta.eventCount;
+  $('#snapshotCount').textContent = state.meta.snapshotCount;
+  $('#identityShort').textContent = state.identity.id.replace('MC-', '').slice(0, 8);
+
+  $('#mobileName').textContent = state.identity.name;
+  $('#mobileStage').textContent = state.core.evolutionStage;
+  $('#mobileCore').textContent = `Lv. ${state.core.level}`;
+
+  $('#drawerStage').textContent = state.core.evolutionStage;
+  $('#drawerCore').textContent = state.core.level;
+  $('#drawerBond').textContent = state.bond.value;
+  $('#drawerCombat').textContent = state.combat.level;
+
+  renderInventory(state.inventory);
+  renderPersonality(state.personality);
+  renderMemories(state.memories);
+}
+
+function setConnection(status, text) {
+  const dot = $('#statusDot');
+  dot.classList.remove('is-online', 'is-error');
+  if (status === 'online') dot.classList.add('is-online');
+  if (status === 'error') dot.classList.add('is-error');
+  $$('.world-system-state .status-dot, .mobile-status .status-dot').forEach(el => { el.classList.toggle('is-online', status === 'online'); el.classList.toggle('is-error', status === 'error'); });
+  if (mode === 'demo') text = 'Prévia · sem Core';
+  $('#connectionLabel').textContent = text;
+  $('#worldConnection').textContent = text;
+  viewport?.setPresence(status === 'online' ? 'idle' : 'offline');
+}
+
+async function loadState() {
+  setConnection('loading', 'Conectando');
+  try {
+    const state = await api.state();
+    applyState(state);
+    setConnection('online', 'Core ativo');
+  } catch (error) {
+    setConnection('error', 'Core indisponível');
+    console.error(error);
+    throw error;
+  }
+}
+
+function openDrawer(name) {
+  if (name === 'chat') {
+    closeDrawer();
+    floatingChat?.setMinimized(false);
+    $('#chatInput').focus({ preventScroll: true });
+    return;
+  }
+  const drawer = document.querySelector(`[data-drawer="${name}"]`);
+  if (!drawer) return;
+
+  previousFocus = document.activeElement;
+  closeDrawer(false);
+  activeDrawer = drawer;
+  drawer.classList.add('is-open');
+  drawer.setAttribute('aria-hidden', 'false');
+  drawer.inert = false;
+  $('#overlay').hidden = false;
+  requestAnimationFrame(() => {
+    (name === 'chat' ? $('#chatInput') : drawer.querySelector('button'))?.focus();
+  });
+}
+
+function closeDrawer(hideOverlay = true) {
+  if (activeDrawer) {
+    activeDrawer.classList.remove('is-open');
+    activeDrawer.setAttribute('aria-hidden', 'true');
+    activeDrawer.inert = true;
+    activeDrawer = null;
+  }
+  if (hideOverlay) { $('#overlay').hidden = true; previousFocus?.focus(); }
+}
+
+function appendChat(role, text, extraClass = '') {
+  const bubble = document.createElement('div');
+  bubble.className = `chat-bubble ${role} ${extraClass}`.trim();
+  bubble.innerHTML = `<small>${escapeHtml(role === 'user' ? currentState?.profile?.companionOf?.preferredAddress || 'Você' : currentState?.identity?.name || 'Mayuna')}</small><p></p>`;
+  bubble.querySelector('p').textContent = text;
+  $('#chatFeed').appendChild(bubble);
+  $('#chatFeed').scrollTop = $('#chatFeed').scrollHeight;
+  return bubble;
+}
+
+async function sendChat(message) {
+  if (chatBusy || !message.trim()) return;
+  const epoch = accessEpoch;
+  chatBusy = true;
+  viewport?.setPresence('thinking');
+  $('#chatPresence').textContent = 'Mayuna está respondendo';
+  const submit = $('#chatForm button[type="submit"]');
+  submit.disabled = true;
+  $('.chat-welcome')?.remove();
+  appendChat('user', message.trim());
+  const thinking = appendChat('companion', '...', 'thinking');
+
+  try {
+    const result = await api.chat(message.trim());
+    if (epoch !== accessEpoch) return;
+    thinking.remove();
+    appendChat('companion', result.response);
+    if (result.state) applyState(result.state);
+  } catch (error) {
+    if (epoch !== accessEpoch) return;
+    thinking.remove();
+    appendChat('companion', `Não consegui responder agora. ${error.message}`, 'error');
+    if (!$('#chatInput').value) $('#chatInput').value = message;
+  } finally {
+    chatBusy = false;
+    viewport?.setPresence('idle');
+    $('#chatPresence').textContent = 'Pronta para conversar';
+    submit.disabled = false;
+    if (!document.body.classList.contains('is-locked')) $('#chatInput').focus();
+  }
+}
+
+async function verifyCore(target = '#verifyResult') {
+  const element = $(target);
+  if (element) element.textContent = 'Verificando...';
+  try {
+    const result = await api.verify();
+    if (element) element.textContent = result.valid ? `✓ ${result.reason}` : `⚠ ${result.reason}`;
+    if (!element && result.reason) alert(result.reason);
+  } catch (error) {
+    if (element) element.textContent = `Falha: ${error.message}`;
+  }
+}
+
+function bindUi() {
+  $$('[data-open-panel]').forEach(button => button.addEventListener('click', () => openDrawer(button.dataset.openPanel)));
+  $$('[data-close-drawer]').forEach(button => button.addEventListener('click', () => closeDrawer()));
+  $('#overlay').addEventListener('click', () => closeDrawer());
+  $$('[data-action="focus-world"]').forEach(button => button.addEventListener('click', () => closeDrawer()));
+
+  $('#chatForm').addEventListener('submit', event => {
+    event.preventDefault();
+    const input = $('#chatInput');
+    const message = input.value;
+    if (chatBusy || !message.trim()) return;
+    input.value = '';
+    input.style.height = 'auto';
+    void sendChat(message);
+  });
+
+  $('#chatInput').addEventListener('keydown', event => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      $('#chatForm').requestSubmit();
+    }
+  });
+
+  $('#chatInput').addEventListener('input', event => {
+    event.currentTarget.style.height = 'auto';
+    event.currentTarget.style.height = `${Math.min(event.currentTarget.scrollHeight, 130)}px`;
+  });
+
+  $$('.theme-swatch').forEach(button => button.addEventListener('click', () => applyTheme(button.dataset.theme)));
+  $('#customTheme').addEventListener('input', event => applyTheme(event.target.value));
+
+  $('#verifyButton').addEventListener('click', () => void verifyCore());
+  $('#mobileVerify').addEventListener('click', async () => {
+    const result = await api.verify().catch(error => ({ valid: false, reason: error.message }));
+    alert(result.reason);
+  });
+
+  window.addEventListener('keydown', event => {
+    if (event.key === 'Escape') { closeDrawer(); return; }
+    if (activeDrawer && matchMedia('(max-width: 920px)').matches && event.key === 'Tab') {
+      const items = [...activeDrawer.querySelectorAll('button:not(:disabled), input, textarea, select, [tabindex="0"]')].filter(el => el.getClientRects().length);
+      const first = items[0], last = items.at(-1);
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+      if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+    }
+    if (activeDrawer) return;
+    if (event.target instanceof HTMLTextAreaElement || event.target instanceof HTMLInputElement) return;
+    if (/^[0-9]$/.test(event.key) && !event.ctrlKey && !event.altKey && !event.metaKey) {
+      openDrawer('skills');
+      $$(`[data-hotkey="${event.key}"]`).forEach(el => {
+        el.classList.add('is-pressed');
+        setTimeout(() => el.classList.remove('is-pressed'), 160);
+      });
+    }
+
+  });
+}
+
+
+function init() {
+  bindHudEffects();
+  renderHotbars();
+  bindUi();
+  const setImmersive = value => {
+    $('#appShell').classList.toggle('hud-immersive', value);
+    $('#immersiveToggle').setAttribute('aria-pressed', String(value));
+    $('#immersiveToggle').setAttribute('aria-label', value ? 'Restaurar HUD lateral' : 'Expandir mundo');
+    preferences.set('mayuna-immersive', String(value));
+  };
+  setImmersive(preferences.get('mayuna-immersive') === 'true');
+  $('#immersiveToggle').addEventListener('click', () => setImmersive(!$('#appShell').classList.contains('hud-immersive')));
+  const style = preferences.get('mayuna-ui-style-v3');
+  const applyStyle = value => {
+    const valid = ['astral', 'sanctuary', 'obsidian', 'minimal'].includes(value) ? value : 'astral';
+    document.documentElement.dataset.uiStyle = valid;
+    $('#interfaceStyle').value = valid;
+    preferences.set('mayuna-ui-style-v3', valid);
+  };
+  applyStyle(style);
+  $('#interfaceStyle').addEventListener('change', event => applyStyle(event.target.value));
+  $$('.drawer-panel').forEach(el => { el.inert = true; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', el.querySelector('h2').textContent); });
+  new PanelManager(document.querySelector('.desktop-layout'));
+  floatingChat = new FloatingChat($('#panel-chat'), $('#worldFrame'));
+  viewport = new GameViewport(document.querySelector('#gameRenderer'));
+  const savedTheme = preferences.get('mayuna-theme');
+  applyTheme(!savedTheme || savedTheme.toLowerCase() === '#7657ff' ? '#3f8cff' : savedTheme, false);
+  viewport.mount();
+  window.addEventListener('pagehide', () => viewport.destroy(), { once: true });
+  $$('.skill-slot, .gear-slot').forEach(button => { button.addEventListener('click', () => openDrawer(button.classList.contains('gear-slot') ? 'inventory' : 'skills')); });
+  $$('[data-hotkey]').forEach(button => button.addEventListener('click', () => openDrawer('skills')));
+  $('#retryConnection').addEventListener('click', () => void loadState().catch(() => {}));
+  const pairingButton = $('#makeRemotePairCode');
+  if (mode !== 'local') $('#localPairing').hidden = true;
+  else {
+    void api.pairingStatus().then(status => {
+      if (!status.enabled) {
+        $('#pairingDescription').textContent = 'Para habilitar, inicie o Core com MAYUNA_REMOTE_ORIGIN definido para a origem HTTPS exata desta interface.';
+        pairingButton.disabled = true;
+        pairingButton.textContent = 'Conexão online não configurada';
+      }
+    }).catch(error => { $('#pairingStatus').textContent = error.message; });
+    pairingButton.addEventListener('click', async () => {
+      pairingButton.disabled = true; $('#pairingStatus').textContent = 'Gerando código…';
+      try {
+        const pair = await api.createPairingCode();
+        window.clearTimeout(pairingTimer);
+        $('#pairingCode').textContent = pair.code;
+        $('#pairingExpiry').textContent = `Válido até ${new Date(pair.expiresAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} · uso único`;
+        $('#pairingCodeDisplay').hidden = false; $('#pairingStatus').textContent = 'Digite este código na interface online.';
+        pairingTimer = window.setTimeout(() => { $('#pairingCodeDisplay').hidden = true; $('#pairingStatus').textContent = 'Código expirado. Gere outro quando precisar.'; }, Math.max(0, Date.parse(pair.expiresAt) - Date.now()));
+      } catch (error) { $('#pairingStatus').textContent = error.message; }
+      finally { pairingButton.disabled = false; }
+    });
+  }
+}
+const access = new AccessGate(async () => {
+  if (!initialized) { init(); initialized = true; }
+  await loadState(); viewport.resume();
+}, () => {
+  accessEpoch++;
+  if (initialized) {
+    closeDrawer(); viewport.pause(); currentState = null;
+    $('#chatFeed').replaceChildren();
+    const welcome = document.createElement('p'); welcome.className = 'muted chat-welcome'; welcome.textContent = 'Estou aqui, Didi. O que vamos descobrir hoje?'; $('#chatFeed').append(welcome);
+    $('#chatInput').value = '';
+    $('#memoryList').replaceChildren(); $('#journalList').replaceChildren();
+    $('#chatPresence').textContent = 'Pronta para conversar';
+
+  }
+});
+void access.start();
+
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+
+// Optional agent-facing navigation uses exactly the same visible UI actions.
+if (mode === 'demo' && document.modelContext?.registerTool) {
+ const lifecycle = new AbortController();
+ try { Promise.resolve(document.modelContext.registerTool({
+  name:'open_mayuna_panel',title:'Abrir painel da interface',description:'Abre um painel da prévia; não modifica Core ou dados.',
+  inputSchema:{type:'object',properties:{panel:{type:'string',enum:['companion','inventory','skills','memories','chat','settings']}},required:['panel'],additionalProperties:false},
+  annotations:{readOnlyHint:false,untrustedContentHint:false},
+  execute(input){if(!input || !['companion','inventory','skills','memories','chat','settings'].includes(input.panel))throw Error('Painel inválido');if(!initialized||document.body.classList.contains('is-locked'))throw Error('Entre na prévia primeiro');openDrawer(input.panel);return {opened:input.panel};}
+ },{signal:lifecycle.signal})).catch(()=>{}); }catch{}
+ window.addEventListener('pagehide',()=>lifecycle.abort(),{once:true});
+}
