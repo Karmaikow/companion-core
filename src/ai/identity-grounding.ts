@@ -22,7 +22,9 @@ export function resolveIdentityQuestion(context: AIContext): string | null {
       return text.includes('cor favorita') && text.includes(person.name.toLowerCase());
     });
     const color = memory?.content.match(/(?:cor favorita (?:e|é)|cor favorita\s*:)\s*([^.!?]+)/i)?.[1]?.trim();
-    if (color) return `Você me contou que sua cor favorita é ${color.replace(/^(?:a|o)\s+/i, '')}. 💚`;
+    if (color && !/^(?:vc sabe|voce sabe|nao sei|nao lembro|qual|o que)$/i.test(color)) {
+      return `Você me contou que sua cor favorita é ${color.replace(/^(?:a|o)\s+/i, '')}. 💚`;
+    }
     return `Você ainda não me contou qual é sua cor favorita, ${person.preferredAddress}. 😊`;
   }
 
@@ -35,7 +37,8 @@ export function resolveIdentityQuestion(context: AIContext): string | null {
     });
     const content = memory?.content.toLowerCase();
     const animals = content?.match(/(?:favorito (?:é|e|são|sao|seria|seriam)|favoritos (?:são|sao|seriam)|favorito\s*:)\s*(?:(?:um|uma|os|as)\s+)?([^.!?,]+)/i)?.[1]?.trim();
-    if (animals) return asksMystical
+    const colorStoredAsAnimal = /^(?:azul|azul-safira|verde|verde-musgo|vermelho|amarelo|roxo|preto|branco|rosa|laranja|cinza)$/i.test(animals ?? '');
+    if (animals && !colorStoredAsAnimal) return asksMystical
       ? `Você me contou que seus animais místicos favoritos são ${animals}. 💙`
       : `Você me contou que seu animal favorito é ${animals}. 💙`;
     return asksMystical

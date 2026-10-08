@@ -51,6 +51,20 @@ test('favorite color question about Mayuna uses the profile value', () => {
   assert.match(resolveIdentityQuestion(context), /azul-safira/);
 });
 
+test('old malformed preference memories do not become confident answers', () => {
+  const state = CompanionCore.create(MAYUNA_PROFILE).getState();
+  const memories = [
+    { id: 'bad-color', type: 'IDENTITY_FORMING', title: 'Cor favorita de Didi', content: 'Didi contou que sua cor favorita é vc sabe.', timestamp: new Date().toISOString(), emotionalWeight: 100, relatedEvents: [] },
+    { id: 'bad-animal', type: 'IDENTITY_FORMING', title: 'Animal favorito de Didi', content: 'Didi contou que seu animal favorito é verde-musgo.', timestamp: new Date().toISOString(), emotionalWeight: 100, relatedEvents: [] }
+  ];
+  const color = AIContextBuilder.build(state, 'Qual é minha cor favorita?');
+  color.memories = [memories[0]];
+  assert.match(resolveIdentityQuestion(color), /ainda não me contou/);
+  const animal = AIContextBuilder.build(state, 'Qual é meu animal favorito?');
+  animal.memories = [memories[1]];
+  assert.match(resolveIdentityQuestion(animal), /ainda não me contou/);
+});
+
 test('Mayuna keeps her own animal and mystical bird choices after the first answer', async () => {
   const core = CompanionCore.create(MAYUNA_PROFILE);
   const responses = [
