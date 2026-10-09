@@ -226,7 +226,10 @@ export class InteractionEngine {
   }
 
   private extractDeclaredLikes(text: string): string[] {
-    const clauses = text.split(/[.!?]+/).flatMap(sentence => sentence.split(/,\s*/));
+    const clauses = (text.match(/[^.!?]+[.!?]?/g) ?? [])
+      .flatMap(sentence => sentence.split(/,\s*/))
+      .filter(clause => !clause.trim().endsWith('?'))
+      .map(clause => clause.replace(/[.!]+$/, ''));
     const likes: string[] = [];
     for (const clause of clauses) {
       const match = clause.trim().replace(/^(?:e|mas|tamb[eé]m|tbm)\s+/i, '').match(/^(?:eu\s+)?(?:gosto(?:\s+muito)?\s+de|adoro|amo(?:\s+muito)?|prefiro)\s+(.+?)\s*$/i);
@@ -260,7 +263,7 @@ export class InteractionEngine {
   }
 
   private extractFavoriteAnimals(message: string, personName: string, address: string): Array<{title: string; content: string; value: string}> {
-    const raw = message.toLowerCase();
+    const raw = message.toLowerCase().replace(/\bpreferid([oa]s?)\b/g, 'favorit$1');
     const facts: Array<{title: string; content: string; value: string}> = [];
     const singular = raw.match(/\b(?:meu|minha)\s+(?:animal|bicho)\s+favorito\s*(?:(?:também|tambem|tbm)\s*)?(?:é|e|são|sao|seria|seriam|:)\s+([^,.!?]+)/i)
       ?? raw.match(/\banimais?\s+[^,.!?]*[,;]\s*(?:o\s+)?meu\s+favorito\s*(?:é|e|seria|seriam)\s+([^,.!?]+)/i);
@@ -278,7 +281,7 @@ export class InteractionEngine {
   }
 
   private extractCompanionPreference(state: CompanionState, question: string, response: string): { type: MemoryType; title: string; content: string; emotionalWeight: number } | null {
-    const normalizedQuestion = question.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const normalizedQuestion = question.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\bpreferid([oa]s?)\b/g, 'favorit$1');
     const rawResponse = response.toLowerCase();
     const asksMysticBird = /passaro mistico favorito/.test(normalizedQuestion);
     const asksAnimal = /(?:seu|teu) animal favorito/.test(normalizedQuestion);

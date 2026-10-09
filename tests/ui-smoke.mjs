@@ -35,14 +35,23 @@ try {
   assert.ok(bounds.doc[0]<=width && bounds.doc[1]<=height,`${width}×${height}: document overflow`);
   for(const {selector,rect} of bounds.controls) assert.ok(rect.x>=0&&rect.y>=0&&rect.right<=width+1&&rect.bottom<=height+1,`${width}×${height}: ${selector} outside viewport`);
   assert.ok(bounds.chat.x>=0&&bounds.chat.y>=0&&bounds.chat.right<=width+1&&bounds.chat.bottom<=height+1,`${width}×${height}: inline chat outside viewport`);
-  if(width>920){assert.ok(Math.abs(bounds.world.bottom-bounds.chat.bottom-12)<2,`${width}×${height}: chat should stay anchored to the bottom of the Refuge panel`);assert.ok(bounds.heading.bottom<=bounds.chat.top,`${width}×${height}: Refuge title should remain above the chat`);}
+  if(width>920){assert.ok(Math.abs(bounds.world.bottom-bounds.chat.bottom-44)<2,`${width}×${height}: chat should stay anchored to the bottom of the Refuge panel`);assert.ok(bounds.heading.bottom<=bounds.chat.top,`${width}×${height}: Refuge title should remain above the chat`);}
   assert.equal(await page.locator('#appShell').getAttribute('data-view-mode'),'refugio');
   if(width>920){
    const desktopWorld=page.locator('.desktop-nav [data-view-mode="world"]');await desktopWorld.click();
    assert.equal(await page.locator('#appShell').getAttribute('data-view-mode'),'world');assert.equal(await page.locator('#panel-chat').isVisible(),false);assert.ok(await page.locator('.bottom-hud').isVisible());
    await page.locator('.desktop-nav [data-view-mode="refugio"]').click();
    assert.equal(await page.locator('#panel-chat').isVisible(),true);assert.equal(await page.locator('.bottom-hud').isVisible(),false);
-   assert.equal(await page.locator('#panel-chat').evaluate(el=>getComputedStyle(el).resize),'both');
+   assert.equal(await page.locator('#panel-chat').evaluate(el=>getComputedStyle(el).resize),'none');
+   const grip=page.locator('.chat-resize-handle');
+   const initial=await page.locator('#panel-chat').boundingBox();
+   await grip.focus(); await page.keyboard.press('ArrowDown'); await page.keyboard.press('ArrowRight');
+   const smaller=await page.locator('#panel-chat').boundingBox();
+   assert.ok(smaller.width<initial.width && smaller.height<initial.height);
+   const gripBox=await grip.boundingBox(); await page.mouse.move(gripBox.x+14,gripBox.y+14);await page.mouse.down();await page.mouse.move(gripBox.x-26,gripBox.y-26,{steps:8});await page.mouse.up();
+   const larger=await page.locator('#panel-chat').boundingBox();assert.ok(larger.width>smaller.width && larger.height>smaller.height);
+   assert.ok(Math.abs(larger.y+larger.height-initial.y-initial.height)<2);
+   assert.ok(bounds.heading.x>=bounds.world.x && bounds.heading.right<=bounds.world.right);
   }else{
    await page.locator('.mobile-dock [data-view-mode="world"]').click();assert.equal(await page.locator('#mobileHotbar').isVisible(),true);assert.equal(await page.locator('#panel-chat').isVisible(),false);
    await page.locator('.mobile-dock [data-view-mode="refugio"]').click();assert.equal(await page.locator('#mobileHotbar').isVisible(),false);assert.equal(await page.locator('#panel-chat').isVisible(),true);

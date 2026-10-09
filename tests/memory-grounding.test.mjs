@@ -107,3 +107,43 @@ test('Mayuna keeps her own animal and mystical bird choices after the first answ
   const bird = AIContextBuilder.build(core.getState(), 'Qual seu pássaro místico favorito?');
   assert.match(resolveIdentityQuestion(bird), /corvo com penas azul-safira/);
 });
+
+test('favorites and owners survive disk reload with natural question variants', async () => {
+  const { mkdtemp, rm } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const { LocalStore } = await import('../dist/storage/store.js');
+  const dir = await mkdtemp(join(tmpdir(), 'mayuna-preferences-'));
+  try {
+    const core = CompanionCore.create(MAYUNA_PROFILE);
+    const replies = ['Entendi!', 'Eu adoro pássaros!'];
+    const engine = new InteractionEngine(core, { name: 'test', async generateResponse() { return replies.shift(); } }, new ConversationHistory(6));
+    await engine.interact('Meu animal favorito são lobos e dragões');
+    await engine.interact('E seu animal preferido é qual?');
+    const store = new LocalStore(dir);
+    await store.save(core.getData());
+    const restored = CompanionCore.from(await store.load(core.getState().identity.id), core.getPrivateKey());
+    const ask = question => resolveIdentityQuestion(AIContextBuilder.build(restored.getState(), question));
+    assert.match(ask('Qual meu animal preferido?'), /lobos e dragões/);
+    assert.match(ask('E qual seu animal preferido?'), /pássaros/);
+    assert.match(ask('Você tem uma cor favorita?'), /azul-safira/);
+    assert.match(ask('Oie, qual o meu nome?'), /Você é Didi/);
+    assert.deepEqual(restored.getState().memories, core.getState().memories);
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test('a question about a liking is not saved as a preference', async () => {
+  const core = CompanionCore.create(MAYUNA_PROFILE);
+  const engine = new InteractionEngine(core, { name: 'test', async generateResponse() { return 'Eu gosto de lobos? Ainda estou descobrindo.'; } }, new ConversationHistory(6));
+  await engine.interact('Eu gosto de dragões?');
+  assert.equal(core.getState().memories.some(m => /gosta de/.test(m.title)), false);
+});
+
+test('invalid legacy color cannot hide a valid color later in the context', () => {
+  const context = AIContextBuilder.build(CompanionCore.create(MAYUNA_PROFILE).getState(), 'Qual minha cor preferida?');
+  context.memories = [
+    { title:'A Cor de Didi', content:'Didi contou que sua cor favorita é vc sabe.', importance:100 },
+    { title:'Cor favorita de Didi', content:'Didi contou que sua cor favorita é verde-musgo.', importance:100 }
+  ];
+  assert.match(resolveIdentityQuestion(context), /verde-musgo/);
+});

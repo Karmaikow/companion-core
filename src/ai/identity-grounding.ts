@@ -4,8 +4,8 @@ export function resolveIdentityQuestion(context: AIContext): string | null {
   const person = context.knownPerson;
   if (!person?.name || !person.preferredAddress) return null;
   const query = context.userMessage.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-    .replace(/[?!.,;:]/g, ' ').replace(/\s+/g, ' ').trim();
-  const question = query.replace(/^(?:(?:oi|ola|estou bem|tudo bem|mayuna|obrigado|sim)\s+)+/, '');
+    .replace(/\bpreferid([oa]s?)\b/g, 'favorit$1').replace(/[?!.,;:]/g, ' ').replace(/\s+/g, ' ').trim();
+  const question = query.replace(/^(?:(?:oi+e?|ola|estou bem|tudo bem|mayuna|obrigado|sim)\s+)+/, '');
   if (/(?:o que|oq) (?:voce )?(?:fez|estava fazendo)(?: (?:nes+s+e|no|durante) (?:tempo|periodo|intervalo))?/.test(query) || /o que voce fez enquanto eu estava fora/.test(query)) {
     return `Enquanto a conversa estava pausada, eu não fiz atividades nem conversei com ninguém, ${person.preferredAddress}. Posso retomar com você daqui. 💙`;
   }
@@ -17,14 +17,13 @@ export function resolveIdentityQuestion(context: AIContext): string | null {
   }
 
   if (/\b(?:qual (?:e )?(?:a )?minha cor favorita|qual (?:e )?(?:a )?minha cor preferida|voce lembra da minha cor favorita)\b/.test(question)) {
-    const memory = context.memories.find(item => {
+    const color = context.memories.filter(item => {
       const text = `${item.title} ${item.content}`.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-      return text.includes('cor favorita') && text.includes(person.name.toLowerCase());
-    });
-    const color = memory?.content.match(/(?:cor favorita (?:e|é)|cor favorita\s*:)\s*([^.!?]+)/i)?.[1]?.trim();
-    if (color && !/^(?:vc sabe|voce sabe|nao sei|nao lembro|qual|o que)$/i.test(color)) {
-      return `Você me contou que sua cor favorita é ${color.replace(/^(?:a|o)\s+/i, '')}. 💚`;
-    }
+      const owner = person.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      return text.includes('cor favorita') && text.includes(owner);
+    }).map(item => item.content.match(/(?:cor favorita (?:e|é)|cor favorita\s*:)\s*([^.!?]+)/i)?.[1]?.trim())
+      .find(value => value && !/^(?:vc sabe|voce sabe|nao sei|nao lembro|qual|o que)$/i.test(value.normalize('NFD').replace(/[\u0300-\u036f]/g, '')));
+    if (color) return `Você me contou que sua cor favorita é ${color.replace(/^(?:a|o)\s+/i, '')}. 💚`;
     return `Você ainda não me contou qual é sua cor favorita, ${person.preferredAddress}. 😊`;
   }
 
@@ -46,7 +45,7 @@ export function resolveIdentityQuestion(context: AIContext): string | null {
       : `Você ainda não me contou qual é seu animal favorito, ${person.preferredAddress}. 😊`;
   }
 
-  if (/\b(?:qual (?:e )?(?:o )?seu animal favorito|qual animal voce prefere|qual (?:e )?(?:o )?seu passaro mistico favorito)\b/.test(question)) {
+  if (/\b(?:(?:e )?seu animal favorito (?:e )?qual|qual (?:e )?(?:o )?seu animal favorito|qual animal voce prefere|qual (?:e )?(?:o )?seu passaro mistico favorito)\b/.test(question)) {
     const isMysticBird = /passaro mistico/.test(question);
     const memory = context.memories.find(item => {
       const text = `${item.title} ${item.content}`.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -67,7 +66,7 @@ export function resolveIdentityQuestion(context: AIContext): string | null {
     return null;
   }
 
-  if (/\b(?:qual (?:e )?(?:a )?sua cor favorita|qual (?:e )?(?:a )?sua cor preferida)\b/.test(question)) {
+  if (/\b(?:voce tem (?:uma )?cor favorita|qual (?:e )?(?:a )?sua cor favorita|qual (?:e )?(?:a )?sua cor preferida)\b/.test(question)) {
     const color = context.companionPreferences?.favoriteColor;
     if (color) return `Minha cor favorita é ${color}. 💙`;
   }

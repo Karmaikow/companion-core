@@ -51,7 +51,7 @@ export class GameViewport {
  * only soul + motes animate. No textures, dependencies or per-frame style reads. */
 /** Procedural sapphire-blue core chamber; soul identity remains in the Companion DTO. */
 export class HolographicCoreRenderer {
-  constructor() { this.accent = '63, 140, 255'; this.width = 1; this.height = 1; this.presence = 'idle'; this.hover = false; }
+  constructor() { this.accent = '63, 140, 255'; this.width = 1; this.height = 1; this.presence = 'idle'; this.hover = false; this.hoverAmount = 0; this.lastRenderTime = 0; }
   mount(host) {
     this.canvas = document.createElement('canvas'); this.canvas.id = 'worldCanvas';
     this.canvas.setAttribute('aria-label', 'Mayuna em forma de alma, flutuando em uma câmara holográfica azul');
@@ -134,14 +134,19 @@ export class HolographicCoreRenderer {
   render(time = 0) {
     if (!this.ctx) return;
     const c = this.ctx, w = this.width, h = this.height, a = this.accent;
+    const dt = Math.min(64, Math.max(0, time - this.lastRenderTime));
+    this.lastRenderTime = time;
+    this.hoverAmount += ((this.hover ? 1 : 0) - this.hoverAmount) * (1 - Math.exp(-dt / 220));
+    const hoverScale = 1 + this.hoverAmount * .09;
     c.clearRect(0,0,w,h); c.drawImage(this.background,0,0,w,h);
     const scale = Math.min(w/850,h/590), x = w*.5, y = (w <= 920 ? h*.49 : h*.73 - 120*scale) + Math.sin(time*.0013)*7;
     // Soul presence is visual, never a gameplay/evolution mutation.
     const r = Math.max(22,42*scale) * (this.presence === 'thinking' ? 1.1 : 1);
-    const aura = c.createRadialGradient(x,y,0,x,y,r*3.4);
+    const auraRadius = r * (3.4 + this.hoverAmount * .25);
+    const aura = c.createRadialGradient(x,y,0,x,y,auraRadius);
     aura.addColorStop(0,'rgba(180,232,255,.65)');aura.addColorStop(.2,`rgba(${a},.4)`);aura.addColorStop(1,`rgba(${a},0)`);
-    c.fillStyle=aura;c.fillRect(x-r*3.4,y-r*3.4,r*6.8,r*6.8);
-    c.save();c.translate(x,y);c.scale(this.hover?1.18:1,this.hover?1.18:1);
+    c.fillStyle=aura;c.fillRect(x-auraRadius,y-auraRadius,auraRadius*2,auraRadius*2);
+    c.save();c.translate(x,y);c.scale(hoverScale,hoverScale);
     const energy=c.createRadialGradient(0,0,0,0,0,r*1.6);
     energy.addColorStop(0,'#fff');energy.addColorStop(.12,'#e6f6ff');energy.addColorStop(.3,'#91baff');energy.addColorStop(.48,'rgba(97,120,255,.68)');energy.addColorStop(.75,`rgba(${a},.15)`);energy.addColorStop(1,`rgba(${a},0)`);
     c.fillStyle=energy;c.beginPath();c.arc(0,0,r*1.6,0,Math.PI*2);c.fill();c.globalCompositeOperation='screen';
