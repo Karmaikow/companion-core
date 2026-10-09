@@ -1,3 +1,4 @@
+import { readableColor } from '../core/color-names.js';
 import type { AIContext } from './ai-provider.js';
 import { normalizeFact, preferenceFact, validPreference } from '../memory/memory-facts.js';
 
@@ -30,7 +31,7 @@ export function resolvePreferenceQuestion(context: AIContext): string | null {
         ?.replace(/^(?:a|o|as|os|um|uma)\s+/i, '').trim();
       if (!value || !validPreference(value)) continue;
       if (slot !== 'cor favorita' && /^(azul|azul-safira|verde|verde-musgo|vermelho|amarelo|roxo|preto|branco|rosa|laranja|cinza)$/.test(normalizeFact(value).replace(/ /g, '-'))) continue;
-      return value;
+      return slot === 'cor favorita' ? readableColor(value) : value;
     }
     return null;
   };

@@ -1,3 +1,4 @@
+import { SOUL_PALETTE } from './color-names.js';
 /** Narrative character seeds, not a psychological assessment. */
 const TRAIT_DESCRIPTIONS: Record<string,string> = {
   "Curiosa": "Gosta de perguntar, investigar e descobrir o que ainda não conhece.",
@@ -45,11 +46,7 @@ export const CREATION_GROUPS = [
   { id: 'decision', title: 'Bússola das decisões', options: ['Racional','Sentimental'] },
   { id: 'rhythm', title: 'Ritmo da jornada', options: ['Planejadora','Exploradora'] }
 ].map(group => ({ ...group, options: group.options.map((label,index) => ({ id: `${group.id}-${index}`, label, description: TRAIT_DESCRIPTIONS[label] })) }));
-export const CREATION_COLORS = [
- {hex:'#3f8cff',name:'Azul-safira'}, {hex:'#64834b',name:'Verde-musgo'},
- {hex:'#bf6cff',name:'Ametista'}, {hex:'#ff694d',name:'Rubi flamejante'},
- {hex:'#edbd54',name:'Ouro solar'}, {hex:'#42d9bd',name:'Jade astral'}, {hex:'#ee83b4',name:'Rosa aurora'}
-];
+export const CREATION_COLORS = SOUL_PALETTE;
 export function creationSeed(ids: unknown) {
  if (!Array.isArray(ids) || ids.length < 1 || ids.length > 24 || ids.some(id=>typeof id!=='string') || new Set(ids).size!==ids.length) throw Error('Escolha de 1 a 24 traços distintos.');
  const all=CREATION_GROUPS.flatMap(g=>g.options);

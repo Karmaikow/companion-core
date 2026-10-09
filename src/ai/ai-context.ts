@@ -1,3 +1,4 @@
+import { readableColor } from '../core/color-names.js';
 import { currentMemories, preferenceFact } from '../memory/memory-facts.js';
 import type {
   CompanionState
@@ -34,10 +35,10 @@ export class AIContextBuilder {
       firstMeeting: companion.core.level === 1 && companion.core.xp === 0 && companion.bond.value === 0,
       preferenceMemories: currentMemories(companion.memories)
         .filter(memory => { const fact = preferenceFact(memory); return fact && !fact.slot.includes(' gosta de'); })
-        .map(memory => ({ title: memory.title, content: memory.content, importance: memory.emotionalWeight })),
+        .map(memory => ({ title: memory.title, content: memory.content.replace(/#[0-9a-f]{6}\b/gi, readableColor), importance: memory.emotionalWeight })),
       knownPerson: { ...companion.profile.companionOf },
       companionPreferences: {
-        favoriteColor: companion.profile.preferences.favoriteColor ?? null
+        favoriteColor: companion.profile.preferences.favoriteColor ? readableColor(companion.profile.preferences.favoriteColor) : null
       },
       systemPrompt:
         this.buildSystemPrompt(
@@ -100,22 +101,21 @@ export class AIContextBuilder {
       companion.bond;
 
     const favoriteColor =
-      profile.preferences.favoriteColor ??
-      'ainda não definida';
+      profile.preferences.favoriteColor ? readableColor(profile.preferences.favoriteColor) : 'ainda não definida';
 
     const ownFacts = currentMemories(companion.memories).filter(memory => {
       const fact = preferenceFact(memory);
       if (!fact) return false;
       const owner = profile.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
       return fact.slot.endsWith(` de ${owner}`) || fact.slot === `${owner} gosta de`;
-    }).slice(0, 12).map(memory => `- ${memory.content}`).join('\n');
+    }).slice(0, 12).map(memory => `- ${memory.content.replace(/#[0-9a-f]{6}\b/gi, readableColor)}`).join('\n');
 
     const memoryText =
       memories.length > 0
         ? memories
             .map(
               memory =>
-                `- ${memory.title}: ${memory.content}`
+                `- ${memory.title}: ${memory.content.replace(/#[0-9a-f]{6}\b/gi, readableColor)}`
             )
             .join('\n')
         : 'Nenhuma memória relevante foi recuperada.';
@@ -150,7 +150,7 @@ Você existe em um universo de fantasia que inclui o Refúgio, seu espaço priva
 
 PERSONALIDADE
 Inclinações de nascimento: ${profile.creation?.labels.join(", ") || "definidas pelos atributos abaixo"}. São tendências narrativas, não obrigações nem diagnósticos.
-Cor permanente da alma: ${profile.appearance?.soulColor || favoriteColor}. Essa cor não é automaticamente sua cor favorita.
+Cor permanente da alma: ${profile.appearance?.soulColor ? readableColor(profile.appearance.soulColor) : favoriteColor}. Essa cor não é automaticamente sua cor favorita. Nomes de tons personalizados são aproximados; fale o nome da cor em vez do código hexadecimal.
 Lealdade: ${personality.loyalty}
 Curiosidade: ${personality.curiosity}
 Humor: ${personality.humor}

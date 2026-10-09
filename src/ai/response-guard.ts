@@ -1,3 +1,4 @@
+import { readableColor } from '../core/color-names.js';
 import type { CompanionState } from '../models/types.js';
 
 export interface GuardResult {
@@ -97,7 +98,7 @@ export class ResponseGuard {
      * Cor favorita da Companion.
      */
     const favoriteColor =
-      companion.profile.preferences.favoriteColor;
+      companion.profile.preferences.favoriteColor ? readableColor(companion.profile.preferences.favoriteColor) : undefined;
 
     if (favoriteColor) {
 

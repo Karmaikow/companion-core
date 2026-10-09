@@ -1,3 +1,4 @@
+import { describeColor } from './color-names.js';
 export class CreationRitual {
  constructor(root){
   this.root=root;this.form=document.querySelector('#createCompanionForm');this.color=document.querySelector('#newSoulColor');this.traits=new Set();this.motion=matchMedia('(prefers-reduced-motion: reduce)');
@@ -31,7 +32,7 @@ export class CreationRitual {
  }
  close(){if(this.root.classList.contains('is-creating'))document.querySelector('#accessTitle').textContent='Seu Hub';this.form.hidden=true;this.root.classList.remove('is-creating');cancelAnimationFrame(this.raf);document.querySelector('#showCreateCompanion').focus();}
  reset(){this.form.reset();this.traits.clear();for(const b of document.querySelectorAll('[data-trait]'))b.setAttribute('aria-pressed','false');this.close();}
- paintColor(){this.form.style.setProperty('--soul',this.color.value);const selected=this.policy?.colors.find(c=>c.hex===this.color.value);document.querySelector('#soulColorName').textContent=selected?.name||this.color.value;for(const b of document.querySelectorAll('[data-hex]'))b.setAttribute('aria-pressed',String(b.dataset.hex===this.color.value));this.draw(0);}
+ paintColor(){this.form.style.setProperty('--soul',this.color.value);const color=describeColor(this.color.value);document.querySelector('#soulColorName').textContent=`${color.name}${color.approximate?' · nome aproximado':''}`;for(const b of document.querySelectorAll('[data-hex]'))b.setAttribute('aria-pressed',String(b.dataset.hex===this.color.value));this.draw(0);}
  summary(){const count=this.traits.size;document.querySelector('#creationSummary').textContent=`${document.querySelector('#newCompanionName').value.trim()||'Uma nova alma'} · ${count} traço${count===1?'':'s'} escolhido${count===1?'':'s'}`;}
  payload(){return {soulColor:this.color.value,traits:[...this.traits]};}
  animate(){cancelAnimationFrame(this.raf);if(this.form.hidden||document.hidden)return;if(this.motion.matches){this.draw(0);return;}let last=0;const tick=t=>{if(t-last>33){this.draw(t);last=t;}this.raf=requestAnimationFrame(tick);};this.raf=requestAnimationFrame(tick);}

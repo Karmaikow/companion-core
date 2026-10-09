@@ -1,3 +1,4 @@
+import { describeColor } from '../core/color-names.js';
 import { mkdir, readFile, readdir, unlink } from 'node:fs/promises';
 import { signData, verifySignature } from '../crypto/crypto.js';
 import { CompanionCore } from '../core/core.js';
@@ -183,7 +184,7 @@ export class CompanionRuntime {
       profile.preferences = { favoriteThings: [] };
       if(seed) {
         const soulColor=(input.soulColor as string).toLowerCase();
-        profile.appearance={soulColor,formInfluences:seed.formInfluences};
+        profile.appearance={soulColor,soulColorName:describeColor(soulColor).name,formInfluences:seed.formInfluences};
         profile.creation={traits:seed.traits,labels:seed.labels,bigFive:seed.bigFive};
         profile.personality=seed.personality;
         profile.identity.description=`${name} nasceu no Refúgio, em um universo de fantasia. Suas inclinações iniciais são: ${seed.labels.join(', ')}. Esses traços evoluem com as experiências; sua forma futura ainda não se manifestou.`;
