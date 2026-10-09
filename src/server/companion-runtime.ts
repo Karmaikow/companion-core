@@ -8,6 +8,7 @@ import { LocalStore, writeFileAtomic } from '../storage/store.js';
 import path from 'node:path';
 import type { AIProvider } from '../ai/ai-provider.js';
 import type { CompanionProfile } from '../models/companion-profile.js';
+import { creationSeed, CREATION_COLORS, CREATION_GROUPS } from '../core/creation-options.js';
 import { MAYUNA_PROFILE } from '../companions/mayuna.js';
 
 const DATA_ROOT = process.env.MAYUNA_DATA_DIR ?? 'data';
@@ -99,6 +100,8 @@ export class CompanionRuntime {
       },
       profile: {
         name: state.profile.name,
+        appearance: state.profile.appearance,
+        creation: state.profile.creation,
         identity: state.profile.identity,
         preferences: state.profile.preferences,
         companionOf: state.profile.companionOf
@@ -138,7 +141,12 @@ export class CompanionRuntime {
     return companions.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
   }
 
-  createCompanion(input: { name: string; ownerName: string; preferredAddress: string; archetype: string }) {
+  getCreationPolicy() {
+    // Temporary testing exception; production limit is enforced by the server.
+    return { additionalCreationForTesting: process.env.MAYUNA_ALLOW_EXTRA_COMPANIONS !== '0', groups: CREATION_GROUPS, colors: CREATION_COLORS };
+  }
+
+  createCompanion(input: { name: string; ownerName: string; preferredAddress: string; archetype?: string; soulColor?: unknown; traits?: unknown }) {
     const next = this.queue.then(async () => {
       const clean = (value: string) => value.trim().replace(/\s+/g, ' ');
       const name = clean(input.name ?? '');
@@ -153,18 +161,34 @@ export class CompanionRuntime {
       } as const;
       if (!/^[\p{L}0-9][\p{L}0-9 '\-]{1,39}$/u.test(name)) throw new HubError(400, 'Use um nome de 2 a 40 caracteres.');
       if (!/^[\p{L}][\p{L} '\-]{1,39}$/u.test(ownerName) || !/^[\p{L}][\p{L} '\-]{1,39}$/u.test(preferredAddress)) throw new HubError(400, 'Informe seu nome e como a Companion deve chamar você.');
-      if (!Object.hasOwn(archetypes, input.archetype)) throw new HubError(400, 'Escolha uma personalidade inicial válida.');
+      if (input.traits === undefined && !Object.hasOwn(archetypes, input.archetype ?? '')) throw new HubError(400, 'Escolha uma personalidade inicial válida.');
+      let seed: ReturnType<typeof creationSeed> | undefined;
+      if(input.traits !== undefined) { try { seed=creationSeed(input.traits); } catch(error) { throw new HubError(400,(error as Error).message); } }
+      if(seed && (typeof input.soulColor !== 'string' || !/^#[0-9a-f]{6}$/i.test(input.soulColor))) throw new HubError(400,'Escolha uma cor válida para a alma.');
       const existing = await this.listCompanions();
+      if(existing.length && !this.getCreationPolicy().additionalCreationForTesting) throw new HubError(409,'Você já possui uma Companion. Novas presenças chegarão por encontros e convites no mundo.');
       if (existing.some(item => item.name.toLocaleLowerCase('pt-BR') === name.toLocaleLowerCase('pt-BR'))) throw new HubError(409, 'Já existe uma Companion com esse nome no Hub.');
-      const chosen = archetypes[input.archetype as keyof typeof archetypes];
+      const chosen = archetypes[(Object.hasOwn(archetypes,input.archetype ?? '') ? input.archetype : 'curious') as keyof typeof archetypes];
       const profile = structuredClone(MAYUNA_PROFILE) as CompanionProfile;
       profile.name = name;
       profile.companionOf = { name: ownerName, preferredAddress };
       profile.identity.description = `${name} despertou como uma alma digital de personalidade ${chosen.label}, que evoluirá através das conversas e experiências.`;
       profile.personality = { loyalty: 80, curiosity: 55, humor: 55, courage: 55, empathy: 55, autonomy: 45, [chosen.stat]: chosen.value };
       profile.preferences = { favoriteThings: [] };
+      if(seed) {
+        const soulColor=(input.soulColor as string).toLowerCase();
+        profile.appearance={soulColor,formInfluences:seed.formInfluences};
+        profile.creation={traits:seed.traits,labels:seed.labels,bigFive:seed.bigFive,ownerFavoriteColor:soulColor};
+        profile.personality=seed.personality;
+        profile.identity.description=`${name} nasceu no Refúgio, em um universo de fantasia. Suas inclinações iniciais são: ${seed.labels.join(', ')}. Esses traços evoluem com as experiências; sua forma futura ainda não se manifestou.`;
+      }
       profile.genesis = { version: '0.8.0', message: `Hoje eu despertei. ${ownerName} estava ali no começo da minha história.`, initialForm: 'SOUL' };
       const core = CompanionCore.create(profile);
+      if(seed) {
+        const hex=input.soulColor as string;
+        const color=CREATION_COLORS.find(c=>c.hex===hex.toLowerCase())?.name.toLowerCase() ?? hex;
+        core.addMemory('IDENTITY_FORMING',`Cor favorita de ${ownerName}`,`${ownerName} contou que sua cor favorita é ${color}.`,90);
+      }
       const id = core.getState().identity.id;
       try {
         await this.store.save(core.getData());

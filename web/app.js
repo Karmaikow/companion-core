@@ -48,7 +48,7 @@ function applyTheme(hex, persist = true) {
   root.style.setProperty('--accent-soft', mixWithWhite(rgb));
   $('#customTheme').value = hex;
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', hex);
-  if (persist) preferences.set('mayuna-theme', hex);
+  if (persist) preferences.set(currentState ? `companion-theme-${currentState.identity.id}` : 'mayuna-theme', hex);
   viewport?.setTheme(`${rgb.r}, ${rgb.g}, ${rgb.b}`);
 }
 
@@ -124,7 +124,9 @@ function escapeHtml(value) {
 }
 
 function applyState(state) {
+  const changed=currentState?.identity.id!==state.identity.id;
   currentState = state;
+  if(changed) applyTheme(preferences.get(`companion-theme-${state.identity.id}`) || state.profile.appearance?.soulColor || preferences.get('mayuna-theme') || '#3f8cff',false);
   viewport?.setState(state);
   document.title = `Companion Core · ${state.identity.name}`;
   $('.brand-copy small').textContent = `${state.identity.name} · SUA COMPANION`;

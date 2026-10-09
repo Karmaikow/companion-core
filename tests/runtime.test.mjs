@@ -93,3 +93,19 @@ test('Hub rejects invalid profile choices and a broken key cannot switch active 
   assert.deepEqual(await readFile(path.join(isolated,'active-companion.json')),pointer);
  }finally{await rm(isolated,{recursive:true,force:true});}
 });
+
+test('ritual persists soul color and trait seeds, separates favorites and enforces production limit',async()=>{
+ const isolated=await mkdtemp(path.join(tmpdir(),'mayuna-ritual-'));
+ const previous=process.env.MAYUNA_ALLOW_EXTRA_COMPANIONS;
+ try{
+  process.env.MAYUNA_ALLOW_EXTRA_COMPANIONS='1';
+  const runtime=new CompanionRuntime(provider,isolated);await runtime.initialize();const originalId=runtime.getClientState().identity.id;
+  const input={name:'Beleye',ownerName:'Diego',preferredAddress:'Mestre Diego',soulColor:'#64834b',traits:['openness-0','agreeableness-2','energy-1','perception-1']};
+  await assert.rejects(runtime.createCompanion({...input,traits:['invented']}),/inválido/);
+  await assert.rejects(runtime.createCompanion({...input,traits:['energy-0','energy-1']}),/apenas uma/);
+  await assert.rejects(runtime.createCompanion({...input,soulColor:'green'}),/cor válida/);
+  const state=await runtime.createCompanion(input);assert.equal(state.profile.appearance.soulColor,'#64834b');assert.ok(state.profile.appearance.formInfluences.includes('Protetora'));assert.equal(state.personality.loyalty,85);assert.equal(state.profile.preferences.favoriteColor,undefined);assert.ok(state.memories.some(m=>m.content.includes('verde-musgo')));assert.equal(runtime.verify().valid,true);
+  const restarted=new CompanionRuntime(provider,isolated);await restarted.initialize();assert.deepEqual(restarted.getClientState().profile.creation,state.profile.creation);assert.equal(restarted.getClientState().profile.appearance.soulColor,'#64834b');
+  process.env.MAYUNA_ALLOW_EXTRA_COMPANIONS='0';await assert.rejects(restarted.createCompanion({...input,name:'Terceira'}),/já possui/);assert.equal((await restarted.listCompanions()).length,2);await restarted.activateCompanion(originalId);assert.equal(restarted.getClientState().identity.id,originalId);
+ }finally{if(previous===undefined)delete process.env.MAYUNA_ALLOW_EXTRA_COMPANIONS;else process.env.MAYUNA_ALLOW_EXTRA_COMPANIONS=previous;await rm(isolated,{recursive:true,force:true});}
+});

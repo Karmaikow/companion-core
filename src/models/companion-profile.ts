@@ -5,6 +5,9 @@ export interface CompanionProfile {
    */
   name: string;
 
+  appearance?: { soulColor: string; formInfluences: string[] };
+  creation?: { traits: string[]; labels: string[]; bigFive: { openness: number; conscientiousness: number; extraversion: number; agreeableness: number; emotionalStability: number }; ownerFavoriteColor: string };
+
 
   /**
    * Pessoa que acompanha a Companion.

@@ -51,7 +51,7 @@ export class GameViewport {
  * only soul + motes animate. No textures, dependencies or per-frame style reads. */
 /** Procedural sapphire-blue core chamber; soul identity remains in the Companion DTO. */
 export class HolographicCoreRenderer {
-  constructor() { this.accent = '63, 140, 255'; this.width = 1; this.height = 1; this.presence = 'idle'; this.hover = false; this.hoverAmount = 0; this.lastRenderTime = 0; }
+  constructor() { this.accent = '63, 140, 255'; this.soulAccent='63, 140, 255'; this.width = 1; this.height = 1; this.presence = 'idle'; this.hover = false; this.hoverAmount = 0; this.lastRenderTime = 0; }
   mount(host) {
     this.canvas = document.createElement('canvas'); this.canvas.id = 'worldCanvas';
     this.canvas.setAttribute('aria-label', 'Mayuna em forma de alma, flutuando em uma câmara holográfica azul');
@@ -63,7 +63,12 @@ export class HolographicCoreRenderer {
     this.target?.addEventListener('pointerenter', this.enter);
     this.target?.addEventListener('pointerleave', this.leave);
   }
-  setState(state) { this.state = state; }
+  setState(state) {
+    this.state=state;
+    const hex=state.profile?.appearance?.soulColor;
+    this.soulAccent=/^#[0-9a-f]{6}$/i.test(hex||'')?[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)).join(', '):'63, 140, 255';
+    this.canvas?.setAttribute('aria-label',`${state.identity.name} em forma de alma no Refúgio`);
+  }
   setPresence(status) { this.presence = status; }
   setTheme(rgb) { this.accent = rgb; if (this.ctx) this.cacheScene(); }
   resize(w, h, dpr) {
@@ -133,7 +138,7 @@ export class HolographicCoreRenderer {
 
   render(time = 0) {
     if (!this.ctx) return;
-    const c = this.ctx, w = this.width, h = this.height, a = this.accent;
+    const c = this.ctx, w = this.width, h = this.height, a = this.soulAccent;
     const dt = Math.min(64, Math.max(0, time - this.lastRenderTime));
     this.lastRenderTime = time;
     this.hoverAmount += ((this.hover ? 1 : 0) - this.hoverAmount) * (1 - Math.exp(-dt / 220));
@@ -148,18 +153,18 @@ export class HolographicCoreRenderer {
     c.fillStyle=aura;c.fillRect(x-auraRadius,y-auraRadius,auraRadius*2,auraRadius*2);
     c.save();c.translate(x,y);c.scale(hoverScale,hoverScale);
     const energy=c.createRadialGradient(0,0,0,0,0,r*1.6);
-    energy.addColorStop(0,'#fff');energy.addColorStop(.12,'#e6f6ff');energy.addColorStop(.3,'#91baff');energy.addColorStop(.48,'rgba(97,120,255,.68)');energy.addColorStop(.75,`rgba(${a},.15)`);energy.addColorStop(1,`rgba(${a},0)`);
+    energy.addColorStop(0,'#fff');energy.addColorStop(.12,'#e6f6ff');energy.addColorStop(.3,`rgba(${a},.95)`);energy.addColorStop(.48,`rgba(${a},.68)`);energy.addColorStop(.75,`rgba(${a},.15)`);energy.addColorStop(1,`rgba(${a},0)`);
     c.fillStyle=energy;c.beginPath();c.arc(0,0,r*1.6,0,Math.PI*2);c.fill();c.globalCompositeOperation='screen';
     for(let ring=0;ring<4;ring++){
-      c.save();c.rotate(time*.00018*(ring%2?-1:1)+ring*.9);c.strokeStyle=ring%2?'rgba(107,192,255,.6)':`rgba(${a},.7)`;c.lineWidth=1;c.shadowColor='#719cff';c.shadowBlur=8;
+      c.save();c.rotate(time*.00018*(ring%2?-1:1)+ring*.9);c.strokeStyle=`rgba(${a},.7)`;c.lineWidth=1;c.shadowColor=`rgb(${a})`;c.shadowBlur=8;
       c.beginPath();c.ellipse(0,0,r*(1.3+ring*.28),r*(.36+ring*.12),.4,0,Math.PI*2);c.stroke();
       const phase=time*.0012+ring*1.8;c.fillStyle='#d7eeff';c.beginPath();c.arc(Math.cos(phase)*r*(1.3+ring*.28),Math.sin(phase)*r*(.36+ring*.12),2,0,Math.PI*2);c.fill();c.restore();
     }
     for(let strand=0;strand<5;strand++){
-      c.beginPath();c.strokeStyle=strand%2?'rgba(178,209,255,.6)':`rgba(${a},.6)`;c.lineWidth=1;
+      c.beginPath();c.strokeStyle=`rgba(${a},.6)`;c.lineWidth=1;
       for(let j=0;j<=50;j++){const t=j/50*Math.PI*2,radius=r*(.6+.12*Math.sin(t*4+time*.0015+strand));const px=Math.cos(t+strand)*radius,py=Math.sin(t)*radius;if(j===0)c.moveTo(px,py);else c.lineTo(px,py);}c.stroke();
     }
-    for(let i=0;i<28;i++){const phase=time*.00035+i*2.4,radius=r*(1.2+(i%7)*.22);c.fillStyle=`rgba(183,218,255,${.3+(i%4)*.15})`;c.beginPath();c.arc(Math.cos(phase)*radius,Math.sin(phase)*radius*.65,i%5===0?1.9:1,0,Math.PI*2);c.fill();}
+    for(let i=0;i<28;i++){const phase=time*.00035+i*2.4,radius=r*(1.2+(i%7)*.22);c.fillStyle=`rgba(${a},${.3+(i%4)*.15})`;c.beginPath();c.arc(Math.cos(phase)*radius,Math.sin(phase)*radius*.65,i%5===0?1.9:1,0,Math.PI*2);c.fill();}
     c.restore();
     for(let i=0;i<35;i++){
       const px=(((i*127.1+time*.006)%1000)/1000)*w, py=(((i*61.7-time*.01)%700+700)%700)/700*h;
