@@ -2,7 +2,7 @@ import type { AIContext } from './ai-provider.js';
 import { normalizeFact, preferenceFact, validPreference } from '../memory/memory-facts.js';
 
 export function resolvePreferenceQuestion(context: AIContext): string | null {
-  const q = normalizeFact(context.userMessage).replace(/favori+ta/g, 'favorita');
+  const q = normalizeFact(context.userMessage).replace(/\bvc\b/g, 'voce').replace(/\bpreferid([oa]s?)\b/g, 'favorit$1').replace(/favori+ta/g, 'favorita');
   if (/\b(historia|conto|finja|imagine|faz de conta)\b/.test(q)) return null;
   const favorite = /\bfavorit[oa]s?\b/.test(q) || /qual animal voce prefere/.test(q);
   if (!favorite) return null;
@@ -46,7 +46,7 @@ export function resolvePreferenceQuestion(context: AIContext): string | null {
       const value = kind.slot === 'cor favorita'
         ? context.companionPreferences?.favoriteColor ?? null
         : lookup(kind.slot, context.identity.name);
-      if (!value && !both && kinds.length === 1) return null; // Allow an explicit first choice.
+      if (!value && kind.slot !== 'cor favorita' && !both && kinds.length === 1) return null; // Allow an explicit first choice.
       lines.push(value
         ? `Eu — ${kind.label.toLowerCase()}: ${value}.`
         : `Eu ainda não defini: ${kind.label.toLowerCase()}.`);

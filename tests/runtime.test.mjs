@@ -79,7 +79,7 @@ test('empty installation awaits ritual; queued duplicate creation is blocked, in
   assert.equal(runtime.hasCompanion(),false);
   const results=await Promise.allSettled([runtime.createCompanion(input),runtime.createCompanion({...input,name:'Segunda'})]);
   assert.equal(results[0].status,'fulfilled');assert.equal(results[1].status,'rejected');assert.equal(results[1].reason.status,409);
-  const state=results[0].value;assert.equal(state.identity.name,'Lunaya');assert.equal(state.profile.appearance.soulColor,'#64834b');assert.ok(state.profile.appearance.formInfluences.includes('Protetora'));assert.equal(state.personality.loyalty,85);assert.equal(state.profile.preferences.favoriteColor,undefined);assert.ok(state.memories.some(m=>m.content.includes('verde-musgo')));
+  const state=results[0].value;assert.equal(state.identity.name,'Lunaya');assert.equal(state.profile.appearance.soulColor,'#64834b');assert.ok(state.profile.appearance.formInfluences.includes('Protetora'));assert.equal(state.personality.loyalty,85);assert.equal(state.profile.preferences.favoriteColor,undefined);assert.equal(state.profile.creation.ownerFavoriteColor,undefined);assert.ok(!state.memories.some(m=>m.title.startsWith('Cor favorita')));
   assert.equal((await runtime.listCompanions()).length,1);assert.equal(runtime.getCreationPolicy().canCreate,false);assert.equal(runtime.verify().valid,true);
   await runtime.chat('Olá Lunaya');const saved=await readFile(path.join(isolated,`${state.identity.id}.json`));
   const restarted=new CompanionRuntime(provider,isolated);await restarted.initialize();assert.deepEqual(restarted.getClientState(),runtime.getClientState());

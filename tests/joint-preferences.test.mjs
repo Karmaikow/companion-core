@@ -94,3 +94,24 @@ test('fiction and new user assertions bypass preference recall', () => {
     assert.equal(resolveIdentityQuestion(AIContextBuilder.build(core.getState(), q)), null);
   }
 });
+
+test('new soul color never supplies either favorite; unknown own color stays grounded', async () => {
+  const profile = structuredClone(MAYUNA_PROFILE);
+  profile.name = 'Lunaya';
+  profile.preferences = { favoriteThings: [] };
+  profile.appearance = { soulColor: '#faf80d', formInfluences: [] };
+  const core = CompanionCore.create(profile);
+  for (const question of ['Me diz qual a sua cor favorita ??', 'Você tem uma cor favorita?', 'Qual a sua cor preferida?', 'Qual a cor favorita de vc?']) {
+    const context = AIContextBuilder.build(core.getState(), question);
+    const answer = await new OllamaProvider({ baseUrl: 'http://localhost:1' }).generateResponse(context);
+    assert.match(answer, /Eu ainda não defini: cor favorita/);
+    assert.doesNotMatch(answer, /faf80d|Sua cor favorita/);
+  }
+  assert.match(resolveIdentityQuestion(AIContextBuilder.build(core.getState(), 'Qual minha cor favorita?')), /ainda não me contou/);
+  const intro = resolveIdentityQuestion(AIContextBuilder.build(core.getState(), 'Oie, boa tarde!'));
+  // Greeting plus time-of-day is handled by the same first-meeting presentation.
+  assert.match(intro, /Lunaya.*Companion/);
+  assert.match(intro, /alma.*Refúgio.*fantasia/);
+  core.processEvent('CONVERSATION', { userMessage: 'Oi', response: intro }, { coreXp: 5, combatXp: 0, bond: 1 });
+  assert.equal(resolveIdentityQuestion(AIContextBuilder.build(core.getState(), 'Boa tarde!')), null);
+});

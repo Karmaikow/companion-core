@@ -184,17 +184,12 @@ export class CompanionRuntime {
       if(seed) {
         const soulColor=(input.soulColor as string).toLowerCase();
         profile.appearance={soulColor,formInfluences:seed.formInfluences};
-        profile.creation={traits:seed.traits,labels:seed.labels,bigFive:seed.bigFive,ownerFavoriteColor:soulColor};
+        profile.creation={traits:seed.traits,labels:seed.labels,bigFive:seed.bigFive};
         profile.personality=seed.personality;
         profile.identity.description=`${name} nasceu no Refúgio, em um universo de fantasia. Suas inclinações iniciais são: ${seed.labels.join(', ')}. Esses traços evoluem com as experiências; sua forma futura ainda não se manifestou.`;
       }
       profile.genesis = { version: '0.8.0', message: `Hoje eu despertei. ${ownerName} estava ali no começo da minha história.`, initialForm: 'SOUL' };
       const core = CompanionCore.create(profile);
-      if(seed) {
-        const hex=input.soulColor as string;
-        const color=CREATION_COLORS.find(c=>c.hex===hex.toLowerCase())?.name.toLowerCase() ?? hex;
-        core.addMemory('IDENTITY_FORMING',`Cor favorita de ${ownerName}`,`${ownerName} contou que sua cor favorita é ${color}.`,90);
-      }
       const id = core.getState().identity.id;
       try {
         await this.store.save(core.getData());

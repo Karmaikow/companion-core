@@ -126,7 +126,7 @@ function escapeHtml(value) {
 function applyState(state) {
   const changed=currentState?.identity.id!==state.identity.id;
   currentState = state;
-  if(changed) applyTheme(preferences.get(`companion-theme-${state.identity.id}`) || state.profile.appearance?.soulColor || preferences.get('mayuna-theme') || '#3f8cff',false);
+  if(changed) applyTheme(preferences.get(`companion-theme-${state.identity.id}`) || '#3f8cff',false);
   viewport?.setState(state);
   document.title = `Companion Core · ${state.identity.name}`;
   $('.brand-copy small').textContent = `${state.identity.name} · SUA COMPANION`;
@@ -142,7 +142,7 @@ function applyState(state) {
   const entityTarget = $('.entity-target'); if (entityTarget) entityTarget.setAttribute('aria-label', `Inspecionar ${state.identity.name} no mundo`);
   const companionButton = $('[data-open-panel="chat"]'); if (companionButton) companionButton.setAttribute('aria-label', `Falar com ${state.identity.name}`);
   const companionName = $('[data-open-panel="companion-summary"]'); if (companionName) companionName.setAttribute('aria-label', `Inspecionar ${state.identity.name}`);
-  const welcome = $('.chat-welcome'); if (welcome) welcome.textContent = `Estou aqui, ${state.profile.companionOf.preferredAddress}. O que vamos descobrir hoje?`;
+  const welcome = $('.chat-welcome'); if (welcome) welcome.textContent = `Sou ${state.identity.name}, sua Companion. ${state.core.evolutionStage === "SOUL" ? "Ainda sou uma alma, e minha forma vai se desenvolver com nossas experiências. " : ""}Estamos no Refúgio, nosso espaço em um mundo de fantasia ainda em construção. Conte algo de que gosta ou pergunte sobre mim para começarmos.`;
   $('#entityName').textContent = state.identity.name;
   $('#entityStage').textContent = state.core.evolutionStage;
   $('#worldProvider').textContent = state.meta.provider === 'mock' ? 'PRÉVIA · IA SIMULADA' : state.meta.provider === 'openai' ? 'CORE LOCAL · IA ONLINE' : 'CORE LOCAL · OLLAMA';

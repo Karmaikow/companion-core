@@ -1,4 +1,38 @@
 /** Narrative character seeds, not a psychological assessment. */
+const TRAIT_DESCRIPTIONS: Record<string,string> = {
+  "Curiosa": "Gosta de perguntar, investigar e descobrir o que ainda não conhece.",
+  "Criativa": "Imagina soluções, histórias e possibilidades diferentes.",
+  "Aventureira": "Tem vontade de explorar e encarar desafios novos.",
+  "Contemplativa": "Prefere observar e refletir antes de agir.",
+  "Organizada": "Gosta de ordem, planos e objetivos claros.",
+  "Persistente": "Continua tentando mesmo diante de dificuldades.",
+  "Responsável": "Leva compromissos a sério e considera as consequências.",
+  "Espontânea": "Adapta os planos e segue ideias que surgem no momento.",
+  "Sociável": "Busca companhia e gosta de compartilhar experiências.",
+  "Brincalhona": "Expressa afeto com humor e brincadeiras.",
+  "Reservada": "Se abre aos poucos e valoriza momentos tranquilos.",
+  "Independente": "Valoriza iniciativa própria e espaço para decidir.",
+  "Gentil": "Procura tratar os outros com cuidado e delicadeza.",
+  "Empática": "Tenta compreender o que os outros sentem.",
+  "Protetora": "Deseja cuidar de quem ama diante de dificuldades.",
+  "Franca": "Prefere falar com sinceridade e clareza.",
+  "Serena": "Costuma enfrentar situações com calma.",
+  "Paciente": "Respeita o tempo das coisas e dos outros.",
+  "Sensível": "Percebe nuances e sente emoções com profundidade.",
+  "Intensa": "Expressa emoções e entusiasmo com muita energia.",
+  "Sanguínea": "Uma chama comunicativa, otimista e cheia de entusiasmo.",
+  "Colérica": "Uma chama decidida, enérgica e orientada à ação.",
+  "Melancólica": "Uma chama reflexiva, sensível e atenta aos detalhes.",
+  "Fleumática": "Uma chama tranquila, constante e conciliadora.",
+  "Extrovertida": "Tende a buscar energia em encontros e atividades compartilhadas.",
+  "Introvertida": "Tende a recuperar energia em momentos de recolhimento.",
+  "Sensorial": "Presta atenção aos detalhes concretos do que percebe.",
+  "Intuitiva": "Procura padrões, significados e possibilidades futuras.",
+  "Racional": "Costuma pesar lógica e consequências nas decisões.",
+  "Sentimental": "Costuma pesar valores e sentimentos nas decisões.",
+  "Planejadora": "Gosta de definir etapas antes de iniciar a jornada.",
+  "Exploradora": "Prefere descobrir o caminho enquanto avança."
+};
 export const CREATION_GROUPS = [
   { id: 'openness', title: 'Horizonte · abertura', options: ['Curiosa','Criativa','Aventureira','Contemplativa'] },
   { id: 'conscientiousness', title: 'Propósito · disciplina', options: ['Organizada','Persistente','Responsável','Espontânea'] },
@@ -10,7 +44,7 @@ export const CREATION_GROUPS = [
   { id: 'perception', title: 'Olhar sobre o mundo', options: ['Sensorial','Intuitiva'] },
   { id: 'decision', title: 'Bússola das decisões', options: ['Racional','Sentimental'] },
   { id: 'rhythm', title: 'Ritmo da jornada', options: ['Planejadora','Exploradora'] }
-].map(group => ({ ...group, options: group.options.map((label,index) => ({ id: `${group.id}-${index}`, label })) }));
+].map(group => ({ ...group, options: group.options.map((label,index) => ({ id: `${group.id}-${index}`, label, description: TRAIT_DESCRIPTIONS[label] })) }));
 export const CREATION_COLORS = [
  {hex:'#3f8cff',name:'Azul-safira'}, {hex:'#64834b',name:'Verde-musgo'},
  {hex:'#bf6cff',name:'Ametista'}, {hex:'#ff694d',name:'Rubi flamejante'},

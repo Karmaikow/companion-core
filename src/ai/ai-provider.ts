@@ -1,5 +1,6 @@
 export interface AIContext {
     systemPrompt: string;
+    firstMeeting?: boolean;
     /** Current favorite facts, separate from the bounded narrative retrieval. */
     preferenceMemories?: Array<{ title: string; content: string; importance: number }>;
     knownPerson?: { name: string; preferredAddress: string };

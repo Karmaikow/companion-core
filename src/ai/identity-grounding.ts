@@ -7,6 +7,9 @@ export function resolveIdentityQuestion(context: AIContext): string | null {
   const query = context.userMessage.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .replace(/\bpreferid([oa]s?)\b/g, 'favorit$1').replace(/[?!.,;:]/g, ' ').replace(/\s+/g, ' ').trim();
   const question = query.replace(/^(?:(?:oi+e?|ola|estou bem|tudo bem|mayuna|obrigado|sim)\s+)+/, '');
+  if (context.firstMeeting && /^(?:(?:oi+e?|ola) )?(?:oi+e?|ola|bom dia|boa tarde|boa noite)$/.test(query)) {
+    return `Olá, ${person.preferredAddress}! Sou ${context.identity.name}, sua Companion. Ainda sou uma alma e quero aprender com você. Estamos no Refúgio, nosso espaço em um mundo de fantasia em construção. Que tal me contar algo de que gosta ou imaginar comigo uma forma futura? ✨`;
+  }
   if (/(?:o que|oq) (?:voce )?(?:fez|estava fazendo)(?: (?:nes+s+e|no|durante) (?:tempo|periodo|intervalo))?/.test(query) || /o que voce fez enquanto eu estava fora/.test(query)) {
     return `Enquanto a conversa estava pausada, eu não fiz atividades nem conversei com ninguém, ${person.preferredAddress}. Posso retomar com você daqui. 💙`;
   }

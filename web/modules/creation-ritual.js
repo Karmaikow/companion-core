@@ -7,7 +7,7 @@ export class CreationRitual {
    if(this.traits.has(button.dataset.trait))this.traits.delete(button.dataset.trait);
    else {if(button.dataset.exclusive==='true')for(const other of button.closest('fieldset').querySelectorAll('[data-trait]'))this.traits.delete(other.dataset.trait);this.traits.add(button.dataset.trait);}
    for(const badge of document.querySelectorAll('[data-trait]'))badge.setAttribute('aria-pressed',String(this.traits.has(badge.dataset.trait)));
-   this.summary();
+   this.summary();const hint=button.closest('fieldset').querySelector('.trait-description');if(hint)hint.textContent=button.dataset.description;
   });
   document.querySelector('#newCompanionName').addEventListener('input',()=>this.summary());
   document.querySelector('#creationCancel').addEventListener('click',()=>this.close());
@@ -18,7 +18,7 @@ export class CreationRitual {
   this.policy=policy;const host=document.querySelector('#creationTraits');host.replaceChildren();
   for(const [index,group] of policy.groups.entries()){
    const field=document.createElement('fieldset');const legend=document.createElement('legend');legend.textContent=group.title;field.append(legend);
-   for(const option of group.options){const button=document.createElement('button');button.type='button';button.className='trait-badge';button.dataset.trait=option.id;button.dataset.exclusive=String(index>=5);button.setAttribute('aria-pressed',String(this.traits.has(option.id)));button.textContent=option.label;field.append(button);}host.append(field);
+   for(const option of group.options){const button=document.createElement('button');button.type='button';button.className='trait-badge';button.dataset.trait=option.id;button.dataset.exclusive=String(index>=5);button.setAttribute('aria-pressed',String(this.traits.has(option.id)));button.textContent=option.label;button.dataset.description=option.description||option.label;button.title=button.dataset.description;button.setAttribute('aria-describedby',`trait-help-${group.id}`);const describe=()=>{field.querySelector('.trait-description').textContent=button.dataset.description;};button.addEventListener('mouseenter',describe);button.addEventListener('focus',describe);field.append(button);}const hint=document.createElement('p');hint.id=`trait-help-${group.id}`;hint.className='trait-description';hint.textContent='Toque ou passe o mouse sobre um traço para conhecer sua inclinação.';hint.setAttribute('aria-live','polite');field.append(hint);host.append(field);
   }
   const palette=document.querySelector('#creationPalette');palette.replaceChildren();
   for(const color of policy.colors){const button=document.createElement('button');button.type='button';button.className='ritual-swatch';button.style.setProperty('--swatch',color.hex);button.setAttribute('aria-label',color.name);button.title=color.name;button.dataset.hex=color.hex;button.addEventListener('click',()=>{this.color.value=color.hex;this.paintColor();});palette.append(button);}
