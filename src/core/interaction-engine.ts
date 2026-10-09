@@ -1,4 +1,4 @@
-import { validPreference } from '../memory/memory-facts.js';
+import { validPreference, normalizeFact } from '../memory/memory-facts.js';
 import type {
   CompanionState,
   MemoryType
@@ -254,17 +254,9 @@ export class InteractionEngine {
     const favorite = this.extractCompanionPreference(state, question, response);
     if (favorite) return [favorite];
 
-    const name = state.profile.name;
-    return this.extractDeclaredLikes(response)
-      .filter(thing => !state.memories.some(memory =>
-        memory.title.toLowerCase() === `${name} gosta de ${thing}`.toLowerCase()
-      ))
-      .map(thing => ({
-        type: 'SIGNIFICANT' as const,
-        title: `${name} gosta de ${thing}`,
-        content: `${name} disse que gosta de ${thing}.`,
-        emotionalWeight: 75
-      }));
+    // Casual agreement is conversation, not a stable autobiographical fact.
+    // Only an explicit first favorite, requested directly, is persisted here.
+    return [];
   }
 
   private extractFavoriteAnimals(message: string, personName: string, address: string): Array<{title: string; content: string; value: string}> {
@@ -272,44 +264,46 @@ export class InteractionEngine {
     const facts: Array<{title: string; content: string; value: string}> = [];
     const singular = raw.match(/\b(?:meu|minha)\s+(?:animal|bicho)\s+favorito\s*(?:(?:também|tambem|tbm)\s*)?(?:é|e|são|sao|seria|seriam|:)\s+([^,.!?]+)/i)
       ?? raw.match(/\banimais?\s+[^,.!?]*[,;]\s*(?:o\s+)?meu\s+favorito\s*(?:é|e|seria|seriam)\s+([^,.!?]+)/i);
-    const plural = raw.match(/\b(?:meus|minhas)\s+(?:animais|bichos)\s+(?:místicos?\s+)?favoritos\s*(?:são|sao|seriam|:)\s+([^,.!?]+)/i)
-      ?? raw.match(/\b([^,.!?]+?)\s+(?:são|sao|seriam)\s+meus\s+(?:animais|bichos)\s+(?:místicos?\s+)?favoritos\b/i);
-    const mythical = raw.match(/\banimais\s+místicos?\s+(?:com\s+certeza|favoritos?\s*(?:são|sao|e|:))\s+([^,.!?]+)/i);
+    const plural = raw.match(/\b(?:meus|minhas)\s+(?:animais|bichos)\s+favoritos\s*(?:são|sao|seriam|:)\s+([^,.!?]+)/i)
+      ?? raw.match(/\b([^,.!?]+?)\s+(?:são|sao|seriam)\s+meus\s+(?:animais|bichos)\s+favoritos\b/i);
+    const mythical = raw.match(/\banimais\s+m[íi]sticos?\s+(?:com\s+certeza|favoritos?\s*(?:são|sao|é|e|:))\s+([^,.!?]+)/i);
 
+    const bird = raw.match(/\bmeu\s+p[áa]ssaro\s+m[íi]stico\s+(?:favorito\s+)?(?:é|e|:)\s+([^,.!?\n]+)/i);
     const one = singular?.[1] ? this.cleanPreferenceValue(singular[1]) : '';
     const many = plural?.[1] ? this.cleanPreferenceValue(plural[1]) : '';
     const myth = mythical?.[1] ? this.cleanPreferenceValue(mythical[1]) : '';
     if (one.length >= 2) facts.push({ title: `Animal favorito de ${personName}`, content: `${address} contou que seu animal favorito é ${one}.`, value: one });
     else if (many.length >= 2) facts.push({ title: `Animal favorito de ${personName}`, content: `${address} contou que seus animais favoritos são ${many}.`, value: many });
     if (myth.length >= 2) facts.push({ title: `Animais místicos favoritos de ${personName}`, content: `${address} contou que seus animais místicos favoritos são ${myth}.`, value: myth });
+    if (bird && validPreference(bird[1])) facts.push({ title: `Pássaro místico favorito de ${personName}`, content: `${address} contou que seu pássaro místico favorito é ${this.cleanPreferenceValue(bird[1])}.`, value: this.cleanPreferenceValue(bird[1]) });
     return facts;
   }
 
   private extractCompanionPreference(state: CompanionState, question: string, response: string): { type: MemoryType; title: string; content: string; emotionalWeight: number } | null {
     const normalizedQuestion = question.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\bpreferid([oa]s?)\b/g, 'favorit$1');
     const rawResponse = response.toLowerCase();
-    const asksMysticBird = /passaro mistico favorito/.test(normalizedQuestion);
+    const asksMysticBird = /(?:seu|teu) passaro mistico favorito/.test(normalizedQuestion);
     const asksAnimal = /(?:seu|teu) animal favorito/.test(normalizedQuestion);
     if (!asksMysticBird && !asksAnimal) return null;
+    if (/\b(?:nosso|nossos|nossa|nossas|meu|minha|meus|minhas)\b/.test(normalizedQuestion)) return null;
 
     const name = state.profile.name;
     const title = asksMysticBird ? `Pássaro místico favorito de ${name}` : `Animal favorito de ${name}`;
     if (state.memories.some(memory => memory.title.toLowerCase() === title.toLowerCase())) return null;
 
-    const declaredLikes = this.extractDeclaredLikes(response);
     const match = asksMysticBird
-      ? rawResponse.match(/(?:imaginei (?:um|uma)|meu pássaro místico favorito (?:seria|é|e))\s+([^.!?]+)/i)
-      : null;
-    const value = asksMysticBird
-      ? (match?.[1] ? this.cleanPreferenceValue(match[1]) : '')
-      : (declaredLikes[0] ?? this.cleanPreferenceValue(rawResponse.match(/(?:meu animal favorito (?:é|e|seria)|eu escolheria)\s+(?:um|uma|os|as)?\s*([^.!?]+)/i)?.[1] ?? ''));
-    if (value.length < 2 || /^(?:ainda nao|nao sei|nao tenho)/.test(value)) return null;
+      ? rawResponse.match(/meu p[áa]ssaro m[íi]stico favorito (?:é|e)\s+([^.!?]+)/i)
+      : rawResponse.match(/meu animal favorito (?:é|e)\s+([^.!?]+)/i);
+    const value = this.cleanPreferenceValue(match?.[1] ?? '');
+    const normalizedValue = normalizeFact(value);
+    if (!validPreference(value) || /\b(?:ele|ela|eles|elas|isso|aquilo|seria|talvez)\b/.test(normalizedValue)) return null;
+    if (/\b(?:nao tenho|nao sei|ainda nao|talvez|imaginei)\b/.test(normalizeFact(response))) return null;
 
     return {
       type: 'IDENTITY_FORMING',
       title,
       content: asksMysticBird
-        ? `${name} imaginou que seu pássaro místico favorito seria ${value}.`
+        ? `${name} declarou que seu pássaro místico favorito é ${value}.`
         : `${name} escolheu ${value}.`,
       emotionalWeight: 90
     };

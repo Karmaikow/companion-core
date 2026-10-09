@@ -47,7 +47,7 @@ test('questions are not mistaken for facts; explicit color and animal preference
   assert.match(resolveIdentityQuestion(mythicalContext), /dragões/);
 });
 
-test('likes are saved as short facts under the person who expressed them', async () => {
+test('user likes are saved but incidental assistant likes are not', async () => {
   const core = CompanionCore.create(MAYUNA_PROFILE);
   const engine = new InteractionEngine(core, {
     name: 'test',
@@ -59,9 +59,9 @@ test('likes are saved as short facts under the person who expressed them', async
   const didi = memories.find(memory => memory.title === 'Didi gosta de pássaros');
   const mayuna = memories.find(memory => memory.title === 'Mayuna gosta de pássaros');
   assert.ok(didi, 'the user preference should be stored separately');
-  assert.ok(mayuna, 'Mayuna’s direct first-person preference should be stored');
+  assert.equal(mayuna, undefined, 'casual agreement must not become a permanent preference');
   assert.doesNotMatch(didi.title, /incríveis|favorito|místico/i);
-  assert.match(AIContextBuilder.build(core.getState(), 'Você gosta de pássaros?').systemPrompt, /Mayuna gosta de pássaros/);
+  assert.doesNotMatch(AIContextBuilder.build(core.getState(), 'Você gosta de pássaros?').systemPrompt, /Mayuna gosta de pássaros/);
 });
 
 test('plural favorite animals remain available in a later conversation', async () => {
@@ -95,8 +95,8 @@ test('old malformed preference memories do not become confident answers', () => 
 test('Mayuna keeps her own animal and mystical bird choices after the first answer', async () => {
   const core = CompanionCore.create(MAYUNA_PROFILE);
   const responses = [
-    'Eu ainda estou aprendendo o que significa animal favorito, mas gosto muito de observar pássaros. Eles são leves!',
-    'Sempre imaginei um corvo com penas azul-safira. Ele seria um mensageiro entre os mundos.'
+    'Meu animal favorito é pássaros. Eles são leves!',
+    'Meu pássaro místico favorito é corvo com penas azul-safira.'
   ];
   const engine = new InteractionEngine(core, { name: 'test', async generateResponse() { return responses.shift(); } }, new ConversationHistory(6));
   await engine.interact('Qual seu animal favorito?');
@@ -116,7 +116,7 @@ test('favorites and owners survive disk reload with natural question variants', 
   const dir = await mkdtemp(join(tmpdir(), 'mayuna-preferences-'));
   try {
     const core = CompanionCore.create(MAYUNA_PROFILE);
-    const replies = ['Entendi!', 'Eu adoro pássaros!'];
+    const replies = ['Entendi!', 'Meu animal favorito é pássaros.'];
     const engine = new InteractionEngine(core, { name: 'test', async generateResponse() { return replies.shift(); } }, new ConversationHistory(6));
     await engine.interact('Meu animal favorito são lobos e dragões');
     await engine.interact('E seu animal preferido é qual?');

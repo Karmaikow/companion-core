@@ -49,6 +49,8 @@ export function currentMemories(memories: Memory[]): Memory[] {
   return [...memories].reverse().sort((a, b) => b.timestamp.localeCompare(a.timestamp))
     .filter(memory => {
       if (memory.type === 'EPISODIC') return true;
+      // Keep legacy fragments on disk, but do not feed unresolved pronouns to AI.
+      if (/ gosta de /.test(normalizeFact(memory.title)) && /\b(ele|ela|eles|elas|isso|aquilo)\b/.test(normalizeFact(memory.content))) return false;
       const fact = preferenceFact(memory);
       if (!fact) return true;
       const key = fact.slot.includes(' gosta de') ? `${fact.slot}:${fact.value}` : fact.slot;
