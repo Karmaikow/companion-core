@@ -43,7 +43,7 @@ test('joint favorite questions use each owner and category, before and after dis
         assert.match(answer, /Eu.*passarinhos/);
         assert.doesNotMatch(answer, /corvo|Ana me/);
       }
-      for (const q of ['Qual a nossa cor preferida?', 'E nossa cor favoriita?', 'Diga separadamente: minha cor favorita e sua cor favorita.']) {
+      for (const q of ['Qual a nossa cor preferida?', 'E nossa cor favoriita?', 'Diga separadamente: minha cor favorita e sua cor favorita.', 'Diga minha cor favorita e a sua cor favorita.']) {
         const answer = resolveIdentityQuestion(AIContextBuilder.build(core.getState(), q));
         assert.match(answer, /Você.*verde-musgo/);
         assert.match(answer, /Eu.*azul-safira/);
@@ -114,4 +114,34 @@ test('new soul color never supplies either favorite; unknown own color stays gro
   assert.match(intro, /alma.*Refúgio.*fantasia/);
   core.processEvent('CONVERSATION', { userMessage: 'Oi', response: intro }, { coreXp: 5, combatXp: 0, bond: 1 });
   assert.equal(resolveIdentityQuestion(AIContextBuilder.build(core.getState(), 'Boa tarde!')), null);
+});
+
+test('mixed declaration and suggestion reaches conversation with the new human fact; own color persists',async()=>{
+ const profile=structuredClone(MAYUNA_PROFILE);profile.name='Lunaya';profile.preferences={favoriteThings:[]};profile.appearance={soulColor:'#faf80d',formInfluences:[]};
+ let core=CompanionCore.create(profile);
+ core.addMemory('IDENTITY_FORMING','Cor favorita de Didi','Didi contou que sua cor favorita é amarelo vivo.',90);
+ const message='Aah a minha cor preferida é o verde-musgo. gostei da sua definição, talvez então a sua cor preferida seja o amarelo, não? ela pode representar a luz que ilumina e muda a tonalidade das coisas ao seu redor, oq acha??';
+ const provider={name:'test',async generateResponse(context){
+  assert.equal(resolveIdentityQuestion(context),null);
+  assert.match(context.preferenceMemories.find(m=>m.title==='Cor favorita de Didi').content,/verde-musgo/);
+  return 'Eu gosto dessa ideia! Minha cor favorita é amarelo vivo.';
+ }};
+ const engine=new InteractionEngine(core,provider,new ConversationHistory(6));
+ await engine.interact(message);
+ assert.match(resolveIdentityQuestion(AIContextBuilder.build(core.getState(),'Qual minha cor favorita?')),/verde-musgo/);
+ assert.match(resolveIdentityQuestion(AIContextBuilder.build(core.getState(),'Qual sua cor favorita?')),/amarelo vivo/);
+ const own=core.getState().memories.filter(m=>m.title==='Cor favorita de Lunaya');assert.equal(own.length,1);
+ assert.equal(core.getState().profile.appearance.soulColor,'#faf80d');
+ core=CompanionCore.from(core.getData(),core.getPrivateKey());
+ assert.equal(core.verifyLocal().valid,true);
+ assert.match(resolveIdentityQuestion(AIContextBuilder.build(core.getState(),'Qual sua cor favorita?')),/amarelo vivo/);
+});
+
+test('inviting an unknown color choice bypasses recall without treating a suggestion as a fact',async()=>{
+ const profile=structuredClone(MAYUNA_PROFILE);profile.name='Lunaya';profile.preferences={favoriteThings:[]};const core=CompanionCore.create(profile);
+ const question='Vamos definir a sua cor, me diz do q vc gosta?';
+ assert.equal(resolveIdentityQuestion(AIContextBuilder.build(core.getState(),question)),null);
+ const engine=new InteractionEngine(core,{name:'test',async generateResponse(){return 'Talvez eu escolha amarelo. Ainda não tenho uma cor favorita.';}},new ConversationHistory(6));
+ await engine.interact(question);
+ assert.equal(core.getState().memories.length,1);
 });

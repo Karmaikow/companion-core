@@ -54,7 +54,7 @@ export class HolographicCoreRenderer {
   constructor() { this.accent = '63, 140, 255'; this.soulAccent='63, 140, 255'; this.width = 1; this.height = 1; this.presence = 'idle'; this.hover = false; this.hoverAmount = 0; this.lastRenderTime = 0; }
   mount(host) {
     this.canvas = document.createElement('canvas'); this.canvas.id = 'worldCanvas';
-    this.canvas.setAttribute('aria-label', 'Mayuna em forma de alma, flutuando em uma câmara holográfica azul');
+    this.canvas.setAttribute('aria-label', 'Sua Companion em forma de alma no Refúgio');
     host.append(this.canvas); this.ctx = this.canvas.getContext('2d');
     this.background = document.createElement('canvas');
     this.target = document.querySelector('.entity-target');
@@ -85,7 +85,7 @@ export class HolographicCoreRenderer {
     glow.addColorStop(0, '#112c53'); glow.addColorStop(.42, '#0a1930'); glow.addColorStop(1, '#040914');
     c.fillStyle = glow; c.fillRect(0, 0, w, h);
 
-    // Holographic diagnostic rings inspired by Mayuna's orbital core.
+    // Holographic diagnostic rings inspired by the Companion orbital core.
     const cx = w * .5, cy = h * .45, radius = Math.min(w * .37, h * .46);
     c.save(); c.translate(cx, cy);
     for (let ring = 0; ring < 5; ring++) {

@@ -5,6 +5,8 @@ import { normalizeFact, preferenceFact, validPreference } from '../memory/memory
 export function resolvePreferenceQuestion(context: AIContext): string | null {
   const q = normalizeFact(context.userMessage).replace(/\bvc\b/g, 'voce').replace(/\bpreferid([oa]s?)\b/g, 'favorit$1').replace(/favori+ta/g, 'favorita');
   if (/\b(historia|conto|finja|imagine|faz de conta)\b/.test(q)) return null;
+  // A new declaration or a proposal needs a conversation, not recall of older facts.
+  if (/\bminha cor (?:favorita|preferida)\s*(?:é|:)\s*\S/i.test(context.userMessage) || /\bminha cor favorita\s+e\s+(?!(?:(?:a|o)\s+)?(?:sua|seu)\b)/.test(q) || /\b(?:vamos definir|escolha|escolher|defina|talvez|que tal|poderia)\b/.test(q)) return null;
   const favorite = /\bfavorit[oa]s?\b/.test(q) || /qual animal voce prefere/.test(q);
   if (!favorite) return null;
   // Do not intercept statements of a new preference as recall questions.

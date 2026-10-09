@@ -82,12 +82,12 @@ function renderPersonality(personality) {
 function renderMemories(memories = []) {
   const list = $('#memoryList');
   if (!memories.length) {
-    list.innerHTML = '<p class="muted">Mayuna ainda não possui memórias registradas.</p>';
+    list.innerHTML = '<p class="muted">Sua Companion ainda não possui memórias registradas.</p>';
     return;
   }
 
-  const companion = currentState?.identity?.name ?? 'Mayuna';
-  const person = currentState?.profile?.companionOf?.name ?? 'Didi';
+  const companion = currentState?.identity?.name ?? 'Companion';
+  const person = currentState?.profile?.companionOf?.name ?? 'Você';
   const groups = [
     { title: `Sobre ${person}`, test: memory => memory.title.toLocaleLowerCase('pt-BR').includes(person.toLocaleLowerCase('pt-BR')) },
     { title: `Sobre ${companion}`, test: memory => memory.title.toLocaleLowerCase('pt-BR').includes(companion.toLocaleLowerCase('pt-BR')) },
@@ -140,7 +140,7 @@ function applyState(state) {
   $('#panel-memories .drawer-content h3:last-of-type').textContent = `Diário de ${state.identity.name}`;
   const companionMenu = $('[data-open-panel="companion"] span'); if (companionMenu) companionMenu.textContent = state.identity.name;
   const entityTarget = $('.entity-target'); if (entityTarget) entityTarget.setAttribute('aria-label', `Inspecionar ${state.identity.name} no mundo`);
-  const companionButton = $('[data-open-panel="chat"]'); if (companionButton) companionButton.setAttribute('aria-label', `Falar com ${state.identity.name}`);
+  const companionButton = $('[data-open-panel="chat"]'); if (companionButton) { companionButton.setAttribute('aria-label', `Falar com ${state.identity.name}`); companionButton.textContent = `Falar com ${state.identity.name}`; }
   const companionName = $('[data-open-panel="companion-summary"]'); if (companionName) companionName.setAttribute('aria-label', `Inspecionar ${state.identity.name}`);
   const welcome = $('.chat-welcome'); if (welcome) welcome.textContent = `Sou ${state.identity.name}, sua Companion. ${state.core.evolutionStage === "SOUL" ? "Ainda sou uma alma, e minha forma vai se desenvolver com nossas experiências. " : ""}Estamos no Refúgio, nosso espaço em um mundo de fantasia ainda em construção. Conte algo de que gosta ou pergunte sobre mim para começarmos.`;
   $('#entityName').textContent = state.identity.name;
@@ -204,7 +204,7 @@ function setViewMode(view, persist = true) {
   });
   const world = selected === 'world';
   $('#worldProvider').textContent = world ? 'COMPANION WORLD' : 'REFÚGIO';
-  $('#roomName').textContent = world ? 'Companion World' : `Refúgio de ${currentState?.identity?.name || 'Mayuna'}`;
+  $('#roomName').textContent = world ? 'Companion World' : `Refúgio de ${currentState?.identity?.name || 'Companion'}`;
   $('#roomCoordinate').textContent = world ? 'MUNDO EXTERNO · EM DESENVOLVIMENTO' : 'ESPAÇO PRIVADO';
   $('#roomEyebrow').textContent = world ? 'COMPANION WORLD' : 'NOSSA HISTÓRIA';
   $('#roomHeading').textContent = world ? 'O mundo aguarda' : 'Um espaço nosso';
@@ -269,7 +269,7 @@ function closeDrawer(hideOverlay = true) {
 function appendChat(role, text, extraClass = '') {
   const bubble = document.createElement('div');
   bubble.className = `chat-bubble ${role} ${extraClass}`.trim();
-  bubble.innerHTML = `<small>${escapeHtml(role === 'user' ? currentState?.profile?.companionOf?.preferredAddress || 'Você' : currentState?.identity?.name || 'Mayuna')}</small><p></p>`;
+  bubble.innerHTML = `<small>${escapeHtml(role === 'user' ? currentState?.profile?.companionOf?.preferredAddress || 'Você' : currentState?.identity?.name || 'Companion')}</small><p></p>`;
   bubble.querySelector('p').textContent = text;
   $('#chatFeed').appendChild(bubble);
   $('#chatFeed').scrollTop = $('#chatFeed').scrollHeight;

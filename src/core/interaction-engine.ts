@@ -1,4 +1,4 @@
-import { validPreference, normalizeFact } from '../memory/memory-facts.js';
+import { currentMemories, preferenceFact, validPreference, normalizeFact } from '../memory/memory-facts.js';
 import type {
   CompanionState,
   MemoryType
@@ -70,7 +70,9 @@ export class InteractionEngine {
 
     const context =
       AIContextBuilder.build(
-        state,
+        { ...state, memories: [...state.memories, ...extractedMemories.map((memory,index) => ({
+          ...memory, id: `pending-${index}`, timestamp: new Date().toISOString(), relatedEvents: []
+        }))] },
         normalizedMessage,
         recentMessages.map(
           message => ({
@@ -183,7 +185,7 @@ export class InteractionEngine {
 
     // Only store an asserted value. A question such as "qual é minha cor?"
     // must never be extracted as the answer "vc sabe".
-    const colorMatch = this.declarations(message).match(/(?:a\s+)?minha\s+cor\s+(?:favorita|preferida)\s*(?:é|e|:)\s*([^.!?\n]+)/i);
+    const colorMatch = this.declarations(message).match(/(?:a\s+)?minha\s+cor\s+(?:favorita|preferida)\s*(?:é|e|:)\s*([^,.!?\n]+)/i);
     const color = colorMatch ? this.cleanPreferenceValue(colorMatch[1]) : '';
     if (color.length >= 3 && validPreference(color)) {
       const title = `Cor favorita de ${personName}`;
@@ -282,6 +284,19 @@ export class InteractionEngine {
   private extractCompanionPreference(state: CompanionState, question: string, response: string): { type: MemoryType; title: string; content: string; emotionalWeight: number } | null {
     const normalizedQuestion = question.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\bpreferid([oa]s?)\b/g, 'favorit$1');
     const rawResponse = response.toLowerCase();
+    const asksColor = /\b(?:sua|tua) cor (?:favorita|preferida)\b/.test(normalizedQuestion)
+      || /\b(?:definir|escolher|escolha|defina)\b/.test(normalizedQuestion) && /\b(?:sua|tua) cor\b/.test(normalizedQuestion);
+    if (asksColor && !state.profile.preferences.favoriteColor) {
+      const name = state.profile.name;
+      const title = `Cor favorita de ${name}`;
+      const existing = currentMemories(state.memories).some(m => preferenceFact(m)?.slot === `cor favorita de ${normalizeFact(name)}`);
+      const match = response.match(/minha cor (?:favorita|preferida) (?:é|e)\s+([^,.!?]+)/i);
+      const value = this.cleanPreferenceValue(match?.[1] ?? '');
+      if (!existing && validPreference(value) && !/\b(?:nao tenho|nao sei|ainda nao|talvez|seria)\b/.test(normalizeFact(response))) {
+        return { type: 'IDENTITY_FORMING', title, content: `${name} declarou que sua cor favorita é ${value}.`, emotionalWeight: 90 };
+      }
+      return null;
+    }
     const asksMysticBird = /(?:seu|teu) passaro mistico favorito/.test(normalizedQuestion);
     const asksAnimal = /(?:seu|teu) animal favorito/.test(normalizedQuestion);
     if (!asksMysticBird && !asksAnimal) return null;

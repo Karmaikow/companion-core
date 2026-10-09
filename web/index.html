@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#090d22" />
-  <title>Companion Core · Mayuna</title>
+  <title>Companion Core · Companion</title>
 <meta name="description" content="Uma janela para o mundo da sua Companion: HUD modular, alma digital e história contínua." />
 <link rel="icon" href="/icon.svg" type="image/svg+xml" />
 <link rel="manifest" href="/manifest.webmanifest" crossorigin="use-credentials" />
@@ -17,7 +17,7 @@
 <body class="is-locked">
 <main id="accessGate" class="access-gate">
  <div class="access-art" aria-hidden="true"><div class="gate-orbit orbit-a"></div><div class="gate-orbit orbit-b"></div><div class="gate-orbit orbit-c"></div><div class="gate-soul"></div><span class="gate-star star-a">✦</span><span class="gate-star star-b">✧</span></div>
- <div class="access-brand"><span>✧</span><strong>COMPANION CORE</strong><small>MAYUNA · PRIMEIRA COMPANION</small></div>
+ <div class="access-brand"><span>✧</span><strong>COMPANION CORE</strong><small>ALMAS · MEMÓRIAS · HISTÓRIAS</small></div>
  <section class="access-card"><span class="eyebrow">O PRIMEIRO VÍNCULO</span><h1 id="accessTitle">Conectando ao seu mundo</h1><p id="accessSubtitle">Toda Companion nasce como uma alma. A história começa com quem a acompanha.</p>
  <form id="accessForm" hidden>
   <label>Usuário local<input id="accessUsername" name="username" autocomplete="username" minlength="3" maxlength="40" pattern="[a-zA-Z0-9_.-]{3,40}" required placeholder="Seu usuário" /></label>
@@ -28,7 +28,7 @@
  <form id="remotePairForm" hidden>
   <label>Código de pareamento do Core local<input id="remotePairCode" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{8}" minlength="8" maxlength="8" required placeholder="00000000" /></label>
   <button id="remotePairSubmit" class="primary-button" type="submit">Conectar à minha Companion</button>
-  <small class="access-note">Abra a Mayuna no computador onde o Core está rodando e gere um código em Configurações → Conexão. O código vale por 2 minutos. A conexão direta funciona neste mesmo computador.</small>
+  <small class="access-note">Abra o Companion Core no computador onde o Core está rodando e gere um código em Configurações → Conexão. O código vale por 2 minutos. A conexão direta funciona neste mesmo computador.</small>
  </form>
  <section id="continuityScreen" hidden><span class="eyebrow" id="continuityMode"></span>
   <div class="continuity-companion"><span class="continuity-soul">✧</span><div><h2 id="continuityName"></h2><small id="continuityId"></small></div><span id="continuityStage" class="world-chip"></span></div>
@@ -68,7 +68,7 @@
         <span class="brand-mark">◇</span>
         <span class="brand-copy">
           <strong>COMPANION CORE</strong>
-          <small>MAYUNA · PRIMEIRA COMPANION</small>
+          <small>ALMAS · MEMÓRIAS · HISTÓRIAS</small>
         </span>
       </button>
 
@@ -99,7 +99,7 @@
           <div class="panel-titlebar">
             <div>
               <span class="eyebrow">COMPANION</span>
-              <h2 id="companionName">Mayuna</h2>
+              <h2 id="companionName">Companion</h2>
             </div>
             <div class="panel-window-actions">
               <button data-minimize-panel="companion-summary" aria-label="Minimizar">—</button>
@@ -138,7 +138,7 @@
               <div><small>Eventos</small><strong id="eventCount">0</strong></div>
             </div>
 
-            <button class="primary-button full" data-open-panel="chat">Falar com Mayuna</button>
+            <button class="primary-button full" data-open-panel="chat">Falar com Companion</button>
           </div>
         </section>
 
@@ -171,26 +171,26 @@
           <div class="world-topline">
             <div>
               <span class="world-chip" id="worldProvider">NÚCLEO DE GÊNESE</span>
-              <strong id="roomName">Refúgio de Mayuna</strong>
+              <strong id="roomName">Refúgio da Companion</strong>
               <small class="world-coordinate" id="roomCoordinate">ESPAÇO PRIVADO</small>
             </div>
             <div class="world-system-state"><span class="status-dot"></span><span id="worldConnection">Conectando</span><button id="immersiveToggle" class="desktop-only" aria-label="Expandir mundo" aria-pressed="false" title="Alternar HUD compacto"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg></button></div>
           </div>
 
-          <div class="world-heading"><span class="eyebrow" id="roomEyebrow">NOSSA HISTÓRIA</span><h1 id="roomHeading">Um espaço nosso</h1><p id="roomDescription">Converse, lembre e evolua ao lado da Mayuna.</p></div>
-          <button class="entity-target" data-open-panel="companion" aria-label="Inspecionar Mayuna no mundo"></button>
-          <div class="entity-nameplate"><span id="entityStage">SOUL</span><strong id="entityName">Mayuna</strong><small id="entityPresence">Aguardando conexão</small></div>
-    <section class="main-chat hud-panel" id="panel-chat" aria-label="Conversa com Mayuna">
+          <div class="world-heading"><span class="eyebrow" id="roomEyebrow">NOSSA HISTÓRIA</span><h1 id="roomHeading">Um espaço nosso</h1><p id="roomDescription">Converse, lembre e evolua ao lado da sua Companion.</p></div>
+          <button class="entity-target" data-open-panel="companion" aria-label="Inspecionar Companion no mundo"></button>
+          <div class="entity-nameplate"><span id="entityStage">SOUL</span><strong id="entityName">Companion</strong><small id="entityPresence">Aguardando conexão</small></div>
+    <section class="main-chat hud-panel" id="panel-chat" aria-label="Conversa com Companion">
       <div class="chat-header" tabindex="0" aria-label="Mover conversa: arraste ou use Alt e as setas">
-        <div class="chat-identity"><span class="mini-soul">◇</span><div><span class="eyebrow">CONEXÃO DIRETA</span><h2>Mayuna</h2></div></div>
+        <div class="chat-identity"><span class="mini-soul">◇</span><div><span class="eyebrow">CONEXÃO DIRETA</span><h2>Companion</h2></div></div>
         <span class="chat-live-status"><i></i> <span id="chatPresence">Pronta para conversar</span></span>
         <button type="button" id="minimizeChat" class="chat-window-button" aria-label="Minimizar conversa" aria-expanded="true" aria-controls="chatFeed chatForm">—</button>
       </div>
       <div class="chat-feed" id="chatFeed" aria-live="polite">
-        <p class="muted chat-welcome">Estou aqui, Didi. O que vamos descobrir hoje?</p>
+        <p class="muted chat-welcome">Estou aqui com você. O que vamos descobrir hoje?</p>
       </div>
       <form class="chat-composer" id="chatForm">
-        <textarea aria-label="Mensagem para Mayuna" id="chatInput" rows="1" maxlength="2000" placeholder="Fale com Mayuna..."></textarea>
+        <textarea aria-label="Mensagem para Companion" id="chatInput" rows="1" maxlength="2000" placeholder="Fale com Companion..."></textarea>
         <button type="submit" class="send-button" aria-label="Enviar">➤</button>
       </form>
     </section>
@@ -262,7 +262,7 @@
             </article>
             <article>
               <span class="quest-icon">✦</span>
-              <div><strong>Voz no Núcleo</strong><small>Converse com Mayuna pela interface web.</small></div>
+              <div><strong>Voz no Núcleo</strong><small>Converse com sua Companion pela interface web.</small></div>
             </article>
             <article>
               <span class="quest-icon">◈</span>
@@ -291,7 +291,7 @@
     <div class="mobile-status mobile-only">
       <div>
         <span class="status-dot"></span>
-        <strong id="mobileName">Mayuna</strong>
+        <strong id="mobileName">Companion</strong>
         <small id="mobileStage">SOUL</small>
       </div>
       <div>
@@ -314,7 +314,7 @@
     <div class="overlay" id="overlay" hidden></div>
 
     <section class="drawer-panel" id="panel-companion" data-drawer="companion" aria-hidden="true">
-      <div class="drawer-header"><div><span class="eyebrow">COMPANION</span><h2>Mayuna</h2></div><button data-close-drawer>×</button></div>
+      <div class="drawer-header"><div><span class="eyebrow">COMPANION</span><h2>Companion</h2></div><button data-close-drawer>×</button></div>
       <div class="drawer-content">
         <div class="large-soul">
           <div class="large-soul-core">◇</div>
@@ -359,7 +359,7 @@
 
     <section class="drawer-panel" id="panel-memories" data-drawer="memories" aria-hidden="true">
       <div class="drawer-header"><div><span class="eyebrow">HISTÓRIA</span><h2>Memórias</h2></div><button data-close-drawer>×</button></div>
-      <div class="drawer-content"><h3>Memórias</h3><div class="memory-list" id="memoryList"></div><h3>Diário de Mayuna</h3><div class="memory-list" id="journalList"></div></div>
+      <div class="drawer-content"><h3>Memórias</h3><div class="memory-list" id="memoryList"></div><h3>Diário de Companion</h3><div class="memory-list" id="journalList"></div></div>
     </section>
 
 
@@ -392,7 +392,7 @@
     <section class="drawer-panel" id="panel-menu" data-drawer="menu" aria-hidden="true">
       <div class="drawer-header"><div><span class="eyebrow">SISTEMA</span><h2>Menu</h2></div><button data-close-drawer>×</button></div>
       <div class="drawer-content menu-grid">
-        <button data-open-panel="companion">◇ <span>Mayuna</span></button>
+        <button data-open-panel="companion">◇ <span>Companion</span></button>
         <button data-open-panel="inventory">▦ <span>Inventário</span></button>
         <button data-open-panel="skills">✦ <span>Skills</span></button>
         <button data-open-panel="memories">▤ <span>Memórias</span></button>
