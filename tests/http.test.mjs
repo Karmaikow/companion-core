@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
-import { mkdtemp, rm, cp } from 'node:fs/promises';
+import { mkdtemp, rm, cp, readdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -14,6 +14,8 @@ test('HTTP boundaries: local owner, remote pairing, DTO, interaction and revocat
  try {
   await Promise.race([new Promise((resolve,reject)=>{server.stdout.on('data',x=>{if(x.toString().includes('Interface:'))resolve();});server.on('error',reject);server.on('exit',code=>reject(Error(`Server exited ${code}: ${stderr}`)));}),new Promise((_,reject)=>{const timer=setTimeout(()=>reject(Error(`Startup timeout: ${stderr}`)),20000);timer.unref();})]);
   const base='http://127.0.0.1:4294';
+  assert.equal((await (await fetch(base+'/api/health')).json()).startupFlow,'first-awakening-v1');
+  assert.equal((await readdir(data)).some(name=>/^MC-.*\.json$/.test(name)),false);
   assert.equal((await fetch(base+'/api/companion/state')).status,401);
   assert.equal((await fetch(base+'/api/companions')).status,401);
   const setup=await fetch(base+'/api/auth/setup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:'test-user',password:'OnlyTests-12345!'})});assert.equal(setup.status,200);

@@ -4,15 +4,20 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx src/demo.ts",
+    "dev": "npm run web",
     "build": "node node_modules/typescript/bin/tsc",
-    "start": "node dist/demo.js",
+    "start": "npm run web:start",
     "web": "node node_modules/tsx/dist/cli.mjs src/server/web-server.ts",
     "web:start": "node dist/server/web-server.js",
     "test": "npm run build && node --test tests/*.test.mjs",
     "web:mock": "node scripts/start-mock.mjs",
     "android:start": "node scripts/start-android-preview.mjs",
-    "android:check": "node scripts/android-self-check.mjs"
+    "android:check": "node scripts/android-self-check.mjs",
+    "preweb:start": "npm run build",
+    "preweb:mock": "npm run build",
+    "demo": "node dist/demo.js",
+    "predemo": "npm run build",
+    "demo:dev": "tsx src/demo.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

@@ -11,3 +11,4 @@ test-results/
 .mayuna-mobile-preview/
 data-backup*/
 data-linux-backup*/
+.mayuna-cli-demo/

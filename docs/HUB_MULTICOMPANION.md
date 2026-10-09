@@ -39,3 +39,11 @@ No próximo início, será necessário configurar o acesso local novamente e com
 ## Encontros futuros
 
 Mayuna e Lunaya poderão se encontrar quando implementarmos identidades portáteis, mundo externo e convites. Cada alma terá sua própria história. Visitas ao Refúgio precisarão de consentimento, autorização revogável e separação entre chat privado e chat compartilhado. Nenhuma visitante terá acesso automático às memórias privadas de outra Companion. Essas funções ainda não estão disponíveis.
+
+## Conferir a instalação que está rodando
+
+`npm start` e `npm run web:start` recompilam os arquivos antes de iniciar o servidor. `npm run dev` inicia a aplicação web pelo código TypeScript. O demo CLI só roda pelos comandos `demo` e `demo:dev`, com dados próprios em `.mayuna-cli-demo/`; ele não grava na pasta `data` da conta web.
+
+No terminal, o servidor atualizado mostra `first-awakening-v1`, o diretório do projeto, o arquivo de servidor carregado, o caminho de dados efetivamente usado e o ID ativo (ou `nenhuma · aguardando ritual`). A rota `/api/health` também informa `startupFlow: first-awakening-v1`, sem revelar caminhos nem IDs. Se esse marcador não aparecer, confira a branch, o último commit e o processo que ocupa a porta 4173 antes de trocar dados outra vez.
+
+Uma identidade já gerada por uma versão antiga permanece carregável e não é apagada pela atualização. Para testar o ritual do zero, depois de parar o processo correto e confirmar o código atualizado, preserve a pasta ativa em backup conforme descrito acima. Use o caminho mostrado no log se `MAYUNA_DATA_DIR` estiver configurado para outro diretório.

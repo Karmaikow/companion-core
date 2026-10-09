@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
@@ -86,7 +87,7 @@ async function serveStatic(urlPath: string, res: ServerResponse): Promise<void> 
 
 async function handleApi(req: IncomingMessage, res: ServerResponse, pathname: string): Promise<void> {
   if (req.method === 'GET' && pathname === '/api/health') {
-    json(res, 200, { ok: true, service: 'Companion Core' });
+    json(res, 200, { ok: true, service: 'Companion Core', startupFlow: 'first-awakening-v1' });
     return;
   }
 
@@ -298,6 +299,11 @@ async function main(): Promise<void> {
     console.log('╔══════════════════════════════════════════════════╗');
     console.log('║              COMPANION CORE WEB v0.7                    ║');
     console.log('╚══════════════════════════════════════════════════╝');
+    console.log('Fluxo: primeiro despertar · first-awakening-v1');
+    console.log(`Projeto: ${process.cwd()}`);
+    console.log(`Servidor: ${fileURLToPath(import.meta.url)}`);
+    console.log(`Dados: ${path.resolve(process.env.MAYUNA_DATA_DIR ?? 'data')}`);
+    console.log(`Companion: ${runtime.getActiveId() ?? 'nenhuma · aguardando ritual'}`);
     console.log(`Interface: http://${HOST}:${PORT}`);
     console.log(`IA: ${provider.name}${mock ? ' · simulada, dados isolados' : ''}`);
     console.log('');

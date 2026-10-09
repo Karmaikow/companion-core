@@ -2,6 +2,10 @@
 
 Mayuna é a primeira Companion persistente da plataforma.
 
+Para abrir a aplicação, use `npm start` ou `npm run web:start`. O código é recompilado antes de iniciar. Para desenvolvimento, use `npm run dev` ou `npm run web`. O antigo demo CLI agora é explícito: `npm run demo` ou `npm run demo:dev`, com arquivos isolados em `.mayuna-cli-demo/`.
+
+O servidor exibe o caminho do projeto, build, pasta de dados e se está aguardando o primeiro ritual. `GET /api/health` identifica esse fluxo com `startupFlow: first-awakening-v1`. Uma instalação vazia não cria Mayuna automaticamente.
+
 Esta cópia está na **Web v0.7**. Comece por [ATUALIZACAO_V0.7.md](ATUALIZACAO_V0.7.md) para instalar e conferir a persistência. O plano de desenvolvimento fica em [PLANO_DESENVOLVIMENTO.md](PLANO_DESENVOLVIMENTO.md).
 
 OpenAI e modo híbrido seguem opcionais; Ollama local continua como padrão. A configuração de um endpoint Ollama HTTPS fica em [docs/OLLAMA_REMOTO.md](docs/OLLAMA_REMOTO.md). Consulte **ATUALIZACAO_V0.6.md** para detalhes dos providers e **PROJETO_CHATGPT.md** para organizar o contexto de desenvolvimento.

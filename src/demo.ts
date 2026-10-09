@@ -1,3 +1,4 @@
+import path from 'node:path';
 import {
   createInterface
 } from 'node:readline/promises';
@@ -42,8 +43,8 @@ import {
  * Arquivo que identifica qual Companion
  * está ativa atualmente.
  */
-const ACTIVE_COMPANION_FILE =
-  'data/active-companion.json';
+const DEMO_DATA_ROOT = path.resolve('.mayuna-cli-demo');
+const ACTIVE_COMPANION_FILE = path.join(DEMO_DATA_ROOT,'active-companion.json');
 
 
 /*
@@ -83,7 +84,7 @@ async function setActiveCompanionId(
 ): Promise<void> {
 
   await mkdir(
-    'data',
+    DEMO_DATA_ROOT,
     {
       recursive: true
     }
@@ -539,9 +540,10 @@ function printIdentity(
  * Inicialização principal.
  */
 async function main(): Promise<void> {
+  console.log(`DEMO CLI ISOLADO · dados: ${DEMO_DATA_ROOT}. Este comando não usa a conta nem a pasta data da aplicação web.`);
 
   const store =
-    new LocalStore();
+    new LocalStore(DEMO_DATA_ROOT);
 
 
   /*
@@ -604,29 +606,7 @@ async function main(): Promise<void> {
 
 
     } catch (error) {
-
-      console.log(
-        '\nNão foi possível recuperar a Companion existente.'
-      );
-
-      console.log(
-        'Uma nova Companion será criada.'
-      );
-
-
-      core =
-        CompanionCore.create(
-          MAYUNA_PROFILE
-        );
-
-
-      console.log(
-        `\nNova Companion criada: ${core.getState().identity.name}`
-      );
-
-      console.log(
-        `ID: ${core.getState().identity.id}`
-      );
+      throw new Error('Não foi possível recuperar a identidade do demo. Nenhuma Companion foi substituída.', {cause:error});
     }
 
 
