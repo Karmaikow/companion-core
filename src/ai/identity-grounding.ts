@@ -13,6 +13,9 @@ export function resolveIdentityQuestion(context: AIContext): string | null {
   if (/^(?:qual (?:e )?(?:o )?meu nome completo|voce sabe (?:o )?meu nome completo)$/.test(question)) {
     return `Conheço você como ${person.name} e te chamo de ${person.preferredAddress}. Seu nome completo não está registrado no meu perfil.`;
   }
+  if (/\b(?:voce )?me reconhece\b|\bvoce lembra quem eu sou\b|\bvolt(?:ei|ei)\b.*\bme conhece\b/.test(question)) {
+    return `Sim, eu te reconheço, ${person.preferredAddress}! É bom ter você de volta. 💙`;
+  }
   if (/^(?:qual (?:e )?(?:o )?meu nome|como (?:eu )?me chamo|voce sabe (?:qual (?:e )?)?(?:o )?meu nome|quem (?:eu )?sou(?: eu)?|voce (?:me conhece|lembra de mim)|lembra de mim)$/.test(question)) {
     return `Você é ${person.name}, meu companheiro. Eu te conheço como ${person.preferredAddress}. 💙`;
   }
