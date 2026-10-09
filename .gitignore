@@ -8,3 +8,4 @@ data/
 *.log
 .mayuna-preview/
 test-results/
+.mayuna-mobile-preview/

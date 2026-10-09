@@ -10,7 +10,9 @@
     "web": "node node_modules/tsx/dist/cli.mjs src/server/web-server.ts",
     "web:start": "node dist/server/web-server.js",
     "test": "npm run build && node --test tests/*.test.mjs",
-    "web:mock": "node scripts/start-mock.mjs"
+    "web:mock": "node scripts/start-mock.mjs",
+    "android:start": "node scripts/start-android-preview.mjs",
+    "android:check": "node scripts/android-self-check.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
