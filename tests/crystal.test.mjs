@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {mkdtemp,rm,readFile,readdir} from 'node:fs/promises';
-import {tmpdir} from 'node:os';
+import {tmpdir, platform as osPlatform} from 'node:os';
 import path from 'node:path';
 import {randomUUID,randomBytes} from 'node:crypto';
 import {once} from 'node:events';
@@ -14,6 +14,7 @@ import {sealCrystal,openCrystal,signCrystalData,crystalHash} from '../dist/porta
 import {signData,stableJson} from '../dist/crypto/crypto.js';
 const password='Cristal-test-password-2026';
 const token=()=>randomBytes(32).toString('hex');
+const currentPlatform=osPlatform()==='win32'?'Windows':osPlatform()==='darwin'?'macOS':osPlatform()==='linux'?'Linux':'Outro';
 const input={name:'Lunaya',ownerName:'Diego',preferredAddress:'Didi',soulColor:'#faf80d',traits:['openness-0']};
 const provider={name:'mock',async generateResponse(){return 'Olá, Didi.';}};
 async function fixture(){const root=await mkdtemp(path.join(tmpdir(),'crystal-'));const registry=new SessionRegistry(path.join(root,'registry.json'));await registry.initialize();const server=registryHttpServer(registry);server.listen(0,'127.0.0.1');await once(server,'listening');const url=`http://127.0.0.1:${server.address().port}`;return{root,registry,server,url,async close(){await new Promise(resolve=>server.close(resolve));await rm(root,{recursive:true,force:true});}};}
@@ -40,7 +41,7 @@ async function fixture(){const root=await mkdtemp(path.join(tmpdir(),'crystal-')
   const target=new CompanionRuntime(provider,targetRoot,f.url);await target.initialize();
   await assert.rejects(target.awakenCrystal(exported.file,'Incorrect-password-123','Notebook Casa'));assert.equal(target.hasCompanion(),false);
   const result=await target.awakenCrystal(exported.file,password,'Notebook Casa');assert.equal(result.state.identity.id,before.identity.id);assert.deepEqual(result.state.memories,before.memories);assert.equal(target.verify().valid,true);
-  assert.equal(result.status.server.device.name,'Notebook Casa');assert.equal(result.status.server.device.platform,'Linux');assert.ok(result.status.server.sessionId);assert.notEqual(result.recoveryCode,exported.recoveryCode);
+  assert.equal(result.status.server.device.name,'Notebook Casa');assert.equal(result.status.server.device.platform,currentPlatform);assert.ok(result.status.server.sessionId);assert.notEqual(result.recoveryCode,exported.recoveryCode);
   await target.chat('Oi');await assert.rejects(source.cancelCrystal());
   const other=new CompanionRuntime(provider,path.join(f.root,'other'),f.url);await other.initialize();await assert.rejects(other.awakenCrystal(exported.file,password,'Celular'),e=>e.status===409&&e.details.device.name==='Notebook Casa');assert.equal(other.hasCompanion(),false);
   const restarted=new CompanionRuntime(provider,path.join(f.root,'other'),f.url);await restarted.initialize();assert.equal(restarted.hasCompanion(),false);
