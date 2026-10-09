@@ -126,6 +126,21 @@ function escapeHtml(value) {
 function applyState(state) {
   currentState = state;
   viewport?.setState(state);
+  document.title = `Companion Core · ${state.identity.name}`;
+  $('.brand-copy small').textContent = `${state.identity.name} · SUA COMPANION`;
+  $('#panel-companion .drawer-header h2').textContent = state.identity.name;
+  $('#panel-chat .chat-identity h2').textContent = state.identity.name;
+  $('#panel-chat').setAttribute('aria-label', `Conversa com ${state.identity.name}`);
+  $('#chatInput').setAttribute('aria-label', `Mensagem para ${state.identity.name}`);
+  $('#chatInput').placeholder = `Fale com ${state.identity.name}...`;
+  $('#panel-skills .drawer-header h2').textContent = `Skills de ${state.identity.name}`;
+  $('#panel-memories .drawer-header h2').textContent = `Memórias de ${state.identity.name}`;
+  $('#panel-memories .drawer-content h3:last-of-type').textContent = `Diário de ${state.identity.name}`;
+  const companionMenu = $('[data-open-panel="companion"] span'); if (companionMenu) companionMenu.textContent = state.identity.name;
+  const entityTarget = $('.entity-target'); if (entityTarget) entityTarget.setAttribute('aria-label', `Inspecionar ${state.identity.name} no mundo`);
+  const companionButton = $('[data-open-panel="chat"]'); if (companionButton) companionButton.setAttribute('aria-label', `Falar com ${state.identity.name}`);
+  const companionName = $('[data-open-panel="companion-summary"]'); if (companionName) companionName.setAttribute('aria-label', `Inspecionar ${state.identity.name}`);
+  const welcome = $('.chat-welcome'); if (welcome) welcome.textContent = `Estou aqui, ${state.profile.companionOf.preferredAddress}. O que vamos descobrir hoje?`;
   $('#entityName').textContent = state.identity.name;
   $('#entityStage').textContent = state.core.evolutionStage;
   $('#worldProvider').textContent = state.meta.provider === 'mock' ? 'PRÉVIA · IA SIMULADA' : state.meta.provider === 'openai' ? 'CORE LOCAL · IA ONLINE' : 'CORE LOCAL · OLLAMA';
@@ -193,7 +208,7 @@ function setViewMode(view, persist = true) {
   $('#roomHeading').textContent = world ? 'O mundo aguarda' : 'Um espaço nosso';
   $('#roomDescription').textContent = world
     ? 'A interface de batalha está separada do Refúgio e será expandida com o mundo externo.'
-    : 'Converse, lembre e evolua ao lado da Mayuna.';
+    : `Converse, lembre e evolua ao lado de ${currentState?.identity?.name || 'sua Companion'}.`;
   $('#roomFooter').textContent = world ? 'Exploração e batalhas' : 'Refúgio da Companion';
   $('#roomFootnote').textContent = world
     ? 'Área de combate em preparação.'
@@ -264,7 +279,7 @@ async function sendChat(message) {
   const epoch = accessEpoch;
   chatBusy = true;
   viewport?.setPresence('thinking');
-  $('#chatPresence').textContent = 'Mayuna está respondendo';
+  $('#chatPresence').textContent = `${currentState?.identity?.name || 'Sua Companion'} está respondendo`;
   const submit = $('#chatForm button[type="submit"]');
   submit.disabled = true;
   $('.chat-welcome')?.remove();
@@ -428,7 +443,7 @@ const access = new AccessGate(async () => {
   if (initialized) {
     closeDrawer(); viewport.pause(); currentState = null;
     $('#chatFeed').replaceChildren();
-    const welcome = document.createElement('p'); welcome.className = 'muted chat-welcome'; welcome.textContent = 'Estou aqui, Didi. O que vamos descobrir hoje?'; $('#chatFeed').append(welcome);
+    const welcome = document.createElement('p'); welcome.className = 'muted chat-welcome'; welcome.textContent = `Estou aqui, ${currentState?.profile?.companionOf?.preferredAddress || 'com você'}. O que vamos descobrir hoje?`; $('#chatFeed').append(welcome);
     $('#chatInput').value = '';
     $('#memoryList').replaceChildren(); $('#journalList').replaceChildren();
     $('#chatPresence').textContent = 'Pronta para conversar';

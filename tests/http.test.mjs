@@ -15,6 +15,7 @@ test('HTTP boundaries: local owner, remote pairing, DTO, interaction and revocat
   await Promise.race([new Promise((resolve,reject)=>{server.stdout.on('data',x=>{if(x.toString().includes('Interface:'))resolve();});server.on('error',reject);server.on('exit',code=>reject(Error(`Server exited ${code}: ${stderr}`)));}),new Promise((_,reject)=>{const timer=setTimeout(()=>reject(Error(`Startup timeout: ${stderr}`)),20000);timer.unref();})]);
   const base='http://127.0.0.1:4294';
   assert.equal((await fetch(base+'/api/companion/state')).status,401);
+  assert.equal((await fetch(base+'/api/companions')).status,401);
   const setup=await fetch(base+'/api/auth/setup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:'test-user',password:'OnlyTests-12345!'})});assert.equal(setup.status,200);
   const cookie=setup.headers.get('set-cookie').split(';')[0];
   const request=(url,options={})=>fetch(url,{...options,headers:{...options.headers,Cookie:cookie}});
@@ -24,6 +25,12 @@ test('HTTP boundaries: local owner, remote pairing, DTO, interaction and revocat
   assert.equal((await request(base+'/api/companion/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:''})})).status,400);
   const response=await request(base+'/api/companion/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:'Olá Mayuna'})});assert.equal(response.status,200);const chat=await response.json();assert.equal(chat.state.identity.id,state.identity.id);assert.equal(chat.state.meta.eventCount,state.meta.eventCount+1);
   assert.equal((await (await request(base+'/api/companion/verify')).json()).valid,true);
+  const hubBefore=await (await request(base+'/api/companions')).json();assert.equal(hubBefore.companions.length,1);
+  const createdResponse=await request(base+'/api/companions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:'Aurora',ownerName:'Diego',preferredAddress:'Didi',archetype:'curious'})});assert.equal(createdResponse.status,201);const created=await createdResponse.json();assert.equal(created.identity.name,'Aurora');assert.notEqual(created.identity.id,state.identity.id);
+  assert.equal((await request(base+'/api/companions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:'Aurora',ownerName:'Diego',preferredAddress:'Didi',archetype:'curious'})})).status,409);
+  const hubAfter=await (await request(base+'/api/companions')).json();assert.equal(hubAfter.companions.length,2);
+  const activate=await request(base+`/api/companions/${state.identity.id}/activate`,{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});assert.equal(activate.status,200);assert.equal((await activate.json()).identity.id,state.identity.id);
+
   const page=await request(base+'/');assert.equal(page.status,200);assert.match(page.headers.get('content-security-policy'),/connect-src 'self'/);
   // A real browser includes its local Origin on the owner POST. This must work.
   const ownerHeaders={Origin:base,'Content-Type':'application/json'};

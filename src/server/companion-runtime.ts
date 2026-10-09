@@ -1,4 +1,4 @@
-import { mkdir, readFile, readdir } from 'node:fs/promises';
+import { mkdir, readFile, readdir, unlink } from 'node:fs/promises';
 import { signData, verifySignature } from '../crypto/crypto.js';
 import { CompanionCore } from '../core/core.js';
 import { InteractionEngine } from '../core/interaction-engine.js';
@@ -7,14 +7,14 @@ import { ConversationHistory } from '../interaction/conversation-history.js';
 import { LocalStore, writeFileAtomic } from '../storage/store.js';
 import path from 'node:path';
 import type { AIProvider } from '../ai/ai-provider.js';
+import type { CompanionProfile } from '../models/companion-profile.js';
 import { MAYUNA_PROFILE } from '../companions/mayuna.js';
 
 const DATA_ROOT = process.env.MAYUNA_DATA_DIR ?? 'data';
-const ACTIVE_COMPANION_FILE = path.join(DATA_ROOT, 'active-companion.json');
-
-async function getActiveCompanionId(): Promise<string | null> {
+async function getActiveCompanionId(dataRoot: string): Promise<string | null> {
+  const activeFile = path.join(dataRoot, 'active-companion.json');
   try {
-    const content = await readFile(ACTIVE_COMPANION_FILE, 'utf8');
+    const content = await readFile(activeFile, 'utf8');
     const data = JSON.parse(content) as { id?: unknown };
     if (typeof data.id !== 'string' || !/^MC-[A-Z0-9-]+$/i.test(data.id)) throw new Error('Identidade ativa inválida.');
     return data.id;
@@ -22,7 +22,7 @@ async function getActiveCompanionId(): Promise<string | null> {
     if ((error as { code?: string }).code !== 'ENOENT') throw error;
     // A missing pointer must not silently abandon an existing identity.
     let files: string[] = [];
-    try { files = await readdir(DATA_ROOT); } catch (readError) {
+    try { files = await readdir(dataRoot); } catch (readError) {
       if ((readError as { code?: string }).code !== 'ENOENT') throw readError;
     }
     if (files.some(file => /^MC-.*\.json$/i.test(file))) throw new Error('Há identidades sem ponteiro ativo. Restaure active-companion.json.');
@@ -30,25 +30,31 @@ async function getActiveCompanionId(): Promise<string | null> {
   }
 }
 
-async function setActiveCompanionId(id: string): Promise<void> {
-  await mkdir(DATA_ROOT, { recursive: true, mode: 0o700 });
+async function setActiveCompanionId(dataRoot: string, id: string): Promise<void> {
+  await mkdir(dataRoot, { recursive: true, mode: 0o700 });
   await writeFileAtomic(
-    ACTIVE_COMPANION_FILE,
+    path.join(dataRoot, 'active-companion.json'),
     JSON.stringify({ id }, null, 2),
     0o600
   );
 }
 
+export class HubError extends Error { constructor(public status: number, message: string) { super(message); } }
+
 export class CompanionRuntime {
-  private readonly store = new LocalStore(DATA_ROOT);
+  private readonly store: LocalStore;
+  private readonly dataRoot: string;
   private queue: Promise<unknown> = Promise.resolve();
-  constructor(private readonly provider: AIProvider = new OllamaProvider()) {}
-  private readonly conversation = new ConversationHistory(6);
+  constructor(private readonly provider: AIProvider = new OllamaProvider(), dataRoot = DATA_ROOT) {
+    this.dataRoot = dataRoot;
+    this.store = new LocalStore(dataRoot);
+  }
+  private conversation = new ConversationHistory(6);
   private core!: CompanionCore;
   private interaction!: InteractionEngine;
 
   async initialize(): Promise<void> {
-    const activeId = await getActiveCompanionId();
+    const activeId = await getActiveCompanionId(this.dataRoot);
 
     if (activeId) {
       try {
@@ -115,6 +121,94 @@ export class CompanionRuntime {
     };
   }
 
+  async listCompanions() {
+    const files = await readdir(this.dataRoot, { withFileTypes: true }).catch(error => {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
+      throw error;
+    });
+    const ids = files.filter(file => file.isFile() && /^MC-[A-Z0-9-]+\.json$/i.test(file.name))
+      .map(file => file.name.slice(0, -5));
+    const activeId = this.core.getState().identity.id;
+    const companions = [];
+    for (const id of ids) {
+      const stored = await this.store.load(id);
+      if (!stored || stored.state.identity.id !== id) throw new Error(`A identidade ${id} precisa ser recuperada antes de abrir o Hub.`);
+      companions.push({ id, name: stored.state.identity.name, form: stored.state.core.evolutionStage, isActive: id === activeId });
+    }
+    return companions.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+  }
+
+  createCompanion(input: { name: string; ownerName: string; preferredAddress: string; archetype: string }) {
+    const next = this.queue.then(async () => {
+      const clean = (value: string) => value.trim().replace(/\s+/g, ' ');
+      const name = clean(input.name ?? '');
+      const ownerName = clean(input.ownerName ?? '');
+      const preferredAddress = clean(input.preferredAddress ?? '');
+      const archetypes = {
+        curious: { label: 'curiosa', stat: 'curiosity', value: 82 },
+        kind: { label: 'gentil', stat: 'empathy', value: 82 },
+        playful: { label: 'brincalhona', stat: 'humor', value: 82 },
+        brave: { label: 'corajosa', stat: 'courage', value: 82 },
+        serene: { label: 'serena', stat: 'autonomy', value: 65 }
+      } as const;
+      if (!/^[\p{L}0-9][\p{L}0-9 '\-]{1,39}$/u.test(name)) throw new HubError(400, 'Use um nome de 2 a 40 caracteres.');
+      if (!/^[\p{L}][\p{L} '\-]{1,39}$/u.test(ownerName) || !/^[\p{L}][\p{L} '\-]{1,39}$/u.test(preferredAddress)) throw new HubError(400, 'Informe seu nome e como a Companion deve chamar você.');
+      if (!Object.hasOwn(archetypes, input.archetype)) throw new HubError(400, 'Escolha uma personalidade inicial válida.');
+      const existing = await this.listCompanions();
+      if (existing.some(item => item.name.toLocaleLowerCase('pt-BR') === name.toLocaleLowerCase('pt-BR'))) throw new HubError(409, 'Já existe uma Companion com esse nome no Hub.');
+      const chosen = archetypes[input.archetype as keyof typeof archetypes];
+      const profile = structuredClone(MAYUNA_PROFILE) as CompanionProfile;
+      profile.name = name;
+      profile.companionOf = { name: ownerName, preferredAddress };
+      profile.identity.description = `${name} despertou como uma alma digital de personalidade ${chosen.label}, que evoluirá através das conversas e experiências.`;
+      profile.personality = { loyalty: 80, curiosity: 55, humor: 55, courage: 55, empathy: 55, autonomy: 45, [chosen.stat]: chosen.value };
+      profile.preferences = { favoriteThings: [] };
+      profile.genesis = { version: '0.8.0', message: `Hoje eu despertei. ${ownerName} estava ali no começo da minha história.`, initialForm: 'SOUL' };
+      const core = CompanionCore.create(profile);
+      const id = core.getState().identity.id;
+      try {
+        await this.store.save(core.getData());
+        await this.store.savePrivateKey(id, core.getPrivateKey());
+        await setActiveCompanionId(this.dataRoot, id);
+      } catch (error) {
+        await Promise.all([
+          unlink(path.join(this.dataRoot, `${id}.json`)).catch(() => undefined),
+          unlink(path.join(this.dataRoot, 'secure', `${id}.key.json`)).catch(() => undefined)
+        ]);
+        throw error;
+      }
+      this.activateCore(core);
+      return this.getClientState();
+    });
+    this.queue = next.catch(() => undefined);
+    return next;
+  }
+
+  activateCompanion(id: string) {
+    const next = this.queue.then(async () => {
+      if (!/^MC-[A-Z0-9-]+$/i.test(id)) throw new Error('Identidade inválida.');
+      const stored = await this.store.load(id);
+      if (!stored || stored.state.identity.id !== id) throw new Error('Companion não encontrada no Hub.');
+      const privateKey = await this.store.loadPrivateKey(id);
+      const challenge = 'mayuna-runtime-key-check';
+      let validKey = false;
+      try { validKey = verifySignature(challenge, signData(challenge, privateKey), stored.state.identity.cryptographicIdentity.publicKey); } catch { /* malformed private-key file */ }
+      if (!validKey) throw new HubError(409, 'Chave privada não corresponde à Companion.');
+      const core = CompanionCore.from(stored, privateKey);
+      await setActiveCompanionId(this.dataRoot, id);
+      this.activateCore(core);
+      return this.getClientState();
+    });
+    this.queue = next.catch(() => undefined);
+    return next;
+  }
+
+  private activateCore(core: CompanionCore) {
+    this.core = core;
+    this.conversation = new ConversationHistory(6);
+    this.interaction = new InteractionEngine(this.core, this.provider, this.conversation);
+  }
+
   chat(message: string) {
     // Serialize interaction + persistence: the next request sees the preceding state.
     const next = this.queue.then(() => this.interactAndSave(message));
@@ -152,6 +246,6 @@ export class CompanionRuntime {
       this.core.getState().identity.id,
       this.core.getPrivateKey()
     );
-    await setActiveCompanionId(this.core.getState().identity.id);
+    await setActiveCompanionId(this.dataRoot, this.core.getState().identity.id);
   }
 }

@@ -1,5 +1,6 @@
 import { mode } from './runtime-mode.js';
 import { request } from './http.js';
+import { api } from './api.js';
 export class AccessGate {
   constructor(onEnter,onLock) {
     this.onEnter=onEnter;this.onLock=onLock;this.root=document.querySelector('#accessGate');this.form=document.querySelector('#accessForm');this.remoteForm=document.querySelector('#remotePairForm');this.error=document.querySelector('#accessError');
@@ -8,6 +9,12 @@ export class AccessGate {
     document.querySelector('#enterWorld').addEventListener('click',()=>void this.enter());
     for(const id of ['logoutButton','gateLogout'])document.getElementById(id).addEventListener('click',()=>void this.logout());
     document.querySelector('#accessRetry').addEventListener('click',()=>void this.start());
+    document.querySelector('#manageHub').addEventListener('click',()=>void this.openHub());
+    document.querySelector('#hubButton').addEventListener('click',()=>void this.openHub());
+    document.querySelector('#hubBack').addEventListener('click',()=>this.showContinuity());
+    document.querySelector('#showCreateCompanion').addEventListener('click',()=>{document.querySelector('#createCompanionForm').hidden=false;document.querySelector('#newCompanionName').focus();});
+    document.querySelector('#createCompanionForm').addEventListener('submit',event=>{event.preventDefault();void this.createCompanion();});
+    document.querySelector('#hubCompanionList').addEventListener('click',event=>{const button=event.target.closest('[data-companion-id]');if(button)void this.selectCompanion(button.dataset.companionId);});
     window.addEventListener('mayuna:unauthorized',()=>void this.start());
   }
   async request(route,body) {
@@ -16,10 +23,11 @@ export class AccessGate {
   }
   async start() {
     this.onLock?.();this.root.hidden=false;document.querySelector('#appShell').inert=true;document.body.classList.add('is-locked');
-    this.error.textContent='';this.form.hidden=true;this.remoteForm.hidden=true;document.querySelector('#continuityScreen').hidden=true;document.querySelector('#accessRetry').hidden=true;
+    this.error.textContent='';this.form.hidden=true;this.remoteForm.hidden=true;document.querySelector('#continuityScreen').hidden=true;document.querySelector('#hubScreen').hidden=true;document.querySelector('#accessRetry').hidden=true;
     document.querySelector('#accessTitle').textContent='Conectando ao seu mundo';
     try{
       if(mode==='connect'){
+        document.querySelector('#hubButton').hidden=true;document.querySelector('#manageHub').hidden=true;
         document.querySelector('#accessTitle').textContent='Reencontre sua Companion';
         document.querySelector('#accessSubtitle').textContent='Conecte esta interface ao Core que está com você.';
         document.querySelector('#remotePairSubmit').disabled=false;
@@ -27,6 +35,7 @@ export class AccessGate {
         document.querySelector('#remotePairCode').focus();
         return;
       }
+      document.querySelector('#hubButton').hidden=mode==='demo';
       const status=await this.request('status');if(status.authenticated){await this.continuity();return;}
       this.setup=!status.configured;this.form.hidden=false;
       document.querySelector('#accessTitle').textContent=this.setup?'Um acesso. Uma história.':'Sua história continua.';
@@ -57,7 +66,12 @@ export class AccessGate {
   async continuity() {
     const response=await request('/api/companion/state',{cache:'no-store',signal:AbortSignal.timeout(15000)});
     if(!response.ok)throw Error('Não foi possível carregar a Companion. Tente entrar novamente.');
-    const state=await response.json();this.form.hidden=true;this.remoteForm.hidden=true;document.querySelector('#continuityScreen').hidden=false;
+    const state=await response.json();this.state=state;this.form.hidden=true;this.remoteForm.hidden=true;document.querySelector('#hubScreen').hidden=true;document.querySelector('#continuityScreen').hidden=false;
+    document.querySelector('#manageHub').hidden=mode==='connect'||mode==='demo';
+    if(mode!=='connect'&&mode!=='demo'){
+      try{const hub=await api.companions();this.renderHub(hub.companions,state.identity.id);}
+      catch(error){this.error.textContent=error.message;}
+    }
     document.querySelector('#accessTitle').textContent=`${state.identity.name} está aqui.`;
     document.querySelector('#accessSubtitle').textContent=`Bem-vindo, ${state.profile.companionOf.preferredAddress}. Continue com sua Companion.`;
     for(const [id,value] of Object.entries({continuityName:state.identity.name,continuityId:state.identity.id,continuityStage:state.core.evolutionStage,continuityMemories:state.memories.length,continuityEvents:state.meta.eventCount,continuityMode:state.meta.provider==='mock'?'PRÉVIA · COMPANION DE DEMONSTRAÇÃO':'IDENTIDADE EXISTENTE · CONTINUIDADE LOCAL'}))document.getElementById(id).textContent=value;
@@ -75,6 +89,38 @@ export class AccessGate {
     }
     document.querySelector('#enterWorld').focus();
   }
+  async openHub(){
+    if(mode==='connect'||mode==='demo')return;
+    this.onLock?.();this.root.hidden=false;document.querySelector('#appShell').inert=true;document.body.classList.add('is-locked');
+    document.querySelector('#accessTitle').textContent='Seu Hub';document.querySelector('#accessSubtitle').textContent='Escolha uma Companion ou desperte uma nova.';
+    document.querySelector('#continuityScreen').hidden=true;document.querySelector('#hubScreen').hidden=false;this.error.textContent='';
+    try{const hub=await api.companions();this.renderHub(hub.companions,hub.activeId);}
+    catch(error){this.error.textContent=error.message;}
+  }
+  showContinuity(){document.querySelector('#hubScreen').hidden=true;document.querySelector('#continuityScreen').hidden=false;this.error.textContent='';}
+  renderHub(companions,activeId){
+    const list=document.querySelector('#hubCompanionList');list.replaceChildren();
+    for(const companion of companions){
+      const button=document.createElement('button');button.type='button';button.className='hub-companion-option';button.dataset.companionId=companion.id;
+      const icon=document.createElement('span');icon.className='hub-soul';icon.textContent='✧';
+      const details=document.createElement('span');const name=document.createElement('strong');name.textContent=companion.name;const meta=document.createElement('small');meta.textContent=`${companion.form} · ${companion.id}`;details.append(name,meta);button.append(icon,details);
+      if(companion.id===activeId){const badge=document.createElement('span');badge.className='hub-active';badge.textContent='ATIVA';button.append(badge);}
+      list.append(button);
+    }
+  }
+  async selectCompanion(id){
+    this.error.textContent='';
+    try{await api.activateCompanion(id);await this.continuity();}
+    catch(error){this.error.textContent=error.message;}
+  }
+  async createCompanion(){
+    const button=document.querySelector('#createCompanionSubmit');if(button.disabled)return;button.disabled=true;this.error.textContent='';
+    const profile={name:document.querySelector('#newCompanionName').value,ownerName:document.querySelector('#newOwnerName').value,preferredAddress:document.querySelector('#newPreferredAddress').value,archetype:document.querySelector('#newCompanionArchetype').value};
+    try{await api.createCompanion(profile);document.querySelector('#createCompanionForm').reset();document.querySelector('#createCompanionForm').hidden=true;await this.continuity();}
+    catch(error){this.error.textContent=error.message;}
+    finally{button.disabled=false;}
+  }
+
   async enter() {
     const button=document.querySelector('#enterWorld');button.disabled=true;this.error.textContent='';
     try{await this.onEnter();this.root.hidden=true;document.querySelector('#appShell').inert=false;document.body.classList.remove('is-locked');document.querySelector('.brand').focus();}

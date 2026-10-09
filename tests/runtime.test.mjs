@@ -64,3 +64,32 @@ test('provider failure does not grant XP or change memories and the queue recove
  let fail=true;const runtime=new CompanionRuntime({name:'mock',async generateResponse(){if(fail)throw Error('Offline');return 'Estou aqui com você.';}});await runtime.initialize();const before=structuredClone(runtime.getClientState());
  await assert.rejects(runtime.chat('Olá'),/Offline/);assert.deepEqual(runtime.getClientState(),before);fail=false;await runtime.chat('Olá');assert.equal(runtime.getClientState().meta.eventCount,before.meta.eventCount+1);
 });
+
+test('Hub creates and switches independent companions without changing Mayuna',async()=>{
+ const isolated=await mkdtemp(path.join(tmpdir(),'mayuna-hub-'));
+ try{
+  const runtime=new CompanionRuntime(provider,isolated);await runtime.initialize();
+  const mayuna=runtime.getClientState();const mayunaFile=path.join(isolated,`${mayuna.identity.id}.json`);const original=await readFile(mayunaFile);
+  const created=await runtime.createCompanion({name:'Aurora',ownerName:'Diego',preferredAddress:'Didi',archetype:'curious'});
+  assert.equal(created.identity.name,'Aurora');assert.notEqual(created.identity.id,mayuna.identity.id);assert.equal(created.core.evolutionStage,'SOUL');assert.equal(created.profile.companionOf.name,'Diego');assert.equal(created.personality.curiosity,82);assert.equal(runtime.verify().valid,true);
+  const hub=await runtime.listCompanions();assert.equal(hub.length,2);assert.equal(hub.filter(x=>x.isActive).length,1);
+  await assert.rejects(runtime.createCompanion({name:'Aurora',ownerName:'Diego',preferredAddress:'Didi',archetype:'kind'}),/Já existe/);
+  await runtime.chat('Minha cor favorita é verde-musgo.');
+  const auroraFile=path.join(isolated,`${created.identity.id}.json`);const auroraAfter=JSON.parse(await readFile(auroraFile,'utf8'));
+  await runtime.activateCompanion(mayuna.identity.id);assert.equal(runtime.getClientState().identity.id,mayuna.identity.id);assert.deepEqual(await readFile(mayunaFile),original);assert.equal(runtime.verify().valid,true);
+  await runtime.activateCompanion(created.identity.id);assert.equal(runtime.getClientState().identity.id,created.identity.id);assert.deepEqual(JSON.parse(await readFile(auroraFile,'utf8')),auroraAfter);
+ }finally{await rm(isolated,{recursive:true,force:true});}
+});
+
+test('Hub rejects invalid profile choices and a broken key cannot switch active identity',async()=>{
+ const isolated=await mkdtemp(path.join(tmpdir(),'mayuna-hub-key-'));
+ try{
+  const runtime=new CompanionRuntime(provider,isolated);await runtime.initialize();const first=runtime.getClientState().identity.id;
+  await assert.rejects(runtime.createCompanion({name:'',ownerName:'Diego',preferredAddress:'Didi',archetype:'curious'}),/nome/);
+  const second=await runtime.createCompanion({name:'Luna',ownerName:'Diego',preferredAddress:'Didi',archetype:'kind'});
+  const pointer=await readFile(path.join(isolated,'active-companion.json'));
+  await writeFile(path.join(isolated,'secure',`${second.identity.id}.key.json`),JSON.stringify({privateKey:'invalid'}));
+  await assert.rejects(runtime.activateCompanion(second.identity.id),/Chave privada/);
+  assert.deepEqual(await readFile(path.join(isolated,'active-companion.json')),pointer);
+ }finally{await rm(isolated,{recursive:true,force:true});}
+});

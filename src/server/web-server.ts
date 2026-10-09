@@ -4,7 +4,7 @@ import path from 'node:path';
 import { AIConnectionError } from '../ai/openai-provider.js';
 import { createAIProvider } from '../ai/provider-factory.js';
 import { LocalAuth, AuthError } from './local-auth.js';
-import { CompanionRuntime } from './companion-runtime.js';
+import { CompanionRuntime, HubError } from './companion-runtime.js';
 import { PairingError, parseRemoteOrigin, RemotePairing } from './remote-pairing.js';
 
 const PORT = Number(process.env.PORT ?? 4173);
@@ -155,6 +155,34 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, pathname: st
   }
 
   if (!auth.authorized(req)) { json(res,401,{error:'Entre para acessar sua Companion.'}); return; }
+
+  if (req.method === 'GET' && pathname === '/api/companions') {
+    try { json(res, 200, { companions: await runtime.listCompanions(), activeId: runtime.getClientState().identity.id }); }
+    catch (error) { json(res, 409, { error: error instanceof Error ? error.message : 'Não foi possível carregar o Hub.' }); }
+    return;
+  }
+
+  if (req.method === 'POST' && pathname === '/api/companions') {
+    try {
+      const body = await readJsonBody(req) as Record<string, unknown>;
+      if (!body || typeof body.name !== 'string' || typeof body.ownerName !== 'string' || typeof body.preferredAddress !== 'string' || typeof body.archetype !== 'string') {
+        json(res, 400, { error: 'Preencha nome, como quer ser chamado e personalidade.' }); return;
+      }
+      const state = await runtime.createCompanion({ name: body.name, ownerName: body.ownerName, preferredAddress: body.preferredAddress, archetype: body.archetype });
+      json(res, 201, state);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Não foi possível criar a Companion.';
+      json(res, error instanceof HubError ? error.status : 500, { error: error instanceof HubError ? message : 'Não foi possível criar a Companion.' });
+    }
+    return;
+  }
+
+  const activateMatch = pathname.match(/^\/api\/companions\/(MC-[A-Z0-9-]+)\/activate$/i);
+  if (req.method === 'POST' && activateMatch) {
+    try { json(res, 200, await runtime.activateCompanion(activateMatch[1])); }
+    catch (error) { json(res, error instanceof HubError ? error.status : 500, { error: error instanceof Error ? error.message : 'Não foi possível selecionar a Companion.' }); }
+    return;
+  }
 
   if (req.method === 'GET' && pathname === '/api/companion/state') {
     json(res, 200, runtime.getClientState());

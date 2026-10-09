@@ -32,7 +32,24 @@
  <section id="continuityScreen" hidden><span class="eyebrow" id="continuityMode"></span>
   <div class="continuity-companion"><span class="continuity-soul">✧</span><div><h2 id="continuityName"></h2><small id="continuityId"></small></div><span id="continuityStage" class="world-chip"></span></div>
   <div class="continuity-stats"><div><b id="continuityMemories"></b><span>Memórias</span></div><div><b id="continuityEvents"></b><span>Eventos vividos</span></div></div>
-  <button id="enterWorld" class="primary-button">Continuar nossa história →</button><button id="gateLogout" class="gate-logout">Sair desta conta</button>
+  <button id="enterWorld" class="primary-button">Continuar nossa história →</button>
+  <button id="manageHub" class="secondary-button full">Trocar ou criar Companion</button>
+  <button id="gateLogout" class="gate-logout">Sair desta conta</button>
+ </section>
+ <section id="hubScreen" hidden>
+  <span class="eyebrow">SEU HUB</span><h2 class="hub-title">Suas Companions</h2>
+  <p class="hub-copy">Cada Companion tem sua própria identidade, memórias e evolução.</p>
+  <div id="hubCompanionList" class="hub-companion-list"></div>
+  <button id="showCreateCompanion" class="secondary-button full">＋ Criar nova Companion</button>
+  <form id="createCompanionForm" hidden>
+   <label>Nome da Companion<input id="newCompanionName" maxlength="40" minlength="2" required placeholder="Ex.: Aurora" /></label>
+   <label>Seu nome<input id="newOwnerName" maxlength="40" minlength="2" required placeholder="Como ela vai conhecer você" /></label>
+   <label>Como ela deve chamar você?<input id="newPreferredAddress" maxlength="40" minlength="2" required placeholder="Ex.: Didi" /></label>
+   <label>Personalidade inicial<select id="newCompanionArchetype" required><option value="curious">Curiosa</option><option value="kind">Gentil</option><option value="playful">Brincalhona</option><option value="brave">Corajosa</option><option value="serene">Serena</option></select></label>
+   <p class="access-note">Ela começará como uma alma. A personalidade poderá evoluir com as experiências.</p>
+   <button id="createCompanionSubmit" class="primary-button" type="submit">Despertar Companion</button>
+  </form>
+  <button id="hubBack" class="gate-logout">Voltar</button>
  </section>
  <p id="accessError" role="alert"></p><button id="accessRetry" class="secondary-button" hidden>Tentar novamente</button>
  </section><p class="access-motto">O que ela se torna depende de quem a acompanha.</p>
@@ -61,6 +78,7 @@
           <span class="status-dot" id="statusDot"></span>
           <span id="connectionLabel">Conectando</span>
         </div>
+        <button class="secondary-button hub-open-button" id="hubButton" type="button" title="Trocar ou criar Companion">Hub</button>
         <button class="icon-button" id="logoutButton" aria-label="Sair da conta" title="Sair"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 2v10M6 5a9 9 0 1 0 12 0"/></svg></button>
 <button class="icon-button" id="retryConnection" aria-label="Reconectar ao Core" title="Reconectar">↻</button>
         <button class="icon-button" data-open-panel="settings" aria-label="Configurações">⚙</button>
