@@ -1,3 +1,4 @@
+import { validPreference } from '../memory/memory-facts.js';
 import type {
   CompanionState,
   MemoryType
@@ -182,18 +183,15 @@ export class InteractionEngine {
 
     // Only store an asserted value. A question such as "qual é minha cor?"
     // must never be extracted as the answer "vc sabe".
-    const colorMatch = message.match(/(?:a\s+)?minha\s+cor\s+(?:favorita|preferida)\s*(?:é|e|:)\s*(.+)$/i);
+    const colorMatch = this.declarations(message).match(/(?:a\s+)?minha\s+cor\s+(?:favorita|preferida)\s*(?:é|e|:)\s*([^.!?\n]+)/i);
     const color = colorMatch ? this.cleanPreferenceValue(colorMatch[1]) : '';
-    if (color.length >= 3) {
+    if (color.length >= 3 && validPreference(color)) {
       const title = `Cor favorita de ${personName}`;
-      if (!state.memories.some(memory => memory.title.toLowerCase() === title.toLowerCase() && memory.content.toLowerCase().includes(color.toLowerCase()))) {
-        extracted.push({ type: 'IDENTITY_FORMING', title, content: `${address} contou que sua cor favorita é ${color}.`, emotionalWeight: 100 });
-      }
+      extracted.push({ type: 'IDENTITY_FORMING', title, content: `${address} contou que sua cor favorita é ${color}.`, emotionalWeight: 100 });
     }
 
     for (const fact of this.extractFavoriteAnimals(message, personName, address)) {
-      const alreadyKnown = state.memories.some(memory => memory.title.toLowerCase() === fact.title.toLowerCase() && memory.content.toLowerCase().includes(fact.value.toLowerCase()));
-      if (!alreadyKnown) extracted.push({ type: 'IDENTITY_FORMING', ...fact, emotionalWeight: 100 });
+      if (validPreference(fact.value)) extracted.push({ type: 'IDENTITY_FORMING', ...fact, emotionalWeight: 100 });
     }
 
     for (const thing of this.extractDeclaredLikes(message)) {
@@ -213,6 +211,11 @@ export class InteractionEngine {
       if (statement.length >= 3 && !knownName) extracted.push({ type: 'IDENTITY_FORMING', title: `Algo sobre ${address}`, content: `${address} contou que ${statement}.`, emotionalWeight: 85 });
     }
     return extracted;
+  }
+
+  private declarations(text: string): string {
+    return (text.match(/[^.!?\n]+[.!?]?/g) ?? [])
+      .filter(sentence => !sentence.trim().endsWith('?')).join('\n');
   }
 
   private cleanPreferenceValue(value: string): string {
@@ -236,7 +239,7 @@ export class InteractionEngine {
       if (!match) continue;
       let value = this.cleanPreferenceValue(match[1]);
       value = value.replace(/^observar\s+/i, '').replace(/^de\s+/i, '').trim();
-      if (value.length >= 2 && !likes.some(existing => existing.toLowerCase() === value.toLowerCase())) likes.push(value);
+      if (validPreference(value) && !/\b(?:eles|elas|isso|aquilo|voce)\b/i.test(value) && !likes.some(existing => existing.toLowerCase() === value.toLowerCase())) likes.push(value);
     }
     return likes;
   }
@@ -246,6 +249,8 @@ export class InteractionEngine {
     question: string,
     response: string
   ): Array<{ type: MemoryType; title: string; content: string; emotionalWeight: number }> {
+    // A fictional narrator's first person is not the Companion's identity.
+    if (/\b(?:hist[oó]ria|conto|finja|imagine que|faz de conta|faça de conta)\b/i.test(question)) return [];
     const favorite = this.extractCompanionPreference(state, question, response);
     if (favorite) return [favorite];
 
@@ -263,7 +268,7 @@ export class InteractionEngine {
   }
 
   private extractFavoriteAnimals(message: string, personName: string, address: string): Array<{title: string; content: string; value: string}> {
-    const raw = message.toLowerCase().replace(/\bpreferid([oa]s?)\b/g, 'favorit$1');
+    const raw = this.declarations(message).toLowerCase().replace(/\bpreferid([oa]s?)\b/g, 'favorit$1');
     const facts: Array<{title: string; content: string; value: string}> = [];
     const singular = raw.match(/\b(?:meu|minha)\s+(?:animal|bicho)\s+favorito\s*(?:(?:também|tambem|tbm)\s*)?(?:é|e|são|sao|seria|seriam|:)\s+([^,.!?]+)/i)
       ?? raw.match(/\banimais?\s+[^,.!?]*[,;]\s*(?:o\s+)?meu\s+favorito\s*(?:é|e|seria|seriam)\s+([^,.!?]+)/i);

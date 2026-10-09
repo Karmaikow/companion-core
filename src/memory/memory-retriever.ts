@@ -1,3 +1,4 @@
+import { currentMemories } from './memory-facts.js';
 import type {
     Memory,
     MemoryType,
@@ -30,7 +31,7 @@ import type {
   
       const queryTokens = this.tokenize(normalizedQuery);
   
-      const results = memories.map(memory => {
+      const results = currentMemories(memories).map(memory => {
   
         const title = this.normalize(memory.title);
         const content = this.normalize(memory.content);
