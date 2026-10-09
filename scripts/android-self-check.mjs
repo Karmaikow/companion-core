@@ -11,6 +11,8 @@ try {
   const { MockAIProvider } = await import('../dist/ai/mock-ai-provider.js');
   const runtime = new CompanionRuntime(new MockAIProvider());
   await runtime.initialize();
+  assert.equal(runtime.hasCompanion(),false);
+  await runtime.createCompanion({name:'Lunaya',ownerName:'Teste',preferredAddress:'Teste',soulColor:'#64834b',traits:['openness-0','stability-0']});
   const initial = structuredClone(runtime.getClientState());
   for (const message of ['Olá', 'Como está?', 'Vamos conversar', 'Estou aqui', 'Até logo']) await runtime.chat(message);
   const state = structuredClone(runtime.getClientState());

@@ -131,6 +131,7 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, pathname: st
     const token = pairing.authorize(req.headers.authorization, req.headers.origin);
     if (!token) { json(res, 401, { error: 'Conexão expirada. Gere um novo código no Core local.' }); return; }
     if (req.method === 'POST' && pathname === '/api/remote/logout') { pairing.revoke(token); json(res, 200, { ok: true }); return; }
+    if (!runtime.hasCompanion()) { json(res,409,{error:'Desperte sua Companion no acesso local.',code:'COMPANION_NOT_CREATED'}); return; }
     if (req.method === 'GET' && pathname === '/api/remote/state') { json(res, 200, runtime.getClientState()); return; }
     if (req.method === 'GET' && pathname === '/api/remote/verify') {
       const verification = runtime.verify();
@@ -157,7 +158,7 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, pathname: st
   if (!auth.authorized(req)) { json(res,401,{error:'Entre para acessar sua Companion.'}); return; }
 
   if (req.method === 'GET' && pathname === '/api/companions') {
-    try { json(res, 200, { companions: await runtime.listCompanions(), activeId: runtime.getClientState().identity.id, creationPolicy: runtime.getCreationPolicy() }); }
+    try { json(res, 200, { companions: await runtime.listCompanions(), activeId: runtime.getActiveId(), creationPolicy: runtime.getCreationPolicy() }); }
     catch (error) { json(res, 409, { error: error instanceof Error ? error.message : 'Não foi possível carregar o Hub.' }); }
     return;
   }
@@ -183,6 +184,8 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, pathname: st
     catch (error) { json(res, error instanceof HubError ? error.status : 500, { error: error instanceof Error ? error.message : 'Não foi possível selecionar a Companion.' }); }
     return;
   }
+
+  if (!runtime.hasCompanion()) { json(res,409,{error:'Desperte sua primeira Companion.',code:'COMPANION_NOT_CREATED'}); return; }
 
   if (req.method === 'GET' && pathname === '/api/companion/state') {
     json(res, 200, runtime.getClientState());

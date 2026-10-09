@@ -17,10 +17,16 @@ try {
  browser = await chromium.launch({headless:true,...(process.env.MAYUNA_TEST_BROWSER ? {executablePath:process.env.MAYUNA_TEST_BROWSER,args:['--no-sandbox','--no-zygote','--disable-dev-shm-usage','--use-angle=swiftshader']} : {})});
  const page=await browser.newPage();const errors=[];page.on('pageerror',error=>errors.push(error.message));
  const unlock=async()=>{
-  await page.waitForFunction(()=>!document.querySelector('#accessForm').hidden || !document.querySelector('#continuityScreen').hidden);
+  await page.waitForFunction(()=>!document.querySelector('#accessForm').hidden || !document.querySelector('#continuityScreen').hidden || !document.querySelector('#createCompanionForm').hidden);
   if(await page.locator('#accessForm').isVisible()){
    await page.fill('#accessUsername','didi-test');await page.fill('#accessPassword','OnlyTests-12345!');
    if(await page.locator('#accessConfirm').isVisible())await page.fill('#accessConfirm','OnlyTests-12345!');await page.click('#accessSubmit');
+  }
+  await page.waitForFunction(()=>!document.querySelector('#createCompanionForm').hidden || !document.querySelector('#continuityScreen').hidden);
+  if(await page.locator('#createCompanionForm').isVisible()){
+   await page.fill('#newCompanionName','Mayuna');await page.fill('#newOwnerName','Didi');await page.fill('#newPreferredAddress','Didi');await page.click('[data-trait="openness-0"]');
+   if(process.env.MAYUNA_SCREENSHOT_DIR)await page.screenshot({path:path.join(process.env.MAYUNA_SCREENSHOT_DIR,'primeiro-despertar.png'),fullPage:true});
+   await page.click('#createCompanionSubmit');
   }
   await page.locator('#enterWorld').waitFor({state:'visible'});await page.click('#enterWorld');await page.waitForFunction(()=>!document.body.classList.contains('is-locked'));
  };

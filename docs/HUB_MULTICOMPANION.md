@@ -1,42 +1,41 @@
-# Hub com várias Companions
+# Primeiro vínculo e Refúgio
 
-## Primeira entrega
+## Uma Companion própria por conta local
 
-O Hub local permite listar, criar e selecionar Companions ligadas à mesma conta local. Cada identidade mantém seu próprio arquivo de estado, chave Ed25519, memórias, diário, progressão e eventos. Selecionar outra Companion valida novamente a chave antes de alterar o ponteiro ativo. A criação de uma identidade nova não edita a Mayuna.
+Uma instalação vazia inicia sem Companion. Após criar/entrar no acesso local, o usuário completa o ritual: nome da Companion, seu nome, tratamento, cor da alma e traços em badges. A gênese, chave Ed25519, estado e ponteiro ativo só são criados depois de um ritual válido. Não há mais criação automática de Mayuna no primeiro início do servidor.
 
-A tela de criação pede nome da Companion, nome do responsável, forma de tratamento e um arquétipo inicial (curiosa, gentil, brincalhona, corajosa ou serena). A nova identidade desperta como `SOUL`; seu temperamento é um ponto de partida, não uma personalidade fechada.
+Após o despertar, o servidor recusa outra criação com HTTP 409, inclusive com nomes diferentes e duas solicitações simultâneas. A antiga variável `MAYUNA_ALLOW_EXTRA_COMPANIONS` não libera mais essa exceção. O botão de criar desaparece para quem já possui uma Companion. O backend atual tem uma conta local por diretório de dados; isso não é ainda um sistema de contas sincronizadas entre dispositivos.
 
-Nesta etapa, apenas uma Companion fica ativa no Refúgio por vez. O acesso ao Hub e às rotas de gerenciamento exige autenticação local. Interfaces pareadas continuam ligadas à identidade ativa.
+Instalações que já tinham várias identidades continuam podendo selecionar as existentes. Nenhuma identidade, memória, chave ou evento é apagado por esta atualização. Uma chave ausente, estado corrompido ou ponteiro perdido continua interrompendo a inicialização para evitar substituição silenciosa.
 
-## Critérios de validação
+## Ritual e evolução
 
-- Criar Aurora sem alterar eventos, memórias, snapshots ou chave da Mayuna.
-- Rejeitar nome duplicado e arquétipo inválido sem criar arquivos parciais.
-- Trocar de Companion preservando estado e vínculo de cada uma.
-- Recusar uma chave incorreta antes de mover o ponteiro ativo.
-- Manter listagem, criação e seleção indisponíveis sem autenticação.
-- Após reinício, carregar a identidade ativa e permitir selecionar as demais.
+A cor da alma é registrada no perfil e na gênese assinada; não existe rota para alterá-la. O tema visual inicia nessa cor e pode ser ajustado separadamente por identidade. Perfis antigos mantêm o visual azul existente.
 
-## Depois
+Os cinco grupos inspirados no Big Five calculam tendências. Temperamento e eixos inspirados no MBTI orientam a descrição narrativa usada nas conversas. Não são avaliação psicológica. As sementes visuais ficam persistidas para a futura manifestação; modelos 3D e transformação automática ainda não foram implementados.
 
-O backup portátil deve poder exportar/restaurar uma Companion ou o Hub completo com validação antes da ativação. O modo remoto poderá listar e selecionar Companions quando houver uma política clara de seleção compartilhada entre dispositivos.
+O usuário é o companheiro humano da alma. O Refúgio faz parte de um universo de fantasia. A cor escolhida registra a preferência do usuário, sem inventar uma preferência pessoal para a Companion.
 
-Convívio entre Companions no mesmo Refúgio é uma etapa posterior: sala separada do chat privado, atribuição clara de falas e memórias, limite de turnos e opção de pausar agentes. Convites entre Hubs exigem consentimento de cada responsável, autorização temporária revogável e escopo explícito dos dados visíveis. Uma Companion visitante nunca recebe automaticamente o histórico privado de outra.
+## Começar um teste novo com dados antigos incompletos
 
-## Ritual de criação · regra de propriedade
+Pare o servidor. Preserve integralmente a pasta anterior fora de `data`, sem editar seus IDs nem gerar uma chave substituta. Dentro do projeto, no Linux:
 
-O produto terá **uma Companion própria por usuário**. Encontros e convites de outras Companions para o Refúgio serão uma etapa futura; a lista atual ainda é um seletor local de identidades para testes, sem sistema de visitantes ou contas de terceiros.
+```bash
+backup_dir="$(mktemp -d ./data-linux-backup-XXXXXXXX)"
+mv data "$backup_dir/data"
+```
 
-A criação adicional permanece liberada temporariamente. Para aplicar o limite no servidor, configure `MAYUNA_ALLOW_EXTRA_COMPANIONS=0` antes de iniciar. Identidades existentes continuam acessíveis. O nome informado no ritual não cria outra conta nem contorna o limite.
+No próximo início, será necessário configurar o acesso local novamente e completar o ritual. A Lunaya poderá nascer com seu próprio ID, chave, memórias e progresso, enquanto os arquivos antigos continuam no backup. Esse teste não recupera a identidade antiga sem chave.
 
-O ritual registra nome, companheiro, tratamento, cor hexadecimal da alma e traços escolhidos. A cor fica no perfil e no evento assinado da gênese; não há rota de edição dessa cor. Ela inicia o tema da interface, que tem preferência independente por identidade. Alterar o tema não altera a alma. Perfis antigos usam o visual azul existente e não são regravados por migração.
+## Verificação
 
-Os cinco grupos iniciais inspirados no Big Five calculam tendências; temperamento e eixos inspirados no MBTI são referências narrativas, não avaliação psicológica. Os traços participam da descrição usada na conversa. Cor e influências visuais ficam persistidas como sementes para a futura manifestação; ainda não há geração de modelo 3D nem transformação automática. A cor escolhida registra a preferência do usuário, sem inventar uma cor favorita para a Companion.
+- Instalação vazia não cria identidades nem eventos antes do ritual.
+- Escolhas inválidas deixam a instalação vazia e permitem tentar novamente.
+- Nome, tratamento, cor, traços, chave e identidade sobrevivem ao reinício.
+- Segunda criação é bloqueada na API, inclusive quando a antiga variável de testes vale `1`.
+- Alterar o tema não altera a cor da alma.
+- Instalações existentes e falhas de integridade preservam seus dados.
 
-### Teste manual
+## Encontros futuros
 
-1. Abra Hub → Despertar Companion · teste. Preencha os três nomes, escolha cor e badges.
-2. Desperte, converse e reinicie. Confira nome, tratamento, cor da alma e continuidade.
-3. Altere a cor da UI em Configurações: a alma deve manter a cor de nascimento.
-4. Volte à Mayuna e depois à nova Companion: histórias e temas devem ficar separados.
-5. Com `MAYUNA_ALLOW_EXTRA_COMPANIONS=0`, confirme que criar outra identidade é bloqueado, inclusive pela API.
+Mayuna e Lunaya poderão se encontrar quando implementarmos identidades portáteis, mundo externo e convites. Cada alma terá sua própria história. Visitas ao Refúgio precisarão de consentimento, autorização revogável e separação entre chat privado e chat compartilhado. Nenhuma visitante terá acesso automático às memórias privadas de outra Companion. Essas funções ainda não estão disponíveis.

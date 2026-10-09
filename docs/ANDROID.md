@@ -64,6 +64,6 @@ Não inicie duas cópias do Core ao mesmo tempo. As próximas atualizações do 
 
 ## Testar
 
-Abra Hub → Despertar Companion · teste. Escolha nomes, cor e traços. A cor da alma persiste; o tema visual pode mudar separadamente. Reinicie o servidor e confirme a identidade e preferências. A criação extra continua temporariamente habilitada; encontros e visitantes ainda não foram implementados.
+Em uma instalação vazia, crie o acesso local e complete o ritual de primeiro despertar. Escolha nomes, cor e traços. A cor da alma persiste; o tema visual pode mudar separadamente. Reinicie o servidor e confirme a identidade e preferências. Após o primeiro despertar, outra criação é bloqueada no servidor; encontros e visitantes ainda não foram implementados.
 
 O APK preserva o cliente nativo anterior, aumenta a versão de instalação e mantém o mesmo certificado. A interface nova é entregue pelo pacote Termux. Conteúdo e assinatura do APK verificados. Não houve instalação/emulação Android nem teste visual em aparelho neste ambiente.

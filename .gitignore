@@ -9,3 +9,5 @@ data/
 .mayuna-preview/
 test-results/
 .mayuna-mobile-preview/
+data-backup*/
+data-linux-backup*/

@@ -19,17 +19,18 @@ test('HTTP boundaries: local owner, remote pairing, DTO, interaction and revocat
   const setup=await fetch(base+'/api/auth/setup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:'test-user',password:'OnlyTests-12345!'})});assert.equal(setup.status,200);
   const cookie=setup.headers.get('set-cookie').split(';')[0];
   const request=(url,options={})=>fetch(url,{...options,headers:{...options.headers,Cookie:cookie}});
-  const state=await (await request(base+'/api/companion/state')).json();assert.equal(state.meta.provider,'mock');assert.ok(!JSON.stringify(state).includes('PRIVATE KEY'));
+  const empty=await (await request(base+'/api/companions')).json();assert.equal(empty.activeId,null);assert.equal(empty.companions.length,0);assert.equal(empty.creationPolicy.canCreate,true);
+  assert.equal((await request(base+'/api/companion/state')).status,409);
+  const first=await request(base+'/api/companions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:'Lunaya',ownerName:'Diego',preferredAddress:'Didi',soulColor:'#64834b',traits:['openness-0','stability-0']})});assert.equal(first.status,201);
+  const state=await first.json();assert.equal(state.identity.name,'Lunaya');assert.equal(state.profile.appearance.soulColor,'#64834b');assert.equal(state.meta.provider,'mock');assert.ok(!JSON.stringify(state).includes('PRIVATE KEY'));
   for(const url of ['/data/active-companion.json','/src/core/core.ts','/%2e%2e%2fdata/active-companion.json','/missing.js'])assert.notEqual((await request(base+url)).status,200);
   assert.equal((await request(base+'/api/companion/state',{headers:{Origin:'https://untrusted.example'}})).status,403);
   assert.equal((await request(base+'/api/companion/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:''})})).status,400);
   const response=await request(base+'/api/companion/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:'Olá Mayuna'})});assert.equal(response.status,200);const chat=await response.json();assert.equal(chat.state.identity.id,state.identity.id);assert.equal(chat.state.meta.eventCount,state.meta.eventCount+1);
   assert.equal((await (await request(base+'/api/companion/verify')).json()).valid,true);
-  const hubBefore=await (await request(base+'/api/companions')).json();assert.equal(hubBefore.companions.length,1);assert.equal(hubBefore.creationPolicy.additionalCreationForTesting,true);assert.equal(hubBefore.creationPolicy.groups.length,10);
-  const createdResponse=await request(base+'/api/companions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:'Aurora',ownerName:'Diego',preferredAddress:'Didi',soulColor:'#64834b',traits:['openness-0','agreeableness-0']})});assert.equal(createdResponse.status,201);const created=await createdResponse.json();assert.equal(created.identity.name,'Aurora');assert.equal(created.profile.appearance.soulColor,'#64834b');assert.notEqual(created.identity.id,state.identity.id);
-  assert.equal((await request(base+'/api/companions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:'Aurora',ownerName:'Diego',preferredAddress:'Didi',soulColor:'#64834b',traits:['openness-0','agreeableness-0']})})).status,409);
-  const hubAfter=await (await request(base+'/api/companions')).json();assert.equal(hubAfter.companions.length,2);
-  const activate=await request(base+`/api/companions/${state.identity.id}/activate`,{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});assert.equal(activate.status,200);assert.equal((await activate.json()).identity.id,state.identity.id);
+  const hub=await (await request(base+'/api/companions')).json();assert.equal(hub.companions.length,1);assert.equal(hub.creationPolicy.canCreate,false);assert.equal(hub.creationPolicy.additionalCreationForTesting,false);
+  const second=await request(base+'/api/companions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:'Outra',ownerName:'Outro',preferredAddress:'Outro',archetype:'kind'})});assert.equal(second.status,409);
+  assert.equal((await (await request(base+'/api/companion/state')).json()).identity.id,state.identity.id);
 
   const page=await request(base+'/');assert.equal(page.status,200);assert.match(page.headers.get('content-security-policy'),/connect-src 'self'/);
   // A real browser includes its local Origin on the owner POST. This must work.

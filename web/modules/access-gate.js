@@ -14,7 +14,7 @@ export class AccessGate {
     document.querySelector('#manageHub').addEventListener('click',()=>void this.openHub());
     document.querySelector('#hubButton').addEventListener('click',()=>void this.openHub());
     document.querySelector('#hubBack').addEventListener('click',()=>this.showContinuity());
-    document.querySelector('#showCreateCompanion').addEventListener('click',()=>{this.ritual.open(this.state);document.querySelector('#accessTitle').textContent='O ritual do primeiro vínculo';});
+    document.querySelector('#showCreateCompanion').addEventListener('click',()=>{this.showCreation();});
     document.querySelector('#createCompanionForm').addEventListener('submit',event=>{event.preventDefault();void this.createCompanion();});
     document.querySelector('#hubCompanionList').addEventListener('click',event=>{const button=event.target.closest('[data-companion-id]');if(button)void this.selectCompanion(button.dataset.companionId);});
     window.addEventListener('mayuna:unauthorized',()=>void this.start());
@@ -65,7 +65,12 @@ export class AccessGate {
     try{await this.request(this.setup?'setup':'login',{username,password});this.form.reset();await this.continuity();}
     catch(error){this.error.textContent=error.message;}finally{button.disabled=false;}
   }
+  showCreation(){this.ritual.open(this.state);document.querySelector('#accessTitle').textContent='O ritual do primeiro vínculo';document.querySelector('#accessSubtitle').textContent='Escolha o nome, a essência e os traços da alma que vai acompanhar você.';}
   async continuity() {
+    if(mode!=='connect'&&mode!=='demo'){
+      const hub=await api.companions();
+      if(!hub.activeId){this.state=null;this.form.hidden=true;this.remoteForm.hidden=true;await this.openHub();this.showCreation();return;}
+    }
     const response=await request('/api/companion/state',{cache:'no-store',signal:AbortSignal.timeout(15000)});
     if(!response.ok)throw Error('Não foi possível carregar a Companion. Tente entrar novamente.');
     const state=await response.json();this.state=state;this.form.hidden=true;this.remoteForm.hidden=true;document.querySelector('#hubScreen').hidden=true;document.querySelector('#continuityScreen').hidden=false;
@@ -94,18 +99,19 @@ export class AccessGate {
   async openHub(){
     if(mode==='connect'||mode==='demo')return;
     this.ritual.close();this.onLock?.();this.root.hidden=false;document.querySelector('#appShell').inert=true;document.body.classList.add('is-locked');
-    document.querySelector('#accessTitle').textContent='Seu Hub';document.querySelector('#accessSubtitle').textContent='Escolha uma Companion ou desperte uma nova.';
+    document.querySelector('#accessTitle').textContent='Seu Hub';document.querySelector('#accessSubtitle').textContent='Seu vínculo, sua história e seu Refúgio.';
     document.querySelector('#continuityScreen').hidden=true;document.querySelector('#hubScreen').hidden=false;this.error.textContent='';
     try{const hub=await api.companions();this.configureCreation(hub);this.renderHub(hub.companions,hub.activeId);}
     catch(error){this.error.textContent=error.message;}
   }
-  showContinuity(){document.querySelector('#hubScreen').hidden=true;document.querySelector('#continuityScreen').hidden=false;this.error.textContent='';}
+  showContinuity(){if(!this.state){void this.openHub();return;}document.querySelector('#hubScreen').hidden=true;document.querySelector('#continuityScreen').hidden=false;this.error.textContent='';}
   configureCreation(hub){
     this.ritual.configure(hub.creationPolicy);
-    const extra=hub.creationPolicy.additionalCreationForTesting;
-    const button=document.querySelector('#showCreateCompanion');button.disabled=!extra&&hub.companions.length>0;
-    button.textContent=extra?'＋ Despertar Companion · teste':'＋ Despertar minha Companion';
-    document.querySelector('.hub-copy').textContent=extra?'Uma Companion por companheiro. Criação adicional liberada temporariamente para testes.':'Seu vínculo é único. Futuras visitas chegarão por encontros e convites no mundo.';
+    const button=document.querySelector('#showCreateCompanion');
+    const canCreate=hub.creationPolicy.canCreate && hub.companions.length===0;
+    button.hidden=!canCreate;button.disabled=!canCreate;button.textContent='＋ Despertar minha Companion';
+    document.querySelector('#hubBack').hidden=!hub.activeId;
+    document.querySelector('.hub-copy').textContent=canCreate?'Seu primeiro vínculo começa aqui. Desperte uma alma única.':'Você já possui uma Companion. Futuras presenças chegarão por encontros e convites no mundo.';
   }
   renderHub(companions,activeId){
     const list=document.querySelector('#hubCompanionList');list.replaceChildren();

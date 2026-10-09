@@ -34,14 +34,14 @@
   <div class="continuity-companion"><span class="continuity-soul">✧</span><div><h2 id="continuityName"></h2><small id="continuityId"></small></div><span id="continuityStage" class="world-chip"></span></div>
   <div class="continuity-stats"><div><b id="continuityMemories"></b><span>Memórias</span></div><div><b id="continuityEvents"></b><span>Eventos vividos</span></div></div>
   <button id="enterWorld" class="primary-button">Continuar nossa história →</button>
-  <button id="manageHub" class="secondary-button full">Trocar ou criar Companion</button>
+  <button id="manageHub" class="secondary-button full">Meu vínculo</button>
   <button id="gateLogout" class="gate-logout">Sair desta conta</button>
  </section>
  <section id="hubScreen" hidden>
-  <span class="eyebrow">SEU HUB</span><h2 class="hub-title">Suas Companions</h2>
-  <p class="hub-copy">Uma Companion por companheiro. Criação adicional temporariamente disponível para testes.</p>
+  <span class="eyebrow">SEU HUB</span><h2 class="hub-title">Seu vínculo</h2>
+  <p class="hub-copy">Uma Companion própria por companheiro. Uma história que continua.</p>
   <div id="hubCompanionList" class="hub-companion-list"></div>
-  <button id="showCreateCompanion" class="secondary-button full">＋ Criar nova Companion</button>
+  <button id="showCreateCompanion" class="secondary-button full">＋ Despertar minha Companion</button>
   <form id="createCompanionForm" hidden style="--soul:#3f8cff">
    <div class="ritual-grid"><div class="ritual-identity">
     <div class="ritual-preview"><canvas id="creationSoul" width="360" height="230" aria-label="Prévia da cor da alma"></canvas><p>Uma chama. Uma identidade. Uma história.</p></div>
@@ -86,7 +86,7 @@
           <span class="status-dot" id="statusDot"></span>
           <span id="connectionLabel">Conectando</span>
         </div>
-        <button class="secondary-button hub-open-button" id="hubButton" type="button" title="Trocar ou criar Companion">Hub</button>
+        <button class="secondary-button hub-open-button" id="hubButton" type="button" title="Meu vínculo">Hub</button>
         <button class="icon-button" id="logoutButton" aria-label="Sair da conta" title="Sair"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 2v10M6 5a9 9 0 1 0 12 0"/></svg></button>
 <button class="icon-button" id="retryConnection" aria-label="Reconectar ao Core" title="Reconectar">↻</button>
         <button class="icon-button" data-open-panel="settings" aria-label="Configurações">⚙</button>

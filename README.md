@@ -9,7 +9,7 @@ OpenAI e modo híbrido seguem opcionais; Ollama local continua como padrão. A c
 # Atualização web v0.4
 
 Comece por [WEB_V0.4.md](WEB_V0.4.md). Build incluído: `npm run web:start`.
-No primeiro acesso, crie a conta local. Preserve a pasta `data/` mais recente.
+No primeiro acesso com dados vazios, crie a conta local e desperte sua Companion pelo ritual. Nenhuma Mayuna é criada automaticamente. Há uma Companion própria por conta local; a criação adicional é bloqueada no servidor. Preserve a pasta `data/` mais recente. Veja [o fluxo de criação](docs/HUB_MULTICOMPANION.md).
 Arquitetura portátil e plano de escala: [ARQUITETURA_PORTATIL.md](ARQUITETURA_PORTATIL.md).
 
 ---

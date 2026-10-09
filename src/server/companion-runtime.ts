@@ -76,7 +76,8 @@ export class CompanionRuntime {
         throw new Error(`Não foi possível recuperar a Companion ativa: ${reason} Nenhuma identidade foi substituída.`, { cause: error });
       }
     } else {
-      this.core = CompanionCore.create(MAYUNA_PROFILE);
+      // A new installation stays empty until its owner completes the ritual.
+      return;
     }
 
     this.interaction = new InteractionEngine(
@@ -85,10 +86,16 @@ export class CompanionRuntime {
       this.conversation
     );
 
-    if (!activeId) await this.save();
+  }
+
+  getActiveId(): string | null { return this.core?.getState().identity.id ?? null; }
+  hasCompanion(): boolean { return this.getActiveId() !== null; }
+  private requireCompanion() {
+    if (!this.hasCompanion()) throw new HubError(409, 'Desperte sua primeira Companion antes de continuar.');
   }
 
   getClientState() {
+    this.requireCompanion();
     const state = this.core.getState();
     const data = this.core.getData();
 
@@ -131,7 +138,7 @@ export class CompanionRuntime {
     });
     const ids = files.filter(file => file.isFile() && /^MC-[A-Z0-9-]+\.json$/i.test(file.name))
       .map(file => file.name.slice(0, -5));
-    const activeId = this.core.getState().identity.id;
+    const activeId = this.getActiveId();
     const companions = [];
     for (const id of ids) {
       const stored = await this.store.load(id);
@@ -142,8 +149,7 @@ export class CompanionRuntime {
   }
 
   getCreationPolicy() {
-    // Temporary testing exception; production limit is enforced by the server.
-    return { additionalCreationForTesting: process.env.MAYUNA_ALLOW_EXTRA_COMPANIONS !== '0', groups: CREATION_GROUPS, colors: CREATION_COLORS };
+    return { canCreate: !this.hasCompanion(), additionalCreationForTesting: false, groups: CREATION_GROUPS, colors: CREATION_COLORS };
   }
 
   createCompanion(input: { name: string; ownerName: string; preferredAddress: string; archetype?: string; soulColor?: unknown; traits?: unknown }) {
@@ -166,7 +172,7 @@ export class CompanionRuntime {
       if(input.traits !== undefined) { try { seed=creationSeed(input.traits); } catch(error) { throw new HubError(400,(error as Error).message); } }
       if(seed && (typeof input.soulColor !== 'string' || !/^#[0-9a-f]{6}$/i.test(input.soulColor))) throw new HubError(400,'Escolha uma cor válida para a alma.');
       const existing = await this.listCompanions();
-      if(existing.length && !this.getCreationPolicy().additionalCreationForTesting) throw new HubError(409,'Você já possui uma Companion. Novas presenças chegarão por encontros e convites no mundo.');
+      if(this.hasCompanion() || existing.length) throw new HubError(409,'Você já possui uma Companion. Novas presenças chegarão por encontros e convites no mundo.');
       if (existing.some(item => item.name.toLocaleLowerCase('pt-BR') === name.toLocaleLowerCase('pt-BR'))) throw new HubError(409, 'Já existe uma Companion com esse nome no Hub.');
       const chosen = archetypes[(Object.hasOwn(archetypes,input.archetype ?? '') ? input.archetype : 'curious') as keyof typeof archetypes];
       const profile = structuredClone(MAYUNA_PROFILE) as CompanionProfile;
@@ -241,6 +247,7 @@ export class CompanionRuntime {
   }
 
   private async interactAndSave(message: string) {
+    this.requireCompanion();
     const started = performance.now();
     const result = await this.interaction.interact(message);
     const interactionMs = Math.round(performance.now() - started);
@@ -261,6 +268,7 @@ export class CompanionRuntime {
   }
 
   verify() {
+    this.requireCompanion();
     return this.core.verifyLocal();
   }
 

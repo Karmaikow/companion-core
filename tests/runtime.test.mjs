@@ -10,6 +10,7 @@ const { generateIdentity } = await import('../dist/crypto/crypto.js');
 // Generate a disposable fixture; never read a real Companion's data folder.
 const bootstrap = new CompanionRuntime({ name:'fixture', async generateResponse(){ return 'Estou aqui.'; } });
 await bootstrap.initialize();
+await bootstrap.createCompanion({name:'Mayuna',ownerName:'Didi',preferredAddress:'Didi',archetype:'curious'});
 await bootstrap.chat('Minha cor favorita é verde-musgo');
 const fixture = path.join(root, 'fixture');
 await cp(process.env.MAYUNA_DATA_DIR, fixture, {recursive:true});
@@ -65,47 +66,35 @@ test('provider failure does not grant XP or change memories and the queue recove
  await assert.rejects(runtime.chat('Olá'),/Offline/);assert.deepEqual(runtime.getClientState(),before);fail=false;await runtime.chat('Olá');assert.equal(runtime.getClientState().meta.eventCount,before.meta.eventCount+1);
 });
 
-test('Hub creates and switches independent companions without changing Mayuna',async()=>{
- const isolated=await mkdtemp(path.join(tmpdir(),'mayuna-hub-'));
- try{
-  const runtime=new CompanionRuntime(provider,isolated);await runtime.initialize();
-  const mayuna=runtime.getClientState();const mayunaFile=path.join(isolated,`${mayuna.identity.id}.json`);const original=await readFile(mayunaFile);
-  const created=await runtime.createCompanion({name:'Aurora',ownerName:'Diego',preferredAddress:'Didi',archetype:'curious'});
-  assert.equal(created.identity.name,'Aurora');assert.notEqual(created.identity.id,mayuna.identity.id);assert.equal(created.core.evolutionStage,'SOUL');assert.equal(created.profile.companionOf.name,'Diego');assert.equal(created.personality.curiosity,82);assert.equal(runtime.verify().valid,true);
-  const hub=await runtime.listCompanions();assert.equal(hub.length,2);assert.equal(hub.filter(x=>x.isActive).length,1);
-  await assert.rejects(runtime.createCompanion({name:'Aurora',ownerName:'Diego',preferredAddress:'Didi',archetype:'kind'}),/Já existe/);
-  await runtime.chat('Minha cor favorita é verde-musgo.');
-  const auroraFile=path.join(isolated,`${created.identity.id}.json`);const auroraAfter=JSON.parse(await readFile(auroraFile,'utf8'));
-  await runtime.activateCompanion(mayuna.identity.id);assert.equal(runtime.getClientState().identity.id,mayuna.identity.id);assert.deepEqual(await readFile(mayunaFile),original);assert.equal(runtime.verify().valid,true);
-  await runtime.activateCompanion(created.identity.id);assert.equal(runtime.getClientState().identity.id,created.identity.id);assert.deepEqual(JSON.parse(await readFile(auroraFile,'utf8')),auroraAfter);
- }finally{await rm(isolated,{recursive:true,force:true});}
-});
-
-test('Hub rejects invalid profile choices and a broken key cannot switch active identity',async()=>{
- const isolated=await mkdtemp(path.join(tmpdir(),'mayuna-hub-key-'));
- try{
-  const runtime=new CompanionRuntime(provider,isolated);await runtime.initialize();const first=runtime.getClientState().identity.id;
-  await assert.rejects(runtime.createCompanion({name:'',ownerName:'Diego',preferredAddress:'Didi',archetype:'curious'}),/nome/);
-  const second=await runtime.createCompanion({name:'Luna',ownerName:'Diego',preferredAddress:'Didi',archetype:'kind'});
-  const pointer=await readFile(path.join(isolated,'active-companion.json'));
-  await writeFile(path.join(isolated,'secure',`${second.identity.id}.key.json`),JSON.stringify({privateKey:'invalid'}));
-  await assert.rejects(runtime.activateCompanion(second.identity.id),/Chave privada/);
-  assert.deepEqual(await readFile(path.join(isolated,'active-companion.json')),pointer);
- }finally{await rm(isolated,{recursive:true,force:true});}
-});
-
-test('ritual persists soul color and trait seeds, separates favorites and enforces production limit',async()=>{
- const isolated=await mkdtemp(path.join(tmpdir(),'mayuna-ritual-'));
+test('empty installation awaits ritual; queued duplicate creation is blocked, including old test flag',async()=>{
+ const isolated=await mkdtemp(path.join(tmpdir(),'companion-onboarding-'));
  const previous=process.env.MAYUNA_ALLOW_EXTRA_COMPANIONS;
  try{
   process.env.MAYUNA_ALLOW_EXTRA_COMPANIONS='1';
-  const runtime=new CompanionRuntime(provider,isolated);await runtime.initialize();const originalId=runtime.getClientState().identity.id;
-  const input={name:'Beleye',ownerName:'Diego',preferredAddress:'Mestre Diego',soulColor:'#64834b',traits:['openness-0','agreeableness-2','energy-1','perception-1']};
-  await assert.rejects(runtime.createCompanion({...input,traits:['invented']}),/inválido/);
+  const runtime=new CompanionRuntime(provider,isolated);await runtime.initialize();
+  assert.equal(runtime.getActiveId(),null);assert.deepEqual(await runtime.listCompanions(),[]);
+  assert.throws(()=>runtime.getClientState(),e=>e.status===409);await assert.rejects(runtime.chat('Olá'),e=>e.status===409);
+  const input={name:'Lunaya',ownerName:'Diego',preferredAddress:'Didi',soulColor:'#64834b',traits:['openness-0','agreeableness-2']};
+  await assert.rejects(runtime.createCompanion({...input,traits:['invalid']}),/inválido/);
+  assert.equal(runtime.hasCompanion(),false);
+  const results=await Promise.allSettled([runtime.createCompanion(input),runtime.createCompanion({...input,name:'Segunda'})]);
+  assert.equal(results[0].status,'fulfilled');assert.equal(results[1].status,'rejected');assert.equal(results[1].reason.status,409);
+  const state=results[0].value;assert.equal(state.identity.name,'Lunaya');assert.equal(state.profile.appearance.soulColor,'#64834b');assert.ok(state.profile.appearance.formInfluences.includes('Protetora'));assert.equal(state.personality.loyalty,85);assert.equal(state.profile.preferences.favoriteColor,undefined);assert.ok(state.memories.some(m=>m.content.includes('verde-musgo')));
+  assert.equal((await runtime.listCompanions()).length,1);assert.equal(runtime.getCreationPolicy().canCreate,false);assert.equal(runtime.verify().valid,true);
+  await runtime.chat('Olá Lunaya');const saved=await readFile(path.join(isolated,`${state.identity.id}.json`));
+  const restarted=new CompanionRuntime(provider,isolated);await restarted.initialize();assert.deepEqual(restarted.getClientState(),runtime.getClientState());
+  await assert.rejects(restarted.createCompanion({...input,name:'Outra'}),/já possui/);assert.deepEqual(await readFile(path.join(isolated,`${state.identity.id}.json`)),saved);
+ }finally{if(previous===undefined)delete process.env.MAYUNA_ALLOW_EXTRA_COMPANIONS;else process.env.MAYUNA_ALLOW_EXTRA_COMPANIONS=previous;await rm(isolated,{recursive:true,force:true});}
+});
+
+test('failed first ritual persists no identity and invalid choices can be retried',async()=>{
+ const isolated=await mkdtemp(path.join(tmpdir(),'companion-invalid-'));
+ try{
+  const runtime=new CompanionRuntime(provider,isolated);await runtime.initialize();
+  const input={name:'Lunaya',ownerName:'Diego',preferredAddress:'Didi',soulColor:'#64834b',traits:['openness-0']};
   await assert.rejects(runtime.createCompanion({...input,traits:['energy-0','energy-1']}),/apenas uma/);
   await assert.rejects(runtime.createCompanion({...input,soulColor:'green'}),/cor válida/);
-  const state=await runtime.createCompanion(input);assert.equal(state.profile.appearance.soulColor,'#64834b');assert.ok(state.profile.appearance.formInfluences.includes('Protetora'));assert.equal(state.personality.loyalty,85);assert.equal(state.profile.preferences.favoriteColor,undefined);assert.ok(state.memories.some(m=>m.content.includes('verde-musgo')));assert.equal(runtime.verify().valid,true);
-  const restarted=new CompanionRuntime(provider,isolated);await restarted.initialize();assert.deepEqual(restarted.getClientState().profile.creation,state.profile.creation);assert.equal(restarted.getClientState().profile.appearance.soulColor,'#64834b');
-  process.env.MAYUNA_ALLOW_EXTRA_COMPANIONS='0';await assert.rejects(restarted.createCompanion({...input,name:'Terceira'}),/já possui/);assert.equal((await restarted.listCompanions()).length,2);await restarted.activateCompanion(originalId);assert.equal(restarted.getClientState().identity.id,originalId);
- }finally{if(previous===undefined)delete process.env.MAYUNA_ALLOW_EXTRA_COMPANIONS;else process.env.MAYUNA_ALLOW_EXTRA_COMPANIONS=previous;await rm(isolated,{recursive:true,force:true});}
+  assert.deepEqual(await runtime.listCompanions(),[]);assert.equal(runtime.getActiveId(),null);
+  await runtime.createCompanion(input);assert.equal(runtime.verify().valid,true);
+ }finally{await rm(isolated,{recursive:true,force:true});}
 });
