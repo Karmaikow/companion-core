@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "npm run web",
+    "crystal:server": "node dist/server/crystal-server.js",
+    "precrystal:server": "npm run build",
     "build": "node node_modules/typescript/bin/tsc && node scripts/sync-color-module.mjs",
     "start": "npm run web:start",
     "web": "node node_modules/tsx/dist/cli.mjs src/server/web-server.ts",

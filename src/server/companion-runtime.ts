@@ -1,3 +1,4 @@
+import { CrystalManager } from '../portability/crystal-manager.js';
 import { describeColor } from '../core/color-names.js';
 import { mkdir, readFile, readdir, unlink } from 'node:fs/promises';
 import { signData, verifySignature } from '../crypto/crypto.js';
@@ -45,17 +46,22 @@ export class HubError extends Error { constructor(public status: number, message
 
 export class CompanionRuntime {
   private readonly store: LocalStore;
+  private readonly crystal: CrystalManager;
   private readonly dataRoot: string;
   private queue: Promise<unknown> = Promise.resolve();
-  constructor(private readonly provider: AIProvider = new OllamaProvider(), dataRoot = DATA_ROOT) {
+  constructor(private readonly provider: AIProvider = new OllamaProvider(), dataRoot = DATA_ROOT, registryUrl = process.env.COMPANION_REGISTRY_URL) {
     this.dataRoot = dataRoot;
     this.store = new LocalStore(dataRoot);
+    this.crystal = new CrystalManager(dataRoot,registryUrl);
   }
   private conversation = new ConversationHistory(6);
   private core!: CompanionCore;
   private interaction!: InteractionEngine;
 
   async initialize(): Promise<void> {
+    await this.crystal.initialize();
+    try { await this.crystal.resumeImport(); } catch { console.warn('[Cristal] Despertar pendente. Retome o mesmo arquivo em Meu vínculo.'); }
+    if(this.crystal.getPhase()==='importing')return;
     const activeId = await getActiveCompanionId(this.dataRoot);
 
     if (activeId) {
@@ -126,6 +132,7 @@ export class CompanionRuntime {
       meta: {
         provider: this.provider.activeProvider ?? this.provider.name,
         configuredProvider: this.provider.name,
+        crystalPhase: this.crystal.getPhase(),
         eventCount: data.events.length,
         snapshotCount: data.snapshots.length
       }
@@ -150,7 +157,7 @@ export class CompanionRuntime {
   }
 
   getCreationPolicy() {
-    return { canCreate: !this.hasCompanion(), additionalCreationForTesting: false, groups: CREATION_GROUPS, colors: CREATION_COLORS };
+    return { canCreate: !this.hasCompanion() && this.crystal.getPhase()==='local', additionalCreationForTesting: false, groups: CREATION_GROUPS, colors: CREATION_COLORS };
   }
 
   createCompanion(input: { name: string; ownerName: string; preferredAddress: string; archetype?: string; soulColor?: unknown; traits?: unknown }) {
@@ -173,7 +180,7 @@ export class CompanionRuntime {
       if(input.traits !== undefined) { try { seed=creationSeed(input.traits); } catch(error) { throw new HubError(400,(error as Error).message); } }
       if(seed && (typeof input.soulColor !== 'string' || !/^#[0-9a-f]{6}$/i.test(input.soulColor))) throw new HubError(400,'Escolha uma cor válida para a alma.');
       const existing = await this.listCompanions();
-      if(this.hasCompanion() || existing.length) throw new HubError(409,'Você já possui uma Companion. Novas presenças chegarão por encontros e convites no mundo.');
+      if(this.hasCompanion() || existing.length || this.crystal.getPhase()!=='local') throw new HubError(409,'Você já possui uma Companion. Novas presenças chegarão por encontros e convites no mundo.');
       if (existing.some(item => item.name.toLocaleLowerCase('pt-BR') === name.toLocaleLowerCase('pt-BR'))) throw new HubError(409, 'Já existe uma Companion com esse nome no Hub.');
       const chosen = archetypes[(Object.hasOwn(archetypes,input.archetype ?? '') ? input.archetype : 'curious') as keyof typeof archetypes];
       const profile = structuredClone(MAYUNA_PROFILE) as CompanionProfile;
@@ -213,6 +220,7 @@ export class CompanionRuntime {
   activateCompanion(id: string) {
     const next = this.queue.then(async () => {
       if (!/^MC-[A-Z0-9-]+$/i.test(id)) throw new Error('Identidade inválida.');
+      if(this.crystal.getPhase()!=='local') throw new HubError(409,'Use o fluxo do Cristal para continuar esta identidade.');
       const stored = await this.store.load(id);
       if (!stored || stored.state.identity.id !== id) throw new Error('Companion não encontrada no Hub.');
       const privateKey = await this.store.loadPrivateKey(id);
@@ -244,6 +252,7 @@ export class CompanionRuntime {
 
   private async interactAndSave(message: string) {
     this.requireCompanion();
+    await this.crystal.assertActive(this.core);
     const started = performance.now();
     const result = await this.interaction.interact(message);
     const interactionMs = Math.round(performance.now() - started);
@@ -262,6 +271,16 @@ export class CompanionRuntime {
       state: this.getClientState()
     };
   }
+
+  crystalStatus() { return this.crystal.status(this.hasCompanion()?this.core:undefined); }
+  private serial<T>(action:()=>Promise<T>) { const next=this.queue.then(action);this.queue=next.catch(()=>undefined);return next; }
+  recollectCrystal(password:string,deviceName:string) { return this.serial(async()=>{this.requireCompanion();await this.save();return this.crystal.recollect(this.core,password,deviceName);}); }
+  cancelCrystal() { return this.serial(async()=>{this.requireCompanion();return this.crystal.cancel(this.core);}); }
+  awakenCrystal(file:string,password:string,deviceName:string,recoveryCode?:string) { return this.serial(async()=>{
+    const existing=await this.listCompanions();if(!this.hasCompanion()&&existing.length&&this.crystal.getPhase()!=='importing')throw new HubError(409,'Há identidades locais que precisam ser recuperadas antes de importar.');
+    const result=await this.crystal.awaken(file,password,deviceName,this.hasCompanion()?this.core:undefined,recoveryCode);
+    this.activateCore(result.core);return {state:this.getClientState(),recoveryCode:result.recoveryCode,status:await this.crystalStatus()};
+  }); }
 
   verify() {
     this.requireCompanion();

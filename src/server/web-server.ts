@@ -1,3 +1,4 @@
+import { CrystalError, MAX_CRYSTAL_BYTES } from '../portability/crystal.js';
 import { fileURLToPath } from 'node:url';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
@@ -40,11 +41,11 @@ function json(res: ServerResponse, status: number, payload: unknown): void {
   res.end(JSON.stringify(payload));
 }
 
-async function readJsonBody(req: IncomingMessage): Promise<unknown> {
+async function readJsonBody(req: IncomingMessage, limit=64_000): Promise<unknown> {
   let body = '';
   for await (const chunk of req) {
     body += chunk.toString();
-    if (body.length > 64_000) {
+    if (Buffer.byteLength(body) > limit) {
       throw new Error('Payload muito grande.');
     }
   }
@@ -148,7 +149,7 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, pathname: st
         json(res, 200, await runtime.chat(message));
       } catch (error) {
         console.error('[Companion Core] Falha no chat remoto:', chatErrorDetail(error));
-        json(res, 503, { error: 'Mayuna não conseguiu responder agora.', detail: chatErrorDetail(error) });
+        json(res, error instanceof CrystalError?error.status:503, { error: 'Sua Companion não conseguiu responder agora.', detail: error instanceof CrystalError?error.message:chatErrorDetail(error), details: error instanceof CrystalError?error.details:undefined });
       }
       return;
     }
@@ -157,6 +158,19 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, pathname: st
   }
 
   if (!auth.authorized(req)) { json(res,401,{error:'Entre para acessar sua Companion.'}); return; }
+
+  if (pathname.startsWith('/api/crystal/')) {
+    try {
+      if(req.method==='GET'&&pathname==='/api/crystal/status'){json(res,200,await runtime.crystalStatus());return;}
+      if(req.method!=='POST'){json(res,404,{error:'Operação não encontrada.'});return;}
+      const body=await readJsonBody(req,MAX_CRYSTAL_BYTES+32_000) as Record<string,unknown>;
+      if(pathname==='/api/crystal/recollect')json(res,200,await runtime.recollectCrystal(body.password as string,body.deviceName as string));
+      else if(pathname==='/api/crystal/cancel')json(res,200,await runtime.cancelCrystal());
+      else if(pathname==='/api/crystal/awaken')json(res,200,await runtime.awakenCrystal(body.file as string,body.password as string,body.deviceName as string,typeof body.recoveryCode==='string'&&body.recoveryCode?body.recoveryCode:undefined));
+      else json(res,404,{error:'Operação não encontrada.'});
+    }catch(error){json(res,error instanceof CrystalError||error instanceof HubError?error.status:400,{error:error instanceof CrystalError||error instanceof HubError?error.message:'Não foi possível processar o Cristal. Nenhuma identidade foi substituída.',details:error instanceof CrystalError?error.details:undefined});}
+    return;
+  }
 
   if (req.method === 'GET' && pathname === '/api/companions') {
     try { json(res, 200, { companions: await runtime.listCompanions(), activeId: runtime.getActiveId(), creationPolicy: runtime.getCreationPolicy() }); }
@@ -223,9 +237,9 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, pathname: st
       json(res, 200, result);
     } catch (error) {
       console.error('[Companion Core] Falha no chat:', chatErrorDetail(error));
-      json(res, 503, {
-        error: 'Mayuna não conseguiu responder agora.',
-        detail: chatErrorDetail(error)
+      json(res, error instanceof CrystalError?error.status:503, {
+        error: 'Sua Companion não conseguiu responder agora.',
+        detail: error instanceof CrystalError?error.message:chatErrorDetail(error), details: error instanceof CrystalError?error.details:undefined
       });
     }
     return;

@@ -18,9 +18,12 @@ test('HTTP boundaries: local owner, remote pairing, DTO, interaction and revocat
   assert.equal((await readdir(data)).some(name=>/^MC-.*\.json$/.test(name)),false);
   assert.equal((await fetch(base+'/api/companion/state')).status,401);
   assert.equal((await fetch(base+'/api/companions')).status,401);
+  assert.equal((await fetch(base+'/api/crystal/status')).status,401);
+  assert.equal((await fetch(base+'/api/crystal/recollect',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'})).status,401);
   const setup=await fetch(base+'/api/auth/setup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:'test-user',password:'OnlyTests-12345!'})});assert.equal(setup.status,200);
   const cookie=setup.headers.get('set-cookie').split(';')[0];
   const request=(url,options={})=>fetch(url,{...options,headers:{...options.headers,Cookie:cookie}});
+  assert.equal((await (await request(base+'/api/crystal/status')).json()).configured,false);
   const empty=await (await request(base+'/api/companions')).json();assert.equal(empty.activeId,null);assert.equal(empty.companions.length,0);assert.equal(empty.creationPolicy.canCreate,true);
   assert.equal((await request(base+'/api/companion/state')).status,409);
   const first=await request(base+'/api/companions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:'Lunaya',ownerName:'Diego',preferredAddress:'Didi',soulColor:'#64834b',traits:['openness-0','stability-0']})});assert.equal(first.status,201);
@@ -30,6 +33,8 @@ test('HTTP boundaries: local owner, remote pairing, DTO, interaction and revocat
   assert.equal((await request(base+'/api/companion/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:''})})).status,400);
   const response=await request(base+'/api/companion/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:'Olá Mayuna'})});assert.equal(response.status,200);const chat=await response.json();assert.equal(chat.state.identity.id,state.identity.id);assert.equal(chat.state.meta.eventCount,state.meta.eventCount+1);
   assert.equal((await (await request(base+'/api/companion/verify')).json()).valid,true);
+  assert.equal((await request(base+'/api/crystal/recollect',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:'Crystal-test-password',deviceName:'Linux Test'})})).status,409);
+  assert.equal((await (await request(base+'/api/companion/state')).json()).meta.crystalPhase,'local');
   const hub=await (await request(base+'/api/companions')).json();assert.equal(hub.companions.length,1);assert.equal(hub.creationPolicy.canCreate,false);assert.equal(hub.creationPolicy.additionalCreationForTesting,false);
   const second=await request(base+'/api/companions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:'Outra',ownerName:'Outro',preferredAddress:'Outro',archetype:'kind'})});assert.equal(second.status,409);
   assert.equal((await (await request(base+'/api/companion/state')).json()).identity.id,state.identity.id);

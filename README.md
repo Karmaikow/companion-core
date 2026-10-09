@@ -132,3 +132,7 @@ A interface não comprime o HUD desktop. Em telas menores ela troca para um modo
 4. criar sistema de missões e exploração;
 5. criar exportação/importação criptografada da Companion;
 6. evoluir a interface para temas completos, além da troca de cor.
+
+## Cristal de Memória
+
+Recolha sua Companion em um arquivo criptografado e desperte no próximo dispositivo. O registro central controla a sessão ativa e mostra onde ela está autorizada. Inicie o serviço com `npm run crystal:server` e configure `COMPANION_REGISTRY_URL` no Core. Veja o [guia de transferência, recuperação e limites](docs/CRISTAL_MEMORIA.md).

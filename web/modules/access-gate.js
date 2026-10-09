@@ -1,3 +1,4 @@
+import { CrystalPanel } from './crystal-panel.js';
 import { CreationRitual } from './creation-ritual.js';
 import { mode } from './runtime-mode.js';
 import { request } from './http.js';
@@ -6,6 +7,7 @@ export class AccessGate {
   constructor(onEnter,onLock) {
     this.onEnter=onEnter;this.onLock=onLock;this.root=document.querySelector('#accessGate');this.form=document.querySelector('#accessForm');this.remoteForm=document.querySelector('#remotePairForm');this.error=document.querySelector('#accessError');
     this.ritual=new CreationRitual(this.root);
+    this.crystal=new CrystalPanel(()=>this.openHub());
     this.form.addEventListener('submit',e=>{e.preventDefault();void this.submit();});
     this.remoteForm.addEventListener('submit',e=>{e.preventDefault();void this.submitRemote();});
     document.querySelector('#enterWorld').addEventListener('click',()=>void this.enter());
@@ -13,7 +15,7 @@ export class AccessGate {
     document.querySelector('#accessRetry').addEventListener('click',()=>void this.start());
     document.querySelector('#manageHub').addEventListener('click',()=>void this.openHub());
     document.querySelector('#hubButton').addEventListener('click',()=>void this.openHub());
-    document.querySelector('#hubBack').addEventListener('click',()=>this.showContinuity());
+    document.querySelector('#hubBack').addEventListener('click',()=>void this.continuity());
     document.querySelector('#showCreateCompanion').addEventListener('click',()=>{this.showCreation();});
     document.querySelector('#createCompanionForm').addEventListener('submit',event=>{event.preventDefault();void this.createCompanion();});
     document.querySelector('#hubCompanionList').addEventListener('click',event=>{const button=event.target.closest('[data-companion-id]');if(button)void this.selectCompanion(button.dataset.companionId);});
@@ -69,7 +71,7 @@ export class AccessGate {
   async continuity() {
     if(mode!=='connect'&&mode!=='demo'){
       const hub=await api.companions();
-      if(!hub.activeId){this.state=null;this.form.hidden=true;this.remoteForm.hidden=true;await this.openHub();this.showCreation();return;}
+      if(!hub.activeId){this.state=null;this.form.hidden=true;this.remoteForm.hidden=true;await this.openHub();return;}
     }
     const response=await request('/api/companion/state',{cache:'no-store',signal:AbortSignal.timeout(15000)});
     if(!response.ok)throw Error('Não foi possível carregar a Companion. Tente entrar novamente.');
@@ -94,6 +96,8 @@ export class AccessGate {
       document.querySelector('#continuityMode').textContent = 'CORE LOCAL · CONEXÃO SEGURA';
       document.querySelector('#enterWorld').textContent = 'Continuar nossa história →';
     }
+    document.querySelector('#enterWorld').disabled=!['local','active',undefined].includes(state.meta.crystalPhase);
+    if(document.querySelector('#enterWorld').disabled)document.querySelector('#accessSubtitle').textContent='Sua Companion está recolhida. Use Meu vínculo para baixar o Cristal ou cancelar o recolhimento.';
     document.querySelector('#enterWorld').focus();
   }
   async openHub(){
@@ -101,7 +105,7 @@ export class AccessGate {
     this.ritual.close();this.onLock?.();this.root.hidden=false;document.querySelector('#appShell').inert=true;document.body.classList.add('is-locked');
     document.querySelector('#accessTitle').textContent='Seu Hub';document.querySelector('#accessSubtitle').textContent='Seu vínculo, sua história e seu Refúgio.';
     document.querySelector('#continuityScreen').hidden=true;document.querySelector('#hubScreen').hidden=false;this.error.textContent='';
-    try{const hub=await api.companions();this.configureCreation(hub);this.renderHub(hub.companions,hub.activeId);}
+    try{const hub=await api.companions();this.configureCreation(hub);this.renderHub(hub.companions,hub.activeId);await this.crystal.refresh();}
     catch(error){this.error.textContent=error.message;}
   }
   showContinuity(){if(!this.state){void this.openHub();return;}document.querySelector('#hubScreen').hidden=true;document.querySelector('#continuityScreen').hidden=false;this.error.textContent='';}
@@ -119,7 +123,7 @@ export class AccessGate {
       const button=document.createElement('button');button.type='button';button.className='hub-companion-option';button.dataset.companionId=companion.id;
       const icon=document.createElement('span');icon.className='hub-soul';icon.textContent='✧';
       const details=document.createElement('span');const name=document.createElement('strong');name.textContent=companion.name;const meta=document.createElement('small');meta.textContent=`${companion.form} · ${companion.id}`;details.append(name,meta);button.append(icon,details);
-      if(companion.id===activeId){const badge=document.createElement('span');badge.className='hub-active';badge.textContent='ATIVA';button.append(badge);}
+      if(companion.id===activeId){const badge=document.createElement('span');badge.className='hub-active';badge.textContent='NESTE ACESSO';button.append(badge);}
       list.append(button);
     }
   }

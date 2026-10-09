@@ -12,3 +12,7 @@ test-results/
 data-backup*/
 data-linux-backup*/
 .mayuna-cli-demo/
+
+.companion-registry/
+*.companion
+data-crystal-*/

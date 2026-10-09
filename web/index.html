@@ -42,6 +42,19 @@
   <p class="hub-copy">Uma Companion própria por companheiro. Uma história que continua.</p>
   <div id="hubCompanionList" class="hub-companion-list"></div>
   <button id="showCreateCompanion" class="secondary-button full">＋ Despertar minha Companion</button>
+  <section id="crystalPanel" class="crystal-panel" aria-labelledby="crystalTitle">
+   <span class="eyebrow">CONTINUIDADE ENTRE DISPOSITIVOS</span><h3 id="crystalTitle">Cristal de Memória</h3>
+   <p id="crystalSession" role="status"></p>
+   <label>Nome deste dispositivo<input id="crystalDevice" maxlength="60" placeholder="Ex.: PC do Trabalho" /></label>
+   <label>Senha do Cristal<input type="password" id="crystalPassword" minlength="12" maxlength="256" autocomplete="new-password" placeholder="Pelo menos 12 caracteres" /></label>
+   <p class="access-note">Recolher pausa esta Companion aqui. O arquivo leva sua identidade, chave e história criptografadas. O despertar exige conexão ao mesmo registro central.</p>
+   <div class="crystal-actions"><button type="button" id="crystalRecollect" class="secondary-button">Recolher ao Cristal</button><button type="button" id="crystalCancel" class="secondary-button" hidden>Cancelar recolhimento</button></div>
+   <label>Já tem um Cristal?<input type="file" id="crystalFile" accept=".companion,application/octet-stream" /></label>
+   <button type="button" id="crystalAwaken" class="primary-button full">Despertar do Cristal</button>
+   <details><summary>Recuperar um dispositivo perdido</summary><p class="access-note">Use um Cristal disponível e seu código de recuperação. Esta ação revoga a sessão anterior e restaura a história que está neste arquivo; conversas posteriores a ele não serão recuperadas.</p><label>Código de recuperação<input type="password" id="crystalRecovery" maxlength="64" autocomplete="off" /></label><label class="crystal-confirm"><input type="checkbox" id="crystalRevokeConfirm" /> Confirmo a revogação da sessão anterior e a restauração deste Cristal.</label></details>
+   <div id="crystalRecoveryOutput" hidden><p>Guarde este código de recuperação separado do Cristal. Ele será substituído no próximo despertar.</p><code id="crystalRecoveryCode"></code></div>
+   <p id="crystalFeedback" role="status" aria-live="polite"></p><button type="button" id="crystalRefresh" class="gate-logout">Atualizar sessão</button>
+  </section>
   <form id="createCompanionForm" hidden style="--soul:#3f8cff">
    <div class="ritual-grid"><div class="ritual-identity">
     <div class="ritual-preview"><canvas id="creationSoul" width="360" height="230" aria-label="Prévia da cor da alma"></canvas><p>Uma chama. Uma identidade. Uma história.</p></div>
