@@ -21,7 +21,8 @@
     "preweb:mock": "npm run build",
     "demo": "node dist/demo.js",
     "predemo": "npm run build",
-    "demo:dev": "tsx src/demo.ts"
+    "demo:dev": "tsx src/demo.ts",
+    "vercel:build": "npm run build && node scripts/build-vercel-preview.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
