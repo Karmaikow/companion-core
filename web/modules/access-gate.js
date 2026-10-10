@@ -1,13 +1,24 @@
+import { CrystalPanel } from './crystal-panel.js';
+import { CreationRitual } from './creation-ritual.js';
 import { mode } from './runtime-mode.js';
 import { request } from './http.js';
+import { api } from './api.js';
 export class AccessGate {
   constructor(onEnter,onLock) {
     this.onEnter=onEnter;this.onLock=onLock;this.root=document.querySelector('#accessGate');this.form=document.querySelector('#accessForm');this.remoteForm=document.querySelector('#remotePairForm');this.error=document.querySelector('#accessError');
+    this.ritual=new CreationRitual(this.root);
+    this.crystal=new CrystalPanel(()=>this.openHub());
     this.form.addEventListener('submit',e=>{e.preventDefault();void this.submit();});
     this.remoteForm.addEventListener('submit',e=>{e.preventDefault();void this.submitRemote();});
     document.querySelector('#enterWorld').addEventListener('click',()=>void this.enter());
     for(const id of ['logoutButton','gateLogout'])document.getElementById(id).addEventListener('click',()=>void this.logout());
     document.querySelector('#accessRetry').addEventListener('click',()=>void this.start());
+    document.querySelector('#manageHub').addEventListener('click',()=>void this.openHub());
+    document.querySelector('#hubButton').addEventListener('click',()=>void this.openHub());
+    document.querySelector('#hubBack').addEventListener('click',()=>void this.continuity());
+    document.querySelector('#showCreateCompanion').addEventListener('click',()=>{this.showCreation();});
+    document.querySelector('#createCompanionForm').addEventListener('submit',event=>{event.preventDefault();void this.createCompanion();});
+    document.querySelector('#hubCompanionList').addEventListener('click',event=>{const button=event.target.closest('[data-companion-id]');if(button)void this.selectCompanion(button.dataset.companionId);});
     window.addEventListener('mayuna:unauthorized',()=>void this.start());
   }
   async request(route,body) {
@@ -15,11 +26,12 @@ export class AccessGate {
     const data=await response.json();if(!response.ok)throw Error(data.error||'Não foi possível acessar.');return data;
   }
   async start() {
-    this.onLock?.();this.root.hidden=false;document.querySelector('#appShell').inert=true;document.body.classList.add('is-locked');
-    this.error.textContent='';this.form.hidden=true;this.remoteForm.hidden=true;document.querySelector('#continuityScreen').hidden=true;document.querySelector('#accessRetry').hidden=true;
+    this.ritual.close();this.onLock?.();this.root.hidden=false;document.querySelector('#appShell').inert=true;document.body.classList.add('is-locked');
+    this.error.textContent='';this.form.hidden=true;this.remoteForm.hidden=true;document.querySelector('#continuityScreen').hidden=true;document.querySelector('#hubScreen').hidden=true;document.querySelector('#accessRetry').hidden=true;
     document.querySelector('#accessTitle').textContent='Conectando ao seu mundo';
     try{
       if(mode==='connect'){
+        document.querySelector('#hubButton').hidden=true;document.querySelector('#manageHub').hidden=true;
         document.querySelector('#accessTitle').textContent='Reencontre sua Companion';
         document.querySelector('#accessSubtitle').textContent='Conecte esta interface ao Core que está com você.';
         document.querySelector('#remotePairSubmit').disabled=false;
@@ -27,6 +39,7 @@ export class AccessGate {
         document.querySelector('#remotePairCode').focus();
         return;
       }
+      document.querySelector('#hubButton').hidden=mode==='demo';
       const status=await this.request('status');if(status.authenticated){await this.continuity();return;}
       this.setup=!status.configured;this.form.hidden=false;
       document.querySelector('#accessTitle').textContent=this.setup?'Um acesso. Uma história.':'Sua história continua.';
@@ -54,10 +67,20 @@ export class AccessGate {
     try{await this.request(this.setup?'setup':'login',{username,password});this.form.reset();await this.continuity();}
     catch(error){this.error.textContent=error.message;}finally{button.disabled=false;}
   }
+  showCreation(){this.ritual.open(this.state);document.querySelector('#accessTitle').textContent='O ritual do primeiro vínculo';document.querySelector('#accessSubtitle').textContent='Escolha o nome, a essência e os traços da alma que vai acompanhar você.';}
   async continuity() {
+    if(mode!=='connect'&&mode!=='demo'){
+      const hub=await api.companions();
+      if(!hub.activeId){this.state=null;this.form.hidden=true;this.remoteForm.hidden=true;await this.openHub();return;}
+    }
     const response=await request('/api/companion/state',{cache:'no-store',signal:AbortSignal.timeout(15000)});
     if(!response.ok)throw Error('Não foi possível carregar a Companion. Tente entrar novamente.');
-    const state=await response.json();this.form.hidden=true;this.remoteForm.hidden=true;document.querySelector('#continuityScreen').hidden=false;
+    const state=await response.json();this.state=state;this.form.hidden=true;this.remoteForm.hidden=true;document.querySelector('#hubScreen').hidden=true;document.querySelector('#continuityScreen').hidden=false;
+    document.querySelector('#manageHub').hidden=mode==='connect'||mode==='demo';
+    if(mode!=='connect'&&mode!=='demo'){
+      try{const hub=await api.companions();this.configureCreation(hub);this.renderHub(hub.companions,state.identity.id);}
+      catch(error){this.error.textContent=error.message;}
+    }
     document.querySelector('#accessTitle').textContent=`${state.identity.name} está aqui.`;
     document.querySelector('#accessSubtitle').textContent=`Bem-vindo, ${state.profile.companionOf.preferredAddress}. Continue com sua Companion.`;
     for(const [id,value] of Object.entries({continuityName:state.identity.name,continuityId:state.identity.id,continuityStage:state.core.evolutionStage,continuityMemories:state.memories.length,continuityEvents:state.meta.eventCount,continuityMode:state.meta.provider==='mock'?'PRÉVIA · COMPANION DE DEMONSTRAÇÃO':'IDENTIDADE EXISTENTE · CONTINUIDADE LOCAL'}))document.getElementById(id).textContent=value;
@@ -73,8 +96,50 @@ export class AccessGate {
       document.querySelector('#continuityMode').textContent = 'CORE LOCAL · CONEXÃO SEGURA';
       document.querySelector('#enterWorld').textContent = 'Continuar nossa história →';
     }
+    document.querySelector('#enterWorld').disabled=!['local','active',undefined].includes(state.meta.crystalPhase);
+    if(document.querySelector('#enterWorld').disabled)document.querySelector('#accessSubtitle').textContent='Sua Companion está recolhida. Use Meu vínculo para baixar o Cristal ou cancelar o recolhimento.';
     document.querySelector('#enterWorld').focus();
   }
+  async openHub(){
+    if(mode==='connect'||mode==='demo')return;
+    this.ritual.close();this.onLock?.();this.root.hidden=false;document.querySelector('#appShell').inert=true;document.body.classList.add('is-locked');
+    document.querySelector('#accessTitle').textContent='Seu Hub';document.querySelector('#accessSubtitle').textContent='Seu vínculo, sua história e seu Refúgio.';
+    document.querySelector('#continuityScreen').hidden=true;document.querySelector('#hubScreen').hidden=false;this.error.textContent='';
+    try{const hub=await api.companions();this.configureCreation(hub);this.renderHub(hub.companions,hub.activeId);await this.crystal.refresh();}
+    catch(error){this.error.textContent=error.message;}
+  }
+  showContinuity(){if(!this.state){void this.openHub();return;}document.querySelector('#hubScreen').hidden=true;document.querySelector('#continuityScreen').hidden=false;this.error.textContent='';}
+  configureCreation(hub){
+    this.ritual.configure(hub.creationPolicy);
+    const button=document.querySelector('#showCreateCompanion');
+    const canCreate=hub.creationPolicy.canCreate && hub.companions.length===0;
+    button.hidden=!canCreate;button.disabled=!canCreate;button.textContent='＋ Despertar minha Companion';
+    document.querySelector('#hubBack').hidden=!hub.activeId;
+    document.querySelector('.hub-copy').textContent=canCreate?'Seu primeiro vínculo começa aqui. Desperte uma alma única.':'Selecione uma Companion ou importe outro Cristal. Cada alma mantém sua própria história.';
+  }
+  renderHub(companions,activeId){
+    const list=document.querySelector('#hubCompanionList');list.replaceChildren();
+    for(const companion of companions){
+      const button=document.createElement('button');button.type='button';button.className='hub-companion-option';button.dataset.companionId=companion.id;
+      const icon=document.createElement('span');icon.className='hub-soul';icon.textContent='✧';
+      const details=document.createElement('span');const name=document.createElement('strong');name.textContent=companion.name;const meta=document.createElement('small');meta.textContent=`${companion.form} · ${companion.id}`;details.append(name,meta);button.append(icon,details);
+      if(companion.id===activeId){const badge=document.createElement('span');badge.className='hub-active';badge.textContent='NESTE ACESSO';button.append(badge);}
+      list.append(button);
+    }
+  }
+  async selectCompanion(id){
+    this.error.textContent='';
+    try{await api.activateCompanion(id);await this.continuity();}
+    catch(error){this.error.textContent=error.message;}
+  }
+  async createCompanion(){
+    const button=document.querySelector('#createCompanionSubmit');if(button.disabled)return;button.disabled=true;this.error.textContent='';
+    const profile={name:document.querySelector('#newCompanionName').value,ownerName:document.querySelector('#newOwnerName').value,preferredAddress:document.querySelector('#newPreferredAddress').value,...this.ritual.payload()};
+    try{await api.createCompanion(profile);this.ritual.reset();await this.continuity();}
+    catch(error){this.error.textContent=error.message;}
+    finally{button.disabled=false;}
+  }
+
   async enter() {
     const button=document.querySelector('#enterWorld');button.disabled=true;this.error.textContent='';
     try{await this.onEnter();this.root.hidden=true;document.querySelector('#appShell').inert=false;document.body.classList.remove('is-locked');document.querySelector('.brand').focus();}

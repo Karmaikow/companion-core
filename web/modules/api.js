@@ -7,6 +7,18 @@ export const api = {
     const data = await response.json(); if (!response.ok) throw new Error(data.error || 'Não foi possível gerar o código.'); return data;
   },
   async connect(code) { return connectWithCode(code); },
+  async companions() {
+    const response = await request('/api/companions', { cache: 'no-store', signal: AbortSignal.timeout(15_000) });
+    const data = await response.json(); if (!response.ok) throw new Error(data.error || 'Não foi possível carregar o Hub.'); return data;
+  },
+  async createCompanion(profile) {
+    const response = await request('/api/companions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(15_000), body: JSON.stringify(profile) });
+    const data = await response.json(); if (!response.ok) throw new Error(data.error || 'Não foi possível criar a Companion.'); return data;
+  },
+  async activateCompanion(id) {
+    const response = await request(`/api/companions/${encodeURIComponent(id)}/activate`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    const data = await response.json(); if (!response.ok) throw new Error(data.error || 'Não foi possível trocar de Companion.'); return data;
+  },
   async state() {
     const response = await request('/api/companion/state', { cache: 'no-store', signal: AbortSignal.timeout(15_000) });
     if (response.status === 401) window.dispatchEvent(new Event('mayuna:unauthorized'));

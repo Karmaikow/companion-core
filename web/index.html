@@ -4,18 +4,20 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#090d22" />
-  <title>Companion Core · Mayuna</title>
+  <title>Companion Core · Companion</title>
 <meta name="description" content="Uma janela para o mundo da sua Companion: HUD modular, alma digital e história contínua." />
 <link rel="icon" href="/icon.svg" type="image/svg+xml" />
 <link rel="manifest" href="/manifest.webmanifest" crossorigin="use-credentials" />
   <link rel="stylesheet" href="/styles.css" />
   <link rel="stylesheet" href="/sanctuary.css" />
 <link rel="stylesheet" href="/astral.css" />
+<link rel="stylesheet" href="/experience-layout.css" />
+<link rel="stylesheet" href="/creation-ritual.css" />
 </head>
 <body class="is-locked">
 <main id="accessGate" class="access-gate">
  <div class="access-art" aria-hidden="true"><div class="gate-orbit orbit-a"></div><div class="gate-orbit orbit-b"></div><div class="gate-orbit orbit-c"></div><div class="gate-soul"></div><span class="gate-star star-a">✦</span><span class="gate-star star-b">✧</span></div>
- <div class="access-brand"><span>✧</span><strong>COMPANION CORE</strong><small>MAYUNA · PRIMEIRA COMPANION</small></div>
+ <div class="access-brand"><span>✧</span><strong>COMPANION CORE</strong><small>ALMAS · MEMÓRIAS · HISTÓRIAS</small></div>
  <section class="access-card"><span class="eyebrow">O PRIMEIRO VÍNCULO</span><h1 id="accessTitle">Conectando ao seu mundo</h1><p id="accessSubtitle">Toda Companion nasce como uma alma. A história começa com quem a acompanha.</p>
  <form id="accessForm" hidden>
   <label>Usuário local<input id="accessUsername" name="username" autocomplete="username" minlength="3" maxlength="40" pattern="[a-zA-Z0-9_.-]{3,40}" required placeholder="Seu usuário" /></label>
@@ -26,28 +28,86 @@
  <form id="remotePairForm" hidden>
   <label>Código de pareamento do Core local<input id="remotePairCode" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{8}" minlength="8" maxlength="8" required placeholder="00000000" /></label>
   <button id="remotePairSubmit" class="primary-button" type="submit">Conectar à minha Companion</button>
-  <small class="access-note">Abra a Mayuna no computador onde o Core está rodando e gere um código em Configurações → Conexão. O código vale por 2 minutos. A conexão direta funciona neste mesmo computador.</small>
+  <small class="access-note">Abra o Companion Core no computador onde o Core está rodando e gere um código em Configurações → Conexão. O código vale por 2 minutos. A conexão direta funciona neste mesmo computador.</small>
  </form>
  <section id="continuityScreen" hidden><span class="eyebrow" id="continuityMode"></span>
   <div class="continuity-companion"><span class="continuity-soul">✧</span><div><h2 id="continuityName"></h2><small id="continuityId"></small></div><span id="continuityStage" class="world-chip"></span></div>
   <div class="continuity-stats"><div><b id="continuityMemories"></b><span>Memórias</span></div><div><b id="continuityEvents"></b><span>Eventos vividos</span></div></div>
-  <button id="enterWorld" class="primary-button">Continuar nossa história →</button><button id="gateLogout" class="gate-logout">Sair desta conta</button>
+  <button id="enterWorld" class="primary-button">Continuar nossa história →</button>
+  <button id="manageHub" class="secondary-button full">Meu vínculo</button>
+  <button id="gateLogout" class="gate-logout">Sair desta conta</button>
+ </section>
+ <section id="hubScreen" hidden>
+  <span class="eyebrow">SEU HUB</span><h2 class="hub-title">Seu vínculo</h2>
+  <p class="hub-copy">Uma Companion própria por companheiro. Uma história que continua.</p>
+  <div id="hubCompanionList" class="hub-companion-list"></div>
+  <button id="showCreateCompanion" class="secondary-button full">＋ Despertar minha Companion</button>
+  <section id="crystalPanel" class="crystal-panel" aria-labelledby="crystalTitle">
+   <span class="eyebrow">CONTINUIDADE ENTRE DISPOSITIVOS</span><h3 id="crystalTitle">Cristal de Memória</h3>
+   <p id="crystalSession" role="status"></p>
+   <label>Nome deste dispositivo<input id="crystalDevice" maxlength="60" placeholder="Ex.: PC do Trabalho" /></label>
+   <label>Senha do Cristal<input type="password" id="crystalPassword" minlength="12" maxlength="256" autocomplete="new-password" placeholder="Pelo menos 12 caracteres" /></label>
+   <p class="access-note">Recolher pausa esta Companion aqui. O arquivo leva sua identidade, chave e história criptografadas. O despertar exige conexão ao mesmo registro central.</p>
+   <div class="crystal-actions"><button type="button" id="crystalRecollect" class="secondary-button">Recolher ao Cristal</button><button type="button" id="crystalCancel" class="secondary-button" hidden>Cancelar recolhimento</button></div>
+   <label>Já tem um Cristal?<input type="file" id="crystalFile" accept=".companion,application/octet-stream" /></label>
+   <button type="button" id="crystalPreview" class="secondary-button full">Examinar Cristal</button>
+   <p id="crystalPreviewInfo" role="status"></p>
+   <label class="crystal-confirm"><input type="checkbox" id="crystalAcceptGift" /> Se for um presente, aceito cuidar desta Companion e receber seu histórico completo.</label>
+   <button type="button" id="crystalAwaken" class="primary-button full">Importar Companion do Cristal</button>
+   <details class="bond-passage"><summary>✧ Passagem do Vínculo</summary>
+    <p class="access-note">Uma alma, um novo encontro. O destinatário gera um convite neste acesso; quem presenteia usa esse convite para preparar o Cristal. O vínculo muda somente após o aceite.</p>
+    <fieldset><legend>1 · Quero receber uma Companion</legend>
+     <label>Meu nome<input id="bondName" maxlength="60" placeholder="Seu nome" /></label>
+     <label>Como ela deve me chamar?<input id="bondAddress" maxlength="60" placeholder="Seu apelido" /></label>
+     <button type="button" id="bondInvite" class="secondary-button full">Criar convite de vínculo</button>
+     <p class="access-note">Envie o arquivo .vinculo a quem vai presentear você. Ele é público e vale por 7 dias. Aceite o presente neste mesmo acesso.</p>
+    </fieldset>
+    <fieldset><legend>2 · Quero presentear a Companion selecionada</legend>
+     <label>Convite do destinatário<input type="file" id="bondInvitationFile" accept=".vinculo,application/json" /></label>
+     <p id="bondRecipient" role="status"></p>
+     <label class="crystal-confirm"><input type="checkbox" id="bondShareHistory" /> Autorizo compartilhar todo o histórico, incluindo memórias pessoais e diário. Após o aceite, meu acesso anterior será encerrado.</label>
+     <button type="button" id="bondOffer" class="secondary-button full">Preparar a Passagem do Vínculo</button>
+     <p class="access-note">Use a senha do Cristal acima. Envie o arquivo .companion e a senha ao destinatário. É possível cancelar antes do aceite. Nesta versão não há opção de remover memórias do presente.</p>
+    </fieldset>
+   </details>
+   <button type="button" id="crystalMigrate" class="secondary-button full" hidden>Conectar esta identidade ao registro migrado</button>
+   <details><summary>Recuperar um dispositivo perdido</summary><p class="access-note">Use um Cristal disponível e seu código de recuperação. Esta ação revoga a sessão anterior e restaura a história que está neste arquivo; conversas posteriores a ele não serão recuperadas.</p><label>Código de recuperação<input type="password" id="crystalRecovery" maxlength="64" autocomplete="off" /></label><label class="crystal-confirm"><input type="checkbox" id="crystalRevokeConfirm" /> Confirmo a revogação da sessão anterior e a restauração deste Cristal.</label></details>
+   <div id="crystalRecoveryOutput" hidden><p>Guarde este código de recuperação separado do Cristal. Ele será substituído no próximo despertar.</p><code id="crystalRecoveryCode"></code></div>
+   <p id="crystalFeedback" role="status" aria-live="polite"></p><button type="button" id="crystalRefresh" class="gate-logout">Atualizar sessão</button>
+  </section>
+  <form id="createCompanionForm" hidden style="--soul:#3f8cff">
+   <div class="ritual-grid"><div class="ritual-identity">
+    <div class="ritual-preview"><canvas id="creationSoul" width="360" height="230" aria-label="Prévia da cor da alma"></canvas><p>Uma chama. Uma identidade. Uma história.</p></div>
+    <label>Nome da Companion<input id="newCompanionName" maxlength="40" minlength="2" required placeholder="Ex.: Aurora" /></label>
+    <label>Seu nome<input id="newOwnerName" maxlength="40" minlength="2" required placeholder="Como ela vai conhecer você" /></label>
+    <label>Como ela vai chamar você?<input id="newPreferredAddress" maxlength="40" minlength="2" required placeholder="Ex.: Didi" /></label>
+    <label>Cor da alma da Companion</label><div id="creationPalette" class="ritual-palette" aria-label="Cores da alma"></div>
+    <label>Ou escolha uma cor<input type="color" id="newSoulColor" value="#3f8cff" /></label><output id="soulColorName">Azul-safira</output>
+    <p class="access-note">Esta é a cor permanente da alma dela. Não define a cor favorita de nenhum de vocês. A interface começa em azul-safira e pode ser personalizada depois.</p>
+   </div><div class="ritual-personality"><span class="eyebrow">SEMENTES DA PERSONALIDADE</span><h3>Que chama vai despertar?</h3>
+    <p>Combine traços nos cinco horizontes. Escolha uma opção por temperamento e eixo, se desejar. Passe o mouse ou selecione um traço para ver sua descrição. São inspirações narrativas; a personalidade evolui com vocês.</p>
+    <div id="creationTraits" class="ritual-traits"></div>
+    <p class="access-note">Traços inspirados no Big Five, temperamentos e eixos do MBTI. Não é um teste psicológico. Essas sementes influenciam o comportamento e ficam guardadas para a futura forma.</p>
+   </div></div><div class="ritual-footer"><p id="creationSummary"></p><button type="button" id="creationCancel" class="gate-logout">Voltar ao Hub</button><button id="createCompanionSubmit" class="primary-button" type="submit">✧ Fundir essência e despertar</button></div>
+  </form>
+  <button id="hubBack" class="gate-logout">Voltar</button>
  </section>
  <p id="accessError" role="alert"></p><button id="accessRetry" class="secondary-button" hidden>Tentar novamente</button>
  </section><p class="access-motto">O que ela se torna depende de quem a acompanha.</p>
 </main>
-  <div class="app-shell" id="appShell" inert>
+  <div class="app-shell" id="appShell" data-view-mode="refugio" inert>
     <header class="topbar hud-frame">
-      <button class="brand" data-action="focus-world" aria-label="Voltar ao mundo">
+      <button class="brand" data-action="focus-refuge" aria-label="Voltar ao Refúgio">
         <span class="brand-mark">◇</span>
         <span class="brand-copy">
           <strong>COMPANION CORE</strong>
-          <small>MAYUNA · PRIMEIRA COMPANION</small>
+          <small>ALMAS · MEMÓRIAS · HISTÓRIAS</small>
         </span>
       </button>
 
       <nav class="desktop-nav" aria-label="Navegação principal">
-        <button class="nav-item is-active" data-action="focus-world">Mundo</button>
+        <button class="nav-item is-active" data-view-mode="refugio" aria-pressed="true">Refúgio</button>
+        <button class="nav-item" data-view-mode="world" title="Companion World" aria-pressed="false">Companion World</button>
         <button class="nav-item" data-open-panel="companion">Companion</button>
         <button class="nav-item" data-open-panel="inventory">Inventário</button>
         <button class="nav-item" data-open-panel="skills">Skills</button>
@@ -59,6 +119,7 @@
           <span class="status-dot" id="statusDot"></span>
           <span id="connectionLabel">Conectando</span>
         </div>
+        <button class="secondary-button hub-open-button" id="hubButton" type="button" title="Meu vínculo">Hub</button>
         <button class="icon-button" id="logoutButton" aria-label="Sair da conta" title="Sair"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 2v10M6 5a9 9 0 1 0 12 0"/></svg></button>
 <button class="icon-button" id="retryConnection" aria-label="Reconectar ao Core" title="Reconectar">↻</button>
         <button class="icon-button" data-open-panel="settings" aria-label="Configurações">⚙</button>
@@ -71,7 +132,7 @@
           <div class="panel-titlebar">
             <div>
               <span class="eyebrow">COMPANION</span>
-              <h2 id="companionName">Mayuna</h2>
+              <h2 id="companionName">Companion</h2>
             </div>
             <div class="panel-window-actions">
               <button data-minimize-panel="companion-summary" aria-label="Minimizar">—</button>
@@ -110,7 +171,7 @@
               <div><small>Eventos</small><strong id="eventCount">0</strong></div>
             </div>
 
-            <button class="primary-button full" data-open-panel="chat">Falar com Mayuna</button>
+            <button class="primary-button full" data-open-panel="chat">Falar com Companion</button>
           </div>
         </section>
 
@@ -143,31 +204,31 @@
           <div class="world-topline">
             <div>
               <span class="world-chip" id="worldProvider">NÚCLEO DE GÊNESE</span>
-              <strong>Núcleo de Gênese</strong>
-              <small class="world-coordinate">ZONA ZERO / 001</small>
+              <strong id="roomName">Refúgio da Companion</strong>
+              <small class="world-coordinate" id="roomCoordinate">ESPAÇO PRIVADO</small>
             </div>
             <div class="world-system-state"><span class="status-dot"></span><span id="worldConnection">Conectando</span><button id="immersiveToggle" class="desktop-only" aria-label="Expandir mundo" aria-pressed="false" title="Alternar HUD compacto"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg></button></div>
           </div>
 
-          <div class="world-heading"><span class="eyebrow">CAPÍTULO I</span><h1>O primeiro despertar</h1><p>Todo vínculo deixa uma marca no mundo.</p></div>
-          <button class="entity-target" data-open-panel="companion" aria-label="Inspecionar Mayuna no mundo"></button>
-          <div class="entity-nameplate"><span id="entityStage">SOUL</span><strong id="entityName">Mayuna</strong><small id="entityPresence">Aguardando conexão</small></div>
-    <section class="main-chat hud-panel" id="panel-chat" aria-label="Conversa com Mayuna">
+          <div class="world-heading"><span class="eyebrow" id="roomEyebrow">NOSSA HISTÓRIA</span><h1 id="roomHeading">Um espaço nosso</h1><p id="roomDescription">Converse, lembre e evolua ao lado da sua Companion.</p></div>
+          <button class="entity-target" data-open-panel="companion" aria-label="Inspecionar Companion no mundo"></button>
+          <div class="entity-nameplate"><span id="entityStage">SOUL</span><strong id="entityName">Companion</strong><small id="entityPresence">Aguardando conexão</small></div>
+    <section class="main-chat hud-panel" id="panel-chat" aria-label="Conversa com Companion">
       <div class="chat-header" tabindex="0" aria-label="Mover conversa: arraste ou use Alt e as setas">
-        <div class="chat-identity"><span class="mini-soul">◇</span><div><span class="eyebrow">CONEXÃO DIRETA</span><h2>Mayuna</h2></div></div>
+        <div class="chat-identity"><span class="mini-soul">◇</span><div><span class="eyebrow">CONEXÃO DIRETA</span><h2>Companion</h2></div></div>
         <span class="chat-live-status"><i></i> <span id="chatPresence">Pronta para conversar</span></span>
         <button type="button" id="minimizeChat" class="chat-window-button" aria-label="Minimizar conversa" aria-expanded="true" aria-controls="chatFeed chatForm">—</button>
       </div>
       <div class="chat-feed" id="chatFeed" aria-live="polite">
-        <p class="muted chat-welcome">Estou aqui, Didi. O que vamos descobrir hoje?</p>
+        <p class="muted chat-welcome">Estou aqui com você. O que vamos descobrir hoje?</p>
       </div>
       <form class="chat-composer" id="chatForm">
-        <textarea aria-label="Mensagem para Mayuna" id="chatInput" rows="1" maxlength="2000" placeholder="Fale com Mayuna..."></textarea>
+        <textarea aria-label="Mensagem para Companion" id="chatInput" rows="1" maxlength="2000" placeholder="Fale com Companion..."></textarea>
         <button type="submit" class="send-button" aria-label="Enviar">➤</button>
       </form>
     </section>
 
-          <div class="world-footer"><span>◇ <b>Núcleo orbital · Zona Zero</b></span><small>Ambiente visual · mundo persistente em desenvolvimento</small></div>
+          <div class="world-footer"><span>◇ <b id="roomFooter">Refúgio da Companion</b></span><small id="roomFootnote">Um lugar para conversa, memórias e evolução.</small></div>
         </section>
 
         <section class="bottom-hud desktop-only">
@@ -234,7 +295,7 @@
             </article>
             <article>
               <span class="quest-icon">✦</span>
-              <div><strong>Voz no Núcleo</strong><small>Converse com Mayuna pela interface web.</small></div>
+              <div><strong>Voz no Núcleo</strong><small>Converse com sua Companion pela interface web.</small></div>
             </article>
             <article>
               <span class="quest-icon">◈</span>
@@ -263,7 +324,7 @@
     <div class="mobile-status mobile-only">
       <div>
         <span class="status-dot"></span>
-        <strong id="mobileName">Mayuna</strong>
+        <strong id="mobileName">Companion</strong>
         <small id="mobileStage">SOUL</small>
       </div>
       <div>
@@ -276,9 +337,9 @@
     <div class="mobile-hotbar mobile-only" id="mobileHotbar"></div>
 
     <nav class="mobile-dock mobile-only" aria-label="Menu mobile">
-      <button data-action="focus-world"><span>⌂</span><small>Mundo</small></button>
+      <button data-view-mode="refugio" class="is-active"><span>⌂</span><small>Refúgio</small></button>
+      <button data-view-mode="world"><span>⚔</span><small>World</small></button>
       <button data-open-panel="inventory"><span>▦</span><small>Itens</small></button>
-      <button data-open-panel="companion"><span>◇</span><small>Mayuna</small></button>
       <button data-open-panel="chat" class="dock-primary"><span>✦</span><small>Chat</small></button>
       <button data-open-panel="menu"><span>☰</span><small>Menu</small></button>
     </nav>
@@ -286,7 +347,7 @@
     <div class="overlay" id="overlay" hidden></div>
 
     <section class="drawer-panel" id="panel-companion" data-drawer="companion" aria-hidden="true">
-      <div class="drawer-header"><div><span class="eyebrow">COMPANION</span><h2>Mayuna</h2></div><button data-close-drawer>×</button></div>
+      <div class="drawer-header"><div><span class="eyebrow">COMPANION</span><h2>Companion</h2></div><button data-close-drawer>×</button></div>
       <div class="drawer-content">
         <div class="large-soul">
           <div class="large-soul-core">◇</div>
@@ -331,7 +392,7 @@
 
     <section class="drawer-panel" id="panel-memories" data-drawer="memories" aria-hidden="true">
       <div class="drawer-header"><div><span class="eyebrow">HISTÓRIA</span><h2>Memórias</h2></div><button data-close-drawer>×</button></div>
-      <div class="drawer-content"><h3>Memórias</h3><div class="memory-list" id="memoryList"></div><h3>Diário de Mayuna</h3><div class="memory-list" id="journalList"></div></div>
+      <div class="drawer-content"><h3>Memórias</h3><div class="memory-list" id="memoryList"></div><h3>Diário de Companion</h3><div class="memory-list" id="journalList"></div></div>
     </section>
 
 
@@ -364,6 +425,8 @@
     <section class="drawer-panel" id="panel-menu" data-drawer="menu" aria-hidden="true">
       <div class="drawer-header"><div><span class="eyebrow">SISTEMA</span><h2>Menu</h2></div><button data-close-drawer>×</button></div>
       <div class="drawer-content menu-grid">
+        <button data-open-panel="companion">◇ <span>Companion</span></button>
+        <button data-open-panel="inventory">▦ <span>Inventário</span></button>
         <button data-open-panel="skills">✦ <span>Skills</span></button>
         <button data-open-panel="memories">▤ <span>Memórias</span></button>
         <button data-open-panel="settings">⚙ <span>Interface</span></button>

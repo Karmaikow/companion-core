@@ -1,3 +1,4 @@
+import { sameFact, preferenceFact } from '../memory/memory-facts.js';
 import { randomUUID } from 'node:crypto';
 
 import type {
@@ -587,6 +588,20 @@ this.addJournal(
   emotionalWeight: number,
   relatedEvents: string[] = []
   ): Memory {
+  const archived = new Set(this.data.state.profile.bondHistory?.flatMap(passage => passage.archivedMemoryIds) ?? []);
+  const currentBondMemories = this.data.state.memories.filter(memory => !archived.has(memory.id));
+  const candidate = { type, title, content };
+  const fact = preferenceFact(candidate);
+  const latest = [...currentBondMemories].reverse().find(memory => {
+    const existing = preferenceFact(memory);
+    return fact && existing && fact.slot === existing.slot && !fact.slot.includes(' gosta de');
+  });
+  // A changed favorite is a new assertion, including changing back to an old
+  // value. Only repeated current facts reuse their existing record.
+  const duplicate = latest
+    ? (sameFact(latest, candidate) ? latest : undefined)
+    : currentBondMemories.find(memory => sameFact(memory, candidate));
+  if (duplicate) return duplicate;
   const memory: Memory = {
   id: randomUUID(),
 
@@ -627,6 +642,8 @@ return memory;
   content: string,
   relatedEvents: string[] = []
   ): JournalEntry {
+  const duplicate = this.data.state.journal.find(entry => sameFact(entry, { type, title, content }));
+  if (duplicate) return duplicate;
   const journal: JournalEntry = {
   id: randomUUID(),
 

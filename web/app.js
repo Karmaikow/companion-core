@@ -48,7 +48,7 @@ function applyTheme(hex, persist = true) {
   root.style.setProperty('--accent-soft', mixWithWhite(rgb));
   $('#customTheme').value = hex;
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', hex);
-  if (persist) preferences.set('mayuna-theme', hex);
+  if (persist) preferences.set(currentState ? `companion-theme-${currentState.identity.id}` : 'mayuna-theme', hex);
   viewport?.setTheme(`${rgb.r}, ${rgb.g}, ${rgb.b}`);
 }
 
@@ -82,14 +82,35 @@ function renderPersonality(personality) {
 function renderMemories(memories = []) {
   const list = $('#memoryList');
   if (!memories.length) {
-    list.innerHTML = '<p class="muted">Mayuna ainda não possui memórias registradas.</p>';
+    list.innerHTML = '<p class="muted">Sua Companion ainda não possui memórias registradas.</p>';
     return;
   }
 
-  list.innerHTML = memories.slice().reverse().map(memory => {
-    const date = new Date(memory.timestamp);
-    const dateText = Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString('pt-BR');
-    return `<article class="memory-card"><header><strong>${escapeHtml(memory.title)}</strong><small>${escapeHtml(memory.type)} · ${dateText}</small></header><p>${escapeHtml(memory.content)}</p></article>`;
+  const companion = currentState?.identity?.name ?? 'Companion';
+  const person = currentState?.profile?.companionOf?.name ?? 'Você';
+  const groups = [
+    { title: `Sobre ${person}`, test: memory => memory.title.toLocaleLowerCase('pt-BR').includes(person.toLocaleLowerCase('pt-BR')) },
+    { title: `Sobre ${companion}`, test: memory => memory.title.toLocaleLowerCase('pt-BR').includes(companion.toLocaleLowerCase('pt-BR')) },
+    { title: 'História compartilhada', test: () => true }
+  ];
+  const remaining = new Set(memories);
+  list.innerHTML = groups.map(group => {
+    const entries = memories.slice().reverse().filter(memory => remaining.has(memory) && group.test(memory));
+    entries.forEach(memory => remaining.delete(memory));
+    if (!entries.length) return '';
+    const cards = entries.map(memory => {
+      const date = new Date(memory.timestamp);
+      const dateText = Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString('pt-BR');
+      const legacyPrefix = `${person} gosta de `;
+      const legacyLike = memory.title.toLocaleLowerCase('pt-BR').startsWith(legacyPrefix.toLocaleLowerCase('pt-BR'));
+      const legacyValue = legacyLike ? memory.title.slice(legacyPrefix.length).split(/\b(?:tbm|tamb[eé]m)\b|[,!?]/i)[0]?.trim() : '';
+      const title = legacyValue ? `${person} gosta de ${legacyValue}` : memory.title;
+      const content = legacyValue && legacyLike && memory.title.slice(legacyPrefix.length) !== legacyValue
+        ? `${person} comentou que gosta de ${legacyValue}.`
+        : memory.content;
+      return `<article class="memory-card"><header><strong>${escapeHtml(title)}</strong><small>${escapeHtml(memory.type)} · ${dateText}</small></header><p>${escapeHtml(content)}</p></article>`;
+    }).join('');
+    return `<section class="memory-group"><h3>${escapeHtml(group.title)}</h3>${cards}</section>`;
   }).join('');
 }
 
@@ -103,8 +124,25 @@ function escapeHtml(value) {
 }
 
 function applyState(state) {
+  const changed=currentState?.identity.id!==state.identity.id;
   currentState = state;
+  if(changed) applyTheme(preferences.get(`companion-theme-${state.identity.id}`) || '#3f8cff',false);
   viewport?.setState(state);
+  document.title = `Companion Core · ${state.identity.name}`;
+  $('.brand-copy small').textContent = `${state.identity.name} · SUA COMPANION`;
+  $('#panel-companion .drawer-header h2').textContent = state.identity.name;
+  $('#panel-chat .chat-identity h2').textContent = state.identity.name;
+  $('#panel-chat').setAttribute('aria-label', `Conversa com ${state.identity.name}`);
+  $('#chatInput').setAttribute('aria-label', `Mensagem para ${state.identity.name}`);
+  $('#chatInput').placeholder = `Fale com ${state.identity.name}...`;
+  $('#panel-skills .drawer-header h2').textContent = `Skills de ${state.identity.name}`;
+  $('#panel-memories .drawer-header h2').textContent = `Memórias de ${state.identity.name}`;
+  $('#panel-memories .drawer-content h3:last-of-type').textContent = `Diário de ${state.identity.name}`;
+  const companionMenu = $('[data-open-panel="companion"] span'); if (companionMenu) companionMenu.textContent = state.identity.name;
+  const entityTarget = $('.entity-target'); if (entityTarget) entityTarget.setAttribute('aria-label', `Inspecionar ${state.identity.name} no mundo`);
+  const companionButton = $('[data-open-panel="chat"]'); if (companionButton) { companionButton.setAttribute('aria-label', `Falar com ${state.identity.name}`); companionButton.textContent = `Falar com ${state.identity.name}`; }
+  const companionName = $('[data-open-panel="companion-summary"]'); if (companionName) companionName.setAttribute('aria-label', `Inspecionar ${state.identity.name}`);
+  const welcome = $('.chat-welcome'); if (welcome) welcome.textContent = `Sou ${state.identity.name}, sua Companion. ${state.core.evolutionStage === "SOUL" ? "Ainda sou uma alma, e minha forma vai se desenvolver com nossas experiências. " : ""}Estamos no Refúgio, nosso espaço em um mundo de fantasia ainda em construção. Conte algo de que gosta ou pergunte sobre mim para começarmos.`;
   $('#entityName').textContent = state.identity.name;
   $('#entityStage').textContent = state.core.evolutionStage;
   $('#worldProvider').textContent = state.meta.provider === 'mock' ? 'PRÉVIA · IA SIMULADA' : state.meta.provider === 'openai' ? 'CORE LOCAL · IA ONLINE' : 'CORE LOCAL · OLLAMA';
@@ -140,6 +178,7 @@ function applyState(state) {
   renderInventory(state.inventory);
   renderPersonality(state.personality);
   renderMemories(state.memories);
+  setViewMode($('#appShell').dataset.viewMode, false);
 }
 
 function setConnection(status, text) {
@@ -152,6 +191,33 @@ function setConnection(status, text) {
   $('#connectionLabel').textContent = text;
   $('#worldConnection').textContent = text;
   viewport?.setPresence(status === 'online' ? 'idle' : 'offline');
+}
+
+function setViewMode(view, persist = true) {
+  const selected = view === 'world' ? 'world' : 'refugio';
+  const app = $('#appShell');
+  app.dataset.viewMode = selected;
+  $$('[data-view-mode]').forEach(button => {
+    const active = button.dataset.viewMode === selected;
+    button.classList.toggle('is-active', active);
+    button.setAttribute('aria-pressed', String(active));
+  });
+  const world = selected === 'world';
+  $('#worldProvider').textContent = world ? 'COMPANION WORLD' : 'REFÚGIO';
+  $('#roomName').textContent = world ? 'Companion World' : `Refúgio de ${currentState?.identity?.name || 'Companion'}`;
+  $('#roomCoordinate').textContent = world ? 'MUNDO EXTERNO · EM DESENVOLVIMENTO' : 'ESPAÇO PRIVADO';
+  $('#roomEyebrow').textContent = world ? 'COMPANION WORLD' : 'NOSSA HISTÓRIA';
+  $('#roomHeading').textContent = world ? 'O mundo aguarda' : 'Um espaço nosso';
+  $('#roomDescription').textContent = world
+    ? 'A interface de batalha está separada do Refúgio e será expandida com o mundo externo.'
+    : `Converse, lembre e evolua ao lado de ${currentState?.identity?.name || 'sua Companion'}.`;
+  $('#roomFooter').textContent = world ? 'Exploração e batalhas' : 'Refúgio da Companion';
+  $('#roomFootnote').textContent = world
+    ? 'Área de combate em preparação.'
+    : 'Um lugar para conversa, memórias e evolução.';
+  if (persist) preferences.set('mayuna-view-mode', selected);
+  if (world) closeDrawer();
+  requestAnimationFrame(() => floatingChat?.refreshPosition());
 }
 
 async function loadState() {
@@ -169,6 +235,7 @@ async function loadState() {
 
 function openDrawer(name) {
   if (name === 'chat') {
+    setViewMode('refugio');
     closeDrawer();
     floatingChat?.setMinimized(false);
     $('#chatInput').focus({ preventScroll: true });
@@ -202,7 +269,7 @@ function closeDrawer(hideOverlay = true) {
 function appendChat(role, text, extraClass = '') {
   const bubble = document.createElement('div');
   bubble.className = `chat-bubble ${role} ${extraClass}`.trim();
-  bubble.innerHTML = `<small>${escapeHtml(role === 'user' ? currentState?.profile?.companionOf?.preferredAddress || 'Você' : currentState?.identity?.name || 'Mayuna')}</small><p></p>`;
+  bubble.innerHTML = `<small>${escapeHtml(role === 'user' ? currentState?.profile?.companionOf?.preferredAddress || 'Você' : currentState?.identity?.name || 'Companion')}</small><p></p>`;
   bubble.querySelector('p').textContent = text;
   $('#chatFeed').appendChild(bubble);
   $('#chatFeed').scrollTop = $('#chatFeed').scrollHeight;
@@ -214,7 +281,7 @@ async function sendChat(message) {
   const epoch = accessEpoch;
   chatBusy = true;
   viewport?.setPresence('thinking');
-  $('#chatPresence').textContent = 'Mayuna está respondendo';
+  $('#chatPresence').textContent = `${currentState?.identity?.name || 'Sua Companion'} está respondendo`;
   const submit = $('#chatForm button[type="submit"]');
   submit.disabled = true;
   $('.chat-welcome')?.remove();
@@ -255,9 +322,10 @@ async function verifyCore(target = '#verifyResult') {
 
 function bindUi() {
   $$('[data-open-panel]').forEach(button => button.addEventListener('click', () => openDrawer(button.dataset.openPanel)));
+  $$('[data-view-mode]').forEach(button => button.addEventListener('click', () => setViewMode(button.dataset.viewMode)));
   $$('[data-close-drawer]').forEach(button => button.addEventListener('click', () => closeDrawer()));
   $('#overlay').addEventListener('click', () => closeDrawer());
-  $$('[data-action="focus-world"]').forEach(button => button.addEventListener('click', () => closeDrawer()));
+  $$('[data-action="focus-refuge"]').forEach(button => button.addEventListener('click', () => { closeDrawer(); setViewMode('refugio'); }));
 
   $('#chatForm').addEventListener('submit', event => {
     event.preventDefault();
@@ -316,6 +384,7 @@ function init() {
   bindHudEffects();
   renderHotbars();
   bindUi();
+  setViewMode(preferences.get('mayuna-view-mode') || 'refugio', false);
   const setImmersive = value => {
     $('#appShell').classList.toggle('hud-immersive', value);
     $('#immersiveToggle').setAttribute('aria-pressed', String(value));
@@ -376,7 +445,7 @@ const access = new AccessGate(async () => {
   if (initialized) {
     closeDrawer(); viewport.pause(); currentState = null;
     $('#chatFeed').replaceChildren();
-    const welcome = document.createElement('p'); welcome.className = 'muted chat-welcome'; welcome.textContent = 'Estou aqui, Didi. O que vamos descobrir hoje?'; $('#chatFeed').append(welcome);
+    const welcome = document.createElement('p'); welcome.className = 'muted chat-welcome'; welcome.textContent = `Estou aqui, ${currentState?.profile?.companionOf?.preferredAddress || 'com você'}. O que vamos descobrir hoje?`; $('#chatFeed').append(welcome);
     $('#chatInput').value = '';
     $('#memoryList').replaceChildren(); $('#journalList').replaceChildren();
     $('#chatPresence').textContent = 'Pronta para conversar';

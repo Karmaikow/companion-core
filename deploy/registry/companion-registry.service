@@ -1,0 +1,21 @@
+[Unit]
+Description=Companion Core - shared session registry
+After=network.target
+
+[Service]
+Type=simple
+User=companion
+Group=companion
+WorkingDirectory=/opt/companion-core
+EnvironmentFile=/etc/companion-registry.env
+ExecStart=/usr/bin/node /opt/companion-core/dist/server/crystal-server.js
+Restart=on-failure
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/companion-registry
+
+[Install]
+WantedBy=multi-user.target

@@ -36,10 +36,22 @@ export function createAIProvider(env: NodeJS.ProcessEnv = process.env): AIProvid
     }
     return new MockAIProvider();
   }
-  if (mode === 'ollama') return new OllamaProvider();
+  if (mode === 'ollama') {
+    return new OllamaProvider({
+      baseUrl: env.MAYUNA_OLLAMA_BASE_URL,
+      model: env.MAYUNA_OLLAMA_MODEL,
+      token: env.MAYUNA_OLLAMA_TOKEN
+    });
+  }
   if (mode === 'openai' || mode === 'hybrid') {
     const online = new OpenAIProvider(env.OPENAI_API_KEY ?? '', env.MAYUNA_OPENAI_MODEL ?? '');
-    return mode === 'hybrid' ? new HybridAIProvider(online, new OllamaProvider()) : online;
+    return mode === 'hybrid'
+      ? new HybridAIProvider(online, new OllamaProvider({
+        baseUrl: env.MAYUNA_OLLAMA_BASE_URL,
+        model: env.MAYUNA_OLLAMA_MODEL,
+        token: env.MAYUNA_OLLAMA_TOKEN
+      }))
+      : online;
   }
   throw new Error('MAYUNA_AI_PROVIDER inválido. Use ollama, openai, hybrid ou mock.');
 }

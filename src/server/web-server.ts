@@ -1,10 +1,12 @@
+import { CrystalError, MAX_CRYSTAL_BYTES } from '../portability/crystal.js';
+import { fileURLToPath } from 'node:url';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { AIConnectionError } from '../ai/openai-provider.js';
 import { createAIProvider } from '../ai/provider-factory.js';
 import { LocalAuth, AuthError } from './local-auth.js';
-import { CompanionRuntime } from './companion-runtime.js';
+import { CompanionRuntime, HubError } from './companion-runtime.js';
 import { PairingError, parseRemoteOrigin, RemotePairing } from './remote-pairing.js';
 
 const PORT = Number(process.env.PORT ?? 4173);
@@ -39,11 +41,11 @@ function json(res: ServerResponse, status: number, payload: unknown): void {
   res.end(JSON.stringify(payload));
 }
 
-async function readJsonBody(req: IncomingMessage): Promise<unknown> {
+async function readJsonBody(req: IncomingMessage, limit=64_000): Promise<unknown> {
   let body = '';
   for await (const chunk of req) {
     body += chunk.toString();
-    if (body.length > 64_000) {
+    if (Buffer.byteLength(body) > limit) {
       throw new Error('Payload muito grande.');
     }
   }
@@ -86,7 +88,7 @@ async function serveStatic(urlPath: string, res: ServerResponse): Promise<void> 
 
 async function handleApi(req: IncomingMessage, res: ServerResponse, pathname: string): Promise<void> {
   if (req.method === 'GET' && pathname === '/api/health') {
-    json(res, 200, { ok: true, service: 'Companion Core' });
+    json(res, 200, { ok: true, service: 'Companion Core', startupFlow: 'first-awakening-v1' });
     return;
   }
 
@@ -131,6 +133,7 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, pathname: st
     const token = pairing.authorize(req.headers.authorization, req.headers.origin);
     if (!token) { json(res, 401, { error: 'Conexão expirada. Gere um novo código no Core local.' }); return; }
     if (req.method === 'POST' && pathname === '/api/remote/logout') { pairing.revoke(token); json(res, 200, { ok: true }); return; }
+    if (!runtime.hasCompanion()) { json(res,409,{error:'Desperte sua Companion no acesso local.',code:'COMPANION_NOT_CREATED'}); return; }
     if (req.method === 'GET' && pathname === '/api/remote/state') { json(res, 200, runtime.getClientState()); return; }
     if (req.method === 'GET' && pathname === '/api/remote/verify') {
       const verification = runtime.verify();
@@ -146,7 +149,7 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, pathname: st
         json(res, 200, await runtime.chat(message));
       } catch (error) {
         console.error('[Companion Core] Falha no chat remoto:', chatErrorDetail(error));
-        json(res, 503, { error: 'Mayuna não conseguiu responder agora.', detail: chatErrorDetail(error) });
+        json(res, error instanceof CrystalError?error.status:503, { error: 'Sua Companion não conseguiu responder agora.', detail: error instanceof CrystalError?error.message:chatErrorDetail(error), details: error instanceof CrystalError?error.details:undefined });
       }
       return;
     }
@@ -155,6 +158,53 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, pathname: st
   }
 
   if (!auth.authorized(req)) { json(res,401,{error:'Entre para acessar sua Companion.'}); return; }
+
+  if (pathname.startsWith('/api/crystal/')) {
+    try {
+      if(req.method==='GET'&&pathname==='/api/crystal/status'){json(res,200,await runtime.crystalStatus());return;}
+      if(req.method!=='POST'){json(res,404,{error:'Operação não encontrada.'});return;}
+      const body=await readJsonBody(req,MAX_CRYSTAL_BYTES+32_000) as Record<string,unknown>;
+      if(pathname==='/api/crystal/invitation')json(res,200,{invitation:await runtime.bondInvitation(body.name as string,body.preferredAddress as string)});
+      else if(pathname==='/api/crystal/preview')json(res,200,await runtime.previewCrystal(body.file as string,body.password as string));
+      else if(pathname==='/api/crystal/gift')json(res,200,await runtime.giftCrystal(body.password as string,body.deviceName as string,body.invitation as string,body.shareHistory===true));
+      else if(pathname==='/api/crystal/migrate')json(res,200,await runtime.migrateRegistry());
+      else if(pathname==='/api/crystal/recollect')json(res,200,await runtime.recollectCrystal(body.password as string,body.deviceName as string));
+      else if(pathname==='/api/crystal/cancel')json(res,200,await runtime.cancelCrystal());
+      else if(pathname==='/api/crystal/awaken')json(res,200,await runtime.awakenCrystal(body.file as string,body.password as string,body.deviceName as string,typeof body.recoveryCode==='string'&&body.recoveryCode?body.recoveryCode:undefined,body.acceptGift===true));
+      else json(res,404,{error:'Operação não encontrada.'});
+    }catch(error){json(res,error instanceof CrystalError||error instanceof HubError?error.status:400,{error:error instanceof CrystalError||error instanceof HubError?error.message:'Não foi possível processar o Cristal. Nenhuma identidade foi substituída.',details:error instanceof CrystalError?error.details:undefined});}
+    return;
+  }
+
+  if (req.method === 'GET' && pathname === '/api/companions') {
+    try { json(res, 200, { companions: await runtime.listCompanions(), activeId: runtime.getActiveId(), creationPolicy: runtime.getCreationPolicy() }); }
+    catch (error) { json(res, 409, { error: error instanceof Error ? error.message : 'Não foi possível carregar o Hub.' }); }
+    return;
+  }
+
+  if (req.method === 'POST' && pathname === '/api/companions') {
+    try {
+      const body = await readJsonBody(req) as Record<string, unknown>;
+      if (!body || typeof body.name !== 'string' || typeof body.ownerName !== 'string' || typeof body.preferredAddress !== 'string') {
+        json(res, 400, { error: 'Preencha nome, como quer ser chamado e personalidade.' }); return;
+      }
+      const state = await runtime.createCompanion({ name: body.name, ownerName: body.ownerName, preferredAddress: body.preferredAddress, archetype: typeof body.archetype === 'string' ? body.archetype : undefined, soulColor: body.soulColor, traits: body.traits });
+      json(res, 201, state);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Não foi possível criar a Companion.';
+      json(res, error instanceof HubError ? error.status : 500, { error: error instanceof HubError ? message : 'Não foi possível criar a Companion.' });
+    }
+    return;
+  }
+
+  const activateMatch = pathname.match(/^\/api\/companions\/(MC-[A-Z0-9-]+)\/activate$/i);
+  if (req.method === 'POST' && activateMatch) {
+    try { json(res, 200, await runtime.activateCompanion(activateMatch[1])); }
+    catch (error) { json(res, error instanceof HubError ? error.status : 500, { error: error instanceof Error ? error.message : 'Não foi possível selecionar a Companion.' }); }
+    return;
+  }
+
+  if (!runtime.hasCompanion()) { json(res,409,{error:'Desperte sua primeira Companion.',code:'COMPANION_NOT_CREATED'}); return; }
 
   if (req.method === 'GET' && pathname === '/api/companion/state') {
     json(res, 200, runtime.getClientState());
@@ -191,9 +241,9 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, pathname: st
       json(res, 200, result);
     } catch (error) {
       console.error('[Companion Core] Falha no chat:', chatErrorDetail(error));
-      json(res, 503, {
-        error: 'Mayuna não conseguiu responder agora.',
-        detail: chatErrorDetail(error)
+      json(res, error instanceof CrystalError?error.status:503, {
+        error: 'Sua Companion não conseguiu responder agora.',
+        detail: error instanceof CrystalError?error.message:chatErrorDetail(error), details: error instanceof CrystalError?error.details:undefined
       });
     }
     return;
@@ -267,6 +317,11 @@ async function main(): Promise<void> {
     console.log('╔══════════════════════════════════════════════════╗');
     console.log('║              COMPANION CORE WEB v0.7                    ║');
     console.log('╚══════════════════════════════════════════════════╝');
+    console.log('Fluxo: primeiro despertar · first-awakening-v1');
+    console.log(`Projeto: ${process.cwd()}`);
+    console.log(`Servidor: ${fileURLToPath(import.meta.url)}`);
+    console.log(`Dados: ${path.resolve(process.env.MAYUNA_DATA_DIR ?? 'data')}`);
+    console.log(`Companion: ${runtime.getActiveId() ?? 'nenhuma · aguardando ritual'}`);
     console.log(`Interface: http://${HOST}:${PORT}`);
     console.log(`IA: ${provider.name}${mock ? ' · simulada, dados isolados' : ''}`);
     console.log('');

@@ -1,0 +1,195 @@
+/* Refúgio is for the bond; Companion World reserves its HUD for combat. */
+#appShell[data-view-mode="refugio"] .desktop-layout {
+  grid-template-columns: minmax(205px, 250px) minmax(0, 1fr);
+}
+#appShell[data-view-mode="refugio"] .equipment-panel,
+#appShell[data-view-mode="refugio"] .right-stack,
+#appShell[data-view-mode="refugio"] .bottom-hud {
+  display: none !important;
+}
+#appShell[data-view-mode="refugio"] .world-column {
+  grid-template-rows: minmax(0, 1fr);
+}
+#appShell[data-view-mode="world"] .companion-summary {
+  display: none !important;
+}
+#appShell[data-view-mode="world"] .world-column {
+  grid-template-rows: minmax(0, 1fr) minmax(118px, 174px);
+}
+#appShell[data-view-mode="world"] .main-chat {
+  display: none !important;
+}
+.desktop-nav .nav-item[data-view-mode] {
+  white-space: nowrap;
+}
+.mobile-dock button.is-active {
+  color: var(--accent-soft);
+  background: rgba(var(--accent-rgb), .12);
+}
+
+/* The chat is a layer of bubbles and a composer, not a framed HUD window. */
+#worldFrame > .main-chat {
+  position: absolute;
+  z-index: 8;
+  right: 12px;
+  bottom: 44px;
+  left: auto;
+  top: auto;
+  width: clamp(320px, 32vw, 460px);
+  height: clamp(280px, 64%, 560px);
+  min-width: 0;
+  min-height: 0;
+  max-width: calc(100% - 24px);
+  max-height: calc(100% - 44px);
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  overflow: hidden;
+  resize: none;
+  border: 0;
+  border-radius: 0;
+  background: transparent !important;
+  box-shadow: none !important;
+  backdrop-filter: none;
+}
+#worldFrame > .main-chat::before,
+#worldFrame > .main-chat .chat-header {
+  display: none !important;
+}
+#worldFrame > .main-chat .chat-feed {
+  min-height: 0;
+  gap: 9px;
+  padding: 30px 10px 10px;
+  overflow: auto;
+  background: transparent;
+  scrollbar-width: thin;
+}
+#worldFrame > .main-chat .chat-welcome,
+#worldFrame > .main-chat .chat-bubble {
+  max-width: 92%;
+  border: 1px solid rgba(var(--accent-rgb), .26);
+  border-radius: 14px 14px 14px 4px;
+  background: rgba(7, 14, 30, .58);
+  box-shadow: 0 5px 20px rgba(0, 0, 0, .16);
+  backdrop-filter: blur(7px);
+}
+#worldFrame > .main-chat .chat-bubble.user {
+  border-color: rgba(var(--accent-rgb), .45);
+  border-radius: 14px 14px 4px 14px;
+  background: rgba(var(--accent-rgb), .36);
+}
+#worldFrame > .main-chat .chat-bubble p {
+  font-size: 12px;
+  line-height: 1.5;
+  text-shadow: 0 1px 5px rgba(0, 0, 0, .48);
+}
+#worldFrame > .main-chat .chat-composer {
+  grid-template-columns: minmax(0, 1fr) 42px;
+  gap: 8px;
+  padding: 8px 12px 15px 8px;
+  border: 0;
+  background: transparent;
+}
+#worldFrame > .main-chat .chat-composer textarea {
+  min-height: 44px;
+  max-height: 130px;
+  border: 1px solid rgba(205, 225, 255, .24);
+  border-radius: 18px;
+  background: rgba(5, 12, 26, .72);
+  box-shadow: 0 5px 20px rgba(0, 0, 0, .2);
+  backdrop-filter: blur(9px);
+}
+#worldFrame > .main-chat .send-button {
+  width: 42px;
+  height: 42px;
+  align-self: end;
+  border-radius: 50%;
+}
+
+#appShell[data-view-mode="refugio"] #worldFrame .world-heading {
+  transform: none;
+}
+
+@media (min-width: 921px) {
+  #appShell[data-view-mode="refugio"] .desktop-layout {
+    grid-template-columns: minmax(210px, 250px) minmax(0, 1fr);
+  }
+  #appShell[data-view-mode="refugio"] .world-frame {
+    min-height: 0;
+  }
+}
+
+@media (max-width: 920px) {
+  #appShell[data-view-mode="refugio"] .world-frame {
+    inset: 0 0 calc(68px + env(safe-area-inset-bottom));
+  }
+  #appShell[data-view-mode="refugio"] .mobile-hotbar,
+  #appShell[data-view-mode="refugio"] .mobile-passives {
+    display: none !important;
+  }
+  #appShell[data-view-mode="world"] .mobile-hotbar,
+  #appShell[data-view-mode="world"] .mobile-passives {
+    display: flex;
+  }
+  #worldFrame > .main-chat {
+    width: min(430px, calc(100% - 20px));
+    height: min(43dvh, 380px);
+    right: 10px;
+    bottom: 10px;
+    min-width: 0;
+    min-height: 190px;
+    max-height: calc(100% - 20px);
+    resize: none;
+  }
+  #worldFrame > .main-chat .chat-bubble p {
+    font-size: 11px;
+  }
+  #worldFrame > .main-chat .chat-composer {
+    grid-template-columns: minmax(0, 1fr) 40px;
+    padding: 6px 8px 10px;
+  }
+  #worldFrame > .main-chat .send-button {
+    width: 40px;
+    height: 40px;
+  }
+  .desktop-nav .nav-item[data-view-mode="world"] {
+    display: none;
+  }
+}
+
+@media (max-width: 920px) and (orientation: landscape) and (max-height: 520px) {
+  #appShell[data-view-mode="refugio"] .world-frame {
+    inset: 0 0 68px;
+  }
+  #worldFrame > .main-chat {
+    width: min(340px, calc(100% - 88px));
+    height: min(72dvh, 280px);
+    right: 10px;
+    bottom: 10px;
+    min-height: 138px;
+  }
+}
+
+.chat-resize-handle {
+  position: absolute; top: 0; left: 0; z-index: 2;
+  width: 28px; height: 28px; padding: 0;
+  border: 1px solid rgba(var(--accent-rgb), .5); border-radius: 8px;
+  background: rgba(5, 12, 26, .85); color: var(--accent-soft);
+  cursor: nwse-resize; touch-action: none;
+}
+.chat-resize-handle:focus-visible { outline: 2px solid var(--accent-soft); }
+@media (max-width: 920px) { .chat-resize-handle { display: none; } }
+
+.entity-target { transition: box-shadow .35s ease; }
+@media (prefers-reduced-motion: reduce) { .entity-target { transition: none; } }
+
+/* Bond passage follows the Crystal panel without widening the mobile Hub. */
+.bond-passage fieldset {
+  min-width: 0;
+  margin: 16px 0;
+  padding: 14px;
+  border: 1px solid rgba(var(--accent-rgb), .25);
+  border-radius: 12px;
+  background: rgba(7, 15, 30, .4);
+}
+.bond-passage legend { padding: 0 6px; color: var(--accent-soft); font-size: 12px; }
+#crystalPreviewInfo, #bondRecipient { overflow-wrap: anywhere; line-height: 1.6; }

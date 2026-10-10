@@ -1,6 +1,7 @@
 node_modules
 **/node_modules/
 dist/
+vercel-output/
 data/
 .env
 .env.*
@@ -8,3 +9,11 @@ data/
 *.log
 .mayuna-preview/
 test-results/
+.mayuna-mobile-preview/
+data-backup*/
+data-linux-backup*/
+.mayuna-cli-demo/
+
+.companion-registry/
+*.companion
+data-crystal-*/

@@ -17,10 +17,17 @@ try {
  browser = await chromium.launch({headless:true,...(process.env.MAYUNA_TEST_BROWSER ? {executablePath:process.env.MAYUNA_TEST_BROWSER,args:['--no-sandbox','--no-zygote','--disable-dev-shm-usage','--use-angle=swiftshader']} : {})});
  const page=await browser.newPage();const errors=[];page.on('pageerror',error=>errors.push(error.message));
  const unlock=async()=>{
-  await page.waitForFunction(()=>!document.querySelector('#accessForm').hidden || !document.querySelector('#continuityScreen').hidden);
+  await page.waitForFunction(()=>!document.querySelector('#accessForm').hidden || !document.querySelector('#continuityScreen').hidden || !document.querySelector('#createCompanionForm').hidden || !document.querySelector('#hubScreen').hidden);
   if(await page.locator('#accessForm').isVisible()){
    await page.fill('#accessUsername','didi-test');await page.fill('#accessPassword','OnlyTests-12345!');
    if(await page.locator('#accessConfirm').isVisible())await page.fill('#accessConfirm','OnlyTests-12345!');await page.click('#accessSubmit');
+  }
+  await page.waitForFunction(()=>!document.querySelector('#hubScreen').hidden || !document.querySelector('#createCompanionForm').hidden || !document.querySelector('#continuityScreen').hidden);
+  if(await page.locator('#showCreateCompanion').isVisible())await page.click('#showCreateCompanion');
+  if(await page.locator('#createCompanionForm').isVisible()){
+   await page.fill('#newCompanionName','Mayuna');await page.fill('#newOwnerName','Didi');await page.fill('#newPreferredAddress','Didi');await page.click('[data-trait="openness-0"]');
+   if(process.env.MAYUNA_SCREENSHOT_DIR)await page.screenshot({path:path.join(process.env.MAYUNA_SCREENSHOT_DIR,'primeiro-despertar.png'),fullPage:true});
+   await page.click('#createCompanionSubmit');
   }
   await page.locator('#enterWorld').waitFor({state:'visible'});await page.click('#enterWorld');await page.waitForFunction(()=>!document.body.classList.contains('is-locked'));
  };
@@ -30,14 +37,35 @@ try {
   await page.setViewportSize({width,height});await page.goto(`http://127.0.0.1:${port}`);await unlock();await page.waitForFunction(()=>document.querySelector('#connectionLabel').textContent==='Core ativo');
   const bounds=await page.evaluate(()=>{
    const selectors=innerWidth>920?['.bottom-hud','.skill-slots','.passive-list','#hotbar']:['#mobileHotbar','.mobile-passives','.mobile-dock'];
-   return {doc:[document.body.scrollWidth,document.body.scrollHeight],chat:document.querySelector('#panel-chat').getBoundingClientRect().toJSON(),controls:selectors.map(selector=>({selector,rect:document.querySelector(selector).getBoundingClientRect().toJSON()}))};
+   return {doc:[document.body.scrollWidth,document.body.scrollHeight],chat:document.querySelector('#panel-chat').getBoundingClientRect().toJSON(),world:document.querySelector('#worldFrame').getBoundingClientRect().toJSON(),heading:document.querySelector('.world-heading').getBoundingClientRect().toJSON(),controls:selectors.map(selector=>({selector,rect:document.querySelector(selector).getBoundingClientRect().toJSON()}))};
   });
   assert.ok(bounds.doc[0]<=width && bounds.doc[1]<=height,`${width}×${height}: document overflow`);
   for(const {selector,rect} of bounds.controls) assert.ok(rect.x>=0&&rect.y>=0&&rect.right<=width+1&&rect.bottom<=height+1,`${width}×${height}: ${selector} outside viewport`);
   assert.ok(bounds.chat.x>=0&&bounds.chat.y>=0&&bounds.chat.right<=width+1&&bounds.chat.bottom<=height+1,`${width}×${height}: inline chat outside viewport`);
+  if(width>920){assert.ok(Math.abs(bounds.world.bottom-bounds.chat.bottom-44)<2,`${width}×${height}: chat should stay anchored to the bottom of the Refuge panel`);assert.ok(bounds.heading.bottom<=bounds.chat.top,`${width}×${height}: Refuge title should remain above the chat`);}
+  assert.equal(await page.locator('#appShell').getAttribute('data-view-mode'),'refugio');
+  if(width>920){
+   const desktopWorld=page.locator('.desktop-nav [data-view-mode="world"]');await desktopWorld.click();
+   assert.equal(await page.locator('#appShell').getAttribute('data-view-mode'),'world');assert.equal(await page.locator('#panel-chat').isVisible(),false);assert.ok(await page.locator('.bottom-hud').isVisible());
+   await page.locator('.desktop-nav [data-view-mode="refugio"]').click();
+   assert.equal(await page.locator('#panel-chat').isVisible(),true);assert.equal(await page.locator('.bottom-hud').isVisible(),false);
+   assert.equal(await page.locator('#panel-chat').evaluate(el=>getComputedStyle(el).resize),'none');
+   const grip=page.locator('.chat-resize-handle');
+   const initial=await page.locator('#panel-chat').boundingBox();
+   await grip.focus(); await page.keyboard.press('ArrowDown'); await page.keyboard.press('ArrowRight');
+   const smaller=await page.locator('#panel-chat').boundingBox();
+   assert.ok(smaller.width<initial.width && smaller.height<initial.height);
+   const gripBox=await grip.boundingBox(); await page.mouse.move(gripBox.x+14,gripBox.y+14);await page.mouse.down();await page.mouse.move(gripBox.x-26,gripBox.y-26,{steps:8});await page.mouse.up();
+   const larger=await page.locator('#panel-chat').boundingBox();assert.ok(larger.width>smaller.width && larger.height>smaller.height);
+   assert.ok(Math.abs(larger.y+larger.height-initial.y-initial.height)<2);
+   assert.ok(bounds.heading.x>=bounds.world.x && bounds.heading.right<=bounds.world.right);
+  }else{
+   await page.locator('.mobile-dock [data-view-mode="world"]').click();assert.equal(await page.locator('#mobileHotbar').isVisible(),true);assert.equal(await page.locator('#panel-chat').isVisible(),false);
+   await page.locator('.mobile-dock [data-view-mode="refugio"]').click();assert.equal(await page.locator('#mobileHotbar').isVisible(),false);assert.equal(await page.locator('#panel-chat').isVisible(),true);
+  }
   const open=width>920?'.companion-summary [data-open-panel="chat"]':'.mobile-dock [data-open-panel="chat"]';await page.locator(open).click();
   assert.equal(await page.locator('#overlay').isVisible(),false,`${width}×${height}: chat must stay inline, without modal overlay`);
-  const chat=await page.locator('#panel-chat').boundingBox();const rail=await page.locator(width>920?'.bottom-hud':'#mobileHotbar').boundingBox();assert.ok(chat.x>=0&&chat.y>=0&&chat.x+chat.width<=width+1&&chat.y+chat.height<=height+1,`${width}×${height}: inline chat must stay in viewport`);assert.ok(chat.y+chat.height<=rail.y+1||chat.x+chat.width<=rail.x||chat.x>=rail.x+rail.width,`${width}×${height}: chat overlaps hotbar`);
+  const chat=await page.locator('#panel-chat').boundingBox();assert.ok(chat.x>=0&&chat.y>=0&&chat.x+chat.width<=width+1&&chat.y+chat.height<=height+1,`${width}×${height}: inline chat must stay in viewport`);assert.equal(await page.locator('#panel-chat .chat-header').isVisible(),false,`${width}×${height}: chat should have no framed titlebar`);
   assert.equal(await page.locator('#chatInput').isFocused(),true);
   if(process.env.MAYUNA_SCREENSHOT_DIR && [1440,390].includes(width))await page.screenshot({path:path.join(process.env.MAYUNA_SCREENSHOT_DIR,`hud-${width}.png`)});
  }

@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { OpenAIProvider, OnlineUnavailableError } from '../dist/ai/openai-provider.js';
 import { createAIProvider, HybridAIProvider } from '../dist/ai/provider-factory.js';
+import { OllamaProvider } from '../dist/ai/ollama-provider.js';
 import { AIContextBuilder } from '../dist/ai/ai-context.js';
 import { CompanionCore } from '../dist/core/core.js';
 import { MAYUNA_PROFILE } from '../dist/companions/mayuna.js';
@@ -55,4 +56,39 @@ test('factory preserves Ollama default and rejects missing configuration or unsa
  assert.throws(()=>createAIProvider({MAYUNA_AI_PROVIDER:'mock'}),/isolado/);
  assert.throws(()=>createAIProvider({MAYUNA_AI_PROVIDER:'typo'}),/inválido/);
  assert.equal(createAIProvider({MAYUNA_AI_PROVIDER:'hybrid',OPENAI_API_KEY:'TEST-ONLY',MAYUNA_OPENAI_MODEL:'test-model'}).name,'hybrid');
+});
+
+test('Ollama endpoint, model and optional gateway token are configurable without changing the local default',async()=>{
+ const original=globalThis.fetch;
+ try{
+  let calls=0;
+  globalThis.fetch=async(url,options)=>{
+   calls++;
+   assert.equal(url,'https://ollama-gateway.example.test/api/chat');
+   assert.equal(options.headers.Authorization,'Bearer TEST-OLLAMA-TOKEN');
+   const body=JSON.parse(options.body);assert.equal(body.model,'qwen2.5:3b');
+   return Response.json({message:{content:'Resposta remota.'},total_duration:10_000_000});
+  };
+  const provider=createAIProvider({
+   MAYUNA_AI_PROVIDER:'ollama',
+   MAYUNA_OLLAMA_BASE_URL:'https://ollama-gateway.example.test',
+   MAYUNA_OLLAMA_MODEL:'qwen2.5:3b',
+   MAYUNA_OLLAMA_TOKEN:'TEST-OLLAMA-TOKEN'
+  });
+  assert.equal(await provider.generateResponse(context),'Resposta remota.');
+  assert.equal(calls,1);
+
+  assert.throws(()=>new OllamaProvider({baseUrl:'http://192.168.1.20:11434'}),/exige HTTPS/);
+  assert.throws(()=>new OllamaProvider({baseUrl:'https://user:password@example.test'}),/não na URL/);
+ }finally{globalThis.fetch=original;}
+});
+
+test('Ollama errors do not expose response bodies or configured gateway tokens',async()=>{
+ const original=globalThis.fetch;
+ try{
+  globalThis.fetch=async()=>new Response('private prompt TEST-OLLAMA-TOKEN',{status:401});
+  const provider=new OllamaProvider({baseUrl:'https://ollama-gateway.example.test',token:'TEST-OLLAMA-TOKEN'});
+  await assert.rejects(provider.generateResponse(context),error=>
+   /HTTP 401/.test(error.message)&&!error.message.includes('TEST-OLLAMA-TOKEN')&&!error.message.includes('private prompt'));
+ }finally{globalThis.fetch=original;}
 });

@@ -1,62 +1,79 @@
 import { preferences } from './preferences.js';
 
-/** Only HUD geometry lives here; messages and Core state remain outside. */
+/** Chat stays anchored; only its dimensions are adjustable. */
 export class FloatingChat {
   constructor(root, world) {
     this.root = root;
     this.world = world;
-    this.header = root.querySelector('.chat-header');
     this.button = root.querySelector('#minimizeChat');
-    this.button.addEventListener('click', () => this.setMinimized(!root.classList.contains('is-chat-minimized')));
-    this.header.addEventListener('pointerdown', event => {
-      if (event.button !== 0 || event.target.closest('button')) return;
-      this.drag = { id: event.pointerId, x: event.clientX, y: event.clientY, left: root.offsetLeft, top: root.offsetTop };
-      this.header.setPointerCapture(event.pointerId);
+    this.button?.addEventListener('click', () => this.setMinimized(!root.classList.contains('is-chat-minimized')));
+    const handle = document.createElement('button');
+    handle.type = 'button';
+    handle.className = 'chat-resize-handle';
+    handle.textContent = '⤢';
+    handle.title = 'Arraste para cima ou para a esquerda para ampliar';
+    handle.setAttribute('aria-label', 'Ajustar tamanho do chat: arraste ou use as setas');
+    root.append(handle);
+    handle.addEventListener('pointerdown', event => {
+      if (event.button !== 0) return;
+      this.drag = { id: event.pointerId, x: event.clientX, y: event.clientY, width: root.offsetWidth, height: root.offsetHeight };
+      handle.setPointerCapture(event.pointerId);
       event.preventDefault();
     });
-    this.header.addEventListener('pointermove', event => {
+    handle.addEventListener('pointermove', event => {
       if (this.drag?.id !== event.pointerId) return;
-      this.place(this.drag.left + event.clientX - this.drag.x, this.drag.top + event.clientY - this.drag.y);
+      this.resize(this.drag.width + this.drag.x - event.clientX, this.drag.height + this.drag.y - event.clientY);
     });
     const finish = () => { if (this.drag) { this.drag = null; this.save(); } };
-    this.header.addEventListener('pointerup', finish);
-    this.header.addEventListener('pointercancel', finish);
-    this.header.addEventListener('lostpointercapture', finish);
-    this.header.addEventListener('keydown', event => {
-      const step = { ArrowLeft: [-16, 0], ArrowRight: [16, 0], ArrowUp: [0, -16], ArrowDown: [0, 16] }[event.key];
-      if (!event.altKey || !step || event.target !== this.header) return;
-      event.preventDefault(); this.place(root.offsetLeft + step[0], root.offsetTop + step[1]); this.save();
+    handle.addEventListener('pointerup', finish);
+    handle.addEventListener('pointercancel', finish);
+    handle.addEventListener('lostpointercapture', finish);
+    handle.addEventListener('keydown', event => {
+      const delta = { ArrowLeft: [20, 0], ArrowRight: [-20, 0], ArrowUp: [0, 20], ArrowDown: [0, -20] }[event.key];
+      if (!delta) return;
+      event.preventDefault();
+      this.resize(root.offsetWidth + delta[0], root.offsetHeight + delta[1]);
+      this.save();
     });
-    this.observer = new ResizeObserver(() => {
-      const key = matchMedia('(max-width: 920px)').matches ? 'mobile' : 'desktop';
-      if (this.layout !== key) { this.layout = key; this.restore(); }
-      else this.place(root.offsetLeft, root.offsetTop);
-    });
+    this.observer = new ResizeObserver(() => this.restore());
     this.observer.observe(world);
   }
 
-  place(left, top) {
-    const maxLeft = Math.max(8, this.world.clientWidth - this.root.offsetWidth - 8);
-    const maxTop = Math.max(8, this.world.clientHeight - this.root.offsetHeight - 36);
-    Object.assign(this.root.style, { right: 'auto', bottom: 'auto', left: `${Math.max(8, Math.min(left, maxLeft))}px`, top: `${Math.max(8, Math.min(top, maxTop))}px` });
+  resize(width, height) {
+    if (!this.world.clientWidth || !this.world.clientHeight) return;
+    const heading = this.world.querySelector('.world-heading');
+    const reservedTop = heading ? heading.offsetTop + heading.offsetHeight + 16 : 180;
+    const bottom = parseFloat(getComputedStyle(this.root).bottom) || 44;
+    const maxWidth = Math.max(0, this.world.clientWidth - 24);
+    const maxHeight = Math.max(0, this.world.clientHeight - reservedTop - bottom);
+    this.root.style.width = `${Math.min(maxWidth, Math.max(Math.min(290, maxWidth), width))}px`;
+    this.root.style.height = `${Math.min(maxHeight, Math.max(Math.min(180, maxHeight), height))}px`;
   }
 
   save() {
-    preferences.set(`mayuna-chat-position-${this.layout}`, JSON.stringify({ x: this.root.offsetLeft / this.world.clientWidth, y: this.root.offsetTop / this.world.clientHeight }));
+    preferences.set('mayuna-chat-size-desktop', JSON.stringify({ width: this.root.offsetWidth, height: this.root.offsetHeight }));
   }
 
   restore() {
-    let position;
-    try { position = JSON.parse(preferences.get(`mayuna-chat-position-${this.layout}`)); } catch {}
-    if (position && Number.isFinite(position.x) && Number.isFinite(position.y)) this.place(position.x * this.world.clientWidth, position.y * this.world.clientHeight);
-    else this.place(this.world.clientWidth - this.root.offsetWidth - 12, this.world.clientHeight - this.root.offsetHeight - 36);
+    if (!this.world.clientWidth || !this.world.clientHeight) return;
+    if (matchMedia('(max-width: 920px)').matches) {
+      this.root.style.width = '';
+      this.root.style.height = '';
+      return;
+    }
+    let size;
+    try { size = JSON.parse(preferences.get('mayuna-chat-size-desktop')); } catch {}
+    this.resize(Number.isFinite(size?.width) ? size.width : this.root.offsetWidth,
+      Number.isFinite(size?.height) ? size.height : this.root.offsetHeight);
   }
 
   setMinimized(value) {
     this.root.classList.toggle('is-chat-minimized', value);
-    this.button.textContent = value ? '+' : '—';
-    this.button.setAttribute('aria-label', value ? 'Restaurar conversa' : 'Minimizar conversa');
-    this.button.setAttribute('aria-expanded', String(!value));
-    this.place(this.root.offsetLeft, this.root.offsetTop);
+    if (this.button) {
+      this.button.textContent = value ? '+' : '—';
+      this.button.setAttribute('aria-expanded', String(!value));
+    }
   }
+
+  refreshPosition() { this.restore(); }
 }

@@ -1,7 +1,7 @@
 // Explicitly synthetic UI fixture. No credentials, Companion keys or real history.
 const state = {
- identity:{id:'DEMO-SEM-CORE',name:'Mayuna',createdAt:'2026-01-01T00:00:00.000Z'},
- profile:{name:'Mayuna',identity:{description:'Demonstração visual da interface.'},preferences:{favoriteColor:'azul-safira'},companionOf:{name:'Visitante',preferredAddress:'Visitante'}},
+ identity:{id:'DEMO-SEM-CORE',name:'Companion',createdAt:'2026-01-01T00:00:00.000Z'},
+ profile:{name:'Companion',identity:{description:'Demonstração visual da interface.'},preferences:{favoriteColor:'azul-safira'},companionOf:{name:'Visitante',preferredAddress:'Visitante'}},
  core:{level:1,xp:0,xpToNextLevel:100,evolutionStage:'SOUL',evolutionProgress:0},combat:{level:1,xp:0,xpToNextLevel:100,wins:0,losses:0},bond:{value:0,relationship:'STRANGER'},
  personality:{loyalty:100,curiosity:50,humor:50,courage:50,empathy:50,autonomy:50},memories:[],journal:[],achievements:[],inventory:[],discoveries:[],meta:{provider:'mock',eventCount:0,snapshotCount:0}
 };

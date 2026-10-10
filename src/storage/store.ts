@@ -13,11 +13,28 @@ import type {
   StoredCompanion
 } from '../models/types.js';
 
+const writeQueues = new Map<string, Promise<void>>();
+
 
 /** Write a complete replacement beside the target, then atomically rename it.
  * This prevents a process interruption from leaving half of a JSON document.
  */
 export async function writeFileAtomic(file: string, contents: string, mode = 0o600): Promise<void> {
+  const target = path.resolve(file);
+  const previous = writeQueues.get(target) ?? Promise.resolve();
+  const queued = previous
+    .catch(() => undefined)
+    .then(() => writeFileAtomicNow(target, contents, mode));
+  writeQueues.set(target, queued);
+
+  try {
+    await queued;
+  } finally {
+    if (writeQueues.get(target) === queued) writeQueues.delete(target);
+  }
+}
+
+async function writeFileAtomicNow(file: string, contents: string, mode: number): Promise<void> {
   const directory = path.dirname(file);
   await mkdir(directory, { recursive: true, mode: 0o700 });
   const temporary = path.join(directory, `.${path.basename(file)}.${process.pid}.${randomUUID()}.tmp`);
@@ -28,12 +45,26 @@ export async function writeFileAtomic(file: string, contents: string, mode = 0o6
     await handle.sync();
     await handle.close();
     handle = undefined;
-    await rename(temporary, file);
+    for (let attempt = 0; ; attempt++) {
+      try {
+        await rename(temporary, file);
+        break;
+      } catch (error) {
+        if (!isTransientRenameError(error) || attempt >= 3) throw error;
+        await new Promise(resolve => setTimeout(resolve, 10 * (attempt + 1)));
+      }
+    }
   } catch (error) {
     if (handle) await handle.close().catch(() => undefined);
     await rm(temporary, { force: true }).catch(() => undefined);
     throw error;
   }
+}
+
+function isTransientRenameError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const code = (error as NodeJS.ErrnoException).code;
+  return code === 'EPERM' || code === 'EACCES' || code === 'EBUSY';
 }
 
 

@@ -2,14 +2,18 @@
 
 Mayuna é a primeira Companion persistente da plataforma.
 
+Para abrir a aplicação, use `npm start` ou `npm run web:start`. O código é recompilado antes de iniciar. Para desenvolvimento, use `npm run dev` ou `npm run web`. O antigo demo CLI agora é explícito: `npm run demo` ou `npm run demo:dev`, com arquivos isolados em `.mayuna-cli-demo/`.
+
+O servidor exibe o caminho do projeto, build, pasta de dados e se está aguardando o primeiro ritual. `GET /api/health` identifica esse fluxo com `startupFlow: first-awakening-v1`. Uma instalação vazia não cria Mayuna automaticamente.
+
 Esta cópia está na **Web v0.7**. Comece por [ATUALIZACAO_V0.7.md](ATUALIZACAO_V0.7.md) para instalar e conferir a persistência. O plano de desenvolvimento fica em [PLANO_DESENVOLVIMENTO.md](PLANO_DESENVOLVIMENTO.md).
 
-OpenAI e modo híbrido seguem opcionais; Ollama local continua como padrão. Consulte **ATUALIZACAO_V0.6.md** para detalhes dos providers e **PROJETO_CHATGPT.md** para organizar o contexto de desenvolvimento.
+OpenAI e modo híbrido seguem opcionais; Ollama local continua como padrão. A configuração de um endpoint Ollama HTTPS fica em [docs/OLLAMA_REMOTO.md](docs/OLLAMA_REMOTO.md). Consulte **ATUALIZACAO_V0.6.md** para detalhes dos providers e **PROJETO_CHATGPT.md** para organizar o contexto de desenvolvimento.
 
 # Atualização web v0.4
 
 Comece por [WEB_V0.4.md](WEB_V0.4.md). Build incluído: `npm run web:start`.
-No primeiro acesso, crie a conta local. Preserve a pasta `data/` mais recente.
+No primeiro acesso com dados vazios, crie a conta local e desperte sua Companion pelo ritual. Nenhuma Mayuna é criada automaticamente. Há uma Companion própria por conta local; a criação adicional é bloqueada no servidor. Preserve a pasta `data/` mais recente. Veja [o fluxo de criação](docs/HUB_MULTICOMPANION.md).
 Arquitetura portátil e plano de escala: [ARQUITETURA_PORTATIL.md](ARQUITETURA_PORTATIL.md).
 
 ---
@@ -128,3 +132,7 @@ A interface não comprime o HUD desktop. Em telas menores ela troca para um modo
 4. criar sistema de missões e exploração;
 5. criar exportação/importação criptografada da Companion;
 6. evoluir a interface para temas completos, além da troca de cor.
+
+## Cristal de Memória
+
+Recolha sua Companion em um arquivo criptografado e desperte no próximo dispositivo. O registro central controla a sessão ativa e mostra onde ela está autorizada. Inicie o serviço com `npm run crystal:server` e configure `COMPANION_REGISTRY_URL` no Core. Veja o [guia de transferência, recuperação e limites](docs/CRISTAL_MEMORIA.md).

@@ -1,3 +1,4 @@
+import { currentMemories } from './memory-facts.js';
 import type {
     Memory,
     MemoryType,
@@ -30,7 +31,7 @@ import type {
   
       const queryTokens = this.tokenize(normalizedQuery);
   
-      const results = memories.map(memory => {
+      const results = currentMemories(memories).map(memory => {
   
         const title = this.normalize(memory.title);
         const content = this.normalize(memory.content);
@@ -40,15 +41,24 @@ import type {
   
         let score = 0;
   
-        score += this.countMatches(
+        const titleMatches = this.countMatches(
           queryTokens,
           titleTokens
-        ) * 10;
+        );
   
-        score += this.countMatches(
+        const contentMatches = this.countMatches(
           queryTokens,
           contentTokens
-        ) * 4;
+        );
+
+        // Memory importance and name mentions must not make an unrelated
+        // fact eligible (for example, returning a color for an animal query).
+        if (titleMatches === 0 && contentMatches === 0) {
+          return { memory, score: 0 };
+        }
+
+        score += titleMatches * 10;
+        score += contentMatches * 4;
   
         score += this.getMemoryTypeBonus(memory.type);
   
@@ -96,7 +106,7 @@ import type {
   
       return results
         .filter(result => result.score > 0)
-        .sort((a, b) => b.score - a.score)
+      .sort((a, b) => b.score - a.score || b.memory.timestamp.localeCompare(a.memory.timestamp))
         .slice(0, Math.max(1, limit));
     }
   
@@ -108,6 +118,7 @@ import type {
         .toLowerCase()
         .normalize('NFD')
         .replace(/[\u0300-\u036f]/g, '')
+        .replace(/\bpreferid([oa]s?)\b/g, 'favorit$1')
         .replace(/[^a-z0-9\s]/g, ' ')
         .replace(/\s+/g, ' ')
         .trim();
