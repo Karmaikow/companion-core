@@ -3,12 +3,18 @@ import { CreationRitual } from './creation-ritual.js';
 import { mode } from './runtime-mode.js';
 import { request } from './http.js';
 import { api } from './api.js';
+import { cloudAuth, cloudVault } from './cloud-vault.js';
 export class AccessGate {
   constructor(onEnter,onLock) {
     this.onEnter=onEnter;this.onLock=onLock;this.root=document.querySelector('#accessGate');this.form=document.querySelector('#accessForm');this.remoteForm=document.querySelector('#remotePairForm');this.error=document.querySelector('#accessError');
     this.ritual=new CreationRitual(this.root);
     this.crystal=new CrystalPanel(()=>this.openHub());
     this.form.addEventListener('submit',e=>{e.preventDefault();void this.submit();});
+    document.querySelector('#authModeToggle').addEventListener('click',()=>{this.setup=!this.setup;this.error.textContent='';this.configureCloudForm();});
+    document.querySelector('#cloudSaveCrystal').addEventListener('click',()=>void this.saveCloudCrystal());
+    document.querySelector('#cloudRefreshBackups').addEventListener('click',()=>void this.refreshCloudVault());
+    document.querySelector('#cloudBackupList').addEventListener('click',event=>{const button=event.target.closest('[data-cloud-download]');if(button)void this.downloadCloudBackup(button.dataset.cloudDownload);});
+    document.querySelector('#cloudLogout').addEventListener('click',()=>void this.logout());
     this.remoteForm.addEventListener('submit',e=>{e.preventDefault();void this.submitRemote();});
     document.querySelector('#enterWorld').addEventListener('click',()=>void this.enter());
     for(const id of ['logoutButton','gateLogout'])document.getElementById(id).addEventListener('click',()=>void this.logout());
@@ -22,12 +28,19 @@ export class AccessGate {
     window.addEventListener('mayuna:unauthorized',()=>void this.start());
   }
   async request(route,body) {
+    if(mode==='cloud'){
+      if(route==='status')return cloudAuth.status();
+      if(route==='setup')return cloudAuth.signUp(body.email,body.password);
+      if(route==='login')return cloudAuth.signIn(body.email,body.password);
+      if(route==='logout')return cloudAuth.signOut();
+      throw Error('Ação de conta não disponível.');
+    }
     const response=await request('/api/auth/'+route,{cache:'no-store',signal:AbortSignal.timeout(15000),...(body!==undefined?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{})});
     const data=await response.json();if(!response.ok)throw Error(data.error||'Não foi possível acessar.');return data;
   }
   async start() {
     this.ritual.close();this.onLock?.();this.root.hidden=false;document.querySelector('#appShell').inert=true;document.body.classList.add('is-locked');
-    this.error.textContent='';this.form.hidden=true;this.remoteForm.hidden=true;document.querySelector('#continuityScreen').hidden=true;document.querySelector('#hubScreen').hidden=true;document.querySelector('#accessRetry').hidden=true;
+    this.error.textContent='';this.form.hidden=true;this.remoteForm.hidden=true;document.querySelector('#continuityScreen').hidden=true;document.querySelector('#hubScreen').hidden=true;document.querySelector('#cloudVaultScreen').hidden=true;document.querySelector('#authModeToggle').hidden=true;document.querySelector('#accessRetry').hidden=true;
     document.querySelector('#accessTitle').textContent='Conectando ao seu mundo';
     try{
       if(mode==='connect'){
@@ -39,8 +52,20 @@ export class AccessGate {
         document.querySelector('#remotePairCode').focus();
         return;
       }
+      if(mode==='cloud'){
+        document.querySelector('#hubButton').hidden=true;document.querySelector('#manageHub').hidden=true;
+        const status=await cloudAuth.status();
+        if(status.authenticated){await this.showCloudVault(status.user);return;}
+        this.setup=true;this.form.hidden=false;this.configureCloudForm();return;
+      }
       document.querySelector('#hubButton').hidden=mode==='demo';
       const status=await this.request('status');if(status.authenticated){await this.continuity();return;}
+      document.querySelector('#accessUsername').type='text';
+      document.querySelector('#accessUsername').name='username';
+      document.querySelector('#accessUsername').autocomplete='username';
+      document.querySelector('#accessUsername').minLength=3;document.querySelector('#accessUsername').maxLength=40;
+      document.querySelector('#accessUsername').pattern='[a-zA-Z0-9_.-]{3,40}';
+      document.querySelector('#accessUsername').parentElement.childNodes[0].nodeValue='Usuário local';
       this.setup=!status.configured;this.form.hidden=false;
       document.querySelector('#accessTitle').textContent=this.setup?'Um acesso. Uma história.':'Sua história continua.';
       document.querySelector('#accessSubtitle').textContent=this.setup?'Crie seu acesso local para entrar no núcleo.':'Entre para reencontrar sua Companion.';
@@ -48,6 +73,51 @@ export class AccessGate {
       document.querySelector('#confirmationField').hidden=!this.setup;document.querySelector('#accessConfirm').required=this.setup;
       document.querySelector('#accessPassword').autocomplete=this.setup?'new-password':'current-password';document.querySelector('#accessUsername').focus();
     }catch(error){this.error.textContent=error.message;document.querySelector('#accessRetry').hidden=false;}
+  }
+  configureCloudForm(){
+    const input=document.querySelector('#accessUsername');input.type='email';input.name='email';input.autocomplete='email';input.minLength=0;input.maxLength=254;input.removeAttribute('pattern');input.parentElement.childNodes[0].nodeValue='E-mail';
+    document.querySelector('#authModeToggle').hidden=false;
+    document.querySelector('#confirmationField').hidden=!this.setup;document.querySelector('#accessConfirm').required=this.setup;
+    document.querySelector('#accessPassword').autocomplete=this.setup?'new-password':'current-password';
+    document.querySelector('#accessTitle').textContent=this.setup?'Criar sua conta':'Entrar na sua conta';
+    document.querySelector('#accessSubtitle').textContent=this.setup?'Crie uma conta para guardar backups criptografados dos seus Cristais.':'Entre para acessar os Cristais guardados no seu cofre.';
+    document.querySelector('#accessSubmit').textContent=this.setup?'Criar conta':'Entrar';
+    document.querySelector('#authModeToggle').textContent=this.setup?'Já tenho uma conta':'Criar uma conta';
+    input.focus();
+  }
+  async showCloudVault(user){
+    this.form.hidden=true;this.remoteForm.hidden=true;document.querySelector('#continuityScreen').hidden=true;document.querySelector('#hubScreen').hidden=true;document.querySelector('#cloudVaultScreen').hidden=false;document.querySelector('#authModeToggle').hidden=true;
+    document.querySelector('#accessTitle').textContent='Sua conta está conectada';
+    document.querySelector('#accessSubtitle').textContent='Acesse seus backups criptografados do Cristal de Memória.';
+    const account=user||await cloudAuth.currentUser();document.querySelector('#cloudAccountEmail').textContent=account?.email||'Conta autenticada';
+    await this.refreshCloudVault();
+  }
+  async refreshCloudVault(){
+    const list=document.querySelector('#cloudBackupList'),feedback=document.querySelector('#cloudVaultFeedback');feedback.textContent='Carregando backups…';
+    try{
+      const rows=await cloudVault.list();list.replaceChildren();
+      if(!rows.length){const empty=document.createElement('p');empty.className='muted';empty.textContent='Nenhum Cristal guardado nesta conta.';list.append(empty);}
+      for(const row of rows){
+        const button=document.createElement('button');button.type='button';button.className='hub-companion-option';button.dataset.cloudDownload=row.companion_id;
+        const icon=document.createElement('span');icon.className='hub-soul';icon.textContent='✧';
+        const details=document.createElement('span');const name=document.createElement('strong');name.textContent=row.companion_id;const date=document.createElement('small');date.textContent='Backup atualizado '+new Date(row.updated_at).toLocaleString('pt-BR');details.append(name,date);
+        const action=document.createElement('span');action.className='hub-active';action.textContent='BAIXAR';button.append(icon,details,action);list.append(button);
+      }
+      feedback.textContent=rows.length?'Selecione um Cristal para baixar.':'';
+    }catch(error){feedback.textContent=error.message;}
+  }
+  async saveCloudCrystal(){
+    const button=document.querySelector('#cloudSaveCrystal'),feedback=document.querySelector('#cloudVaultFeedback'),file=document.querySelector('#cloudCrystalFile').files[0];
+    if(button.disabled)return;if(!file){feedback.textContent='Selecione um arquivo .companion.';return;}
+    button.disabled=true;feedback.textContent='Enviando envelope criptografado…';
+    try{await cloudVault.save(document.querySelector('#cloudCompanionId').value.trim(),await file.text());document.querySelector('#cloudCrystalFile').value='';feedback.textContent='Backup criptografado salvo na sua conta.';await this.refreshCloudVault();}
+    catch(error){feedback.textContent=error.message;}
+    finally{button.disabled=false;}
+  }
+  async downloadCloudBackup(id){
+    const feedback=document.querySelector('#cloudVaultFeedback');feedback.textContent='Preparando o download…';
+    try{const file=await cloudVault.download(id),url=URL.createObjectURL(new Blob([file],{type:'application/json'})),link=document.createElement('a');link.href=url;link.download=id+'.companion';link.click();setTimeout(()=>URL.revokeObjectURL(url),60_000);feedback.textContent='Cristal baixado. Use a senha original para importá-lo.';}
+    catch(error){feedback.textContent=error.message;}
   }
   async submitRemote() {
     const button=document.querySelector('#remotePairSubmit');if(button.disabled)return;
@@ -64,7 +134,13 @@ export class AccessGate {
     const username=document.querySelector('#accessUsername').value,password=document.querySelector('#accessPassword').value;
     if(this.setup&&password!==document.querySelector('#accessConfirm').value){this.error.textContent='As senhas não coincidem.';return;}
     this.error.textContent='';button.disabled=true;
-    try{await this.request(this.setup?'setup':'login',{username,password});this.form.reset();await this.continuity();}
+    try{
+      const result=await this.request(this.setup?'setup':'login',mode==='cloud'?{email:username,password}:{username,password});
+      if(mode==='cloud'&&this.setup&&!result.authenticated){this.form.reset();this.error.textContent='Conta criada. Confirme o e-mail enviado pelo Supabase e depois entre.';this.setup=false;this.configureCloudForm();return;}
+      this.form.reset();
+      if(mode==='cloud'){await this.showCloudVault(result.user);return;}
+      await this.continuity();
+    }
     catch(error){this.error.textContent=error.message;}finally{button.disabled=false;}
   }
   showCreation(){this.ritual.open(this.state);document.querySelector('#accessTitle').textContent='O ritual do primeiro vínculo';document.querySelector('#accessSubtitle').textContent='Escolha o nome, a essência e os traços da alma que vai acompanhar você.';}
