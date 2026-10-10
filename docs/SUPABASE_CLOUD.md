@@ -1,21 +1,41 @@
 # Supabase: conta e cofre do Cristal
 
-## O que esta etapa prepara
+## Fluxo online
 
-O projeto Supabase da Companion Core usa Supabase Auth para contas quando a interface online for conectada. A migração `20261010160000_companion_crystal_vault.sql` cria a tabela `public.companion_crystal_vault`, um cofre para arquivos `.companion` já selados pelo formato atual do Cristal de Memória.
+A interface estática da Vercel autentica contas por e-mail e senha com Supabase Auth. Com uma sessão ativa, o usuário pode guardar e baixar arquivos `.companion` já selados pelo formato AES-256-GCM do Cristal.
 
-Cada linha tem o ID da conta autenticada, o ID público da Companion, o envelope criptografado do Cristal e datas de criação/atualização. A chave privada e o estado aberto não devem ser enviados ao banco. O formato do arquivo é conferido pelo banco; a senha do Cristal continua necessária para abri-lo.
+O cofre é versionado: cada envio cria um backup separado. Os dados cifrados carregam a chave privada e todo o estado assinado do Core; o servidor só recebe o envelope criptografado e o ID público da Companion. Para abrir/restaurar o arquivo, continua sendo necessária a senha original do Cristal.
 
-## Isolamento e chaves
+## Migrações
 
-- RLS está habilitado e forçado.
-- SELECT, INSERT, UPDATE e DELETE exigem a conta autenticada e uma política compara `owner_id` com `auth.uid()`.
-- Usuários anônimos não recebem acesso à tabela.
-- A aplicação no navegador só deve usar a chave **publishable** do Supabase. Nunca inclua `sb_secret_...`, `service_role` ou a chave privada do Core no navegador, no GitHub ou em variáveis públicas da Vercel.
-- A tabela recebe somente envelopes de Cristal criptografados. A aplicação precisa validar o Cristal antes de restaurá-lo.
+- `20261010160000_companion_crystal_vault.sql`: cofre, validação da forma do envelope, RLS por `auth.uid()` e negação do acesso anônimo.
+- `20261010220000_version_companion_crystal_backups.sql`: mantém múltiplas versões imutáveis e remove permissão de atualização direta.
 
-## Limite atual da Vercel
+A senha da conta Supabase não é a senha do Cristal. O banco não recebe a chave privada em texto aberto.
 
-A Vercel ainda compila a interface como prévia estática em modo `demo`. Criar a tabela não adiciona login à tela nem transforma o demo em um Core hospedado. O próximo passo de código é conectar Supabase Auth à tela de acesso e implementar o upload/download do arquivo `.companion`, mantendo o fluxo local e o Cristal existentes. A criação, chat e mutação do Core precisam continuar em um backend confiável ou no Core local; credenciais privilegiadas nunca vão para o browser.
+## Configuração do Supabase Auth
 
-Quando o cliente de Supabase entrar no build, configure na Vercel os nomes de variáveis definidos pelo código (URL e chave publishable), para Development, Preview e Production. Não adicionar chaves secretas ao projeto Vercel para este fluxo público.
+No painel do Supabase, em **Authentication → URL Configuration**:
+
+- Site URL: `https://companion-core-two.vercel.app`
+- Redirect URL de produção: `https://companion-core-two.vercel.app/**`
+- Redirects das prévias Vercel: `https://*-karmaikows-projects.vercel.app/**`
+
+A confirmação de e-mail deve continuar habilitada. O link de confirmação retorna à URL que iniciou o cadastro. O projeto deve permitir a origem da produção e das prévias antes de testar o cadastro.
+
+## Variáveis na Vercel
+
+O build usa:
+
+- `SUPABASE_URL`
+- `SUPABASE_PUBLISHABLE_KEY`
+
+A chave publishable é pública e vai para o código do navegador; ela depende do RLS para limitar acesso. Nunca use `sb_secret_...`, `service_role` ou uma chave privada do Core no browser, no GitHub ou em variável pública. Consulte `.env.example` para o formato local.
+
+## Limites e próximos passos
+
+O cofre protege backups completos do Core, inclusive personalidade, memórias, progresso, inventário, equipamentos e eventuais dados de habilidades presentes no estado exportado. Ainda não existem no Core árvores de skills e modelos finais de equipamento para persistir separadamente.
+
+Esses elementos devem continuar dentro do estado/eventos assinados do Core e do backup criptografado. Tabelas paralelas de inventário ou skills agora criariam duas fontes de verdade. Quando o backend online e o modelo de progressão estiverem definidos, podemos adicionar catálogos de skills/itens e projeções consultáveis, mantendo o Cristal como backup íntegro.
+
+Este fluxo de login/cofre não hospeda o runtime de conversa nem cria uma Companion online. A criação e a evolução do Core ainda dependem do backend confiável ou do Core local. A transferência do arquivo entre instalações também continua sujeita ao registro central e às regras do Cristal.
