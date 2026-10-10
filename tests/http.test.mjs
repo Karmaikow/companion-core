@@ -9,7 +9,7 @@ import path from 'node:path';
 test('HTTP boundaries: local owner, remote pairing, DTO, interaction and revocation', { timeout: 20_000 }, async()=>{
  const data=await mkdtemp(path.join(tmpdir(),'mayuna-http-'));
  const origin='https://mayuna.example';
- const server=spawn(process.execPath,['dist/server/web-server.js'],{env:{...process.env,HOST:'127.0.0.1',PORT:'4294',MAYUNA_REMOTE_ORIGIN:origin,MAYUNA_DATA_DIR:data,MAYUNA_AI_PROVIDER:'mock'},stdio:['ignore','pipe','pipe']});
+ const server=spawn(process.execPath,['dist/server/web-server.js'],{env:{...process.env,HOST:'127.0.0.1',PORT:'4294',MAYUNA_REMOTE_ORIGIN:origin,MAYUNA_DATA_DIR:data,MAYUNA_AI_PROVIDER:'mock',COMPANION_REGISTRY_URL:''},stdio:['ignore','pipe','pipe']});
  let stderr=''; server.stderr.on('data',chunk=>{stderr+=chunk;});
  try {
   await Promise.race([new Promise((resolve,reject)=>{server.stdout.on('data',x=>{if(x.toString().includes('Interface:'))resolve();});server.on('error',reject);server.on('exit',code=>reject(Error(`Server exited ${code}: ${stderr}`)));}),new Promise((_,reject)=>{const timer=setTimeout(()=>reject(Error(`Startup timeout: ${stderr}`)),20000);timer.unref();})]);

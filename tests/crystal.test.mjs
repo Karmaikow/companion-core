@@ -97,7 +97,7 @@ async function fixture(){const root=await mkdtemp(path.join(tmpdir(),'crystal-')
 
  test('missing central authority disables transfers, and enrolled sessions fail closed during outages',async()=>{
  const {CrystalManager}=await import('../dist/portability/crystal-manager.js');const root=await mkdtemp(path.join(tmpdir(),'crystal-disabled-'));try{
- const core=CompanionCore.create(MAYUNA_PROFILE);const manager=new CrystalManager(root);await manager.initialize();await assert.rejects(manager.recollect(core,password,'Origem'),/REGISTRY_URL/);await manager.assertActive(core);assert.equal(manager.getPhase(),'local');
+ const core=CompanionCore.create(MAYUNA_PROFILE);const manager=new CrystalManager(root,'');await manager.initialize();await assert.rejects(manager.recollect(core,password,'Origem'),/REGISTRY_URL/);await manager.assertActive(core);assert.equal(manager.getPhase(),'local');
  }finally{await rm(root,{recursive:true,force:true});}
  const f=await fixture();try{
  const runtime=new CompanionRuntime(provider,path.join(f.root,'source'),f.url);await runtime.initialize();await runtime.createCompanion(input);await runtime.chat('Oi');const before=runtime.getClientState();await new Promise(resolve=>f.server.close(resolve));

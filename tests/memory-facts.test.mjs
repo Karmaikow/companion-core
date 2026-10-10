@@ -72,7 +72,7 @@ test('all companions receive their own relationship and fantasy setting without 
   assert.match(context.systemPrompt, /conversando diretamente com Alex/);
   assert.match(context.systemPrompt, /Aurora disse que gosta de pássaros/);
   assert.match(context.systemPrompt, /Refúgio/);
-  assert.match(context.systemPrompt, /Não afirme que já visitou lugares/);
+  assert.match(context.systemPrompt, /Não afirme ter visitado lugares, encontrado criaturas ou vivido aventuras enquanto a aplicação estava fechada/);
   assert.doesNotMatch(context.systemPrompt, /Didi|Mayuna/);
 });
 
