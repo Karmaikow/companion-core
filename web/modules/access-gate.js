@@ -13,7 +13,7 @@ export class AccessGate {
     document.querySelector('#authModeToggle').addEventListener('click',()=>{this.setup=!this.setup;this.error.textContent='';this.configureCloudForm();});
     document.querySelector('#cloudSaveCrystal').addEventListener('click',()=>void this.saveCloudCrystal());
     document.querySelector('#cloudRefreshBackups').addEventListener('click',()=>void this.refreshCloudVault());
-    document.querySelector('#cloudBackupList').addEventListener('click',event=>{const button=event.target.closest('[data-cloud-download]');if(button)void this.downloadCloudBackup(button.dataset.cloudDownload);});
+    document.querySelector('#cloudBackupList').addEventListener('click',event=>{const button=event.target.closest('[data-cloud-download]');if(button)void this.downloadCloudBackup(button.dataset.cloudDownload,button.dataset.companionId);});
     document.querySelector('#cloudLogout').addEventListener('click',()=>void this.logout());
     this.remoteForm.addEventListener('submit',e=>{e.preventDefault();void this.submitRemote();});
     document.querySelector('#enterWorld').addEventListener('click',()=>void this.enter());
@@ -98,9 +98,9 @@ export class AccessGate {
       const rows=await cloudVault.list();list.replaceChildren();
       if(!rows.length){const empty=document.createElement('p');empty.className='muted';empty.textContent='Nenhum Cristal guardado nesta conta.';list.append(empty);}
       for(const row of rows){
-        const button=document.createElement('button');button.type='button';button.className='hub-companion-option';button.dataset.cloudDownload=row.companion_id;
+        const button=document.createElement('button');button.type='button';button.className='hub-companion-option';button.dataset.cloudDownload=row.backup_id;button.dataset.companionId=row.companion_id;
         const icon=document.createElement('span');icon.className='hub-soul';icon.textContent='✧';
-        const details=document.createElement('span');const name=document.createElement('strong');name.textContent=row.companion_id;const date=document.createElement('small');date.textContent='Backup atualizado '+new Date(row.updated_at).toLocaleString('pt-BR');details.append(name,date);
+        const details=document.createElement('span');const name=document.createElement('strong');name.textContent=row.companion_id;const date=document.createElement('small');date.textContent='Backup salvo '+new Date(row.created_at).toLocaleString('pt-BR');details.append(name,date);
         const action=document.createElement('span');action.className='hub-active';action.textContent='BAIXAR';button.append(icon,details,action);list.append(button);
       }
       feedback.textContent=rows.length?'Selecione um Cristal para baixar.':'';
@@ -114,9 +114,9 @@ export class AccessGate {
     catch(error){feedback.textContent=error.message;}
     finally{button.disabled=false;}
   }
-  async downloadCloudBackup(id){
+  async downloadCloudBackup(id,companionId){
     const feedback=document.querySelector('#cloudVaultFeedback');feedback.textContent='Preparando o download…';
-    try{const file=await cloudVault.download(id),url=URL.createObjectURL(new Blob([file],{type:'application/json'})),link=document.createElement('a');link.href=url;link.download=id+'.companion';link.click();setTimeout(()=>URL.revokeObjectURL(url),60_000);feedback.textContent='Cristal baixado. Use a senha original para importá-lo.';}
+    try{const file=await cloudVault.download(id),url=URL.createObjectURL(new Blob([file],{type:'application/json'})),link=document.createElement('a');link.href=url;link.download=companionId+'-'+id.slice(0,8)+'.companion';link.click();setTimeout(()=>URL.revokeObjectURL(url),60_000);feedback.textContent='Cristal baixado. Use a senha original para importá-lo.';}
     catch(error){feedback.textContent=error.message;}
   }
   async submitRemote() {
