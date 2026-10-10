@@ -116,6 +116,19 @@ async function fixture(){const root=await mkdtemp(path.join(tmpdir(),'crystal-')
  }finally{await f.close();}
  });
 
+ test('Hub can reactivate the same Companion already active in the local Crystal session',async()=>{
+ const f=await fixture();const root=path.join(f.root,'hub');try{
+  const {LocalStore,writeFileAtomic}=await import('../dist/storage/store.js');const store=new LocalStore(root);
+  const mayuna=CompanionCore.create(MAYUNA_PROFILE);const otherProfile=structuredClone(MAYUNA_PROFILE);otherProfile.name='Lunaya';otherProfile.companionOf={name:'Diego',preferredAddress:'Didi'};const lunaya=CompanionCore.create(otherProfile);
+  for(const core of [mayuna,lunaya]){await store.save(core.getData());await store.savePrivateKey(core.getState().identity.id,core.getPrivateKey());}
+  await writeFileAtomic(path.join(root,'active-companion.json'),JSON.stringify({id:lunaya.getState().identity.id}));
+  await writeFileAtomic(path.join(root,'.crystal','session.json'),JSON.stringify({authority:f.url,id:mayuna.getState().identity.id,device:{id:token(),name:'PC Windows',platform:'Windows'},session:token(),recovery:token(),phase:'active'}));
+  const runtime=new CompanionRuntime(provider,root,f.url);await runtime.initialize();assert.equal(runtime.getActiveId(),lunaya.getState().identity.id);
+  const selected=await runtime.activateCompanion(mayuna.getState().identity.id);assert.equal(selected.identity.id,mayuna.getState().identity.id);assert.equal(selected.meta.crystalPhase,'active');
+  const status=await runtime.crystalStatus();assert.equal(status.server.status,'active');assert.equal(status.server.device.name,'PC Windows');
+ }finally{await f.close();}
+ });
+
  test('owner HTTP export/import transfers a large encrypted file; APIs never expose plaintext keys',async()=>{
  const {spawn}=await import('node:child_process');const {LocalStore,writeFileAtomic}=await import('../dist/storage/store.js');const f=await fixture();const children=[];
  const launch=async(root,port)=>{const child=spawn(process.execPath,['dist/server/web-server.js'],{env:{...process.env,HOST:'127.0.0.1',PORT:String(port),MAYUNA_AI_PROVIDER:'mock',MAYUNA_DATA_DIR:root,COMPANION_REGISTRY_URL:f.url},stdio:['ignore','pipe','pipe']});children.push(child);let stderr='';child.stderr.on('data',x=>stderr+=x);await Promise.race([new Promise((resolve,reject)=>{child.stdout.on('data',x=>{if(x.toString().includes('Interface:'))resolve();});child.on('exit',()=>reject(Error(`Startup failed: ${stderr}`)));}),new Promise((_,reject)=>{const timer=setTimeout(()=>reject(Error('Startup timeout')),10000);timer.unref();})]);return`http://127.0.0.1:${port}`;};

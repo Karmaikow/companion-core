@@ -110,5 +110,6 @@ export class CrystalManager {
     return {core,recoveryCode:local.recovery};
   }
   getPhase(){return this.local?.phase??'local';}
+  isActiveFor(id:string){return this.local?.phase==='active'&&this.local.id===id;}
   getRecoveryCode(){return this.local?.recovery;}
 }

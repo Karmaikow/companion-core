@@ -220,7 +220,8 @@ export class CompanionRuntime {
   activateCompanion(id: string) {
     const next = this.queue.then(async () => {
       if (!/^MC-[A-Z0-9-]+$/i.test(id)) throw new Error('Identidade inválida.');
-      if(this.crystal.getPhase()!=='local') throw new HubError(409,'Use o fluxo do Cristal para continuar esta identidade.');
+      const crystalOwnsIdentity=this.crystal.isActiveFor(id);
+      if(this.crystal.getPhase()!=='local'&&!crystalOwnsIdentity) throw new HubError(409,'Use o fluxo do Cristal para continuar esta identidade.');
       const stored = await this.store.load(id);
       if (!stored || stored.state.identity.id !== id) throw new Error('Companion não encontrada no Hub.');
       const privateKey = await this.store.loadPrivateKey(id);
@@ -229,6 +230,7 @@ export class CompanionRuntime {
       try { validKey = verifySignature(challenge, signData(challenge, privateKey), stored.state.identity.cryptographicIdentity.publicKey); } catch { /* malformed private-key file */ }
       if (!validKey) throw new HubError(409, 'Chave privada não corresponde à Companion.');
       const core = CompanionCore.from(stored, privateKey);
+      if(crystalOwnsIdentity) await this.crystal.assertActive(core);
       await setActiveCompanionId(this.dataRoot, id);
       this.activateCore(core);
       return this.getClientState();
