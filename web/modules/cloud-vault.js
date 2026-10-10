@@ -40,8 +40,25 @@ async function refreshSession() {
     return null;
   }
 }
+async function consumeAuthRedirect() {
+  const params = new URLSearchParams(window.location.hash.slice(1));
+  const accessToken = params.get('access_token');
+  const refreshToken = params.get('refresh_token');
+  if (!accessToken || !refreshToken) return false;
+  const response = await fetch(`${cloudConfig.url}/auth/v1/user`, {
+    headers: { apikey: cloudConfig.publishableKey, Authorization: `Bearer ${accessToken}` },
+    cache: 'no-store'
+  });
+  if (!response.ok) throw new Error('Não foi possível validar o e-mail. Tente entrar novamente.');
+  const user = await response.json();
+  const expiresIn = Number(params.get('expires_in') || 3600);
+  writeSession({ access_token: accessToken, refresh_token: refreshToken, expires_in: expiresIn, expires_at: Date.now() + expiresIn * 1000, user });
+  history.replaceState(null, '', window.location.pathname + window.location.search);
+  return true;
+}
 async function validSession() {
   if (!configured()) throw new Error('Supabase ainda não está configurado neste deploy.');
+  await consumeAuthRedirect();
   let session = readSession();
   if (!session?.access_token) return null;
   if (Number(session.expires_at || 0) < Date.now() + 30_000) session = await refreshSession();
@@ -79,7 +96,7 @@ export const cloudAuth = {
     return { configured: true, authenticated: Boolean(session), user: session?.user || null };
   },
   signUp: async (email, password) => {
-    const data = await authRequest('signup', { email: email.trim(), password });
+    const data = await authRequest(`signup?redirect_to=${encodeURIComponent(window.location.origin + '/')}`, { email: email.trim(), password });
     if (data.access_token) {
       const session = { ...data, expires_at: Date.now() + Number(data.expires_in || 3600) * 1000 };
       writeSession(session);
