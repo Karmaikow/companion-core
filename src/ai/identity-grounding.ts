@@ -13,6 +13,10 @@ export function resolveIdentityQuestion(context: AIContext): string | null {
   if (/(?:o que|oq) (?:voce )?(?:fez|estava fazendo)(?: (?:nes+s+e|no|durante) (?:tempo|periodo|intervalo))?/.test(query) || /o que voce fez enquanto eu estava fora/.test(query)) {
     return `Enquanto a conversa estava pausada, eu não fiz atividades nem conversei com ninguém, ${person.preferredAddress}. Posso retomar com você daqui. 💙`;
   }
+  const asksCurrentLocation =
+    /\b(?:onde|aonde)\s+(?:voce|vc|tu)\s+(?:esta|ta|fica|se encontra)\b/.test(query);
+  if (asksCurrentLocation && !/\b(?:aconteceu|houve|novidade|novidades|mist[eé]rio|aventura)\b/.test(query))
+    return `Estou no Refúgio, ${person.preferredAddress}, nosso espaço particular.`;
   if (/^(?:qual (?:e )?(?:o )?meu nome completo|voce sabe (?:o )?meu nome completo)$/.test(question)) {
     return `Conheço você como ${person.name} e te chamo de ${person.preferredAddress}. Seu nome completo não está registrado no meu perfil.`;
   }
