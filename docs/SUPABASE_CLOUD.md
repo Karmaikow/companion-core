@@ -8,8 +8,8 @@ O cofre é versionado: cada envio cria um backup separado. Os dados cifrados car
 
 ## Migrações
 
-- `20261010160000_companion_crystal_vault.sql`: cofre, validação da forma do envelope, RLS por `auth.uid()` e negação do acesso anônimo.
-- `20261010220000_version_companion_crystal_backups.sql`: mantém múltiplas versões imutáveis e remove permissão de atualização direta.
+- `20261010211431_companion_crystal_vault.sql`: cofre, validação da forma do envelope, RLS por `auth.uid()` e negação do acesso anônimo.
+- `20261010214044_version_companion_crystal_backups.sql`: mantém múltiplas versões imutáveis e remove permissão de atualização direta.
 
 A senha da conta Supabase não é a senha do Cristal. O banco não recebe a chave privada em texto aberto.
 
