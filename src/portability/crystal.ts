@@ -1,5 +1,6 @@
 import { randomBytes, scrypt, createCipheriv, createDecipheriv, createPublicKey } from 'node:crypto';
 import { Buffer } from 'node:buffer';
+import { validateInvitation, type BondInvitation } from './bond-passage.js';
 import { CompanionCore } from '../core/core.js';
 import { sha256, signData, verifySignature, stableJson } from '../crypto/crypto.js';
 import type { StoredCompanion } from '../models/types.js';
@@ -9,6 +10,7 @@ const AAD = Buffer.from('companion-memory-crystal:v1:aes-256-gcm:scrypt-32768-8-
 export const MAX_CRYSTAL_BYTES = 12_000_000;
 export class CrystalError extends Error { constructor(public status: number, message: string, public details?: unknown) { super(message); } }
 export interface CrystalPayload {
+  gift?: {invitation:BondInvitation;historyShared:true};
   version: 1; authority: string; transferId: string; transferSecret: string;
   exportedAt: string; data: StoredCompanion; privateKey: string; stateSignature: string;
 }
@@ -16,6 +18,7 @@ export function validatePayload(payload: CrystalPayload): CompanionCore {
   try {
     if(payload.version!==1 || !/^MC-[A-Z0-9-]+$/i.test(payload.data.state.identity.id) ||
       !/^[a-f0-9]{64}$/.test(payload.transferSecret) || typeof payload.authority!=='string' || typeof payload.transferId!=='string') throw Error();
+    if(payload.gift){validateInvitation(payload.gift.invitation,false);if(payload.gift.historyShared!==true)throw Error();}
     const key = payload.data.state.identity.cryptographicIdentity.publicKey;
     if(createPublicKey(payload.privateKey).export({type:'spki',format:'pem'}).toString()!==key) throw Error();
     if(!verifySignature(stableJson(payload.data),payload.stateSignature,key)) throw Error();

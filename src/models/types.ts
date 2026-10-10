@@ -53,6 +53,7 @@ export type MemoryType =
  */
 
 export type EventType =
+  | 'BOND_PASSAGE'
   | 'GENESIS'
   | 'CONVERSATION'
   | 'DISCOVERY'

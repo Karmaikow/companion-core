@@ -85,3 +85,7 @@ O controle antigo de sessão é migrado automaticamente para o formato por ident
 Para trazer Lunaya: faça backup da pasta `data`, atualize o projeto e rode `npm test`. Abra **Meu vínculo → Cristal de Memória → Importar Companion do Cristal**, escolha o arquivo `.companion`, informe sua senha e nomeie o computador. O código de recuperação só é necessário no fluxo explícito de recuperação de dispositivo perdido. Na transferência normal, deixe esse campo vazio.
 
 O registro que autorizou a exportação precisa continuar acessível, com seus dados originais. Um registro novo em `localhost` no Windows não substitui o registro do Linux. Esta atualização não hospeda nem migra esse serviço. Contas remotas, amizades e encontros no mundo permanecem etapas futuras; o Hub atual é uma instalação local com várias identidades.
+
+## Registro compartilhado e presentes
+
+A migração dos registros locais e a **Passagem do Vínculo** estão descritas em [PASSAGEM_VINCULO.md](PASSAGEM_VINCULO.md). Há agora um comando de migração com simulação, convites de destinatário, revisão do Cristal e aceite explícito. O registro também guarda a chave pública e o nome declarado do destinatário de uma passagem pendente, além da identificação criptográfica do acesso após o aceite. Memórias e chaves privadas continuam nos Cores.

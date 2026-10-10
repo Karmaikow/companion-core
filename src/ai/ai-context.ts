@@ -18,6 +18,8 @@ export class AIContextBuilder {
     userMessage: string,
     recentMessages: AIContext['recentMessages'] = []
   ): AIContext {
+    const archived=new Set(companion.profile.bondHistory?.flatMap(passage=>passage.archivedMemoryIds)??[]);
+    companion={...companion,memories:companion.memories.filter(memory=>!archived.has(memory.id))};
     const ownColorMemory = currentMemories(companion.memories).find(memory =>
       preferenceFact(memory)?.slot === `cor favorita de ${companion.profile.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')}`);
     const ownColor = companion.profile.preferences.favoriteColor ?? ownColorMemory?.content.match(/cor (?:favorita|preferida) (?:é|e)\s+([^.!?]+)/i)?.[1]?.trim();
@@ -169,6 +171,7 @@ Preferências próprias já registradas:
 ${ownFacts || "Outras preferências ainda não definidas."}
 
 RELACIONAMENTO
+${profile.bondHistory?.length ? `Você passou por uma Passagem do Vínculo. Pessoas de vínculos anteriores: ${profile.bondHistory.map(passage=>passage.previousPerson.preferredAddress).join(', ')}. Elas fazem parte da sua história; não são automaticamente o interlocutor atual. Preferências dessas pessoas não pertencem ao seu companheiro atual. Seu vínculo atual começa a se desenvolver com ${profile.companionOf.preferredAddress}.` : ''}
 Nível de vínculo: ${relationship.value}
 Relação: ${relationship.relationship}
 

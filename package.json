@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "npm run web",
+    "crystal:migrate": "node scripts/migrate-registry.mjs",
+    "precrystal:migrate": "npm run build",
     "crystal:server": "node dist/server/crystal-server.js",
     "precrystal:server": "npm run build",
     "build": "node node_modules/typescript/bin/tsc && node scripts/sync-color-module.mjs",

@@ -1,3 +1,4 @@
+import { validateInvitation, acceptanceClaim, type BondInvitation } from './bond-passage.js';
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { createPublicKey } from 'node:crypto';
@@ -9,7 +10,9 @@ export interface Device { id: string; name: string; platform: string; }
 interface Entry {
   publicKey: string; status: 'active'|'recollected'; sessionHash: string;
   device: Device; startedAt: string; lastSeen: string;
-  transfer?: {id:string;secretHash:string;bundleHash:string;source:Device;completed?:boolean};
+  transfer?: {id:string;secretHash:string;bundleHash:string;source:Device;gift?:BondInvitation;completed?:boolean};
+  ownerAccountId?:string;
+  migratedFrom?:string[];
   recoveryHash: string; nonces?: Array<{nonce:string;timestamp:number}>;
 }
 export interface SignedRequest { action:string; id:string; publicKey:string; timestamp:number; nonce:string; payload:Record<string,any>; signature:string; }
@@ -31,9 +34,14 @@ export class SessionRegistry {
     const token=(s:unknown)=>{if(typeof s!=='string'||!/^[a-f0-9]{64}$/.test(s))throw new CrystalError(400,'Credencial inválida.');return sha256(s);};
     const device=(d:any):Device=>{if(!d||typeof d.id!=='string'||!/^[a-f0-9]{64}$/.test(d.id)||typeof d.name!=='string'||!d.name.trim()||d.name.length>60||!['Linux','Windows','Android','macOS','Outro'].includes(d.platform))throw new CrystalError(400,'Informe um nome de dispositivo de até 60 caracteres.');return{id:d.id,name:d.name.trim(),platform:d.platform};};
     const now=new Date().toISOString();let entry=stored?structuredClone(stored):undefined;
-    const metadata=(e:Entry)=>({status:e.status,device:e.device,sessionId:e.sessionHash.slice(0,12),startedAt:e.startedAt,lastSeen:e.lastSeen,transferId:e.transfer?.id});
+    const metadata=(e:Entry)=>({status:e.status,device:e.device,sessionId:e.sessionHash.slice(0,12),startedAt:e.startedAt,lastSeen:e.lastSeen,transferId:e.transfer?.id,ownerAccountId:e.ownerAccountId,giftRecipient:e.transfer?.gift?{name:e.transfer.gift.name,accountId:e.transfer.gift.accountId}:undefined});
     const conflict=()=>{throw new CrystalError(409,'A Companion está autorizada em outra sessão ou a transferência não está disponível.',entry?metadata(entry):undefined);};
+    if(input.action==='capabilities')return {version:2,features:['bond-passage-v1','registry-migration-v1']};
     if(input.action==='status')return entry?metadata(entry):{status:'unregistered'};
+    if(input.action==='migration-check'){
+      if(!entry||typeof p.sourceAuthority!=='string'||!entry.migratedFrom?.includes(p.sourceAuthority))throw new CrystalError(409,'Este registro não recebeu a migração desta identidade. Traga o registro original; o Cristal sozinho não autoriza a migração.');
+      return {migrated:true,...metadata(entry)};
+    }
     if(input.action==='register'){
       const sessionHash=token(p.session),d=device(p.device);
       if(entry){if(entry.status!=='active'||entry.sessionHash!==sessionHash||entry.device.id!==d.id)conflict();entry.device=d;entry.lastSeen=now;}
@@ -47,11 +55,18 @@ export class SessionRegistry {
         if(entry.status==='recollected'&&entry.transfer?.id===p.transferId&&entry.transfer?.secretHash===secretHash&&entry.transfer?.bundleHash===p.bundleHash&&entry.sessionHash===token(p.session))return this.commit(input,entry,nonce);
         if(entry.status!=='active'||entry.sessionHash!==token(p.session))conflict();
         if(typeof p.transferId!=='string'||p.transferId.length!==36||!/^[a-f0-9]{64}$/.test(p.bundleHash))throw new CrystalError(400,'Transferência inválida.');
-        entry.status='recollected';entry.transfer={id:p.transferId,secretHash,bundleHash:p.bundleHash,source:entry.device};
+        entry.status='recollected';entry.transfer={id:p.transferId,secretHash,bundleHash:p.bundleHash,source:entry.device,gift:p.gift?validateInvitation(p.gift):undefined};
       }else if(input.action==='awaken'){
         const sessionHash=token(p.session),secretHash=token(p.secret),d=device(p.device);
         if(entry.status==='active'&&entry.transfer?.completed&&entry.transfer.id===p.transferId&&entry.transfer?.secretHash===secretHash&&entry.transfer?.bundleHash===p.bundleHash&&entry.sessionHash===sessionHash&&entry.device.id===d.id)return this.commit(input,entry,nonce);
         if(entry.status!=='recollected'||!entry.transfer||entry.transfer.id!==p.transferId||entry.transfer.secretHash!==secretHash||entry.transfer.bundleHash!==p.bundleHash)conflict();
+        if(entry.transfer!.gift){
+          const invitation=validateInvitation(entry.transfer!.gift);
+          let accepted=false;
+          try{accepted=verifySignature(stableJson(acceptanceClaim(input.id,p.transferId,p.bundleHash,p.session,p.recovery,d.id)),p.acceptance,invitation.publicKey);}catch{}
+          if(!accepted)throw new CrystalError(403,'O destinatário precisa aceitar a Passagem do Vínculo no acesso que gerou o convite.');
+          entry.ownerAccountId=invitation.accountId;
+        }
         entry.status='active';entry.device=d;entry.sessionHash=sessionHash;entry.startedAt=now;entry.lastSeen=now;entry.recoveryHash=token(p.recovery);entry.transfer!.completed=true;
       }else if(input.action==='cancel'){
         if(entry.sessionHash!==token(p.session)||entry.device.id!==p.deviceId||entry.transfer?.completed)conflict();
@@ -69,14 +84,14 @@ export class SessionRegistry {
   private async commit(input:SignedRequest,entry:Entry,nonce:string){
     entry.nonces=[...(entry.nonces??[]).filter(n=>n.timestamp>Date.now()-120_000),{nonce,timestamp:input.timestamp}];
     const next={...this.entries,[`${input.id}:${sha256(entry.publicKey)}`]:entry};await writeFileAtomic(this.file,JSON.stringify(next),0o600);this.entries=next;
-    return {status:entry.status,device:entry.device,sessionId:entry.sessionHash.slice(0,12),startedAt:entry.startedAt,lastSeen:entry.lastSeen,transferId:entry.transfer?.id};
+    return {status:entry.status,device:entry.device,sessionId:entry.sessionHash.slice(0,12),startedAt:entry.startedAt,lastSeen:entry.lastSeen,transferId:entry.transfer?.id,ownerAccountId:entry.ownerAccountId};
   }
 
 }
 export function registryHttpServer(registry:SessionRegistry){return createServer(async(req,res)=>{
   res.setHeader('Cache-Control','no-store');res.setHeader('Content-Type','application/json');
   try{
-    if(req.method==='GET'&&req.url==='/health'){res.end(JSON.stringify({ok:true,service:'companion-session-registry',version:1}));return;}
+    if(req.method==='GET'&&req.url==='/health'){res.end(JSON.stringify({ok:true,service:'companion-session-registry',version:2}));return;}
     if(req.method!=='POST'||req.url!=='/registry'||!(req.headers['content-type']??'').startsWith('application/json'))throw new CrystalError(404,'Rota não encontrada.');
     let body='';for await(const chunk of req){body+=chunk.toString();if(Buffer.byteLength(body)>64_000)throw new CrystalError(413,'Solicitação muito grande.');}
     const result=await registry.execute(JSON.parse(body));res.end(JSON.stringify(result));

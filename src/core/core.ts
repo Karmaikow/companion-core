@@ -588,9 +588,11 @@ this.addJournal(
   emotionalWeight: number,
   relatedEvents: string[] = []
   ): Memory {
+  const archived = new Set(this.data.state.profile.bondHistory?.flatMap(passage => passage.archivedMemoryIds) ?? []);
+  const currentBondMemories = this.data.state.memories.filter(memory => !archived.has(memory.id));
   const candidate = { type, title, content };
   const fact = preferenceFact(candidate);
-  const latest = [...this.data.state.memories].reverse().find(memory => {
+  const latest = [...currentBondMemories].reverse().find(memory => {
     const existing = preferenceFact(memory);
     return fact && existing && fact.slot === existing.slot && !fact.slot.includes(' gosta de');
   });
@@ -598,7 +600,7 @@ this.addJournal(
   // value. Only repeated current facts reuse their existing record.
   const duplicate = latest
     ? (sameFact(latest, candidate) ? latest : undefined)
-    : this.data.state.memories.find(memory => sameFact(memory, candidate));
+    : currentBondMemories.find(memory => sameFact(memory, candidate));
   if (duplicate) return duplicate;
   const memory: Memory = {
   id: randomUUID(),

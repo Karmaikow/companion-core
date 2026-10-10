@@ -164,9 +164,13 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, pathname: st
       if(req.method==='GET'&&pathname==='/api/crystal/status'){json(res,200,await runtime.crystalStatus());return;}
       if(req.method!=='POST'){json(res,404,{error:'Operação não encontrada.'});return;}
       const body=await readJsonBody(req,MAX_CRYSTAL_BYTES+32_000) as Record<string,unknown>;
-      if(pathname==='/api/crystal/recollect')json(res,200,await runtime.recollectCrystal(body.password as string,body.deviceName as string));
+      if(pathname==='/api/crystal/invitation')json(res,200,{invitation:await runtime.bondInvitation(body.name as string,body.preferredAddress as string)});
+      else if(pathname==='/api/crystal/preview')json(res,200,await runtime.previewCrystal(body.file as string,body.password as string));
+      else if(pathname==='/api/crystal/gift')json(res,200,await runtime.giftCrystal(body.password as string,body.deviceName as string,body.invitation as string,body.shareHistory===true));
+      else if(pathname==='/api/crystal/migrate')json(res,200,await runtime.migrateRegistry());
+      else if(pathname==='/api/crystal/recollect')json(res,200,await runtime.recollectCrystal(body.password as string,body.deviceName as string));
       else if(pathname==='/api/crystal/cancel')json(res,200,await runtime.cancelCrystal());
-      else if(pathname==='/api/crystal/awaken')json(res,200,await runtime.awakenCrystal(body.file as string,body.password as string,body.deviceName as string,typeof body.recoveryCode==='string'&&body.recoveryCode?body.recoveryCode:undefined));
+      else if(pathname==='/api/crystal/awaken')json(res,200,await runtime.awakenCrystal(body.file as string,body.password as string,body.deviceName as string,typeof body.recoveryCode==='string'&&body.recoveryCode?body.recoveryCode:undefined,body.acceptGift===true));
       else json(res,404,{error:'Operação não encontrada.'});
     }catch(error){json(res,error instanceof CrystalError||error instanceof HubError?error.status:400,{error:error instanceof CrystalError||error instanceof HubError?error.message:'Não foi possível processar o Cristal. Nenhuma identidade foi substituída.',details:error instanceof CrystalError?error.details:undefined});}
     return;

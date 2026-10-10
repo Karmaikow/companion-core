@@ -273,13 +273,17 @@ export class CompanionRuntime {
     };
   }
 
+  bondInvitation(name:string,preferredAddress:string) { return this.serial(()=>this.crystal.invitation(name,preferredAddress)); }
+  previewCrystal(file:string,password:string) { return this.serial(()=>this.crystal.preview(file,password)); }
+  giftCrystal(password:string,deviceName:string,invitation:string,shareHistory:boolean) { return this.serial(async()=>{this.requireCompanion();await this.save();return this.crystal.gift(this.core,password,deviceName,invitation,shareHistory);}); }
+  migrateRegistry() { return this.serial(async()=>{this.requireCompanion();return this.crystal.migrate(this.core);}); }
   crystalStatus() { return this.crystal.status(this.hasCompanion()?this.core:undefined); }
   private serial<T>(action:()=>Promise<T>) { const next=this.queue.then(action);this.queue=next.catch(()=>undefined);return next; }
   recollectCrystal(password:string,deviceName:string) { return this.serial(async()=>{this.requireCompanion();await this.save();return this.crystal.recollect(this.core,password,deviceName);}); }
   cancelCrystal() { return this.serial(async()=>{this.requireCompanion();return this.crystal.cancel(this.core);}); }
-  awakenCrystal(file:string,password:string,deviceName:string,recoveryCode?:string) { return this.serial(async()=>{
+  awakenCrystal(file:string,password:string,deviceName:string,recoveryCode?:string,acceptGift=false) { return this.serial(async()=>{
     const existing=await this.listCompanions();if(!this.hasCompanion()&&existing.length&&this.crystal.getPhase()!=='importing')throw new HubError(409,'Há identidades locais que precisam ser recuperadas antes de importar.');
-    const result=await this.crystal.awaken(file,password,deviceName,this.hasCompanion()?this.core:undefined,recoveryCode);
+    const result=await this.crystal.awaken(file,password,deviceName,this.hasCompanion()?this.core:undefined,recoveryCode,acceptGift);
     this.activateCore(result.core);return {state:this.getClientState(),recoveryCode:result.recoveryCode,status:await this.crystalStatus()};
   }); }
 
