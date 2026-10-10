@@ -13,7 +13,7 @@ export class CrystalPanel {
  async refresh(){
   this.root.hidden=mode==='connect'||mode==='demo';if(this.root.hidden)return;
   try{this.status=await this.call('status');document.querySelector('#crystalDevice').value ||= this.status.deviceName||'';
-   document.querySelector('#crystalSession').textContent=this.status.configured?(this.status.unavailable?this.status.message:(this.status.phase==='importing'?'Despertar pendente: retome o mesmo Cristal com sua senha. ':'')+this.describe(this.status.server)):'O Cristal precisa de um registro central configurado para controlar as sessões entre dispositivos.';
+   document.querySelector('#crystalSession').textContent=this.status.configured?(this.status.unavailable?this.status.message:(this.status.pendingImport?'Há um despertar pendente: retome o mesmo Cristal com sua senha. ':'')+this.describe(this.status.server)):'O Cristal precisa de um registro central configurado para controlar as sessões entre dispositivos.';
    for(const id of ['crystalRecollect','crystalAwaken','crystalCancel'])document.getElementById(id).disabled=!this.status.configured;
    document.querySelector('#crystalRecollect').hidden=!this.status.hasCompanion;
    document.querySelector('#crystalCancel').hidden=!['exporting','recollected'].includes(this.status.phase);
@@ -33,7 +33,7 @@ export class CrystalPanel {
    const result=await this.call(action,body);
    if(result.file){const url=URL.createObjectURL(new Blob([result.file],{type:'application/octet-stream'}));const link=document.createElement('a');link.href=url;link.download=result.filename;link.click();setTimeout(()=>URL.revokeObjectURL(url),60_000);}
    if(result.recoveryCode){const output=document.querySelector('#crystalRecoveryOutput');output.hidden=false;document.querySelector('#crystalRecoveryCode').textContent=result.recoveryCode;}
-   this.feedback.textContent=action==='recollect'?'Companion recolhida. Guarde o arquivo e a senha. Se o download falhar, baixe novamente ou cancele o recolhimento.':action==='cancel'?'Recolhimento cancelado. A Companion pode continuar aqui.':'Companion desperta neste dispositivo. Guarde o novo código de recuperação.';
+   this.feedback.textContent=action==='recollect'?'Companion recolhida. Guarde o arquivo e a senha. Se o download falhar, baixe novamente ou cancele o recolhimento.':action==='cancel'?'Recolhimento cancelado. A Companion pode continuar aqui.':'Companion importada e selecionada no Hub. As outras Companions continuam disponíveis para alternar. Guarde o novo código de recuperação.';
    document.querySelector('#crystalPassword').value='';document.querySelector('#crystalRecovery').value='';document.querySelector('#crystalRevokeConfirm').checked=false;
    await this.onChange?.();
   }catch(e){this.feedback.textContent=e.message+(e.details?` ${this.describe(e.details)}`:'');}

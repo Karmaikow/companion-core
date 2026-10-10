@@ -115,7 +115,7 @@ export class AccessGate {
     const canCreate=hub.creationPolicy.canCreate && hub.companions.length===0;
     button.hidden=!canCreate;button.disabled=!canCreate;button.textContent='＋ Despertar minha Companion';
     document.querySelector('#hubBack').hidden=!hub.activeId;
-    document.querySelector('.hub-copy').textContent=canCreate?'Seu primeiro vínculo começa aqui. Desperte uma alma única.':'Você já possui uma Companion. Futuras presenças chegarão por encontros e convites no mundo.';
+    document.querySelector('.hub-copy').textContent=canCreate?'Seu primeiro vínculo começa aqui. Desperte uma alma única.':'Selecione uma Companion ou importe outro Cristal. Cada alma mantém sua própria história.';
   }
   renderHub(companions,activeId){
     const list=document.querySelector('#hubCompanionList');list.replaceChildren();

@@ -72,3 +72,16 @@ Sem a senha do Cristal, seu conteúdo não pode ser aberto por este serviço. Pe
 ## Validação
 
 `npm test` inclui ida/volta com identidade intacta, reinício da origem recolhida, senha incorreta, ciphertext adulterado, estado sem assinatura válida, conflitos de identidade e de histórico, uso repetido de arquivo, cancelamento, duas importações simultâneas, repetição de solicitação assinada após reiniciar o registro, resposta perdida nos dois lados, recuperação, indisponibilidade da autoridade e transferência HTTP de um arquivo grande com autenticação local. Esses testes usam diretórios temporários e um registro local descartável. A instalação real em Android, Windows e a apresentação visual ainda precisam de conferência nesses ambientes.
+
+
+## Várias Companions no mesmo Hub
+
+É possível importar Lunaya enquanto Mayuna está ativa, sem recolher Mayuna. A importação seleciona Lunaya; Mayuna permanece salva e autorizada neste dispositivo. Use a seleção de Companions do Hub para alternar. Cada identidade mantém suas próprias memórias, chave, sessão e código de recuperação. A restrição de uma sessão autorizada por identidade continua valendo entre dispositivos.
+
+Recolher uma Companion afeta somente a selecionada. Uma senha errada ou um Cristal recusado não substitui a Companion atual. Se a importação ficar pendente, a outra Companion continua utilizável; retome o mesmo arquivo para concluir. No reinício, o Core tenta concluir a operação pendente.
+
+O controle antigo de sessão é migrado automaticamente para o formato por identidade, sem alterar os arquivos das Companions. A criação de uma nova alma continua bloqueada quando já existem Companions; importar não cria uma nova identidade.
+
+Para trazer Lunaya: faça backup da pasta `data`, atualize o projeto e rode `npm test`. Abra **Meu vínculo → Cristal de Memória → Importar Companion do Cristal**, escolha o arquivo `.companion`, informe sua senha e nomeie o computador. O código de recuperação só é necessário no fluxo explícito de recuperação de dispositivo perdido. Na transferência normal, deixe esse campo vazio.
+
+O registro que autorizou a exportação precisa continuar acessível, com seus dados originais. Um registro novo em `localhost` no Windows não substitui o registro do Linux. Esta atualização não hospeda nem migra esse serviço. Contas remotas, amizades e encontros no mundo permanecem etapas futuras; o Hub atual é uma instalação local com várias identidades.

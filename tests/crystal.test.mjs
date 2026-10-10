@@ -54,7 +54,7 @@ async function fixture(){const root=await mkdtemp(path.join(tmpdir(),'crystal-')
  const f=await fixture();try{
  const source=new CompanionRuntime(provider,path.join(f.root,'source'),f.url);await source.initialize();await source.createCompanion(input);const exported=await source.recollectCrystal(password,'Trabalho');await source.cancelCrystal();await source.chat('Oi');
  const empty=new CompanionRuntime(provider,path.join(f.root,'empty'),f.url);await empty.initialize();await assert.rejects(empty.awakenCrystal(exported.file,password,'Casa'));assert.equal(empty.hasCompanion(),false);
- const other=new CompanionRuntime(provider,path.join(f.root,'other'),f.url);await other.initialize();await other.createCompanion({...input,name:'Mayuna'});const original=other.getClientState();await assert.rejects(other.awakenCrystal(exported.file,password,'Casa'),/outra Companion/);assert.equal(other.getClientState().identity.id,original.identity.id);
+ const other=new CompanionRuntime(provider,path.join(f.root,'other'),f.url);await other.initialize();await other.createCompanion({...input,name:'Mayuna'});const original=other.getClientState();await assert.rejects(other.awakenCrystal(exported.file,password,'Casa'));assert.equal(other.getClientState().identity.id,original.identity.id);
  }finally{await f.close();}
  });
 
@@ -86,7 +86,7 @@ async function fixture(){const root=await mkdtemp(path.join(tmpdir(),'crystal-')
  source.client.request=async(...args)=>{const result=await sourceRequest(...args);if(args[0]==='recollect'&&!dropped){dropped=true;throw Object.assign(Error('Lost response'),{status:503});}return result;};
  await assert.rejects(source.recollect(core,password,'Origem'));assert.equal(source.getPhase(),'exporting');await assert.rejects(source.assertActive(core));
  const pending=JSON.parse(await readFile(path.join(sourceRoot,'.crystal/session.json'),'utf8'));assert.ok(!JSON.stringify(pending).includes('PRIVATE KEY'));
- source=new CrystalManager(sourceRoot,f.url);await source.initialize();const exported=await source.recollect(core,password,'Origem');assert.equal(exported.file,pending.bundle);
+ source=new CrystalManager(sourceRoot,f.url);await source.initialize();const exported=await source.recollect(core,password,'Origem');assert.equal(exported.file,pending.sessions[core.getState().identity.id].bundle);
  let target=new CrystalManager(targetRoot,f.url);await target.initialize();const targetRequest=target.client.request.bind(target.client);dropped=false;
  target.client.request=async(...args)=>{const result=await targetRequest(...args);if(args[0]==='awaken'&&!dropped){dropped=true;throw Object.assign(Error('Lost response'),{status:503});}return result;};
  await assert.rejects(target.awaken(exported.file,password,'Destino'));assert.equal(target.getPhase(),'importing');assert.equal((await target.status()).server.device.name,'Destino');
@@ -143,4 +143,37 @@ async function fixture(){const root=await mkdtemp(path.join(tmpdir(),'crystal-')
  const importResponse=await post(target,targetCookie,'awaken',{password,file:exported.file,deviceName:'Notebook Casa'});assert.equal(importResponse.status,200);const imported=await importResponse.json();assert.equal(imported.state.identity.id,core.getState().identity.id);assert.ok(!JSON.stringify(imported).includes('PRIVATE KEY'));assert.equal(imported.status.server.device.name,'Notebook Casa');
  const status=await(await fetch(source+'/api/crystal/status',{headers:{Cookie:sourceCookie}})).json();assert.equal(status.phase,'recollected');assert.equal(status.server.device.name,'Notebook Casa');assert.ok(!JSON.stringify(status).includes(exported.recoveryCode));
  }finally{for(const child of children){if(child.exitCode===null){child.kill();await once(child,'exit');}}await f.close();}
+ });
+
+ test('Hub imports Lunaya beside active Mayuna, switches after restart and recollects only the selected identity',async()=>{
+ const f=await fixture();try{
+  const root=path.join(f.root,'hub');let hub=new CompanionRuntime(provider,root,f.url);await hub.initialize();await hub.createCompanion({...input,name:'Mayuna'});await hub.chat('Minha cor favorita é verde-musgo.');
+  const mayuna=hub.getActiveId();const mayunaFile=await readFile(path.join(root,`${mayuna}.json`),'utf8');
+  const source=new CompanionRuntime(provider,path.join(f.root,'work'),f.url);await source.initialize();await source.createCompanion(input);const lunaya=source.getActiveId();const exported=await source.recollectCrystal(password,'Trabalho');
+  await assert.rejects(hub.awakenCrystal(exported.file,'Incorrect-password-123','Casa'));assert.equal(hub.getActiveId(),mayuna);
+  await hub.awakenCrystal(exported.file,password,'Casa');assert.equal(hub.getActiveId(),lunaya);assert.equal((await hub.listCompanions()).length,2);
+  assert.equal(await readFile(path.join(root,`${mayuna}.json`),'utf8'),mayunaFile);
+  const sessions=JSON.parse(await readFile(path.join(root,'.crystal/session.json'),'utf8'));assert.equal(sessions.version,2);assert.equal(sessions.sessions[mayuna].phase,'active');assert.equal(sessions.sessions[lunaya].phase,'active');
+  await hub.chat('Oi');await hub.activateCompanion(mayuna);await hub.chat('Oi');
+  await assert.rejects(hub.awakenCrystal(exported.file,password,'Casa'),/antigo/);assert.equal(hub.getActiveId(),mayuna);
+  hub=new CompanionRuntime(provider,root,f.url);await hub.initialize();assert.equal(hub.getActiveId(),mayuna);await hub.activateCompanion(lunaya);await hub.chat('Oi');
+  await hub.recollectCrystal(password,'Casa');await assert.rejects(hub.chat('Oi'),/recolhida/);await hub.activateCompanion(mayuna);await hub.chat('Oi');
+  await assert.rejects(hub.activateCompanion(lunaya),/Cristal/);assert.equal(hub.getActiveId(),mayuna);assert.equal((await hub.crystalStatus()).phase,'active');
+  await assert.rejects(hub.createCompanion({...input,name:'Terceira'}),/já possui/);
+ }finally{await f.close();}
+ });
+
+ test('pending import preserves the other Companion session through status requests and restart',async()=>{
+ const f=await fixture();try{
+  const root=path.join(f.root,'hub');let hub=new CompanionRuntime(provider,root,f.url);await hub.initialize();await hub.createCompanion({...input,name:'Mayuna'});await hub.chat('Oi');const mayuna=hub.getActiveId();
+  const source=new CompanionRuntime(provider,path.join(f.root,'work'),f.url);await source.initialize();await source.createCompanion(input);const lunaya=source.getActiveId();const exported=await source.recollectCrystal(password,'Trabalho');
+  const original=RegistryClient.prototype.request;
+  RegistryClient.prototype.request=async function(action,...args){if(action==='awaken')throw Error('Lost connection');return original.call(this,action,...args);};
+  try{
+   await assert.rejects(hub.awakenCrystal(exported.file,password,'Casa'),/Lost connection/);
+   assert.equal(hub.getActiveId(),mayuna);assert.equal((await hub.crystalStatus()).phase,'active');await hub.chat('Oi');
+   hub=new CompanionRuntime(provider,root,f.url);await hub.initialize();assert.equal(hub.getActiveId(),mayuna);await hub.chat('Oi');
+  }finally{RegistryClient.prototype.request=original;}
+  await hub.awakenCrystal(exported.file,password,'Casa');assert.equal(hub.getActiveId(),lunaya);await hub.activateCompanion(mayuna);await hub.chat('Oi');
+ }finally{await f.close();}
  });

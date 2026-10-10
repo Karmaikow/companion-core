@@ -61,7 +61,6 @@ export class CompanionRuntime {
   async initialize(): Promise<void> {
     await this.crystal.initialize();
     try { await this.crystal.resumeImport(); } catch { console.warn('[Cristal] Despertar pendente. Retome o mesmo arquivo em Meu vínculo.'); }
-    if(this.crystal.getPhase()==='importing')return;
     const activeId = await getActiveCompanionId(this.dataRoot);
 
     if (activeId) {
@@ -132,7 +131,7 @@ export class CompanionRuntime {
       meta: {
         provider: this.provider.activeProvider ?? this.provider.name,
         configuredProvider: this.provider.name,
-        crystalPhase: this.crystal.getPhase(),
+        crystalPhase: this.crystal.getPhase(this.getActiveId()??undefined),
         eventCount: data.events.length,
         snapshotCount: data.snapshots.length
       }
@@ -221,7 +220,7 @@ export class CompanionRuntime {
     const next = this.queue.then(async () => {
       if (!/^MC-[A-Z0-9-]+$/i.test(id)) throw new Error('Identidade inválida.');
       const crystalOwnsIdentity=this.crystal.isActiveFor(id);
-      if(this.crystal.getPhase()!=='local'&&!crystalOwnsIdentity) throw new HubError(409,'Use o fluxo do Cristal para continuar esta identidade.');
+      if(this.crystal.getPhase(id)!=='local'&&!crystalOwnsIdentity) throw new HubError(409,'Use o fluxo do Cristal para continuar esta identidade.');
       const stored = await this.store.load(id);
       if (!stored || stored.state.identity.id !== id) throw new Error('Companion não encontrada no Hub.');
       const privateKey = await this.store.loadPrivateKey(id);
