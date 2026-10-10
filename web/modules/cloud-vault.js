@@ -105,7 +105,7 @@ export const cloudAuth = {
 };
 
 export const cloudVault = {
-  list: async () => dataRequest('companion_crystal_vault?select=companion_id,created_at,updated_at&order=updated_at.desc'),
+  list: async () => dataRequest('companion_crystal_vault?select=backup_id,companion_id,created_at&order=created_at.desc'),
   save: async (companionId, file) => {
     if (!/^MC-[A-Z0-9-]+$/i.test(companionId)) throw new Error('Informe o ID completo da Companion (MC-...).');
     if (new TextEncoder().encode(file).length > MAX_CRYSTAL_BYTES) throw new Error('O Cristal ultrapassa 12 MB.');
@@ -116,19 +116,18 @@ export const cloudVault = {
         typeof envelope.tag !== 'string' || typeof envelope.ciphertext !== 'string') {
       throw new Error('O arquivo não tem um envelope criptografado compatível.');
     }
-    await dataRequest('companion_crystal_vault?on_conflict=owner_id,companion_id', {
+    await dataRequest('companion_crystal_vault', {
       method: 'POST',
-      headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+      headers: { Prefer: 'return=minimal' },
       body: JSON.stringify({
         companion_id: companionId.toUpperCase(),
-        crystal_document: envelope,
-        updated_at: new Date().toISOString()
+        crystal_document: envelope
       })
     });
   },
-  download: async companionId => {
-    const rows = await dataRequest(`companion_crystal_vault?select=crystal_document&companion_id=eq.${encodeURIComponent(companionId)}&limit=1`);
-    if (!rows?.length) throw new Error('Nenhum backup foi encontrado para este ID.');
+  download: async backupId => {
+    const rows = await dataRequest(`companion_crystal_vault?select=crystal_document&backup_id=eq.${encodeURIComponent(backupId)}&limit=1`);
+    if (!rows?.length) throw new Error('Nenhum backup foi encontrado para este Cristal.');
     return JSON.stringify(rows[0].crystal_document);
   }
 };
