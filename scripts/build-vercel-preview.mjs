@@ -21,7 +21,7 @@ const runtimeModule = [
   `export const mode = '${hasSupabaseConfig ? 'cloud' : 'demo'}';`,
   `export const cloudConfig = ${JSON.stringify(hasSupabaseConfig ? { url: supabaseUrl.replace(/\\/$/, ''), publishableKey } : null)};`,
   ''
-].join('\\n');
+].join('\n');
 
 await writeFile(
   new URL('../vercel-output/modules/runtime-mode.js', import.meta.url),
