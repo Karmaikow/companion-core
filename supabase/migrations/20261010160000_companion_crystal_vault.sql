@@ -3,11 +3,11 @@
 -- The Crystal envelope is already AES-256-GCM encrypted on the client.
 
 create table public.companion_crystal_vault (
-  owner_id uuid not null references auth.users(id) on delete cascade default auth.uid(),
+  owner_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
   companion_id text not null
     check (companion_id ~ '^MC-[A-Z0-9-]+$'),
   crystal_document jsonb not null
-    check (
+    check (coalesce(
       jsonb_typeof(crystal_document) = 'object'
       and crystal_document ->> 'format' = 'companion-memory-crystal'
       and crystal_document ->> 'version' = '1'
@@ -15,8 +15,9 @@ create table public.companion_crystal_vault (
       and jsonb_typeof(crystal_document -> 'salt') = 'string'
       and jsonb_typeof(crystal_document -> 'iv') = 'string'
       and jsonb_typeof(crystal_document -> 'tag') = 'string'
-      and pg_column_size(crystal_document) <= 12000000
-    ),
+      and pg_column_size(crystal_document) <= 12000000,
+      false
+    )),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   primary key (owner_id, companion_id)
