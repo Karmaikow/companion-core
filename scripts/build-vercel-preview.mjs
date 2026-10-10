@@ -19,7 +19,7 @@ const hasSupabaseConfig = Boolean(supabaseUrl && publishableKey);
 const runtimeModule = [
   '// Generated at build time. The publishable key is public; never place a secret key here.',
   `export const mode = '${hasSupabaseConfig ? 'cloud' : 'demo'}';`,
-  `export const cloudConfig = ${JSON.stringify(hasSupabaseConfig ? { url: supabaseUrl.replace(/\\/$/, ''), publishableKey } : null)};`,
+  `export const cloudConfig = ${JSON.stringify(hasSupabaseConfig ? { url: supabaseUrl.replace(/\/$/, ''), publishableKey } : null)};`,
   ''
 ].join('\n');
 
