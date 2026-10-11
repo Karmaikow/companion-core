@@ -1,5 +1,5 @@
 // Static interface only. Never cache API responses, sessions or Companion data.
-const CACHE='mayuna-shell-v09-supabase-cloud-vault-feedback-2';
+const CACHE='mayuna-shell-v09-shared-registry-1';
 const ASSETS=["/modules/notice.js","/modules/crystal-panel.js","/modules/color-names.js","/creation-ritual.css", "/modules/creation-ritual.js", "/", "/icon.svg", "/sanctuary.css", "/manifest.webmanifest", "/styles.css", "/experience-layout.css", "/index.html", "/app.js", "/astral.css", "/modules/panel-manager.js", "/modules/preferences.js", "/modules/runtime-mode.js", "/modules/game-viewport.js", "/modules/api.js", "/modules/demo-transport.js", "/modules/remote-transport.js", "/modules/floating-chat.js", "/modules/access-gate.js", "/modules/cloud-vault.js", "/modules/http.js", "/modules/hud-effects.js"];
 self.addEventListener('install',event=>{event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS)).then(()=>self.skipWaiting()));});
 self.addEventListener('activate',event=>{event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('mayuna-shell-')&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));});
@@ -11,3 +11,4 @@ self.addEventListener('fetch',event=>{
   if(response.ok&&response.type==='basic'&&!response.redirected){const copy=response.clone();caches.open(CACHE).then(cache=>cache.put(event.request,copy));}return response;
  }).catch(()=>caches.match(event.request).then(hit=>hit||Response.error())));
 });
+

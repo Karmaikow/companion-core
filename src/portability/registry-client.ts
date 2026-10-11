@@ -9,7 +9,12 @@ export class RegistryClient {
     const unsigned={action,id,publicKey,payload,timestamp:Date.now(),nonce:randomUUID()};
     let response:Response;
     try{response=await fetch(`${this.url}/registry`,{method:'POST',headers:{'Content-Type':'application/json'},redirect:'error',signal:AbortSignal.timeout(10_000),body:JSON.stringify({...unsigned,signature:signData(stableJson(unsigned),privateKey)})});}
-    catch{throw new CrystalError(503,'O registro central está indisponível. A transferência permanece protegida; tente novamente.');}
+    catch{
+      const local=['localhost','127.0.0.1','[::1]'].includes(new URL(this.url).hostname);
+      throw new CrystalError(503,local
+        ?'O registro local deste dispositivo está indisponível. Um Cristal de outro computador precisa do registro original migrado para o servidor online. Preserve o mesmo arquivo e a pasta data.'
+        :'O registro central está indisponível. A transferência permanece protegida; retome o mesmo Cristal quando a conexão voltar.');
+    }
     let body:any;try{body=await response.json();}catch{throw new CrystalError(503,'Resposta inválida do registro central.');}
     if(!response.ok)throw new CrystalError(response.status,body.error??'Registro central recusou a operação.',body.details);return body;
   }

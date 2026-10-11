@@ -22,7 +22,11 @@
     "demo": "node dist/demo.js",
     "predemo": "npm run build",
     "demo:dev": "tsx src/demo.ts",
-    "vercel:build": "npm run build && node scripts/build-vercel-preview.mjs"
+    "vercel:build": "npm run build && node scripts/build-vercel-preview.mjs",
+    "registry:prepare": "npm run build && node scripts/prepare-registry-function.mjs",
+    "crystal:check": "node scripts/check-crystal-setup.mjs",
+    "registry:import": "npm run build && node scripts/import-online-registry.mjs",
+    "registry:check": "npm run build && node scripts/check-online-registry.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

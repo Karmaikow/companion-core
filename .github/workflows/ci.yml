@@ -13,7 +13,10 @@ permissions:
 
 jobs:
   verify:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     steps:
       - name: Checkout
@@ -29,3 +32,6 @@ jobs:
         run: npm test
       - name: Build Vercel preview
         run: npm run vercel:build
+      - name: Prepare shared registry function
+        run: npm run registry:prepare
+

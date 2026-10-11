@@ -1,4 +1,5 @@
 import { createHash, createPrivateKey, createPublicKey, generateKeyPairSync, sign, verify } from 'node:crypto';
+import { Buffer } from 'node:buffer';
 
 export interface KeyPair { publicKey:string; privateKey:string; }
 

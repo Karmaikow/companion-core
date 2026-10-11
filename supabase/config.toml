@@ -1,0 +1,3 @@
+[functions.companion-registry]
+# Custom Ed25519 authentication is verified in the shared registry engine.
+verify_jwt = false

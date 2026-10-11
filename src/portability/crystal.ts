@@ -8,7 +8,8 @@ import type { StoredCompanion } from '../models/types.js';
 const derive = (password:string,salt:Buffer):Promise<Buffer> => new Promise((resolve,reject)=>scrypt(password,salt,32,{N:32768,r:8,p:1,maxmem:128*1024*1024},(error,key)=>error?reject(error):resolve(Buffer.from(key))));
 const AAD = Buffer.from('companion-memory-crystal:v1:aes-256-gcm:scrypt-32768-8-1');
 export const MAX_CRYSTAL_BYTES = 12_000_000;
-export class CrystalError extends Error { constructor(public status: number, message: string, public details?: unknown) { super(message); } }
+import { CrystalError } from './crystal-error.js';
+export { CrystalError } from './crystal-error.js';
 export interface CrystalPayload {
   gift?: {invitation:BondInvitation;historyShared:true};
   version: 1; authority: string; transferId: string; transferSecret: string;

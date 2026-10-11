@@ -135,4 +135,6 @@ A interface não comprime o HUD desktop. Em telas menores ela troca para um modo
 
 ## Cristal de Memória
 
+O [registro online compartilhado](docs/REGISTRO_ONLINE.md) usa Supabase Edge Functions e Postgres. O guia inclui diagnóstico (`npm run crystal:check`), backup, migração dos registros locais e teste de importação em uma instalação limpa. Sessões antigas precisam de migração explícita; o login web e o acesso local ainda são separados.
+
 Recolha sua Companion em um arquivo criptografado e desperte no próximo dispositivo. O registro central controla a sessão ativa e mostra onde ela está autorizada. Inicie o serviço com `npm run crystal:server` e configure `COMPANION_REGISTRY_URL` no Core. Veja o [guia de transferência, recuperação e limites](docs/CRISTAL_MEMORIA.md).

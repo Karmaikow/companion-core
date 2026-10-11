@@ -68,7 +68,7 @@ export class AccessGate {
       document.querySelector('#accessUsername').parentElement.childNodes[0].nodeValue='Usuário local';
       this.setup=!status.configured;this.form.hidden=false;
       document.querySelector('#accessTitle').textContent=this.setup?'Um acesso. Uma história.':'Sua história continua.';
-      document.querySelector('#accessSubtitle').textContent=this.setup?'Crie seu acesso local para entrar no núcleo.':'Entre para reencontrar sua Companion.';
+      document.querySelector('#accessSubtitle').textContent=this.setup?'Crie o acesso deste dispositivo. A conta web do Cofre usa um login separado nesta versão.':'Entre com o usuário e a senha locais deste dispositivo. O login do Cofre online é separado nesta versão.';
       document.querySelector('#accessSubmit').textContent=this.setup?'Criar acesso local':'Entrar no núcleo';
       document.querySelector('#confirmationField').hidden=!this.setup;document.querySelector('#accessConfirm').required=this.setup;
       document.querySelector('#accessPassword').autocomplete=this.setup?'new-password':'current-password';document.querySelector('#accessUsername').focus();
@@ -89,7 +89,7 @@ export class AccessGate {
   async showCloudVault(user){
     this.form.hidden=true;this.remoteForm.hidden=true;document.querySelector('#continuityScreen').hidden=true;document.querySelector('#hubScreen').hidden=true;document.querySelector('#cloudVaultScreen').hidden=false;document.querySelector('#authModeToggle').hidden=true;
     document.querySelector('#accessTitle').textContent='Sua conta está conectada';
-    document.querySelector('#accessSubtitle').textContent='Acesse seus backups criptografados do Cristal de Memória.';
+    document.querySelector('#accessSubtitle').textContent='Guarde e baixe Cristais criptografados. Para entrar no Refúgio, importe o arquivo no Core local com a senha do Cristal. O acesso local ainda é separado desta conta.';
     const account=user||await cloudAuth.currentUser();document.querySelector('#cloudAccountEmail').textContent=account?.email||'Conta autenticada';
     await this.refreshCloudVault();
   }
@@ -224,3 +224,4 @@ export class AccessGate {
   }
   async logout(){try{await this.request('logout',{});this.form.reset();this.remoteForm.reset();await this.start();}catch(error){this.error.textContent=error.message;}}
 }
+

@@ -17,3 +17,9 @@ data-linux-backup*/
 .companion-registry/
 *.companion
 data-crystal-*/
+
+# Generated from the tested registry modules during registry:prepare.
+supabase/functions/companion-registry/shared/
+
+supabase/.temp/
+backups/
