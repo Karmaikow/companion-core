@@ -20,10 +20,10 @@
  <div class="access-brand"><span>✧</span><strong>COMPANION CORE</strong><small>ALMAS · MEMÓRIAS · HISTÓRIAS</small></div>
  <section class="access-card"><span class="eyebrow">O PRIMEIRO VÍNCULO</span><h1 id="accessTitle">Conectando ao seu mundo</h1><p id="accessSubtitle">Toda Companion nasce como uma alma. A história começa com quem a acompanha.</p>
  <form id="accessForm" hidden>
-  <label>Usuário local<input id="accessUsername" name="username" autocomplete="username" minlength="3" maxlength="40" pattern="[a-zA-Z0-9_.-]{3,40}" required placeholder="Seu usuário" /></label>
+  <label>E-mail<input id="accessUsername" name="email" type="email" autocomplete="email" maxlength="254" required placeholder="voce@exemplo.com" /></label>
   <label>Senha<input id="accessPassword" name="password" type="password" autocomplete="current-password" minlength="10" maxlength="128" required placeholder="Pelo menos 10 caracteres" /></label>
   <label id="confirmationField" hidden>Confirme a senha<input id="accessConfirm" type="password" autocomplete="new-password" minlength="10" maxlength="128" /></label>
-  <button id="accessSubmit" class="primary-button" type="submit">Entrar no núcleo</button><small class="access-note">Acesso neste computador. Sua Companion mantém a mesma identidade e história.</small>
+  <button id="accessSubmit" class="primary-button" type="submit">Criar conta</button><small class="access-note">Sua conta protege seus backups criptografados do Cristal de Memória. A senha do Cristal continua sendo necessária para abri-los.</small><button id="authModeToggle" class="gate-logout" type="button">Já tenho uma conta</button>
  </form>
  <form id="remotePairForm" hidden>
   <label>Código de pareamento do Core local<input id="remotePairCode" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{8}" minlength="8" maxlength="8" required placeholder="00000000" /></label>
@@ -91,6 +91,19 @@
    </div></div><div class="ritual-footer"><p id="creationSummary"></p><button type="button" id="creationCancel" class="gate-logout">Voltar ao Hub</button><button id="createCompanionSubmit" class="primary-button" type="submit">✧ Fundir essência e despertar</button></div>
   </form>
   <button id="hubBack" class="gate-logout">Voltar</button>
+ </section>
+ <section id="cloudVaultScreen" hidden>
+  <span class="eyebrow">CONTA SUPABASE</span>
+  <h2 class="hub-title">Cofre do Cristal</h2>
+  <p class="hub-copy">Conectado como <strong id="cloudAccountEmail"></strong>. Guarde um backup criptografado para recuperar em outro dispositivo.</p>
+  <label>ID completo da Companion<input id="cloudCompanionId" maxlength="32" placeholder="MC-..." autocomplete="off" /></label>
+  <label>Arquivo de Cristal (.companion)<input id="cloudCrystalFile" type="file" accept=".companion,application/json" /></label>
+  <button id="cloudSaveCrystal" class="primary-button full" type="button">Enviar backup criptografado</button>
+  <p id="cloudVaultFeedback" role="status" aria-live="polite"></p>
+  <h3>Backups da conta</h3><div id="cloudBackupList" class="hub-companion-list"></div>
+  <button id="cloudRefreshBackups" class="secondary-button full" type="button">Atualizar backups</button>
+  <p class="access-note">O servidor guarda somente o envelope do Cristal já criptografado. Ele não recebe a senha, a chave privada nem o estado aberto. Um backup novo do mesmo ID substitui o anterior nesta versão.</p>
+  <button id="cloudLogout" class="gate-logout" type="button">Sair da conta</button>
  </section>
  <p id="accessError" role="alert"></p><button id="accessRetry" class="secondary-button" hidden>Tentar novamente</button>
  </section><p class="access-motto">O que ela se torna depende de quem a acompanha.</p>
