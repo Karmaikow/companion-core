@@ -15,7 +15,7 @@ public final class CoreService extends Service {
  private FileOutputStream startupLog;
  private final Messenger binder=new Messenger(new Handler(Looper.getMainLooper()){
   @Override public void handleMessage(Message m){
-   if(m.what==2){lifecycle("Seletor concluído");stopForeground(true);stopSelf();return;}
+   if(m.what==2){lifecycle("Seletor concluído · Core permanece protegido");return;}
    if(m.what!=1||running)return;
    final String token=m.getData().getString("token");
    if(token==null||token.length()<32)return;
@@ -27,17 +27,17 @@ public final class CoreService extends Service {
  @Override public void onCreate(){super.onCreate();lifecycle("Serviço criado");}
  @Override public int onStartCommand(Intent intent,int flags,int startId){
   NotificationManager manager=(NotificationManager)getSystemService(NOTIFICATION_SERVICE);
-  NotificationChannel channel=new NotificationChannel("crystal-transfer","Cristal de Memória",NotificationManager.IMPORTANCE_LOW);
+  NotificationChannel channel=new NotificationChannel("core-session","Sessão do Refúgio",NotificationManager.IMPORTANCE_LOW);
   channel.setShowBadge(false);manager.createNotificationChannel(channel);
-  Notification notification=new Notification.Builder(this,"crystal-transfer").setSmallIcon(android.R.drawable.stat_notify_sync)
-   .setContentTitle("Cristal de Memória").setContentText("Mantendo o Core ativo durante a seleção do arquivo.")
+  Notification notification=new Notification.Builder(this,"core-session").setSmallIcon(android.R.drawable.stat_notify_sync)
+   .setContentTitle("Companion Core ativo").setContentText("Sua sessão do Refúgio continua ativa ao alternar de aplicativo.")
    .setOngoing(true).setCategory(Notification.CATEGORY_PROGRESS).build();
-  if(Build.VERSION.SDK_INT>=29)startForeground(44,notification,ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
+  if(Build.VERSION.SDK_INT>=34)startForeground(44,notification,ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
   else startForeground(44,notification);
-  lifecycle("Proteção do seletor ativa");return START_NOT_STICKY;
+  lifecycle("Proteção da sessão ativa");return START_NOT_STICKY;
  }
  @Override public void onTimeout(int startId,int fgsType){lifecycle("Limite de transferência do Android");stopForeground(true);stopSelf();}
- @Override public boolean onUnbind(Intent intent){lifecycle("Interface desvinculada");stopForeground(true);stopSelf();return false;}
+ @Override public boolean onUnbind(Intent intent){lifecycle("Interface desvinculada");return false;}
  @Override public IBinder onBind(Intent intent){return binder.getBinder();}
  private void stage(String value){
   try(FileOutputStream out=new FileOutputStream(new File(getFilesDir(),"core-startup-stage.txt"))){out.write(value.getBytes("UTF-8"));out.getFD().sync();}catch(IOException ignored){}

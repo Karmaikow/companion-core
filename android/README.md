@@ -1,6 +1,6 @@
-# Android independente — beta 0.4.4 (ARM64)
+# Android independente — beta 0.4.5 (ARM64)
 
-O APK inclui Node.js Mobile 18.20.4, o Core compilado e a interface. Não usa Termux, não copia dados do Termux e não contém identidades reais ou modelos de linguagem. Usa o mesmo applicationId/certificado de teste do cliente 0.3, com versionCode 8.
+O APK inclui Node.js Mobile 18.20.4, o Core compilado e a interface. Não usa Termux, não copia dados do Termux e não contém identidades reais ou modelos de linguagem. Usa o mesmo applicationId/certificado de teste do cliente 0.3, com versionCode 9.
 
 ## Primeiro uso
 
@@ -18,13 +18,13 @@ O botão **IA** configura gateway Ollama **HTTPS**, modelo e token opcional. Ess
 
 Dados em `files/companion-data`, dentro do armazenamento privado do app; `allowBackup=false`. Código em `files/core`, substituído ao iniciar. Não são usados diretórios compartilhados para chaves ou senhas. Esta beta ainda não implementa envelopamento das chaves pelo Android Keystore; não a trate como cofre certificado. Configurações do gateway ficam no espaço privado do app.
 
-Servidor interno somente loopback 4187, com capacidade aleatória exigida antes das rotas, cookie HttpOnly SameSite=Strict na WebView. Navegação externa bloqueada; ponte nativa limitada à exportação por seletor, sem acesso genérico a arquivos ou comandos. Durante o seletor de importação/exportação, o serviço usa foreground dataSync com notificação temporária e sem reinício automático. Ao retornar, deixa esse modo e permanece vinculado à interface. Android ainda pode encerrar o processo. A persistência continua usando gravações atômicas do Core.
+Servidor interno somente loopback 4187, com capacidade aleatória exigida antes das rotas, cookie HttpOnly SameSite=Strict na WebView. Navegação externa bloqueada; ponte nativa limitada à exportação por seletor, sem acesso genérico a arquivos ou comandos. Ao abrir o Refúgio, o serviço permanece foreground specialUse durante a sessão, inclusive após retornar do seletor. Encerrar a Activity ou remover a tarefa encerra o Core. Não há reinício automático. Android ainda pode encerrar o processo. A persistência continua usando gravações atômicas do Core.
 
 Suporte deste pacote: Android 8+ ARM64, páginas de memória 4 KB. O libnode distribuído upstream é antigo e não garante suporte nativo a aparelhos com páginas de 16 KB. Aplicação beta para validação, não publicação na Play Store. Login web unificado, hardware Keystore, modelo offline e instaladores desktop não estão incluídos.
 
 ## Compilar
 
-Na raiz: `npm ci` e `npm run build`. Use NDK r27c, plataforma Android 35, build-tools 35.0.0, ECJ 3.39.0, Java 17 e a distribuição oficial nodejs-mobile-v18.20.4-android.zip. O script `android/build-apk.py` recebe os caminhos por variáveis documentadas no cabeçalho. Certificado privado de assinatura nunca entra no Git. Artefato em `android/build/companion-core-standalone-v0.4.4-arm64-beta.apk`.
+Na raiz: `npm ci` e `npm run build`. Use NDK r27c, plataforma Android 35, build-tools 35.0.0, ECJ 3.39.0, Java 17 e a distribuição oficial nodejs-mobile-v18.20.4-android.zip. O script `android/build-apk.py` recebe os caminhos por variáveis documentadas no cabeçalho. Certificado privado de assinatura nunca entra no Git. Artefato em `android/build/companion-core-standalone-v0.4.5-arm64-beta.apk`.
 
 Origem do runtime: https://github.com/nodejs-mobile/nodejs-mobile/releases/tag/v18.20.4
 
@@ -57,3 +57,11 @@ A 0.4.3 iniciou no aparelho; ao selecionar/importar um Cristal, a interface perd
 Agora a ação explícita de abrir/salvar um arquivo inicia foreground dataSync, com canal e notificação de transferência. O retorno ou cancelamento do seletor remove a notificação e o estado started; a conexão bound continua mantendo o Core enquanto o app está aberto. onUnbind e o timeout Android encerram o serviço sem reiniciar. O diagnóstico passa a registrar criação, proteção, retorno, desvinculação e encerramento. Nenhuma mudança no protocolo do Cristal ou no registro central.
 
 Java e manifesto compilados contra API 35; assinatura e bibliotecas verificadas. O comportamento de Android 16/HyperOS durante o seletor precisa de validação no aparelho.
+
+## Continuidade da sessão — 0.4.5
+
+No diagnóstico da 0.4.4, o seletor terminou às 20:02, e o processo desapareceu às 20:10, sem exceção JS ou registro onDestroy final. Não é possível determinar o motivo exato dessa saída a partir do código genérico 13 do Android. A proteção anterior terminava no retorno do seletor, deixando a sessão vulnerável quando o usuário alternava para outro aplicativo.
+
+A 0.4.5 inicia foreground ao tocar Abrir meu Refúgio e mantém a proteção após o seletor. O serviço local contínuo usa specialUse, com permissão e subtipo explícitos (https://developer.android.com/develop/background-work/services/fgs/service-types#special-use). onUnbind deixa de encerrar o serviço iniciado; a Activity encerra explicitamente o serviço em onDestroy, e stopWithTask cobre a remoção da tarefa. Sem reinício silencioso. Não é aprovação para distribuição na Play Store: specialUse requer declaração e análise na publicação.
+
+Compilação e assinatura verificadas; validação de alternância entre aplicativos no Android 16 ainda necessária. O protocolo de recuperação e a autorização da Companion no registro central não foram alterados.
