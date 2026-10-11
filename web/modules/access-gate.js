@@ -75,6 +75,7 @@ export class AccessGate {
     }catch(error){this.error.textContent=error.message;document.querySelector('#accessRetry').hidden=false;}
   }
   configureCloudForm(){
+    const notice=document.querySelector('#authNotice');notice.hidden=true;notice.textContent='';
     const input=document.querySelector('#accessUsername');input.type='email';input.name='email';input.autocomplete='email';input.minLength=0;input.maxLength=254;input.removeAttribute('pattern');input.parentElement.childNodes[0].nodeValue='E-mail';
     document.querySelector('#authModeToggle').hidden=false;
     document.querySelector('#confirmationField').hidden=!this.setup;document.querySelector('#accessConfirm').required=this.setup;
