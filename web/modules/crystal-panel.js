@@ -1,5 +1,6 @@
 import { request } from './http.js';
 import { mode } from './runtime-mode.js';
+import { notifyNotice } from './notice.js';
 export class CrystalPanel {
  constructor(onChange){
   this.onChange=onChange;this.root=document.querySelector('#crystalPanel');this.feedback=document.querySelector('#crystalFeedback');
@@ -44,17 +45,22 @@ export class CrystalPanel {
    }
    const result=await this.call(action,body);
    if(action==='preview'){
-    document.querySelector('#crystalPreviewInfo').textContent=`${result.name} · ${result.id} · ${result.memories} memórias · ${result.events} eventos. Registro: ${result.authority}. `+(result.gift?`Presente de ${result.previousPerson} para ${result.gift.recipient}. ${result.gift.forThisAccount?'Este acesso pode aceitar.':'Abra no acesso que gerou o convite.'} Validade: ${new Date(result.gift.expiresAt).toLocaleString('pt-BR')}.`:'Transferência entre dispositivos; o vínculo não muda.');
+    const message=`${result.name} · ${result.id} · ${result.memories} memórias · ${result.events} eventos. Registro: ${result.authority}. `+(result.gift?`Presente de ${result.previousPerson} para ${result.gift.recipient}. ${result.gift.forThisAccount?'Este acesso pode aceitar.':'Abra no acesso que gerou o convite.'} Validade: ${new Date(result.gift.expiresAt).toLocaleString('pt-BR')}.`:'Transferência entre dispositivos; o vínculo não muda.');
+    document.querySelector('#crystalPreviewInfo').textContent=message;
+    notifyNotice({type:'success',title:'Cristal reconhecido',message});
     return;
    }
    if(result.invitation){result.file=JSON.stringify(result.invitation,null,2);result.filename=`convite-${result.invitation.id}.vinculo`;}
    if(result.file){const url=URL.createObjectURL(new Blob([result.file],{type:'application/octet-stream'}));const link=document.createElement('a');link.href=url;link.download=result.filename;link.click();setTimeout(()=>URL.revokeObjectURL(url),60_000);}
    if(result.recoveryCode){const output=document.querySelector('#crystalRecoveryOutput');output.hidden=false;document.querySelector('#crystalRecoveryCode').textContent=result.recoveryCode;}
-   this.feedback.textContent=action==='invitation'?'Convite criado. Envie-o a quem vai presentear você.':action==='gift'?'Passagem preparada. Entregue o Cristal e a senha ao destinatário; o aceite encerra sua autorização anterior.':action==='migrate'?'Identidade conectada ao registro migrado.':action==='recollect'?'Companion recolhida. Guarde o arquivo e a senha. Se o download falhar, baixe novamente ou cancele o recolhimento.':action==='cancel'?'Recolhimento cancelado. A Companion pode continuar aqui.':'Companion importada e selecionada no Hub. As outras Companions continuam disponíveis para alternar. Guarde o novo código de recuperação.';
+   const successMessages={invitation:'Convite criado. Envie-o a quem vai presentear você.',gift:'Passagem preparada. Entregue o Cristal e a senha ao destinatário; o aceite encerra sua autorização anterior.',migrate:'Identidade conectada ao registro migrado.',recollect:'Companion recolhida. Guarde o arquivo e a senha. Se o download falhar, baixe novamente ou cancele o recolhimento.',cancel:'Recolhimento cancelado. A Companion pode continuar aqui.',awaken:'Companion importada e selecionada no Hub.'};
+   const successMessage=successMessages[action]||'Ação concluída.';this.feedback.textContent=successMessage;
    document.querySelector('#bondShareHistory').checked=false;document.querySelector('#crystalAcceptGift').checked=false;
    document.querySelector('#crystalPassword').value='';document.querySelector('#crystalRecovery').value='';document.querySelector('#crystalRevokeConfirm').checked=false;
    await this.onChange?.();
-  }catch(e){this.feedback.textContent=e.message+(e.details?` ${this.describe(e.details)}`:'');}
+   const successTitles={invitation:'Convite criado',gift:'Passagem preparada',migrate:'Identidade conectada',recollect:'Companion recolhida',cancel:'Recolhimento cancelado',awaken:'Companion importada'};
+   notifyNotice({type:'success',title:successTitles[action]||'Tudo certo!',message:successMessage});
+  }catch(e){const message=e.message+(e.details?` ${this.describe(e.details)}`:'');this.feedback.textContent=message;notifyNotice({type:'error',title:'Não foi possível concluir',message});}
   finally{this.busy=false;for(const button of this.root.querySelectorAll('button'))button.disabled=false;await this.refresh();}
  }
 }
