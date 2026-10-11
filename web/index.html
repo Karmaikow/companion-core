@@ -109,6 +109,14 @@
  <p id="accessError" role="alert"></p><button id="accessRetry" class="secondary-button" hidden>Tentar novamente</button>
  </section><p class="access-motto">O que ela se torna depende de quem a acompanha.</p>
 </main>
+  <dialog id="noticeDialog" class="notice-dialog" aria-labelledby="noticeTitle" aria-describedby="noticeMessage" role="dialog">
+    <div id="noticeIcon" class="notice-symbol" aria-hidden="true">✧</div>
+    <span class="eyebrow">COMPANION CORE</span>
+    <h2 id="noticeTitle"></h2>
+    <p id="noticeMessage"></p>
+    <button id="noticeDismiss" class="primary-button" type="button">Entendi</button>
+  </dialog>
+
   <div class="app-shell" id="appShell" data-view-mode="refugio" inert>
     <header class="topbar hud-frame">
       <button class="brand" data-action="focus-refuge" aria-label="Voltar ao Refúgio">
