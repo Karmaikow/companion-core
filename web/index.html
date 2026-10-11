@@ -23,8 +23,9 @@
   <label>E-mail<input id="accessUsername" name="email" type="email" autocomplete="email" maxlength="254" required placeholder="voce@exemplo.com" /></label>
   <label>Senha<input id="accessPassword" name="password" type="password" autocomplete="current-password" minlength="10" maxlength="128" required placeholder="Pelo menos 10 caracteres" /></label>
   <label id="confirmationField" hidden>Confirme a senha<input id="accessConfirm" type="password" autocomplete="new-password" minlength="10" maxlength="128" /></label>
-  <button id="accessSubmit" class="primary-button" type="submit">Criar conta</button><small class="access-note">Sua conta protege seus backups criptografados do Cristal de Memória. A senha do Cristal continua sendo necessária para abri-los.</small><button id="authModeToggle" class="gate-logout" type="button">Já tenho uma conta</button>
+  <button id="accessSubmit" class="primary-button" type="submit">Criar conta</button><small class="access-note">Sua conta protege os backups criptografados do Cristal de Memória. Nesta versão, ela ainda não cria uma Companion pela web; você poderá guardar um Cristal criado no Core local. A senha do Cristal continua necessária para abri-lo.</small><button id="authModeToggle" class="gate-logout" type="button">Já tenho uma conta</button>
  </form>
+ <p id="authNotice" class="access-note" role="status" aria-live="polite" hidden></p>
  <form id="remotePairForm" hidden>
   <label>Código de pareamento do Core local<input id="remotePairCode" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{8}" minlength="8" maxlength="8" required placeholder="00000000" /></label>
   <button id="remotePairSubmit" class="primary-button" type="submit">Conectar à minha Companion</button>
@@ -95,14 +96,14 @@
  <section id="cloudVaultScreen" hidden>
   <span class="eyebrow">CONTA SUPABASE</span>
   <h2 class="hub-title">Cofre do Cristal</h2>
-  <p class="hub-copy">Conectado como <strong id="cloudAccountEmail"></strong>. Guarde um backup criptografado para recuperar em outro dispositivo.</p>
+  <p class="hub-copy">Conectado como <strong id="cloudAccountEmail"></strong>. Este Cofre guarda backups criptografados de Companions já criadas no Core local. A criação de uma Companion pela web ainda está em desenvolvimento.</p>
   <label>ID completo da Companion<input id="cloudCompanionId" maxlength="32" placeholder="MC-..." autocomplete="off" /></label>
   <label>Arquivo de Cristal (.companion)<input id="cloudCrystalFile" type="file" accept=".companion,application/json" /></label>
   <button id="cloudSaveCrystal" class="primary-button full" type="button">Enviar backup criptografado</button>
   <p id="cloudVaultFeedback" role="status" aria-live="polite"></p>
   <h3>Backups da conta</h3><div id="cloudBackupList" class="hub-companion-list"></div>
   <button id="cloudRefreshBackups" class="secondary-button full" type="button">Atualizar backups</button>
-  <p class="access-note">O servidor guarda somente o envelope do Cristal já criptografado. Ele não recebe a senha, a chave privada nem o estado aberto. Um backup novo do mesmo ID substitui o anterior nesta versão.</p>
+  <p class="access-note">O servidor guarda somente o envelope do Cristal já criptografado. Ele não recebe a senha, a chave privada nem o estado aberto. Cada envio cria uma nova versão do backup.</p>
   <button id="cloudLogout" class="gate-logout" type="button">Sair da conta</button>
  </section>
  <p id="accessError" role="alert"></p><button id="accessRetry" class="secondary-button" hidden>Tentar novamente</button>

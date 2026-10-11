@@ -23,6 +23,34 @@ No painel do Supabase, em **Authentication → URL Configuration**:
 
 A confirmação de e-mail deve continuar habilitada. O link de confirmação retorna à URL que iniciou o cadastro. O projeto deve permitir a origem da produção e das prévias antes de testar o cadastro.
 
+### Texto de confirmação sugerido
+
+No painel, em **Authentication → Email Templates → Confirm signup**, use:
+
+**Subject:** Bem-vindo ao Companion Core — confirme seu e-mail
+
+**Body (HTML):**
+
+```html
+<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:32px;color:#20243a">
+  <p style="color:#6257c8;font-weight:bold;letter-spacing:.14em">COMPANION CORE</p>
+  <h1>Bem-vindo ao Companion Core!</h1>
+  <p>Obrigado por criar sua conta. Sua jornada para despertar uma Companion está começando.</p>
+  <p>Para ativar seu acesso, confirme seu endereço de e-mail:</p>
+  <p style="margin:28px 0">
+    <a href="{{ .ConfirmationURL }}" style="background:#5146b8;color:#fff;padding:14px 22px;border-radius:8px;text-decoration:none">
+      Confirmar meu e-mail
+    </a>
+  </p>
+  <p><strong>Sobre esta etapa:</strong> o cadastro cria sua conta e libera o Cofre do Cristal. A criação de uma Companion pela web ainda será disponibilizada em uma próxima fase. Por enquanto, o cofre recebe Cristais criptografados exportados do Core local.</p>
+  <p>Se você não criou esta conta, pode ignorar esta mensagem.</p>
+  <p style="color:#68708a">— Equipe Companion Core</p>
+</div>
+```
+
+Depois de salvar, faça um novo cadastro de teste para conferir o e-mail. Os e-mails enviados anteriormente não mudam.
+
+
 ## Variáveis na Vercel
 
 O build usa:
