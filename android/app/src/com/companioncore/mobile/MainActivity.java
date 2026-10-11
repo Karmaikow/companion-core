@@ -20,13 +20,14 @@ import org.json.JSONObject;
 public final class MainActivity extends Activity {
  private static final String ORIGIN="http://127.0.0.1:4187";
  private boolean bound=false;
+ private Messenger coreMessenger;
  private boolean coreReady=false;
  private boolean polling=false;
  private LinearLayout root;
  private Button startButton;
  private final ServiceConnection connection=new ServiceConnection(){
   @Override public void onServiceConnected(ComponentName name,IBinder binder){try{
-   Message message=Message.obtain(null,1);Bundle data=new Bundle();data.putString("token",token);message.setData(data);new Messenger(binder).send(message);
+   Message message=Message.obtain(null,1);Bundle data=new Bundle();data.putString("token",token);message.setData(data);coreMessenger=new Messenger(binder);coreMessenger.send(message);
    status.setText("Preparando o Refúgio…");polling=true;poll();
   }catch(Exception e){fail("Não foi possível comunicar com o Core.");}}
   @Override public void onServiceDisconnected(ComponentName name){releaseCore();fail("O Core foi interrompido. A interface foi preservada. Toque em Diagnóstico para conferir o motivo.");}
@@ -51,7 +52,17 @@ public final class MainActivity extends Activity {
   b.setOnClickListener(v->{b.animate().alpha(.65f).setDuration(80).withEndAction(()->b.animate().alpha(1f).setDuration(140));action.run();});return b;
  }
  private LinearLayout.LayoutParams tab(){LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,dp(44),1);p.setMargins(dp(4),0,dp(4),0);return p;}
- private void releaseCore(){polling=false;if(bound){bound=false;try{unbindService(connection);}catch(Exception ignored){}}}
+ private void releaseCore(){polling=false;coreMessenger=null;if(bound){bound=false;try{unbindService(connection);}catch(Exception ignored){}}}
+ private boolean beginFileTransfer(){
+  if(!bound){show("Abra o Refúgio antes de selecionar o Cristal.");return false;}
+  try{startForegroundService(new Intent(this,CoreService.class));return true;}
+  catch(Exception e){show("Não foi possível manter o Core ativo para selecionar o arquivo: "+e.getClass().getSimpleName());return false;}
+ }
+ private void endFileTransfer(){
+  if(!bound)return;
+  // Messenger is obtained from the same private binding; no external service can receive it.
+  if(coreMessenger!=null)try{coreMessenger.send(Message.obtain(null,2));}catch(Exception ignored){}
+ }
  private void fail(String message){polling=false;failure=message;status.setText(message);if(startButton!=null)startButton.setVisibility(View.VISIBLE);}
  private void start(){
   if(bound)return;
@@ -63,13 +74,14 @@ public final class MainActivity extends Activity {
  }
  private String privateText(String filename){try{try(RandomAccessFile file=new RandomAccessFile(new File(getFilesDir(),filename),"r")){long offset=Math.max(0,file.length()-16384);file.seek(offset);byte[] bytes=new byte[(int)(file.length()-offset)];file.readFully(bytes);return (offset>0?"(últimos 16 KB)\n":"")+new String(bytes,"UTF-8");}}catch(Exception e){return "(sem registro)";}}
  private void diagnostics(){
-  StringBuilder report=new StringBuilder("Companion Core 0.4.3 · diagnóstico\n");
+  StringBuilder report=new StringBuilder("Companion Core 0.4.4 · diagnóstico\n");
   report.append(Build.MANUFACTURER).append(" ").append(Build.MODEL).append("\nAndroid ").append(Build.VERSION.RELEASE).append(" / API ").append(Build.VERSION.SDK_INT).append("\nABI: ").append(Arrays.toString(Build.SUPPORTED_ABIS));
   report.append("\nPágina de memória: ").append(android.system.Os.sysconf(android.system.OsConstants._SC_PAGESIZE));
   try{android.content.pm.PackageInfo info=WebView.getCurrentWebViewPackage();report.append("\nWebView: ").append(info==null?"indisponível":info.versionName);}catch(Exception ignored){}
   report.append("\nEtapa: ").append(privateText("core-startup-stage.txt"));
   if(failure!=null)report.append("\nInterface: ").append(failure);
   if(Build.VERSION.SDK_INT>=30){try{for(ApplicationExitInfo exit:((ActivityManager)getSystemService(ACTIVITY_SERVICE)).getHistoricalProcessExitReasons(getPackageName(),0,4)){report.append("\nSaída ").append(exit.getProcessName()).append(": motivo=").append(exit.getReason()).append(" código=").append(exit.getStatus()).append(" em ").append(new java.util.Date(exit.getTimestamp()));}}catch(Exception ignored){}}
+  report.append("\n\nCiclo do serviço:\n").append(privateText("core-lifecycle.log"));
   report.append("\n\nInicialização:\n").append(privateText("core-startup.log"));
   final String value=report.toString();TextView text=new TextView(this);text.setText(value);text.setTextIsSelectable(true);text.setTextSize(12);text.setPadding(dp(18),dp(12),dp(18),dp(12));ScrollView scroll=new ScrollView(this);scroll.addView(text);
   new AlertDialog.Builder(this).setTitle("Diagnóstico do aplicativo").setView(scroll).setPositiveButton("Copiar",(d,w)->{((ClipboardManager)getSystemService(CLIPBOARD_SERVICE)).setPrimaryClip(ClipData.newPlainText("Diagnóstico Companion Core",value));Toast.makeText(this,"Diagnóstico copiado",Toast.LENGTH_SHORT).show();}).setNegativeButton("Fechar",null).show();
@@ -82,7 +94,7 @@ public final class MainActivity extends Activity {
   LinearLayout bar=new LinearLayout(this);bar.setPadding(dp(8),dp(4),dp(8),dp(10));
   bar.addView(button("◇ Refúgio",()->{if(loaded)web.loadUrl(ORIGIN+"/");}),tab());
   bar.addView(button("✧ Conversa",()->settings()),tab());
-  bar.addView(button("? Ajuda",()->new AlertDialog.Builder(this).setTitle("Companion Core · beta 0.4.3").setMessage("O Core roda dentro deste APK. Crie seu acesso local e importe o Cristal no Hub.\n\nO chat livre precisa de um servidor Ollama HTTPS configurado em IA. Nenhum modelo está incluído.\n\nTransferências precisam de internet. Não desinstale o app nem limpe seus dados sem exportar o Cristal.\n\nEsta versão não mantém atividades em segundo plano e ainda não unifica o login com a conta web.").setPositiveButton("Entendi",null).show()),tab());
+  bar.addView(button("? Ajuda",()->new AlertDialog.Builder(this).setTitle("Companion Core · beta 0.4.4").setMessage("O Core roda dentro deste APK. Crie seu acesso local e importe o Cristal no Hub.\n\nO chat livre precisa de um servidor Ollama HTTPS configurado em IA. Nenhum modelo está incluído.\n\nTransferências precisam de internet. Não desinstale o app nem limpe seus dados sem exportar o Cristal.\n\nEsta versão não mantém atividades em segundo plano e ainda não unifica o login com a conta web.").setPositiveButton("Entendi",null).show()),tab());
   root.addView(bar);
   status=new TextView(this);status.setTextColor(Color.WHITE);status.setPadding(dp(12),dp(8),dp(12),dp(8));status.setText("Seu Refúgio no celular. Inicie o Core para entrar.");root.addView(status);
   LinearLayout actions=new LinearLayout(this);actions.setPadding(dp(12),dp(4),dp(12),dp(12));startButton=button("Abrir meu Refúgio",()->start());actions.addView(startButton,tab());actions.addView(button("Diagnóstico",()->diagnostics()),tab());root.addView(actions);
@@ -97,9 +109,10 @@ public final class MainActivity extends Activity {
   });
   web.setWebChromeClient(new WebChromeClient(){
    @Override public boolean onShowFileChooser(WebView w,ValueCallback<Uri[]> cb,FileChooserParams params){
-    if(chooser!=null)chooser.onReceiveValue(null);chooser=cb;
+    if(chooser!=null)chooser.onReceiveValue(null);
+    if(!beginFileTransfer()){cb.onReceiveValue(null);return true;}chooser=cb;
     Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);i.addCategory(Intent.CATEGORY_OPENABLE);i.setType("*/*");
-    try{startActivityForResult(i,OPEN);}catch(Exception e){chooser.onReceiveValue(null);chooser=null;}return true;
+    try{startActivityForResult(i,OPEN);}catch(Exception e){chooser.onReceiveValue(null);chooser=null;endFileTransfer();}return true;
    }
   });
   ServiceWorkerController.getInstance().setServiceWorkerClient(new ServiceWorkerClient(){@Override public WebResourceResponse shouldInterceptRequest(WebResourceRequest r){return allowed(r.getUrl())?null:blocked();}});
@@ -124,12 +137,14 @@ public final class MainActivity extends Activity {
    if(contents==null||contents.length()>24000000)return;
    runOnUiThread(()->{
     if(pendingExport!=null){Toast.makeText(MainActivity.this,"Conclua o salvamento anterior.",Toast.LENGTH_LONG).show();return;}
+    if(!beginFileTransfer())return;
     try{pendingExport=contents.getBytes("UTF-8");Intent i=new Intent(Intent.ACTION_CREATE_DOCUMENT);i.addCategory(Intent.CATEGORY_OPENABLE);i.setType("application/octet-stream");i.putExtra(Intent.EXTRA_TITLE,filename!=null&&filename.matches("[A-Za-z0-9._-]+")?filename:"companion.companion");startActivityForResult(i,SAVE);}
-    catch(Exception e){pendingExport=null;show("Não foi possível salvar. Use Baixar novamente no painel do Cristal.");}
+    catch(Exception e){endFileTransfer();pendingExport=null;show("Não foi possível salvar. Use Baixar novamente no painel do Cristal.");}
    });
   }
  }
  @Override protected void onActivityResult(int req,int result,Intent data){super.onActivityResult(req,result,data);
+  if(req==OPEN||req==SAVE)endFileTransfer();
   if(req==OPEN&&chooser!=null){chooser.onReceiveValue(result==RESULT_OK&&data!=null&&data.getData()!=null?new Uri[]{data.getData()}:null);chooser=null;}
   if(req==SAVE){byte[] bytes=pendingExport;pendingExport=null;if(result==RESULT_OK&&data!=null&&bytes!=null){Uri target=data.getData();new Thread(()->{try(OutputStream out=getContentResolver().openOutputStream(target,"wt")){if(out==null)throw new IOException();out.write(bytes);out.flush();runOnUiThread(()->show("Cristal salvo. Guarde a senha e o código de recuperação separadamente."));}catch(Exception e){runOnUiThread(()->show("O arquivo não foi salvo. Use Baixar novamente; não desinstale o aplicativo."));}},"crystal-save").start();}else show("Salvamento cancelado. O recolhimento pode já ter ocorrido: use Baixar novamente ou Cancele o recolhimento no painel.");}
  }

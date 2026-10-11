@@ -1,6 +1,6 @@
-# Android independente — beta 0.4.3 (ARM64)
+# Android independente — beta 0.4.4 (ARM64)
 
-O APK inclui Node.js Mobile 18.20.4, o Core compilado e a interface. Não usa Termux, não copia dados do Termux e não contém identidades reais ou modelos de linguagem. Usa o mesmo applicationId/certificado de teste do cliente 0.3, com versionCode 7.
+O APK inclui Node.js Mobile 18.20.4, o Core compilado e a interface. Não usa Termux, não copia dados do Termux e não contém identidades reais ou modelos de linguagem. Usa o mesmo applicationId/certificado de teste do cliente 0.3, com versionCode 8.
 
 ## Primeiro uso
 
@@ -18,13 +18,13 @@ O botão **IA** configura gateway Ollama **HTTPS**, modelo e token opcional. Ess
 
 Dados em `files/companion-data`, dentro do armazenamento privado do app; `allowBackup=false`. Código em `files/core`, substituído ao iniciar. Não são usados diretórios compartilhados para chaves ou senhas. Esta beta ainda não implementa envelopamento das chaves pelo Android Keystore; não a trate como cofre certificado. Configurações do gateway ficam no espaço privado do app.
 
-Servidor interno somente loopback 4187, com capacidade aleatória exigida antes das rotas, cookie HttpOnly SameSite=Strict na WebView. Navegação externa bloqueada; ponte nativa limitada à exportação por seletor, sem acesso genérico a arquivos ou comandos. Não existe serviço de execução em segundo plano; Android pode encerrar o processo. A persistência continua usando gravações atômicas do Core.
+Servidor interno somente loopback 4187, com capacidade aleatória exigida antes das rotas, cookie HttpOnly SameSite=Strict na WebView. Navegação externa bloqueada; ponte nativa limitada à exportação por seletor, sem acesso genérico a arquivos ou comandos. Durante o seletor de importação/exportação, o serviço usa foreground dataSync com notificação temporária e sem reinício automático. Ao retornar, deixa esse modo e permanece vinculado à interface. Android ainda pode encerrar o processo. A persistência continua usando gravações atômicas do Core.
 
 Suporte deste pacote: Android 8+ ARM64, páginas de memória 4 KB. O libnode distribuído upstream é antigo e não garante suporte nativo a aparelhos com páginas de 16 KB. Aplicação beta para validação, não publicação na Play Store. Login web unificado, hardware Keystore, modelo offline e instaladores desktop não estão incluídos.
 
 ## Compilar
 
-Na raiz: `npm ci` e `npm run build`. Use NDK r27c, plataforma Android 35, build-tools 35.0.0, ECJ 3.39.0, Java 17 e a distribuição oficial nodejs-mobile-v18.20.4-android.zip. O script `android/build-apk.py` recebe os caminhos por variáveis documentadas no cabeçalho. Certificado privado de assinatura nunca entra no Git. Artefato em `android/build/companion-core-standalone-v0.4.3-arm64-beta.apk`.
+Na raiz: `npm ci` e `npm run build`. Use NDK r27c, plataforma Android 35, build-tools 35.0.0, ECJ 3.39.0, Java 17 e a distribuição oficial nodejs-mobile-v18.20.4-android.zip. O script `android/build-apk.py` recebe os caminhos por variáveis documentadas no cabeçalho. Certificado privado de assinatura nunca entra no Git. Artefato em `android/build/companion-core-standalone-v0.4.4-arm64-beta.apk`.
 
 Origem do runtime: https://github.com/nodejs-mobile/nodejs-mobile/releases/tag/v18.20.4
 
@@ -49,3 +49,11 @@ Teste do pacote no host: `node scripts/build-android-server.mjs && node --test a
 O diagnóstico do aparelho confirmou SyntaxError ao compilar o servidor. O código continha expressões com propriedades Unicode (`\p{L}`), recurso explicitamente não suportado pelo Node Mobile sem ICU (https://nodejs-mobile.github.io/docs/api/differences/). O build agora expande essas propriedades em intervalos de caracteres com regexpu-core, localizados por AST com acorn; não altera strings nem restringe os nomes a ASCII. O bootstrap registra separadamente erros de compilação do código empacotado, sem incluir dados do usuário.
 
 Testes: `npm run build && node scripts/build-android-server.mjs && node --test android/startup.test.mjs android/regexp.test.mjs`. Cobrem nomes com acentos e outros alfabetos, entrada inválida, ausência das expressões incompatíveis no bundle, acesso local e persistência após reinício. Não há aparelho Android conectado ao ambiente de build; validação no dispositivo ainda necessária. Bibliotecas nativas permanecem as mesmas da 0.4.2.
+
+## Seletor de Cristal — 0.4.4
+
+A 0.4.3 iniciou no aparelho; ao selecionar/importar um Cristal, a interface perdeu o serviço com saída Android motivo 13, código 0, sem exceção JS. A causa dessa saída é inconclusiva. O APK usava somente um serviço bound, vulnerável à mudança de prioridade quando o seletor leva a Activity ao segundo plano.
+
+Agora a ação explícita de abrir/salvar um arquivo inicia foreground dataSync, com canal e notificação de transferência. O retorno ou cancelamento do seletor remove a notificação e o estado started; a conexão bound continua mantendo o Core enquanto o app está aberto. onUnbind e o timeout Android encerram o serviço sem reiniciar. O diagnóstico passa a registrar criação, proteção, retorno, desvinculação e encerramento. Nenhuma mudança no protocolo do Cristal ou no registro central.
+
+Java e manifesto compilados contra API 35; assinatura e bibliotecas verificadas. O comportamento de Android 16/HyperOS durante o seletor precisa de validação no aparelho.
