@@ -79,8 +79,8 @@ export class AccessGate {
     document.querySelector('#authModeToggle').hidden=false;
     document.querySelector('#confirmationField').hidden=!this.setup;document.querySelector('#accessConfirm').required=this.setup;
     document.querySelector('#accessPassword').autocomplete=this.setup?'new-password':'current-password';
-    document.querySelector('#accessTitle').textContent=this.setup?'Criar sua conta':'Entrar na sua conta';
-    document.querySelector('#accessSubtitle').textContent=this.setup?'Crie uma conta para guardar backups criptografados dos seus Cristais.':'Entre para acessar os Cristais guardados no seu cofre.';
+    document.querySelector('#accessTitle').textContent=this.setup?'Criar sua conta Companion Core':'Entrar na sua conta';
+    document.querySelector('#accessSubtitle').textContent=this.setup?'Crie seu acesso ao Cofre do Cristal. Nesta versão, a conta ainda não cria uma Companion.':'Entre para acessar os backups criptografados de Companions já criadas no Core local.';
     document.querySelector('#accessSubmit').textContent=this.setup?'Criar conta':'Entrar';
     document.querySelector('#authModeToggle').textContent=this.setup?'Já tenho uma conta':'Criar uma conta';
     input.focus();
@@ -136,7 +136,7 @@ export class AccessGate {
     this.error.textContent='';button.disabled=true;
     try{
       const result=await this.request(this.setup?'setup':'login',mode==='cloud'?{email:username,password}:{username,password});
-      if(mode==='cloud'&&this.setup&&!result.authenticated){this.form.reset();this.error.textContent='Conta criada. Confirme o e-mail enviado pelo Supabase e depois entre.';this.setup=false;this.configureCloudForm();return;}
+      if(mode==='cloud'&&this.setup&&!result.authenticated){this.form.reset();this.setup=false;this.configureCloudForm();const notice=document.querySelector('#authNotice');notice.textContent='Cadastro recebido! Para continuar, confirme seu e-mail pelo link que enviamos. Depois volte aqui e entre com seu e-mail e senha. Nesta versão, a conta dá acesso ao Cofre do Cristal; a criação de uma Companion pela web ainda está em desenvolvimento.';notice.hidden=false;return;}
       this.form.reset();
       if(mode==='cloud'){await this.showCloudVault(result.user);return;}
       await this.continuity();
