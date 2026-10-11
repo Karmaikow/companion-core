@@ -1,6 +1,6 @@
-# Android independente — beta 0.4.1 (ARM64)
+# Android independente — beta 0.4.2 (ARM64)
 
-O APK inclui Node.js Mobile 18.20.4, o Core compilado e a interface. Não usa Termux, não copia dados do Termux e não contém identidades reais ou modelos de linguagem. Usa o mesmo applicationId/certificado de teste do cliente 0.3, com versionCode 5.
+O APK inclui Node.js Mobile 18.20.4, o Core compilado e a interface. Não usa Termux, não copia dados do Termux e não contém identidades reais ou modelos de linguagem. Usa o mesmo applicationId/certificado de teste do cliente 0.3, com versionCode 6.
 
 ## Primeiro uso
 
@@ -24,7 +24,7 @@ Suporte deste pacote: Android 8+ ARM64, páginas de memória 4 KB. O libnode dis
 
 ## Compilar
 
-Na raiz: `npm ci` e `npm run build`. Use NDK r27c, plataforma Android 35, build-tools 35.0.0, ECJ 3.39.0, Java 17 e a distribuição oficial nodejs-mobile-v18.20.4-android.zip. O script `android/build-apk.py` recebe os caminhos por variáveis documentadas no cabeçalho. Certificado privado de assinatura nunca entra no Git. Artefato em `android/build/companion-core-standalone-v0.4.1-arm64-beta.apk`.
+Na raiz: `npm ci` e `npm run build`. Use NDK r27c, plataforma Android 35, build-tools 35.0.0, ECJ 3.39.0, Java 17 e a distribuição oficial nodejs-mobile-v18.20.4-android.zip. O script `android/build-apk.py` recebe os caminhos por variáveis documentadas no cabeçalho. Certificado privado de assinatura nunca entra no Git. Artefato em `android/build/companion-core-standalone-v0.4.2-arm64-beta.apk`.
 
 Origem do runtime: https://github.com/nodejs-mobile/nodejs-mobile/releases/tag/v18.20.4
 
@@ -37,3 +37,9 @@ Core e limites HTTP testados no host, compilação Java/JNI e assinatura APK ver
 A beta 0.4 mostrou a barra no aparelho Android 16 do usuário e saiu da tela cerca de dois segundos depois. A causa ainda não foi comprovada: não havia logs nativos disponíveis. A 0.4.1 separa Node em serviço privado no processo `:core`, vinculado à Activity, e detecta a perda do serviço sem reiniciar em ciclo. A interface só inicia o Core após toque explícito, mantém um diagnóstico acessível e mostra histórico de saída do Android, estágio de inicialização e log privado limitado. Dispositivos com páginas maiores que 4 KB são interrompidos antes de carregar este runtime antigo; suporte 16 KB requer novo runtime.
 
 Também ajusta espaçamento, cores, bordas e tipografia dos controles nativos. Nenhuma identidade ou registro online é alterado por essa atualização. Compilação e assinatura verificadas; validação em aparelho permanece pendente. O fechamento original não deve ser considerado resolvido antes do teste no aparelho.
+
+## Diagnóstico de inicialização — 0.4.2
+
+No aparelho, a 0.4.1 preservou a interface mas o processo Core saiu com código 1 antes de registrar a falha. A 0.4.2 abre stdout/stderr novamente na camada JNI, sem buffering, registra a chegada ao Node e usa uma entrada CommonJS síncrona com o servidor empacotado via esbuild. Falhas JavaScript recebem estágio e pilha sanitizada no arquivo privado; o diagnóstico exibe os últimos 16 KB. Não foi comprovado que ESM causava a saída: essa alteração reduz as etapas do carregamento e permite localizar o próximo erro.
+
+Teste do pacote no host: `node scripts/build-android-server.mjs && node --test android/startup.test.mjs`. Valida conta, criação, reinício e registro de falha sem credenciais. Execução no Android real continua necessária.

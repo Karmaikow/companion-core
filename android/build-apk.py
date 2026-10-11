@@ -10,10 +10,14 @@ bt=Path(os.environ['ANDROID_TOOLS']); android=Path(os.environ['ANDROID_JAR']); n
 def run(a): subprocess.run([str(x) for x in a],check=True)
 for name in ['classes','dex','generated','lib/arm64-v8a','assets/core']:(build/name).mkdir(parents=True,exist_ok=True)
 assets=build/'assets/core'
-for name in ['dist','web']:
+for name in ['web']:
  if (assets/name).exists():shutil.rmtree(assets/name)
  shutil.copytree(repo/name,assets/name)
-shutil.copyfile(root/'bootstrap.mjs',assets/'bootstrap.mjs')
+for old in ['dist','bootstrap.mjs']:
+ if (assets/old).is_dir():shutil.rmtree(assets/old)
+ elif (assets/old).exists():(assets/old).unlink()
+shutil.copyfile(root/'bootstrap.cjs',assets/'bootstrap.cjs')
+run(['node',repo/'scripts/build-android-server.mjs'])
 if (root/'notices').exists():shutil.copytree(root/'notices',assets/'notices',dirs_exist_ok=True)
 (assets/'package.json').write_text('{"type":"module"}')
 # App-owned private capability cookie means no external browser can use this local server.
@@ -29,6 +33,6 @@ with zipfile.ZipFile(build/'unsigned.apk','a',zipfile.ZIP_DEFLATED) as z:
  z.write(build/'dex/classes.dex','classes.dex')
  for f in libs.glob('*.so'):z.write(f,'lib/arm64-v8a/'+f.name)
 run([bt/'zipalign','-f','4',build/'unsigned.apk',build/'aligned.apk'])
-out=build/'companion-core-standalone-v0.4.1-arm64-beta.apk'
+out=build/'companion-core-standalone-v0.4.2-arm64-beta.apk'
 run([bt/'apksigner','sign','--ks',os.environ['COMPANION_SIGNING_KEY'],'--ks-key-alias','androiddebugkey','--ks-pass','pass:android','--out',out,build/'aligned.apk'])
 run([bt/'apksigner','verify','--verbose',out]);run([bt/'aapt','dump','badging',out]);print(out)
