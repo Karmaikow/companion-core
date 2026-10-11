@@ -1,11 +1,11 @@
-# Android independente — beta 0.4 (ARM64)
+# Android independente — beta 0.4.1 (ARM64)
 
-O APK inclui Node.js Mobile 18.20.4, o Core compilado e a interface. Não usa Termux, não copia dados do Termux e não contém identidades reais ou modelos de linguagem. Usa o mesmo applicationId/certificado de teste do cliente 0.3, com versionCode 4.
+O APK inclui Node.js Mobile 18.20.4, o Core compilado e a interface. Não usa Termux, não copia dados do Termux e não contém identidades reais ou modelos de linguagem. Usa o mesmo applicationId/certificado de teste do cliente 0.3, com versionCode 5.
 
 ## Primeiro uso
 
 1. Instale por cima do APK anterior. Se houver conflito de assinatura, não desinstale nem limpe dados: informe o erro.
-2. Abra o aplicativo sem iniciar Termux. Aguarde o acesso local e crie usuário/senha próprios desta instalação.
+2. Abra o aplicativo sem iniciar Termux. Toque em **Abrir meu Refúgio**. Se falhar, use **Diagnóstico → Copiar**; não importe identidades antes de validar a inicialização.
 3. Antes de usar um Cristal real, confira se o app abre e volta à tela de acesso após fechar/reabrir. Depois importe o `.companion` no Hub com a senha dele, sem aceitar presente quando for sua própria identidade.
 4. Guarde o novo código de recuperação e confira ID, memórias e preferências. Feche/reabra o app para testar persistência.
 5. Para exportar, recolha pelo painel e escolha o destino no seletor Android. Confirme a mensagem nativa de arquivo salvo. Se cancelar o seletor, o recolhimento pode já ter ocorrido: use Baixar novamente ou cancelar recolhimento no painel.
@@ -24,10 +24,16 @@ Suporte deste pacote: Android 8+ ARM64, páginas de memória 4 KB. O libnode dis
 
 ## Compilar
 
-Na raiz: `npm ci` e `npm run build`. Use NDK r27c, plataforma Android 35, build-tools 35.0.0, ECJ 3.39.0, Java 17 e a distribuição oficial nodejs-mobile-v18.20.4-android.zip. O script `android/build-apk.py` recebe os caminhos por variáveis documentadas no cabeçalho. Certificado privado de assinatura nunca entra no Git. Artefato em `android/build/companion-core-standalone-v0.4-arm64-beta.apk`.
+Na raiz: `npm ci` e `npm run build`. Use NDK r27c, plataforma Android 35, build-tools 35.0.0, ECJ 3.39.0, Java 17 e a distribuição oficial nodejs-mobile-v18.20.4-android.zip. O script `android/build-apk.py` recebe os caminhos por variáveis documentadas no cabeçalho. Certificado privado de assinatura nunca entra no Git. Artefato em `android/build/companion-core-standalone-v0.4.1-arm64-beta.apk`.
 
 Origem do runtime: https://github.com/nodejs-mobile/nodejs-mobile/releases/tag/v18.20.4
 
 ## Validação
 
 Core e limites HTTP testados no host, compilação Java/JNI e assinatura APK verificadas. Não houve emulação ou execução em aparelho Android neste ambiente; iniciar a beta no aparelho é uma validação ainda necessária antes de confiar uma identidade única ao aplicativo.
+
+## Correção de inicialização — 0.4.1
+
+A beta 0.4 mostrou a barra no aparelho Android 16 do usuário e saiu da tela cerca de dois segundos depois. A causa ainda não foi comprovada: não havia logs nativos disponíveis. A 0.4.1 separa Node em serviço privado no processo `:core`, vinculado à Activity, e detecta a perda do serviço sem reiniciar em ciclo. A interface só inicia o Core após toque explícito, mantém um diagnóstico acessível e mostra histórico de saída do Android, estágio de inicialização e log privado limitado. Dispositivos com páginas maiores que 4 KB são interrompidos antes de carregar este runtime antigo; suporte 16 KB requer novo runtime.
+
+Também ajusta espaçamento, cores, bordas e tipografia dos controles nativos. Nenhuma identidade ou registro online é alterado por essa atualização. Compilação e assinatura verificadas; validação em aparelho permanece pendente. O fechamento original não deve ser considerado resolvido antes do teste no aparelho.

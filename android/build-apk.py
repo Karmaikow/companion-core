@@ -29,6 +29,6 @@ with zipfile.ZipFile(build/'unsigned.apk','a',zipfile.ZIP_DEFLATED) as z:
  z.write(build/'dex/classes.dex','classes.dex')
  for f in libs.glob('*.so'):z.write(f,'lib/arm64-v8a/'+f.name)
 run([bt/'zipalign','-f','4',build/'unsigned.apk',build/'aligned.apk'])
-out=build/'companion-core-standalone-v0.4-arm64-beta.apk'
+out=build/'companion-core-standalone-v0.4.1-arm64-beta.apk'
 run([bt/'apksigner','sign','--ks',os.environ['COMPANION_SIGNING_KEY'],'--ks-key-alias','androiddebugkey','--ks-pass','pass:android','--out',out,build/'aligned.apk'])
 run([bt/'apksigner','verify','--verbose',out]);run([bt/'aapt','dump','badging',out]);print(out)
