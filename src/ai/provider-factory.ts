@@ -1,4 +1,6 @@
 import path from 'node:path';
+import { readFile } from 'node:fs/promises';
+import { resolveIdentityQuestion } from './identity-grounding.js';
 import type { AIContext, AIProvider } from './ai-provider.js';
 import { MockAIProvider } from './mock-ai-provider.js';
 import { OllamaProvider } from './ollama-provider.js';
@@ -30,6 +32,18 @@ export class HybridAIProvider implements AIProvider {
 
 export function createAIProvider(env: NodeJS.ProcessEnv = process.env): AIProvider {
   const mode = env.MAYUNA_AI_PROVIDER ?? 'ollama';
+  if (mode === 'android' && env.COMPANION_APP_TOKEN && env.COMPANION_ANDROID_SETTINGS) {
+    const settingsFile = env.COMPANION_ANDROID_SETTINGS;
+    return { name: 'ollama', async generateResponse(context: AIContext) {
+      const grounded = resolveIdentityQuestion(context);
+      if (grounded !== null) return grounded;
+      let settings: { baseUrl?: string; model?: string; token?: string };
+      try { settings = JSON.parse(await readFile(settingsFile, 'utf8')); }
+      catch { throw new AIConnectionError('Configure um servidor Ollama em IA no aplicativo.'); }
+      if (!settings.baseUrl?.startsWith('https://')) throw new AIConnectionError('Configure um servidor Ollama HTTPS em IA no aplicativo.');
+      return new OllamaProvider(settings).generateResponse(context);
+    }};
+  }
   if (mode === 'mock') {
     if (!env.MAYUNA_DATA_DIR || path.resolve(env.MAYUNA_DATA_DIR) === path.resolve('data')) {
       throw new Error('Mock exige MAYUNA_DATA_DIR isolado. Use npm run web:mock.');

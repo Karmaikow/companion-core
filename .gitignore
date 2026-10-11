@@ -23,3 +23,5 @@ supabase/functions/companion-registry/shared/
 
 supabase/.temp/
 backups/
+
+android/build/

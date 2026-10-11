@@ -51,7 +51,8 @@ export class CrystalPanel {
     return;
    }
    if(result.invitation){result.file=JSON.stringify(result.invitation,null,2);result.filename=`convite-${result.invitation.id}.vinculo`;}
-   if(result.file){const url=URL.createObjectURL(new Blob([result.file],{type:'application/octet-stream'}));const link=document.createElement('a');link.href=url;link.download=result.filename;link.click();setTimeout(()=>URL.revokeObjectURL(url),60_000);}
+   if(result.file && window.CompanionAndroid){window.CompanionAndroid.saveCrystal(result.file,result.filename);}
+   else if(result.file){const url=URL.createObjectURL(new Blob([result.file],{type:'application/octet-stream'}));const link=document.createElement('a');link.href=url;link.download=result.filename;link.click();setTimeout(()=>URL.revokeObjectURL(url),60_000);}
    if(result.recoveryCode){const output=document.querySelector('#crystalRecoveryOutput');output.hidden=false;document.querySelector('#crystalRecoveryCode').textContent=result.recoveryCode;}
    const successMessages={invitation:'Convite criado. Envie-o a quem vai presentear você.',gift:'Passagem preparada. Entregue o Cristal e a senha ao destinatário; o aceite encerra sua autorização anterior.',migrate:'Identidade conectada ao registro migrado.',recollect:'Companion recolhida. Guarde o arquivo e a senha. Se o download falhar, baixe novamente ou cancele o recolhimento.',cancel:'Recolhimento cancelado. A Companion pode continuar aqui.',awaken:'Companion importada e selecionada no Hub. Guarde o novo código de recuperação.'};
    const successMessage=successMessages[action]||'Ação concluída.';this.feedback.textContent=successMessage;
@@ -64,3 +65,4 @@ export class CrystalPanel {
   finally{this.busy=false;for(const button of this.root.querySelectorAll('button'))button.disabled=false;await this.refresh();}
  }
 }
+

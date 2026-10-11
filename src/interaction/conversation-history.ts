@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 export type ConversationRole =
   | 'USER'
   | 'COMPANION'
@@ -22,7 +23,7 @@ export class ConversationHistory {
     content: string
   ): ConversationMessage {
     const message: ConversationMessage = {
-      id: crypto.randomUUID(),
+      id: randomUUID(),
       role,
       content,
       timestamp: new Date().toISOString()

@@ -263,6 +263,9 @@ async function main(): Promise<void> {
 
   const server = createServer(async (req, res) => {
     try {
+      if (process.env.COMPANION_APP_TOKEN && !(req.headers.cookie ?? '').split(';').some(value => value.trim() === `companion_app=${process.env.COMPANION_APP_TOKEN}`) && req.headers['x-companion-app'] !== process.env.COMPANION_APP_TOKEN) {
+        json(res, 403, { error: 'Abra este Core pelo aplicativo Android.' }); return;
+      }
       const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`);
       // Owner routes stay same-origin; remote interaction requires an exact configured origin.
       const hostname = url.hostname;

@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import type { CompanionSnapshot, CompanionState, CompanionEvent, VerificationResult } from '../models/types.js';
 import { sha256, stableJson, verifySignature } from '../crypto/crypto.js';
 
@@ -35,7 +36,7 @@ export class MockWorldServer {
     }
 
     const snap: CompanionSnapshot = {
-      id: crypto.randomUUID(), sequence:record.trustedSnapshot.sequence + 1, createdAt:new Date().toISOString(),
+      id: randomUUID(), sequence:record.trustedSnapshot.sequence + 1, createdAt:new Date().toISOString(),
       lastEventSequence:events.at(-1)?.sequence ?? 0, state:structuredClone(state),
       integrity:{ previousSnapshotHash:record.trustedSnapshot.integrity.snapshotHash, stateHash:sha256(stableJson(state)), snapshotHash:'' }
     };
