@@ -63,7 +63,7 @@ public final class MainActivity extends Activity {
  }
  private String privateText(String filename){try{try(RandomAccessFile file=new RandomAccessFile(new File(getFilesDir(),filename),"r")){long offset=Math.max(0,file.length()-16384);file.seek(offset);byte[] bytes=new byte[(int)(file.length()-offset)];file.readFully(bytes);return (offset>0?"(últimos 16 KB)\n":"")+new String(bytes,"UTF-8");}}catch(Exception e){return "(sem registro)";}}
  private void diagnostics(){
-  StringBuilder report=new StringBuilder("Companion Core 0.4.2 · diagnóstico\n");
+  StringBuilder report=new StringBuilder("Companion Core 0.4.3 · diagnóstico\n");
   report.append(Build.MANUFACTURER).append(" ").append(Build.MODEL).append("\nAndroid ").append(Build.VERSION.RELEASE).append(" / API ").append(Build.VERSION.SDK_INT).append("\nABI: ").append(Arrays.toString(Build.SUPPORTED_ABIS));
   report.append("\nPágina de memória: ").append(android.system.Os.sysconf(android.system.OsConstants._SC_PAGESIZE));
   try{android.content.pm.PackageInfo info=WebView.getCurrentWebViewPackage();report.append("\nWebView: ").append(info==null?"indisponível":info.versionName);}catch(Exception ignored){}
@@ -82,7 +82,7 @@ public final class MainActivity extends Activity {
   LinearLayout bar=new LinearLayout(this);bar.setPadding(dp(8),dp(4),dp(8),dp(10));
   bar.addView(button("◇ Refúgio",()->{if(loaded)web.loadUrl(ORIGIN+"/");}),tab());
   bar.addView(button("✧ Conversa",()->settings()),tab());
-  bar.addView(button("? Ajuda",()->new AlertDialog.Builder(this).setTitle("Companion Core · beta 0.4.2").setMessage("O Core roda dentro deste APK. Crie seu acesso local e importe o Cristal no Hub.\n\nO chat livre precisa de um servidor Ollama HTTPS configurado em IA. Nenhum modelo está incluído.\n\nTransferências precisam de internet. Não desinstale o app nem limpe seus dados sem exportar o Cristal.\n\nEsta versão não mantém atividades em segundo plano e ainda não unifica o login com a conta web.").setPositiveButton("Entendi",null).show()),tab());
+  bar.addView(button("? Ajuda",()->new AlertDialog.Builder(this).setTitle("Companion Core · beta 0.4.3").setMessage("O Core roda dentro deste APK. Crie seu acesso local e importe o Cristal no Hub.\n\nO chat livre precisa de um servidor Ollama HTTPS configurado em IA. Nenhum modelo está incluído.\n\nTransferências precisam de internet. Não desinstale o app nem limpe seus dados sem exportar o Cristal.\n\nEsta versão não mantém atividades em segundo plano e ainda não unifica o login com a conta web.").setPositiveButton("Entendi",null).show()),tab());
   root.addView(bar);
   status=new TextView(this);status.setTextColor(Color.WHITE);status.setPadding(dp(12),dp(8),dp(12),dp(8));status.setText("Seu Refúgio no celular. Inicie o Core para entrar.");root.addView(status);
   LinearLayout actions=new LinearLayout(this);actions.setPadding(dp(12),dp(4),dp(12),dp(12));startButton=button("Abrir meu Refúgio",()->start());actions.addView(startButton,tab());actions.addView(button("Diagnóstico",()->diagnostics()),tab());root.addView(actions);

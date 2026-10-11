@@ -28,5 +28,12 @@ try {
   process.env.COMPANION_ANDROID_SETTINGS = path.join(root, 'gateway.json');
   process.chdir(__dirname);
   stage('Carregando servidor interno');
+  // Parse trusted packaged code separately, so syntax diagnostics never include user data.
+  const serverPath = path.join(__dirname, 'server.cjs');
+  try { new (require('node:vm').Script)(fs.readFileSync(serverPath, 'utf8'), { filename: 'server.cjs' }); }
+  catch (error) {
+    fs.appendFileSync(log, '[parser] ' + String(error.message).slice(0, 1500) + '\n');
+    throw error;
+  }
   require('./server.cjs');
 } catch (error) { failure(error); }

@@ -1,6 +1,6 @@
-# Android independente — beta 0.4.2 (ARM64)
+# Android independente — beta 0.4.3 (ARM64)
 
-O APK inclui Node.js Mobile 18.20.4, o Core compilado e a interface. Não usa Termux, não copia dados do Termux e não contém identidades reais ou modelos de linguagem. Usa o mesmo applicationId/certificado de teste do cliente 0.3, com versionCode 6.
+O APK inclui Node.js Mobile 18.20.4, o Core compilado e a interface. Não usa Termux, não copia dados do Termux e não contém identidades reais ou modelos de linguagem. Usa o mesmo applicationId/certificado de teste do cliente 0.3, com versionCode 7.
 
 ## Primeiro uso
 
@@ -24,7 +24,7 @@ Suporte deste pacote: Android 8+ ARM64, páginas de memória 4 KB. O libnode dis
 
 ## Compilar
 
-Na raiz: `npm ci` e `npm run build`. Use NDK r27c, plataforma Android 35, build-tools 35.0.0, ECJ 3.39.0, Java 17 e a distribuição oficial nodejs-mobile-v18.20.4-android.zip. O script `android/build-apk.py` recebe os caminhos por variáveis documentadas no cabeçalho. Certificado privado de assinatura nunca entra no Git. Artefato em `android/build/companion-core-standalone-v0.4.2-arm64-beta.apk`.
+Na raiz: `npm ci` e `npm run build`. Use NDK r27c, plataforma Android 35, build-tools 35.0.0, ECJ 3.39.0, Java 17 e a distribuição oficial nodejs-mobile-v18.20.4-android.zip. O script `android/build-apk.py` recebe os caminhos por variáveis documentadas no cabeçalho. Certificado privado de assinatura nunca entra no Git. Artefato em `android/build/companion-core-standalone-v0.4.3-arm64-beta.apk`.
 
 Origem do runtime: https://github.com/nodejs-mobile/nodejs-mobile/releases/tag/v18.20.4
 
@@ -43,3 +43,9 @@ Também ajusta espaçamento, cores, bordas e tipografia dos controles nativos. N
 No aparelho, a 0.4.1 preservou a interface mas o processo Core saiu com código 1 antes de registrar a falha. A 0.4.2 abre stdout/stderr novamente na camada JNI, sem buffering, registra a chegada ao Node e usa uma entrada CommonJS síncrona com o servidor empacotado via esbuild. Falhas JavaScript recebem estágio e pilha sanitizada no arquivo privado; o diagnóstico exibe os últimos 16 KB. Não foi comprovado que ESM causava a saída: essa alteração reduz as etapas do carregamento e permite localizar o próximo erro.
 
 Teste do pacote no host: `node scripts/build-android-server.mjs && node --test android/startup.test.mjs`. Valida conta, criação, reinício e registro de falha sem credenciais. Execução no Android real continua necessária.
+
+## Correção de Unicode — 0.4.3
+
+O diagnóstico do aparelho confirmou SyntaxError ao compilar o servidor. O código continha expressões com propriedades Unicode (`\p{L}`), recurso explicitamente não suportado pelo Node Mobile sem ICU (https://nodejs-mobile.github.io/docs/api/differences/). O build agora expande essas propriedades em intervalos de caracteres com regexpu-core, localizados por AST com acorn; não altera strings nem restringe os nomes a ASCII. O bootstrap registra separadamente erros de compilação do código empacotado, sem incluir dados do usuário.
+
+Testes: `npm run build && node scripts/build-android-server.mjs && node --test android/startup.test.mjs android/regexp.test.mjs`. Cobrem nomes com acentos e outros alfabetos, entrada inválida, ausência das expressões incompatíveis no bundle, acesso local e persistência após reinício. Não há aparelho Android conectado ao ambiente de build; validação no dispositivo ainda necessária. Bibliotecas nativas permanecem as mesmas da 0.4.2.
