@@ -1,6 +1,6 @@
-# Android independente — beta 0.4.5 (ARM64)
+# Android independente — beta 0.4.6 (ARM64)
 
-O APK inclui Node.js Mobile 18.20.4, o Core compilado e a interface. Não usa Termux, não copia dados do Termux e não contém identidades reais ou modelos de linguagem. Usa o mesmo applicationId/certificado de teste do cliente 0.3, com versionCode 9.
+O APK inclui Node.js Mobile 18.20.4, o Core compilado e a interface. Não usa Termux, não copia dados do Termux e não contém identidades reais ou modelos de linguagem. Usa o mesmo applicationId/certificado de teste do cliente 0.3, com versionCode 10.
 
 ## Primeiro uso
 
@@ -12,7 +12,13 @@ O APK inclui Node.js Mobile 18.20.4, o Core compilado e a interface. Não usa Te
 
 ## Conversa
 
-O botão **IA** configura gateway Ollama **HTTPS**, modelo e token opcional. Esse servidor ainda precisa existir e estar acessível. Nenhuma API paga ou resposta mock é ativada automaticamente. Sem gateway, o Core pode responder perguntas de identidade resolvidas pelo próprio código, mas conversa livre falha. A inscrição online e as transferências precisam de internet. Não há servidor Ollama hospedado por esta entrega.
+O botão **Conversa** permite escolher **Groq** ou **Ollama**. Para Groq, crie sua própria chave em https://console.groq.com/keys, confirme no painel que a conta permanece no plano Free, cole a chave no aplicativo e marque a confirmação. Não cadastre método de pagamento nem faça upgrade para este teste. Modelo fixo: `openai/gpt-oss-20b`, hospedado no Groq, sem chamadas à API da OpenAI.
+
+O APK não consulta nem garante o plano de faturamento da chave. Se a conta for paga, a API pode cobrar; a caixa de confirmação não é um bloqueio de faturamento do provedor. O app não usa alternativa automática, repetições ou ferramentas externas: cota atingida produz aviso e interrompe a solicitação. Respostas incompletas não são salvas.
+
+A chave fica no gateway.json do espaço privado deste aparelho; não vai ao Git, Cristal ou WebView. Não há envelopamento Keystore nesta beta. O Groq recebe mensagens, instruções e contexto de expressão (incluindo memórias relevantes), sem chaves do Core ou acesso ao estado completo. Perguntas resolvidas localmente não acionam a API.
+
+Ollama mantém configuração de gateway HTTPS, modelo e token opcionais. Sem configuração, conversa livre falha. Testes de protocolo usam respostas simuladas; não houve chamada real ao Groq sem uma chave do usuário.
 
 ## Dados e limites
 
@@ -24,7 +30,7 @@ Suporte deste pacote: Android 8+ ARM64, páginas de memória 4 KB. O libnode dis
 
 ## Compilar
 
-Na raiz: `npm ci` e `npm run build`. Use NDK r27c, plataforma Android 35, build-tools 35.0.0, ECJ 3.39.0, Java 17 e a distribuição oficial nodejs-mobile-v18.20.4-android.zip. O script `android/build-apk.py` recebe os caminhos por variáveis documentadas no cabeçalho. Certificado privado de assinatura nunca entra no Git. Artefato em `android/build/companion-core-standalone-v0.4.5-arm64-beta.apk`.
+Na raiz: `npm ci` e `npm run build`. Use NDK r27c, plataforma Android 35, build-tools 35.0.0, ECJ 3.39.0, Java 17 e a distribuição oficial nodejs-mobile-v18.20.4-android.zip. O script `android/build-apk.py` recebe os caminhos por variáveis documentadas no cabeçalho. Certificado privado de assinatura nunca entra no Git. Artefato em `android/build/companion-core-standalone-v0.4.6-arm64-beta.apk`.
 
 Origem do runtime: https://github.com/nodejs-mobile/nodejs-mobile/releases/tag/v18.20.4
 
@@ -65,3 +71,9 @@ No diagnóstico da 0.4.4, o seletor terminou às 20:02, e o processo desapareceu
 A 0.4.5 inicia foreground ao tocar Abrir meu Refúgio e mantém a proteção após o seletor. O serviço local contínuo usa specialUse, com permissão e subtipo explícitos (https://developer.android.com/develop/background-work/services/fgs/service-types#special-use). onUnbind deixa de encerrar o serviço iniciado; a Activity encerra explicitamente o serviço em onDestroy, e stopWithTask cobre a remoção da tarefa. Sem reinício silencioso. Não é aprovação para distribuição na Play Store: specialUse requer declaração e análise na publicação.
 
 Compilação e assinatura verificadas; validação de alternância entre aplicativos no Android 16 ainda necessária. O protocolo de recuperação e a autorização da Companion no registro central não foram alterados.
+
+## Groq — 0.4.6
+
+Provider HTTP direto compatível com o runtime Node Mobile existente. Endpoint fixo, redirects bloqueados, timeout de 30 segundos, 2048 tokens máximos de saída e reasoning low. Usa apenas a resposta final, sem exibir reasoning. Erros 401/403/429, conectividade e resposta incompleta recebem mensagens sanitizadas. Configuração se aplica à próxima mensagem sem reiniciar. O seletor preserva configurações legadas do Ollama.
+
+Build TypeScript, testes de providers e do pacote Android, compilação Java e assinatura verificados. Disponibilidade e qualidade do modelo ainda precisam ser testadas com a conta Free do usuário. Não é uma garantia de disponibilidade ilimitada ou de gratuidade futura.

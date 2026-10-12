@@ -24,5 +24,5 @@ test('embedded Core requires app capability before any auth or data route',async
 test('Android provider does not silently enable mock or paid API',()=>{
  assert.throws(()=>createAIProvider({MAYUNA_AI_PROVIDER:'android'}));
  const provider=createAIProvider({MAYUNA_AI_PROVIDER:'android',COMPANION_APP_TOKEN:'test',COMPANION_ANDROID_SETTINGS:'/not-present'});
- assert.equal(provider.name,'ollama');
+ assert.equal(provider.name,'android');
 });

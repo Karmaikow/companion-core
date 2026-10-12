@@ -74,7 +74,7 @@ public final class MainActivity extends Activity {
  }
  private String privateText(String filename){try{try(RandomAccessFile file=new RandomAccessFile(new File(getFilesDir(),filename),"r")){long offset=Math.max(0,file.length()-16384);file.seek(offset);byte[] bytes=new byte[(int)(file.length()-offset)];file.readFully(bytes);return (offset>0?"(últimos 16 KB)\n":"")+new String(bytes,"UTF-8");}}catch(Exception e){return "(sem registro)";}}
  private void diagnostics(){
-  StringBuilder report=new StringBuilder("Companion Core 0.4.5 · diagnóstico\n");
+  StringBuilder report=new StringBuilder("Companion Core 0.4.6 · diagnóstico\n");
   report.append(Build.MANUFACTURER).append(" ").append(Build.MODEL).append("\nAndroid ").append(Build.VERSION.RELEASE).append(" / API ").append(Build.VERSION.SDK_INT).append("\nABI: ").append(Arrays.toString(Build.SUPPORTED_ABIS));
   report.append("\nPágina de memória: ").append(android.system.Os.sysconf(android.system.OsConstants._SC_PAGESIZE));
   try{android.content.pm.PackageInfo info=WebView.getCurrentWebViewPackage();report.append("\nWebView: ").append(info==null?"indisponível":info.versionName);}catch(Exception ignored){}
@@ -94,7 +94,7 @@ public final class MainActivity extends Activity {
   LinearLayout bar=new LinearLayout(this);bar.setPadding(dp(8),dp(4),dp(8),dp(10));
   bar.addView(button("◇ Refúgio",()->{if(loaded)web.loadUrl(ORIGIN+"/");}),tab());
   bar.addView(button("✧ Conversa",()->settings()),tab());
-  bar.addView(button("? Ajuda",()->new AlertDialog.Builder(this).setTitle("Companion Core · beta 0.4.5").setMessage("O Core roda dentro deste APK. Crie seu acesso local e importe o Cristal no Hub.\n\nO chat livre precisa de um servidor Ollama HTTPS configurado em IA. Nenhum modelo está incluído.\n\nTransferências precisam de internet. Não desinstale o app nem limpe seus dados sem exportar o Cristal.\n\nA sessão permanece ativa ao alternar de app. Feche o Companion Core para encerrá-la. O login local ainda é separado da conta web.").setPositiveButton("Entendi",null).show()),tab());
+  bar.addView(button("? Ajuda",()->new AlertDialog.Builder(this).setTitle("Companion Core · beta 0.4.6").setMessage("O Core roda dentro deste APK. Crie seu acesso local e importe o Cristal no Hub.\n\nO chat livre usa Groq com sua chave ou seu servidor Ollama HTTPS, configurados em Conversa. Nenhum modelo está incluído.\n\nTransferências precisam de internet. Não desinstale o app nem limpe seus dados sem exportar o Cristal.\n\nA sessão permanece ativa ao alternar de app. Feche o Companion Core para encerrá-la. O login local ainda é separado da conta web.").setPositiveButton("Entendi",null).show()),tab());
   root.addView(bar);
   status=new TextView(this);status.setTextColor(Color.WHITE);status.setPadding(dp(12),dp(8),dp(12),dp(8));status.setText("Seu Refúgio no celular. Inicie o Core para entrar.");root.addView(status);
   LinearLayout actions=new LinearLayout(this);actions.setPadding(dp(12),dp(4),dp(12),dp(12));startButton=button("Abrir meu Refúgio",()->start());actions.addView(startButton,tab());actions.addView(button("Diagnóstico",()->diagnostics()),tab());root.addView(actions);
@@ -126,7 +126,7 @@ public final class MainActivity extends Activity {
   try{c=(HttpURLConnection)new URL(ORIGIN+"/api/health").openConnection();c.setConnectTimeout(1000);c.setReadTimeout(1000);c.setRequestProperty("X-Companion-App",token);ready=c.getResponseCode()==200;}catch(Exception ignored){}finally{if(c!=null)c.disconnect();}
   final boolean ok=ready;runOnUiThread(()->{
    if(isDestroyed()||isFinishing()||!polling)return;
-   if(ok){coreReady=true;polling=false;android.webkit.CookieManager.getInstance().setCookie(ORIGIN,"companion_app="+token+"; Path=/; HttpOnly; SameSite=Strict",v->{android.webkit.CookieManager.getInstance().flush();loaded=true;status.setText("Core no APK · chat livre: configure Ollama em IA");web.loadUrl(ORIGIN+"/");});}
+   if(ok){coreReady=true;polling=false;android.webkit.CookieManager.getInstance().setCookie(ORIGIN,"companion_app="+token+"; Path=/; HttpOnly; SameSite=Strict",v->{android.webkit.CookieManager.getInstance().flush();loaded=true;status.setText("Core no APK · configure a IA em Conversa");web.loadUrl(ORIGIN+"/");});}
    else if(failure!=null)status.setText(failure);
    else if(++attempts<45){status.setText(privateText("core-startup-stage.txt"));if(status.getText().toString().startsWith("Falha:")||status.getText().toString().startsWith("Core encerrado")){fail("O Core não iniciou. Abra o Diagnóstico.");releaseCore();}else handler.postDelayed(()->poll(),1000);}
    else {fail("O Core não respondeu. Abra o Diagnóstico para conferir a etapa.");releaseCore();}
@@ -151,19 +151,33 @@ public final class MainActivity extends Activity {
  private void show(String msg){new AlertDialog.Builder(this).setTitle("Companion Core").setMessage(msg).setPositiveButton("OK",null).show();}
  private void settings(){
   LinearLayout fields=new LinearLayout(this);fields.setOrientation(1);fields.setPadding(dp(20),0,dp(20),0);
-  TextView intro=new TextView(this);intro.setText("O modelo não vem no APK. Informe seu gateway Ollama HTTPS. Não use localhost do PC nem chave da OpenAI.");fields.addView(intro);
+  TextView intro=new TextView(this);intro.setText("Escolha onde sua Companion conversa. O modelo não é instalado no celular. Mensagens e contexto da conversa são enviados ao serviço escolhido; chaves do Core não são enviadas.");fields.addView(intro);
+  Spinner provider=new Spinner(this);provider.setAdapter(new ArrayAdapter<String>(this,android.R.layout.simple_spinner_dropdown_item,new String[]{"Groq · teste no plano Free","Ollama · meu servidor"}));fields.addView(provider);
   EditText url=new EditText(this);url.setHint("https://seu-servidor-ollama");url.setInputType(17);fields.addView(url);
-  EditText model=new EditText(this);model.setHint("Modelo, ex.: gemma3:4b");fields.addView(model);
-  EditText auth=new EditText(this);auth.setHint("Token do gateway (opcional)");auth.setInputType(129);fields.addView(auth);
-  File file=new File(getFilesDir(),"gateway.json");
-  try{byte[] raw=readSmall(file);JSONObject o=new JSONObject(new String(raw,"UTF-8"));url.setText(o.optString("baseUrl"));model.setText(o.optString("model","gemma3:4b"));auth.setText(o.optString("token"));}catch(Exception ignored){model.setText("gemma3:4b");}
-  AlertDialog dialog=new AlertDialog.Builder(this).setTitle("Servidor de conversa").setView(fields).setNegativeButton("Cancelar",null).setPositiveButton("Salvar",null).create();
+  EditText model=new EditText(this);model.setHint("Modelo Ollama, ex.: gemma3:4b");fields.addView(model);
+  EditText auth=new EditText(this);auth.setInputType(129);fields.addView(auth);
+  CheckBox free=new CheckBox(this);free.setText("Confirmei no Groq: minha conta está no plano Free, sem upgrade pago.");fields.addView(free);
+  TextView note=new TextView(this);note.setText("Groq: GPT-OSS 20B. O app não consegue verificar seu plano. Ao atingir a cota, avisa e aguarda; não troca de serviço. Use sua própria chave.");fields.addView(note);
+  Button keys=button("Criar minha chave Groq",()->{try{startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse("https://console.groq.com/keys")));}catch(Exception e){show("Abra console.groq.com/keys no navegador.");}});fields.addView(keys,new LinearLayout.LayoutParams(-1,dp(44)));
+  File file=new File(getFilesDir(),"gateway.json");JSONObject stored=new JSONObject();
+  try{stored=new JSONObject(new String(readSmall(file),"UTF-8"));}catch(Exception ignored){}
+  final JSONObject saved=stored;final int previous=saved.has("baseUrl")&&!"groq".equals(saved.optString("provider"))?1:0;
+  provider.setSelection(previous);url.setText(saved.optString("baseUrl"));model.setText(saved.optString("model","gemma3:4b"));free.setChecked(saved.optBoolean("freePlanConfirmed",false));
+  provider.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener(){
+   @Override public void onNothingSelected(AdapterView<?> parent){}
+   @Override public void onItemSelected(AdapterView<?> parent,View view,int position,long id){boolean groq=position==0;
+    url.setVisibility(groq?View.GONE:View.VISIBLE);model.setVisibility(groq?View.GONE:View.VISIBLE);free.setVisibility(groq?View.VISIBLE:View.GONE);note.setVisibility(groq?View.VISIBLE:View.GONE);keys.setVisibility(groq?View.VISIBLE:View.GONE);
+    auth.setHint(groq?"Chave API Groq (gsk_…)":"Token do gateway (opcional)");auth.setText(position==previous?saved.optString(groq?"apiKey":"token"):"");
+   }
+  });
+  ScrollView scroll=new ScrollView(this);scroll.addView(fields);
+  AlertDialog dialog=new AlertDialog.Builder(this).setTitle("Conversa da Companion").setView(scroll).setNegativeButton("Cancelar",null).setPositiveButton("Salvar",null).create();
   dialog.setOnShowListener(v->dialog.getButton(-1).setOnClickListener(w->{try{
-   String address=url.getText().toString().trim();URI u=new URI(address);
-   if(!"https".equals(u.getScheme())||u.getHost()==null||u.getUserInfo()!=null||u.getQuery()!=null||u.getFragment()!=null)throw new Exception();
-   JSONObject o=new JSONObject();o.put("baseUrl",address);o.put("model",model.getText().toString().trim());o.put("token",auth.getText().toString().trim());
-   File temp=new File(getFilesDir(),"gateway.tmp");try(FileOutputStream out=new FileOutputStream(temp)){out.write(o.toString().getBytes("UTF-8"));out.getFD().sync();}android.system.Os.rename(temp.toString(),file.toString());dialog.dismiss();show("Configuração salva. A conexão será usada na próxima conversa.");
-  }catch(Exception e){url.setError("Informe uma URL HTTPS válida; não coloque credenciais no endereço.");}}));dialog.show();
+   JSONObject o=new JSONObject();boolean groq=provider.getSelectedItemPosition()==0;o.put("provider",groq?"groq":"ollama");
+   if(groq){String key=auth.getText().toString().trim();if(key.isEmpty()||key.matches(".*\\s.*")){auth.setError("Cole sua chave Groq aqui.");return;}if(!free.isChecked()){show("Confira no painel Groq se sua conta está no plano Free antes de salvar.");return;}o.put("apiKey",key);o.put("freePlanConfirmed",true);}
+   else{String address=url.getText().toString().trim();URI u=new URI(address);if(!"https".equals(u.getScheme())||u.getHost()==null||u.getUserInfo()!=null||u.getQuery()!=null||u.getFragment()!=null){url.setError("Informe uma URL HTTPS válida.");return;}o.put("baseUrl",address);o.put("model",model.getText().toString().trim());o.put("token",auth.getText().toString().trim());}
+   File temp=new File(getFilesDir(),"gateway.tmp");try(FileOutputStream out=new FileOutputStream(temp)){out.write(o.toString().getBytes("UTF-8"));out.getFD().sync();}android.system.Os.rename(temp.toString(),file.toString());dialog.dismiss();status.setText("Core no APK · conversa: "+(groq?"Groq":"Ollama"));show("Configuração salva. Envie uma mensagem à sua Companion para testar.");
+  }catch(Exception e){show("Não foi possível salvar a configuração. Confira os campos.");}}));dialog.show();
  }
  private static byte[] readSmall(File f)throws IOException{try(InputStream in=new FileInputStream(f);ByteArrayOutputStream out=new ByteArrayOutputStream()){byte[] b=new byte[1024];int n;while((n=in.read(b))!=-1){if(out.size()+n>16384)throw new IOException();out.write(b,0,n);}return out.toByteArray();}}
  @Override protected void onPause(){if(web!=null)web.onPause();super.onPause();}
