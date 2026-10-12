@@ -1,13 +1,27 @@
 #!/usr/bin/env python3
 """Build ARM64 standalone beta from compiled Core, official Node Mobile and Android NDK.
 Required env: ANDROID_TOOLS, ANDROID_JAR, ANDROID_NDK_HOME, NODE_MOBILE_DIR,
-ECJ_JAR, COMPANION_SIGNING_KEY (prototype keystore, not identity keys).
+ECJ_JAR, COMPANION_SIGNING_KEY, COMPANION_SIGNING_PASSWORD.
+Optional: COMPANION_SIGNING_ALIAS (default companioncore).
+Signing certificate must match signing-certificate.json; keys never enter Git.
 """
 from pathlib import Path
-import os,subprocess,shutil,zipfile
+import os,subprocess,shutil,zipfile,json,hashlib
+import xml.etree.ElementTree as ET
 root=Path(__file__).resolve().parent; repo=root.parent; app=root/'app'; build=root/'build';build.mkdir(exist_ok=True)
 bt=Path(os.environ['ANDROID_TOOLS']); android=Path(os.environ['ANDROID_JAR']); ndk=Path(os.environ['ANDROID_NDK_HOME'])/'toolchains/llvm/prebuilt/linux-x86_64'; node=Path(os.environ['NODE_MOBILE_DIR'])
 def run(a): subprocess.run([str(x) for x in a],check=True)
+# Refuse accidental key rotation; APK signing is independent of Companion identities.
+signing_key=Path(os.environ['COMPANION_SIGNING_KEY'])
+signing_alias=os.environ.get('COMPANION_SIGNING_ALIAS','companioncore')
+if not os.environ.get('COMPANION_SIGNING_PASSWORD'):
+ raise RuntimeError('Set COMPANION_SIGNING_PASSWORD through a private environment variable.')
+expected=json.loads((root/'signing-certificate.json').read_text())['certificateSha256']
+certificate=subprocess.check_output(['keytool','-exportcert','-keystore',str(signing_key),'-alias',signing_alias,'-storepass:env','COMPANION_SIGNING_PASSWORD'])
+if hashlib.sha256(certificate).hexdigest()!=expected:
+ raise RuntimeError('Signing certificate differs from the pinned release certificate. Do not rotate it for an update.')
+version=ET.parse(app/'AndroidManifest.xml').getroot().get('{http://schemas.android.com/apk/res/android}versionName')
+if not version: raise RuntimeError('Missing Android versionName.')
 for name in ['classes','dex','generated','lib/arm64-v8a','assets/core']:(build/name).mkdir(parents=True,exist_ok=True)
 assets=build/'assets/core'
 for name in ['web']:
@@ -36,6 +50,6 @@ with zipfile.ZipFile(build/'unsigned.apk','a',zipfile.ZIP_DEFLATED) as z:
  z.write(build/'dex/classes.dex','classes.dex')
  for f in libs.glob('*.so'):z.write(f,'lib/arm64-v8a/'+f.name)
 run([bt/'zipalign','-f','4',build/'unsigned.apk',build/'aligned.apk'])
-out=build/'companion-core-standalone-v0.4.7-arm64-beta.apk'
-run([bt/'apksigner','sign','--ks',os.environ['COMPANION_SIGNING_KEY'],'--ks-key-alias','androiddebugkey','--ks-pass','pass:android','--out',out,build/'aligned.apk'])
-run([bt/'apksigner','verify','--verbose',out]);run([bt/'aapt','dump','badging',out]);print(out)
+out=build/('companion-core-standalone-v'+version.replace('-beta','')+'-arm64-beta.apk')
+run([bt/'apksigner','sign','--ks',signing_key,'--ks-key-alias',signing_alias,'--ks-pass','env:COMPANION_SIGNING_PASSWORD','--out',out,build/'aligned.apk'])
+run([bt/'apksigner','verify','--verbose','--print-certs',out]);run([bt/'aapt','dump','badging',out]);print(out)

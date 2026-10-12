@@ -1,0 +1,8 @@
+{
+  "algorithm": "RSA-3072",
+  "alias": "companioncore",
+  "certificateSha256": "6920e6227df28781037ec498a1acbc56e39aa72df15e4276c921d03841eea53c",
+  "applicationId": "com.companioncore.mobile.test",
+  "firstVersion": "0.4.8-beta",
+  "note": "New signature; not compatible with updates over 0.4.7 or earlier."
+}

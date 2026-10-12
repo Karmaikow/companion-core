@@ -25,3 +25,10 @@ supabase/.temp/
 backups/
 
 android/build/
+
+# Private Android signing material
+*.keystore
+*.jks
+*.p12
+signing-credentials.json
+*signing-backup*.zip

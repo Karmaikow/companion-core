@@ -1,11 +1,11 @@
 # Android independente — beta 0.4.8 (ARM64)
 
-O APK inclui Node.js Mobile 18.20.4, o Core compilado e a interface. Não usa Termux, não copia dados do Termux e não contém identidades reais ou modelos de linguagem. Usa o mesmo applicationId/certificado de teste do cliente 0.3, com versionCode 12.
+O APK inclui Node.js Mobile 18.20.4, o Core compilado e a interface. Não usa Termux, não copia dados do Termux e não contém identidades reais ou modelos de linguagem. Mantém o applicationId do cliente 0.3, com versionCode 12. A 0.4.8 inicia uma nova assinatura persistente, incompatível com atualização por cima da 0.4.7; siga [SIGNING.md](SIGNING.md) para migrar.
 
 ## Primeiro uso
 
-1. Instale por cima do APK anterior. Se houver conflito de assinatura, não desinstale nem limpe dados: informe o erro.
-2. Abra o aplicativo sem iniciar Termux. Toque em **Abrir meu Refúgio**. Se falhar, use **Diagnóstico → Copiar**; não importe identidades antes de validar a inicialização.
+1. Na migração da 0.4.7 para a 0.4.8, exporte e confira o Cristal antes de desinstalar. As versões posteriores que usam a mesma assinatura devem ser instaladas por cima. Veja [SIGNING.md](SIGNING.md).
+2. Abra o aplicativo sem iniciar Termux. Abra o menu **☰** e toque em **Refúgio**. Se falhar, use **Diagnóstico → Copiar**; não importe identidades antes de validar a inicialização.
 3. Antes de usar um Cristal real, confira se o app abre e volta à tela de acesso após fechar/reabrir. Depois importe o `.companion` no Hub com a senha dele, sem aceitar presente quando for sua própria identidade.
 4. Guarde o novo código de recuperação e confira ID, memórias e preferências. Feche/reabra o app para testar persistência.
 5. Para exportar, recolha pelo painel e escolha o destino no seletor Android. Confirme a mensagem nativa de arquivo salvo. Se cancelar o seletor, o recolhimento pode já ter ocorrido: use Baixar novamente ou cancelar recolhimento no painel.
@@ -30,7 +30,7 @@ Suporte deste pacote: Android 8+ ARM64, páginas de memória 4 KB. O libnode dis
 
 ## Compilar
 
-Na raiz: `npm ci` e `npm run build`. Use NDK r27c, plataforma Android 35, build-tools 35.0.0, ECJ 3.39.0, Java 17 e a distribuição oficial nodejs-mobile-v18.20.4-android.zip. O script `android/build-apk.py` recebe os caminhos por variáveis documentadas no cabeçalho. Certificado privado de assinatura nunca entra no Git. Artefato em `android/build/companion-core-standalone-v0.4.6-arm64-beta.apk`.
+Na raiz: `npm ci` e `npm run build`. Use NDK r27c, plataforma Android 35, build-tools 35.0.0, ECJ 3.39.0, Java 17 e a distribuição oficial nodejs-mobile-v18.20.4-android.zip. O script `android/build-apk.py` recebe os caminhos por variáveis documentadas no cabeçalho. Certificado privado de assinatura nunca entra no Git. Artefato em `android/build/companion-core-standalone-v0.4.8-arm64-beta.apk`. A assinatura usa o kit privado e a senha por variável de ambiente; consulte [SIGNING.md](SIGNING.md).
 
 Origem do runtime: https://github.com/nodejs-mobile/nodejs-mobile/releases/tag/v18.20.4
 
