@@ -25,6 +25,9 @@ libs=build/'lib/arm64-v8a'
 shutil.copyfile(node/'bin/arm64-v8a/libnode.so',libs/'libnode.so')
 shutil.copyfile(ndk/'sysroot/usr/lib/aarch64-linux-android/libc++_shared.so',libs/'libc++_shared.so')
 run([ndk/'bin/aarch64-linux-android26-clang','-shared','-fPIC','-O2','-Wl,-z,max-page-size=16384',app/'native/core.c','-L'+str(libs),'-lnode','-o',libs/'libcompanion.so'])
+# Statically linked llama.cpp server built from pinned source; executable lives in nativeLibraryDir.
+shutil.copyfile(Path(os.environ['LLAMA_ANDROID_SERVER']),libs/'libllama-server.so')
+run([ndk/'bin/aarch64-linux-android26-clang','-fPIE','-pie','-O2','-Wl,-z,max-page-size=16384',app/'native/local-runner.c','-o',libs/'liblocal-runner.so'])
 run([bt/'aapt','package','-f','-m','-J',build/'generated','-M',app/'AndroidManifest.xml','-S',app/'res','-A',build/'assets','-I',android,'-F',build/'resources.apk'])
 run(['java','-jar',os.environ['ECJ_JAR'],'-1.8','-proc:none','-bootclasspath',str(android)+os.pathsep+str(bt/'core-lambda-stubs.jar'),'-d',build/'classes',*app.glob('src/**/*.java')])
 run([bt/'d8','--lib',android,'--min-api','26','--output',build/'dex',*(build/'classes').glob('**/*.class')])
@@ -33,6 +36,6 @@ with zipfile.ZipFile(build/'unsigned.apk','a',zipfile.ZIP_DEFLATED) as z:
  z.write(build/'dex/classes.dex','classes.dex')
  for f in libs.glob('*.so'):z.write(f,'lib/arm64-v8a/'+f.name)
 run([bt/'zipalign','-f','4',build/'unsigned.apk',build/'aligned.apk'])
-out=build/'companion-core-standalone-v0.4.6-arm64-beta.apk'
+out=build/'companion-core-standalone-v0.4.7-arm64-beta.apk'
 run([bt/'apksigner','sign','--ks',os.environ['COMPANION_SIGNING_KEY'],'--ks-key-alias','androiddebugkey','--ks-pass','pass:android','--out',out,build/'aligned.apk'])
 run([bt/'apksigner','verify','--verbose',out]);run([bt/'aapt','dump','badging',out]);print(out)

@@ -4,6 +4,7 @@ import { resolveIdentityQuestion } from './identity-grounding.js';
 import type { AIContext, AIProvider } from './ai-provider.js';
 import { MockAIProvider } from './mock-ai-provider.js';
 import { OllamaProvider } from './ollama-provider.js';
+import { LocalAndroidProvider } from './local-android-provider.js';
 import { GroqProvider } from './groq-provider.js';
 import { OpenAIProvider, OnlineUnavailableError, AIConnectionError } from './openai-provider.js';
 
@@ -35,13 +36,16 @@ export function createAIProvider(env: NodeJS.ProcessEnv = process.env): AIProvid
   const mode = env.MAYUNA_AI_PROVIDER ?? 'ollama';
   if (mode === 'android' && env.COMPANION_APP_TOKEN && env.COMPANION_ANDROID_SETTINGS) {
     const settingsFile = env.COMPANION_ANDROID_SETTINGS;
-    let activeProvider = 'ollama';
+    let activeProvider = 'local';
+    const local = new LocalAndroidProvider(path.dirname(settingsFile), env.COMPANION_NATIVE_DIR ?? '');
     return { name: 'android', get activeProvider() { return activeProvider; }, async generateResponse(context: AIContext) {
       const grounded = resolveIdentityQuestion(context);
       if (grounded !== null) return grounded;
       let settings: { provider?: string; baseUrl?: string; model?: string; token?: string; apiKey?: string; freePlanConfirmed?: boolean };
       try { settings = JSON.parse(await readFile(settingsFile, 'utf8')); }
-      catch { throw new AIConnectionError('Escolha Groq ou Ollama em Conversa no aplicativo.'); }
+      catch (error: any) { if (error?.code !== 'ENOENT') throw new AIConnectionError('Configuração de IA inválida. Salve novamente em Conversa.'); settings = { provider: 'local' }; }
+      if (settings.provider === 'local') { activeProvider = 'local'; return local.generateResponse(context); }
+      local.stop();
       if (settings.provider === 'groq') {
         if (settings.freePlanConfirmed !== true) throw new AIConnectionError('Confirme que sua conta Groq está no plano Free em Conversa.');
         activeProvider = 'groq';

@@ -74,7 +74,7 @@ public final class MainActivity extends Activity {
  }
  private String privateText(String filename){try{try(RandomAccessFile file=new RandomAccessFile(new File(getFilesDir(),filename),"r")){long offset=Math.max(0,file.length()-16384);file.seek(offset);byte[] bytes=new byte[(int)(file.length()-offset)];file.readFully(bytes);return (offset>0?"(últimos 16 KB)\n":"")+new String(bytes,"UTF-8");}}catch(Exception e){return "(sem registro)";}}
  private void diagnostics(){
-  StringBuilder report=new StringBuilder("Companion Core 0.4.6 · diagnóstico\n");
+  StringBuilder report=new StringBuilder("Companion Core 0.4.7 · diagnóstico\n");
   report.append(Build.MANUFACTURER).append(" ").append(Build.MODEL).append("\nAndroid ").append(Build.VERSION.RELEASE).append(" / API ").append(Build.VERSION.SDK_INT).append("\nABI: ").append(Arrays.toString(Build.SUPPORTED_ABIS));
   report.append("\nPágina de memória: ").append(android.system.Os.sysconf(android.system.OsConstants._SC_PAGESIZE));
   try{android.content.pm.PackageInfo info=WebView.getCurrentWebViewPackage();report.append("\nWebView: ").append(info==null?"indisponível":info.versionName);}catch(Exception ignored){}
@@ -94,7 +94,7 @@ public final class MainActivity extends Activity {
   LinearLayout bar=new LinearLayout(this);bar.setPadding(dp(8),dp(4),dp(8),dp(10));
   bar.addView(button("◇ Refúgio",()->{if(loaded)web.loadUrl(ORIGIN+"/");}),tab());
   bar.addView(button("✧ Conversa",()->settings()),tab());
-  bar.addView(button("? Ajuda",()->new AlertDialog.Builder(this).setTitle("Companion Core · beta 0.4.6").setMessage("O Core roda dentro deste APK. Crie seu acesso local e importe o Cristal no Hub.\n\nO chat livre usa Groq com sua chave ou seu servidor Ollama HTTPS, configurados em Conversa. Nenhum modelo está incluído.\n\nTransferências precisam de internet. Não desinstale o app nem limpe seus dados sem exportar o Cristal.\n\nA sessão permanece ativa ao alternar de app. Feche o Companion Core para encerrá-la. O login local ainda é separado da conta web.").setPositiveButton("Entendi",null).show()),tab());
+  bar.addView(button("? Ajuda",()->new AlertDialog.Builder(this).setTitle("Companion Core · beta 0.4.7").setMessage("O Core roda dentro deste APK. Crie seu acesso local e importe o Cristal no Hub.\n\nEm Conversa, baixe a IA local uma vez para conversar offline. Groq com chave própria e Ollama remoto continuam opcionais. A primeira resposta local pode demorar mais.\n\nTransferências precisam de internet. Não desinstale o app nem limpe seus dados sem exportar o Cristal.\n\nA sessão permanece ativa ao alternar de app. Feche o Companion Core para encerrá-la. O login local ainda é separado da conta web.").setPositiveButton("Entendi",null).show()),tab());
   root.addView(bar);
   status=new TextView(this);status.setTextColor(Color.WHITE);status.setPadding(dp(12),dp(8),dp(12),dp(8));status.setText("Seu Refúgio no celular. Inicie o Core para entrar.");root.addView(status);
   LinearLayout actions=new LinearLayout(this);actions.setPadding(dp(12),dp(4),dp(12),dp(12));startButton=button("Abrir meu Refúgio",()->start());actions.addView(startButton,tab());actions.addView(button("Diagnóstico",()->diagnostics()),tab());root.addView(actions);
@@ -151,33 +151,38 @@ public final class MainActivity extends Activity {
  private void show(String msg){new AlertDialog.Builder(this).setTitle("Companion Core").setMessage(msg).setPositiveButton("OK",null).show();}
  private void settings(){
   LinearLayout fields=new LinearLayout(this);fields.setOrientation(1);fields.setPadding(dp(20),0,dp(20),0);
-  TextView intro=new TextView(this);intro.setText("Escolha onde sua Companion conversa. O modelo não é instalado no celular. Mensagens e contexto da conversa são enviados ao serviço escolhido; chaves do Core não são enviadas.");fields.addView(intro);
-  Spinner provider=new Spinner(this);provider.setAdapter(new ArrayAdapter<String>(this,android.R.layout.simple_spinner_dropdown_item,new String[]{"Groq · teste no plano Free","Ollama · meu servidor"}));fields.addView(provider);
+  TextView intro=new TextView(this);intro.setText("IA no celular: sem conta externa e sem cobrança por mensagem. Baixe o modelo uma vez (1,12 GB); depois converse offline. Groq e Ollama remoto enviam mensagens e contexto ao serviço escolhido.");fields.addView(intro);
+  Spinner provider=new Spinner(this);provider.setAdapter(new ArrayAdapter<String>(this,android.R.layout.simple_spinner_dropdown_item,new String[]{"IA no celular · offline","Groq · teste no plano Free","Ollama · meu servidor"}));fields.addView(provider);
   EditText url=new EditText(this);url.setHint("https://seu-servidor-ollama");url.setInputType(17);fields.addView(url);
   EditText model=new EditText(this);model.setHint("Modelo Ollama, ex.: gemma3:4b");fields.addView(model);
   EditText auth=new EditText(this);auth.setInputType(129);fields.addView(auth);
   CheckBox free=new CheckBox(this);free.setText("Confirmei no Groq: minha conta está no plano Free, sem upgrade pago.");fields.addView(free);
   TextView note=new TextView(this);note.setText("Groq: GPT-OSS 20B. O app não consegue verificar seu plano. Ao atingir a cota, avisa e aguarda; não troca de serviço. Use sua própria chave.");fields.addView(note);
   Button keys=button("Criar minha chave Groq",()->{try{startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse("https://console.groq.com/keys")));}catch(Exception e){show("Abra console.groq.com/keys no navegador.");}});fields.addView(keys,new LinearLayout.LayoutParams(-1,dp(44)));
+  TextView localStatus=new TextView(this);localStatus.setText(LocalModel.model(this).length()==LocalModel.SIZE?"IA local instalada.":"Qwen 2.5 · 1,5B · Q4. Reserve 1,5 GB livres. Prefira Wi-Fi. O download não altera sua Companion.");fields.addView(localStatus);
+  Button download=button("Baixar IA local · 1,12 GB",()->{if(coreMessenger==null){show("Abra meu Refúgio antes de baixar a IA.");return;}try{coreMessenger.send(Message.obtain(null,3));localStatus.setText("Iniciando download…");}catch(Exception e){show("Reabra o Refúgio e tente novamente.");}});fields.addView(download);
+  Button cancelDownload=button("Cancelar download",()->{try{if(coreMessenger!=null)coreMessenger.send(Message.obtain(null,4));}catch(Exception ignored){}});fields.addView(cancelDownload);
   File file=new File(getFilesDir(),"gateway.json");JSONObject stored=new JSONObject();
   try{stored=new JSONObject(new String(readSmall(file),"UTF-8"));}catch(Exception ignored){}
-  final JSONObject saved=stored;final int previous=saved.has("baseUrl")&&!"groq".equals(saved.optString("provider"))?1:0;
+  final JSONObject saved=stored;final int previous="groq".equals(saved.optString("provider"))?1:saved.has("baseUrl")?2:0;
   provider.setSelection(previous);url.setText(saved.optString("baseUrl"));model.setText(saved.optString("model","gemma3:4b"));free.setChecked(saved.optBoolean("freePlanConfirmed",false));
   provider.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener(){
    @Override public void onNothingSelected(AdapterView<?> parent){}
-   @Override public void onItemSelected(AdapterView<?> parent,View view,int position,long id){boolean groq=position==0;
-    url.setVisibility(groq?View.GONE:View.VISIBLE);model.setVisibility(groq?View.GONE:View.VISIBLE);free.setVisibility(groq?View.VISIBLE:View.GONE);note.setVisibility(groq?View.VISIBLE:View.GONE);keys.setVisibility(groq?View.VISIBLE:View.GONE);
+   @Override public void onItemSelected(AdapterView<?> parent,View view,int position,long id){boolean groq=position==1;boolean local=position==0;
+    localStatus.setVisibility(local?View.VISIBLE:View.GONE);download.setVisibility(local?View.VISIBLE:View.GONE);cancelDownload.setVisibility(local?View.VISIBLE:View.GONE);auth.setVisibility(local?View.GONE:View.VISIBLE);
+    url.setVisibility(position==2?View.VISIBLE:View.GONE);model.setVisibility(position==2?View.VISIBLE:View.GONE);free.setVisibility(groq?View.VISIBLE:View.GONE);note.setVisibility(groq?View.VISIBLE:View.GONE);keys.setVisibility(groq?View.VISIBLE:View.GONE);
     auth.setHint(groq?"Chave API Groq (gsk_…)":"Token do gateway (opcional)");auth.setText(position==previous?saved.optString(groq?"apiKey":"token"):"");
    }
   });
   ScrollView scroll=new ScrollView(this);scroll.addView(fields);
   AlertDialog dialog=new AlertDialog.Builder(this).setTitle("Conversa da Companion").setView(scroll).setNegativeButton("Cancelar",null).setPositiveButton("Salvar",null).create();
   dialog.setOnShowListener(v->dialog.getButton(-1).setOnClickListener(w->{try{
-   JSONObject o=new JSONObject();boolean groq=provider.getSelectedItemPosition()==0;o.put("provider",groq?"groq":"ollama");
+   JSONObject o=new JSONObject();boolean groq=provider.getSelectedItemPosition()==1;boolean local=provider.getSelectedItemPosition()==0;o.put("provider",local?"local":groq?"groq":"ollama");
    if(groq){String key=auth.getText().toString().trim();if(key.isEmpty()||key.matches(".*\\s.*")){auth.setError("Cole sua chave Groq aqui.");return;}if(!free.isChecked()){show("Confira no painel Groq se sua conta está no plano Free antes de salvar.");return;}o.put("apiKey",key);o.put("freePlanConfirmed",true);}
-   else{String address=url.getText().toString().trim();URI u=new URI(address);if(!"https".equals(u.getScheme())||u.getHost()==null||u.getUserInfo()!=null||u.getQuery()!=null||u.getFragment()!=null){url.setError("Informe uma URL HTTPS válida.");return;}o.put("baseUrl",address);o.put("model",model.getText().toString().trim());o.put("token",auth.getText().toString().trim());}
-   File temp=new File(getFilesDir(),"gateway.tmp");try(FileOutputStream out=new FileOutputStream(temp)){out.write(o.toString().getBytes("UTF-8"));out.getFD().sync();}android.system.Os.rename(temp.toString(),file.toString());dialog.dismiss();status.setText("Core no APK · conversa: "+(groq?"Groq":"Ollama"));show("Configuração salva. Envie uma mensagem à sua Companion para testar.");
+   else if(!local){String address=url.getText().toString().trim();URI u=new URI(address);if(!"https".equals(u.getScheme())||u.getHost()==null||u.getUserInfo()!=null||u.getQuery()!=null||u.getFragment()!=null){url.setError("Informe uma URL HTTPS válida.");return;}o.put("baseUrl",address);o.put("model",model.getText().toString().trim());o.put("token",auth.getText().toString().trim());}
+   File temp=new File(getFilesDir(),"gateway.tmp");try(FileOutputStream out=new FileOutputStream(temp)){out.write(o.toString().getBytes("UTF-8"));out.getFD().sync();}android.system.Os.rename(temp.toString(),file.toString());dialog.dismiss();status.setText("Core no APK · conversa: "+(local?"IA no celular":groq?"Groq":"Ollama"));show("Configuração salva. Envie uma mensagem à sua Companion para testar.");
   }catch(Exception e){show("Não foi possível salvar a configuração. Confira os campos.");}}));dialog.show();
+  Runnable update=new Runnable(){public void run(){if(!dialog.isShowing())return;try{String value=new String(readSmall(new File(getFilesDir(),"local-model-status.txt")),"UTF-8");localStatus.setText(value);}catch(Exception ignored){}handler.postDelayed(this,1000);}};handler.post(update);
  }
  private static byte[] readSmall(File f)throws IOException{try(InputStream in=new FileInputStream(f);ByteArrayOutputStream out=new ByteArrayOutputStream()){byte[] b=new byte[1024];int n;while((n=in.read(b))!=-1){if(out.size()+n>16384)throw new IOException();out.write(b,0,n);}return out.toByteArray();}}
  @Override protected void onPause(){if(web!=null)web.onPause();super.onPause();}

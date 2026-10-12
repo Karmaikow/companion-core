@@ -15,6 +15,8 @@ public final class CoreService extends Service {
  private FileOutputStream startupLog;
  private final Messenger binder=new Messenger(new Handler(Looper.getMainLooper()){
   @Override public void handleMessage(Message m){
+   if(m.what==3){LocalModel.download(CoreService.this);return;}
+   if(m.what==4){LocalModel.cancel();return;}
    if(m.what==2){lifecycle("Seletor concluído · Core permanece protegido");return;}
    if(m.what!=1||running)return;
    final String token=m.getData().getString("token");
@@ -48,6 +50,7 @@ public final class CoreService extends Service {
   // Retain the descriptors. Logs are private; the UI displays only a bounded diagnostic.
   startupLog=new FileOutputStream(new File(getFilesDir(),"core-startup.log"),false);
   android.system.Os.dup2(startupLog.getFD(),1);android.system.Os.dup2(startupLog.getFD(),2);
+  android.system.Os.setenv("COMPANION_NATIVE_DIR",getApplicationInfo().nativeLibraryDir,true);
   stage("Carregando biblioteca C++");System.loadLibrary("c++_shared");
   stage("Carregando runtime Node Mobile");System.loadLibrary("node");
   stage("Carregando conexão nativa do Core");System.loadLibrary("companion");
