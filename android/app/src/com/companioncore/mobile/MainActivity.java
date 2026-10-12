@@ -51,7 +51,7 @@ public final class MainActivity extends Activity {
   GradientDrawable bg=new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,new int[]{Color.rgb(38,38,76),Color.rgb(19,23,47)});bg.setCornerRadius(dp(14));bg.setStroke(dp(1),Color.rgb(102,97,160));b.setBackground(bg);b.setPadding(dp(10),0,dp(10),0);b.setMinHeight(0);b.setMinimumHeight(0);
   b.setOnClickListener(v->{b.animate().alpha(.65f).setDuration(80).withEndAction(()->b.animate().alpha(1f).setDuration(140));action.run();});return b;
  }
- private LinearLayout.LayoutParams tab(){LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,dp(44),1);p.setMargins(dp(4),0,dp(4),0);return p;}
+ private LinearLayout.LayoutParams tab(){LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,dp(52),1);p.setMargins(dp(5),dp(3),dp(5),dp(3));return p;}
  private void releaseCore(){polling=false;coreMessenger=null;if(bound){bound=false;try{unbindService(connection);}catch(Exception ignored){}}}
  private boolean beginFileTransfer(){
   if(!bound){show("Abra o Refúgio antes de selecionar o Cristal.");return false;}
@@ -63,18 +63,18 @@ public final class MainActivity extends Activity {
   // Messenger is obtained from the same private binding; no external service can receive it.
   if(coreMessenger!=null)try{coreMessenger.send(Message.obtain(null,2));}catch(Exception ignored){}
  }
- private void fail(String message){polling=false;failure=message;status.setText(message);if(startButton!=null)startButton.setVisibility(View.VISIBLE);}
+ private void fail(String message){polling=false;failure=message;status.setText(message);if(startButton!=null)startButton.setEnabled(true);}
  private void start(){
   if(bound)return;
   failure=null;attempts=0;loaded=false;coreReady=false;
   if(android.system.Os.sysconf(android.system.OsConstants._SC_PAGESIZE)>4096){fail("Este aparelho usa páginas de memória de 16 KB. O runtime desta beta ainda precisa de uma compilação compatível. Toque em Diagnóstico.");return;}
   byte[] bytes=new byte[32];new SecureRandom().nextBytes(bytes);token=android.util.Base64.encodeToString(bytes,android.util.Base64.NO_WRAP);
-  status.setText("Conectando ao Core do aplicativo…");startButton.setVisibility(View.GONE);
+  status.setText("Conectando ao Core do aplicativo…");startButton.setEnabled(false);
   try{startForegroundService(new Intent(this,CoreService.class));bound=bindService(new Intent(this,CoreService.class),connection,BIND_AUTO_CREATE);if(!bound){stopService(new Intent(this,CoreService.class));fail("Não foi possível iniciar o serviço interno.");}}catch(Exception e){stopService(new Intent(this,CoreService.class));fail("Falha ao iniciar serviço: "+e.getClass().getSimpleName());}
  }
  private String privateText(String filename){try{try(RandomAccessFile file=new RandomAccessFile(new File(getFilesDir(),filename),"r")){long offset=Math.max(0,file.length()-16384);file.seek(offset);byte[] bytes=new byte[(int)(file.length()-offset)];file.readFully(bytes);return (offset>0?"(últimos 16 KB)\n":"")+new String(bytes,"UTF-8");}}catch(Exception e){return "(sem registro)";}}
  private void diagnostics(){
-  StringBuilder report=new StringBuilder("Companion Core 0.4.7 · diagnóstico\n");
+  StringBuilder report=new StringBuilder("Companion Core 0.4.8 · diagnóstico\n");
   report.append(Build.MANUFACTURER).append(" ").append(Build.MODEL).append("\nAndroid ").append(Build.VERSION.RELEASE).append(" / API ").append(Build.VERSION.SDK_INT).append("\nABI: ").append(Arrays.toString(Build.SUPPORTED_ABIS));
   report.append("\nPágina de memória: ").append(android.system.Os.sysconf(android.system.OsConstants._SC_PAGESIZE));
   try{android.content.pm.PackageInfo info=WebView.getCurrentWebViewPackage();report.append("\nWebView: ").append(info==null?"indisponível":info.versionName);}catch(Exception ignored){}
@@ -90,14 +90,23 @@ public final class MainActivity extends Activity {
   super.onCreate(saved);
   root=new LinearLayout(this);root.setOrientation(1);root.setBackgroundColor(Color.rgb(8,13,34));root.setFitsSystemWindows(true);
   if(Build.VERSION.SDK_INT>=30)root.setOnApplyWindowInsetsListener((v,i)->{android.graphics.Insets b=i.getInsets(WindowInsets.Type.systemBars()|WindowInsets.Type.displayCutout());v.setPadding(b.left,b.top,b.right,b.bottom);return i;});
-  TextView brand=new TextView(this);brand.setText("◇  COMPANION CORE");brand.setTextColor(Color.rgb(205,193,250));brand.setTextSize(18);brand.setLetterSpacing(.15f);brand.setPadding(dp(20),dp(18),dp(20),dp(12));root.addView(brand);
-  LinearLayout bar=new LinearLayout(this);bar.setPadding(dp(8),dp(4),dp(8),dp(10));
-  bar.addView(button("◇ Refúgio",()->{if(loaded)web.loadUrl(ORIGIN+"/");}),tab());
-  bar.addView(button("✧ Conversa",()->settings()),tab());
-  bar.addView(button("? Ajuda",()->new AlertDialog.Builder(this).setTitle("Companion Core · beta 0.4.7").setMessage("O Core roda dentro deste APK. Crie seu acesso local e importe o Cristal no Hub.\n\nEm Conversa, baixe a IA local uma vez para conversar offline. Groq com chave própria e Ollama remoto continuam opcionais. A primeira resposta local pode demorar mais.\n\nTransferências precisam de internet. Não desinstale o app nem limpe seus dados sem exportar o Cristal.\n\nA sessão permanece ativa ao alternar de app. Feche o Companion Core para encerrá-la. O login local ainda é separado da conta web.").setPositiveButton("Entendi",null).show()),tab());
-  root.addView(bar);
-  status=new TextView(this);status.setTextColor(Color.WHITE);status.setPadding(dp(12),dp(8),dp(12),dp(8));status.setText("Seu Refúgio no celular. Inicie o Core para entrar.");root.addView(status);
-  LinearLayout actions=new LinearLayout(this);actions.setPadding(dp(12),dp(4),dp(12),dp(12));startButton=button("Abrir meu Refúgio",()->start());actions.addView(startButton,tab());actions.addView(button("Diagnóstico",()->diagnostics()),tab());root.addView(actions);
+  TextView brand=new TextView(this);brand.setText("◇  COMPANION CORE");brand.setTextColor(Color.rgb(205,193,250));brand.setTextSize(18);brand.setLetterSpacing(.15f);brand.setPadding(dp(20),dp(18),dp(12),dp(12));
+  LinearLayout shortcuts=new LinearLayout(this);shortcuts.setOrientation(1);shortcuts.setVisibility(View.GONE);shortcuts.setPadding(dp(8),dp(2),dp(8),dp(6));
+  LinearLayout bar=new LinearLayout(this);bar.setOrientation(1);
+  LinearLayout primaryActions=new LinearLayout(this);primaryActions.setPadding(0,0,0,dp(2));
+  startButton=button("◇ Refúgio",()->{if(loaded)web.loadUrl(ORIGIN+"/");else start();});primaryActions.addView(startButton,tab());
+  primaryActions.addView(button("✧ Conversa",()->settings()),tab());
+  LinearLayout supportActions=new LinearLayout(this);supportActions.setPadding(0,0,0,dp(2));
+  supportActions.addView(button("? Ajuda",()->new AlertDialog.Builder(this).setTitle("Companion Core · beta 0.4.8").setMessage("O Core roda dentro deste APK. Crie seu acesso local e importe o Cristal no Hub.\n\nEm Conversa, escolha a IA local para usar offline, Groq com sua chave ou seu servidor Ollama.\n\nTransferências precisam de internet. Não desinstale o app nem limpe seus dados sem exportar o Cristal.\n\nA sessão permanece ativa ao alternar de app. Feche o Companion Core para encerrá-la. O login local ainda é separado da conta web.").setPositiveButton("Entendi",null).show()),tab());
+  supportActions.addView(button("⌘ Diagnóstico",()->diagnostics()),tab());
+  bar.addView(primaryActions,new LinearLayout.LayoutParams(-1,dp(58)));bar.addView(supportActions,new LinearLayout.LayoutParams(-1,dp(58)));
+  shortcuts.addView(bar,new LinearLayout.LayoutParams(-1,-2));
+  LinearLayout brandBar=new LinearLayout(this);brandBar.setGravity(Gravity.CENTER_VERTICAL);
+  brandBar.addView(brand,new LinearLayout.LayoutParams(0,-2,1));
+  Button shortcutToggle=button("☰",()->{boolean expand=shortcuts.getVisibility()!=View.VISIBLE;shortcuts.setVisibility(expand?View.VISIBLE:View.GONE);});
+  shortcutToggle.setContentDescription("Mostrar ou ocultar atalhos");LinearLayout.LayoutParams toggleParams=new LinearLayout.LayoutParams(dp(48),dp(48));toggleParams.setMargins(0,dp(8),dp(12),dp(4));brandBar.addView(shortcutToggle,toggleParams);
+  root.addView(brandBar,new LinearLayout.LayoutParams(-1,-2));root.addView(shortcuts,new LinearLayout.LayoutParams(-1,-2));
+  status=new TextView(this);status.setTextColor(Color.WHITE);status.setPadding(dp(12),dp(5),dp(12),dp(8));status.setText("Seu Refúgio no celular. Toque em ☰ para abrir os atalhos.");root.addView(status,new LinearLayout.LayoutParams(-1,-2));
   web=new WebView(this);web.setBackgroundColor(Color.rgb(8,13,34));WebSettings s=web.getSettings();s.setJavaScriptEnabled(true);s.setDomStorageEnabled(true);s.setAllowFileAccess(false);s.setAllowContentAccess(true);s.setAllowFileAccessFromFileURLs(false);s.setAllowUniversalAccessFromFileURLs(false);s.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);s.setSupportMultipleWindows(false);
   android.webkit.CookieManager.getInstance().setAcceptThirdPartyCookies(web,false);
   web.addJavascriptInterface(new ExportBridge(),"CompanionAndroid");
@@ -126,7 +135,7 @@ public final class MainActivity extends Activity {
   try{c=(HttpURLConnection)new URL(ORIGIN+"/api/health").openConnection();c.setConnectTimeout(1000);c.setReadTimeout(1000);c.setRequestProperty("X-Companion-App",token);ready=c.getResponseCode()==200;}catch(Exception ignored){}finally{if(c!=null)c.disconnect();}
   final boolean ok=ready;runOnUiThread(()->{
    if(isDestroyed()||isFinishing()||!polling)return;
-   if(ok){coreReady=true;polling=false;android.webkit.CookieManager.getInstance().setCookie(ORIGIN,"companion_app="+token+"; Path=/; HttpOnly; SameSite=Strict",v->{android.webkit.CookieManager.getInstance().flush();loaded=true;status.setText("Core no APK · configure a IA em Conversa");web.loadUrl(ORIGIN+"/");});}
+   if(ok){coreReady=true;polling=false;android.webkit.CookieManager.getInstance().setCookie(ORIGIN,"companion_app="+token+"; Path=/; HttpOnly; SameSite=Strict",v->{android.webkit.CookieManager.getInstance().flush();loaded=true;startButton.setEnabled(true);status.setText("Core no APK · configure a IA em Conversa");web.loadUrl(ORIGIN+"/");});}
    else if(failure!=null)status.setText(failure);
    else if(++attempts<45){status.setText(privateText("core-startup-stage.txt"));if(status.getText().toString().startsWith("Falha:")||status.getText().toString().startsWith("Core encerrado")){fail("O Core não iniciou. Abra o Diagnóstico.");releaseCore();}else handler.postDelayed(()->poll(),1000);}
    else {fail("O Core não respondeu. Abra o Diagnóstico para conferir a etapa.");releaseCore();}

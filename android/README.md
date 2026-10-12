@@ -1,6 +1,6 @@
-# Android independente — beta 0.4.6 (ARM64)
+# Android independente — beta 0.4.8 (ARM64)
 
-O APK inclui Node.js Mobile 18.20.4, o Core compilado e a interface. Não usa Termux, não copia dados do Termux e não contém identidades reais ou modelos de linguagem. Usa o mesmo applicationId/certificado de teste do cliente 0.3, com versionCode 10.
+O APK inclui Node.js Mobile 18.20.4, o Core compilado e a interface. Não usa Termux, não copia dados do Termux e não contém identidades reais ou modelos de linguagem. Usa o mesmo applicationId/certificado de teste do cliente 0.3, com versionCode 12.
 
 ## Primeiro uso
 
@@ -12,7 +12,7 @@ O APK inclui Node.js Mobile 18.20.4, o Core compilado e a interface. Não usa Te
 
 ## Conversa
 
-O botão **Conversa** permite escolher **Groq** ou **Ollama**. Para Groq, crie sua própria chave em https://console.groq.com/keys, confirme no painel que a conta permanece no plano Free, cole a chave no aplicativo e marque a confirmação. Não cadastre método de pagamento nem faça upgrade para este teste. Modelo fixo: `openai/gpt-oss-20b`, hospedado no Groq, sem chamadas à API da OpenAI.
+A tela **Conversa** permite escolher **IA no celular**, **Groq** ou **Ollama**. Os atalhos principais ficam em uma grade 2×2: Refúgio e Conversa; Ajuda e Diagnóstico. Refúgio inicia a sessão ou reabre o espaço já carregado. Para Groq, crie sua própria chave em https://console.groq.com/keys, confirme no painel que a conta permanece no plano Free, cole a chave no aplicativo e marque a confirmação. Não cadastre método de pagamento nem faça upgrade para este teste. Modelo fixo: `openai/gpt-oss-20b`, hospedado no Groq, sem chamadas à API da OpenAI.
 
 O APK não consulta nem garante o plano de faturamento da chave. Se a conta for paga, a API pode cobrar; a caixa de confirmação não é um bloqueio de faturamento do provedor. O app não usa alternativa automática, repetições ou ferramentas externas: cota atingida produz aviso e interrompe a solicitação. Respostas incompletas não são salvas.
 

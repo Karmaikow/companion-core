@@ -8,7 +8,7 @@ O servidor exibe o caminho do projeto, build, pasta de dados e se está aguardan
 
 Esta cópia está na **Web v0.7**. Comece por [ATUALIZACAO_V0.7.md](ATUALIZACAO_V0.7.md) para instalar e conferir a persistência. O plano de desenvolvimento fica em [PLANO_DESENVOLVIMENTO.md](PLANO_DESENVOLVIMENTO.md).
 
-OpenAI e modo híbrido seguem opcionais; Ollama local continua como padrão. A configuração de um endpoint Ollama HTTPS fica em [docs/OLLAMA_REMOTO.md](docs/OLLAMA_REMOTO.md). Consulte **ATUALIZACAO_V0.6.md** para detalhes dos providers e **PROJETO_CHATGPT.md** para organizar o contexto de desenvolvimento.
+OpenAI e modo híbrido seguem opcionais; Ollama local continua como padrão. Para usar Groq no Windows local sem salvar a chave no repositório, execute `powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\start-groq-windows.ps1` e siga `docs/GROQ_WINDOWS.md`. A configuração de um endpoint Ollama HTTPS fica em [docs/OLLAMA_REMOTO.md](docs/OLLAMA_REMOTO.md). Consulte **ATUALIZACAO_V0.6.md** para detalhes dos providers e **PROJETO_CHATGPT.md** para organizar o contexto de desenvolvimento.
 
 # Atualização web v0.4
 
