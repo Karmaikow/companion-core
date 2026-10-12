@@ -13,17 +13,19 @@
 <link rel="stylesheet" href="/astral.css" />
 <link rel="stylesheet" href="/experience-layout.css" />
 <link rel="stylesheet" href="/creation-ritual.css" />
+<link rel="stylesheet" href="/portal.css" />
 </head>
 <body class="is-locked">
 <main id="accessGate" class="access-gate">
  <div class="access-art" aria-hidden="true"><div class="gate-orbit orbit-a"></div><div class="gate-orbit orbit-b"></div><div class="gate-orbit orbit-c"></div><div class="gate-soul"></div><span class="gate-star star-a">✦</span><span class="gate-star star-b">✧</span></div>
  <div class="access-brand"><span>✧</span><strong>COMPANION CORE</strong><small>ALMAS · MEMÓRIAS · HISTÓRIAS</small></div>
+ <details class="gate-app-menu" data-android-only hidden><summary aria-label="Atalhos do aplicativo">☰</summary><div class="gate-app-shortcuts"><button type="button" data-android-action="conversation">✧ Conversa <small>Escolher IA</small></button><button type="button" data-android-action="help">? Ajuda</button><button type="button" data-android-action="diagnostics">⌘ Diagnóstico</button></div></details>
  <section class="access-card"><span class="eyebrow">O PRIMEIRO VÍNCULO</span><h1 id="accessTitle">Conectando ao seu mundo</h1><p id="accessSubtitle">Toda Companion nasce como uma alma. A história começa com quem a acompanha.</p>
  <form id="accessForm" hidden>
   <label>E-mail<input id="accessUsername" name="email" type="email" autocomplete="email" maxlength="254" required placeholder="voce@exemplo.com" /></label>
   <label>Senha<input id="accessPassword" name="password" type="password" autocomplete="current-password" minlength="10" maxlength="128" required placeholder="Pelo menos 10 caracteres" /></label>
   <label id="confirmationField" hidden>Confirme a senha<input id="accessConfirm" type="password" autocomplete="new-password" minlength="10" maxlength="128" /></label>
-  <button id="accessSubmit" class="primary-button" type="submit">Criar conta</button><small class="access-note">Sua conta protege os backups criptografados do Cristal de Memória. Nesta versão, ela ainda não cria uma Companion pela web; você poderá guardar um Cristal criado no Core local. A senha do Cristal continua necessária para abri-lo.</small><button id="authModeToggle" class="gate-logout" type="button">Já tenho uma conta</button>
+  <button id="accessSubmit" class="primary-button" type="submit">Criar conta</button><small class="access-note" id="accessAccountNote">Sua conta protege os backups criptografados do Cristal de Memória. Nesta versão, ela ainda não cria uma Companion pela web; você poderá guardar um Cristal criado no Core local. A senha do Cristal continua necessária para abri-lo.</small><button id="authModeToggle" class="gate-logout" type="button">Já tenho uma conta</button>
  </form>
  <p id="authNotice" class="access-note" role="status" aria-live="polite" hidden></p>
  <form id="remotePairForm" hidden>
@@ -145,6 +147,7 @@
         <button class="icon-button" id="logoutButton" aria-label="Sair da conta" title="Sair"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 2v10M6 5a9 9 0 1 0 12 0"/></svg></button>
 <button class="icon-button" id="retryConnection" aria-label="Reconectar ao Core" title="Reconectar">↻</button>
         <button class="icon-button" data-open-panel="settings" aria-label="Configurações">⚙</button>
+        <button class="icon-button app-menu-button" data-android-only hidden data-open-panel="menu" aria-label="Menu do aplicativo" title="Menu do aplicativo">☰</button>
       </div>
     </header>
 
@@ -447,11 +450,17 @@
     <section class="drawer-panel" id="panel-menu" data-drawer="menu" aria-hidden="true">
       <div class="drawer-header"><div><span class="eyebrow">SISTEMA</span><h2>Menu</h2></div><button data-close-drawer>×</button></div>
       <div class="drawer-content menu-grid">
+        <button data-android-only hidden data-action="focus-refuge">⌂ <span>Refúgio</span></button>
+        <button data-android-only hidden data-android-action="conversation">✧ <span>Conversa · IA</span></button>
+        <button data-android-only hidden data-android-action="help">? <span>Ajuda</span></button>
+        <button data-android-only hidden data-android-action="diagnostics">⌘ <span>Diagnóstico</span></button>
         <button data-open-panel="companion">◇ <span>Companion</span></button>
         <button data-open-panel="inventory">▦ <span>Inventário</span></button>
         <button data-open-panel="skills">✦ <span>Skills</span></button>
         <button data-open-panel="memories">▤ <span>Memórias</span></button>
         <button data-open-panel="settings">⚙ <span>Interface</span></button>
+        <button data-android-only hidden id="androidLogout">⏻ <span>Sair da conta</span></button>
+        <button data-android-only hidden id="androidReconnect">↻ <span>Reconectar Core</span></button>
         <button id="mobileVerify">✓ <span>Verificar Core</span></button>
       </div>
     </section>

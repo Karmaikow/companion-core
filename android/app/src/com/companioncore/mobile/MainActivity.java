@@ -24,6 +24,7 @@ public final class MainActivity extends Activity {
  private boolean coreReady=false;
  private boolean polling=false;
  private LinearLayout root;
+ private ScrollView launcher;
  private Button startButton;
  private final ServiceConnection connection=new ServiceConnection(){
   @Override public void onServiceConnected(ComponentName name,IBinder binder){try{
@@ -47,8 +48,8 @@ public final class MainActivity extends Activity {
  private static final int OPEN=41,SAVE=42;
  private int dp(int n){return Math.round(n*getResources().getDisplayMetrics().density);}
  private Button button(String label,Runnable action){
-  Button b=new Button(this);b.setText(label);b.setAllCaps(false);b.setTextSize(13);b.setTextColor(Color.rgb(224,221,255));b.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL));
-  GradientDrawable bg=new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,new int[]{Color.rgb(38,38,76),Color.rgb(19,23,47)});bg.setCornerRadius(dp(14));bg.setStroke(dp(1),Color.rgb(102,97,160));b.setBackground(bg);b.setPadding(dp(10),0,dp(10),0);b.setMinHeight(0);b.setMinimumHeight(0);
+  Button b=new Button(this);b.setText(label);b.setAllCaps(false);b.setTextSize(13);b.setTextColor(Color.rgb(220,236,255));b.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL));
+  GradientDrawable bg=new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,new int[]{Color.rgb(22,48,79),Color.rgb(11,29,50)});bg.setCornerRadius(dp(14));bg.setStroke(dp(1),Color.rgb(71,118,167));b.setBackground(bg);b.setPadding(dp(10),0,dp(10),0);b.setMinHeight(0);b.setMinimumHeight(0);
   b.setOnClickListener(v->{b.animate().alpha(.65f).setDuration(80).withEndAction(()->b.animate().alpha(1f).setDuration(140));action.run();});return b;
  }
  private LinearLayout.LayoutParams tab(){LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,dp(52),1);p.setMargins(dp(5),dp(3),dp(5),dp(3));return p;}
@@ -63,7 +64,7 @@ public final class MainActivity extends Activity {
   // Messenger is obtained from the same private binding; no external service can receive it.
   if(coreMessenger!=null)try{coreMessenger.send(Message.obtain(null,2));}catch(Exception ignored){}
  }
- private void fail(String message){polling=false;failure=message;status.setText(message);if(startButton!=null)startButton.setEnabled(true);}
+ private void fail(String message){polling=false;failure=message;loaded=false;coreReady=false;status.setText(message);if(startButton!=null)startButton.setEnabled(true);if(launcher!=null)launcher.setVisibility(View.VISIBLE);if(web!=null)web.setVisibility(View.GONE);}
  private void start(){
   if(bound)return;
   failure=null;attempts=0;loaded=false;coreReady=false;
@@ -74,7 +75,7 @@ public final class MainActivity extends Activity {
  }
  private String privateText(String filename){try{try(RandomAccessFile file=new RandomAccessFile(new File(getFilesDir(),filename),"r")){long offset=Math.max(0,file.length()-16384);file.seek(offset);byte[] bytes=new byte[(int)(file.length()-offset)];file.readFully(bytes);return (offset>0?"(últimos 16 KB)\n":"")+new String(bytes,"UTF-8");}}catch(Exception e){return "(sem registro)";}}
  private void diagnostics(){
-  StringBuilder report=new StringBuilder("Companion Core 0.4.8 · diagnóstico\n");
+  StringBuilder report=new StringBuilder("Companion Core 0.4.9 · diagnóstico\n");
   report.append(Build.MANUFACTURER).append(" ").append(Build.MODEL).append("\nAndroid ").append(Build.VERSION.RELEASE).append(" / API ").append(Build.VERSION.SDK_INT).append("\nABI: ").append(Arrays.toString(Build.SUPPORTED_ABIS));
   report.append("\nPágina de memória: ").append(android.system.Os.sysconf(android.system.OsConstants._SC_PAGESIZE));
   try{android.content.pm.PackageInfo info=WebView.getCurrentWebViewPackage();report.append("\nWebView: ").append(info==null?"indisponível":info.versionName);}catch(Exception ignored){}
@@ -90,31 +91,36 @@ public final class MainActivity extends Activity {
   super.onCreate(saved);
   root=new LinearLayout(this);root.setOrientation(1);root.setBackgroundColor(Color.rgb(8,13,34));root.setFitsSystemWindows(true);
   if(Build.VERSION.SDK_INT>=30)root.setOnApplyWindowInsetsListener((v,i)->{android.graphics.Insets b=i.getInsets(WindowInsets.Type.systemBars()|WindowInsets.Type.displayCutout());v.setPadding(b.left,b.top,b.right,b.bottom);return i;});
-  TextView brand=new TextView(this);brand.setText("◇  COMPANION CORE");brand.setTextColor(Color.rgb(205,193,250));brand.setTextSize(18);brand.setLetterSpacing(.15f);brand.setPadding(dp(20),dp(18),dp(12),dp(12));
-  LinearLayout shortcuts=new LinearLayout(this);shortcuts.setOrientation(1);shortcuts.setVisibility(View.GONE);shortcuts.setPadding(dp(8),dp(2),dp(8),dp(6));
-  LinearLayout bar=new LinearLayout(this);bar.setOrientation(1);
-  LinearLayout primaryActions=new LinearLayout(this);primaryActions.setPadding(0,0,0,dp(2));
-  startButton=button("◇ Refúgio",()->{if(loaded)web.loadUrl(ORIGIN+"/");else start();});primaryActions.addView(startButton,tab());
-  primaryActions.addView(button("✧ Conversa",()->settings()),tab());
-  LinearLayout supportActions=new LinearLayout(this);supportActions.setPadding(0,0,0,dp(2));
-  supportActions.addView(button("? Ajuda",()->new AlertDialog.Builder(this).setTitle("Companion Core · beta 0.4.8").setMessage("O Core roda dentro deste APK. Crie seu acesso local e importe o Cristal no Hub.\n\nEm Conversa, escolha a IA local para usar offline, Groq com sua chave ou seu servidor Ollama.\n\nTransferências precisam de internet. Não desinstale o app nem limpe seus dados sem exportar o Cristal.\n\nA sessão permanece ativa ao alternar de app. Feche o Companion Core para encerrá-la. O login local ainda é separado da conta web.").setPositiveButton("Entendi",null).show()),tab());
-  supportActions.addView(button("⌘ Diagnóstico",()->diagnostics()),tab());
-  bar.addView(primaryActions,new LinearLayout.LayoutParams(-1,dp(58)));bar.addView(supportActions,new LinearLayout.LayoutParams(-1,dp(58)));
-  shortcuts.addView(bar,new LinearLayout.LayoutParams(-1,-2));
-  LinearLayout brandBar=new LinearLayout(this);brandBar.setGravity(Gravity.CENTER_VERTICAL);
-  brandBar.addView(brand,new LinearLayout.LayoutParams(0,-2,1));
-  Button shortcutToggle=button("☰",()->{boolean expand=shortcuts.getVisibility()!=View.VISIBLE;shortcuts.setVisibility(expand?View.VISIBLE:View.GONE);});
-  shortcutToggle.setContentDescription("Mostrar ou ocultar atalhos");LinearLayout.LayoutParams toggleParams=new LinearLayout.LayoutParams(dp(48),dp(48));toggleParams.setMargins(0,dp(8),dp(12),dp(4));brandBar.addView(shortcutToggle,toggleParams);
-  root.addView(brandBar,new LinearLayout.LayoutParams(-1,-2));root.addView(shortcuts,new LinearLayout.LayoutParams(-1,-2));
-  status=new TextView(this);status.setTextColor(Color.WHITE);status.setPadding(dp(12),dp(5),dp(12),dp(8));status.setText("Seu Refúgio no celular. Toque em ☰ para abrir os atalhos.");root.addView(status,new LinearLayout.LayoutParams(-1,-2));
-  web=new WebView(this);web.setBackgroundColor(Color.rgb(8,13,34));WebSettings s=web.getSettings();s.setJavaScriptEnabled(true);s.setDomStorageEnabled(true);s.setAllowFileAccess(false);s.setAllowContentAccess(true);s.setAllowFileAccessFromFileURLs(false);s.setAllowUniversalAccessFromFileURLs(false);s.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);s.setSupportMultipleWindows(false);
+  launcher=new ScrollView(this);launcher.setFillViewport(true);
+  LinearLayout welcome=new LinearLayout(this);welcome.setOrientation(1);welcome.setGravity(Gravity.CENTER);welcome.setPadding(dp(24),dp(24),dp(24),dp(28));
+  GradientDrawable ambient=new GradientDrawable(GradientDrawable.Orientation.TL_BR,new int[]{Color.rgb(11,23,46),Color.rgb(7,14,29)});welcome.setBackground(ambient);
+  LinearLayout heading=new LinearLayout(this);heading.setGravity(Gravity.CENTER_VERTICAL);
+  TextView brand=label("◇  COMPANION CORE",16,Color.rgb(188,216,250));brand.setLetterSpacing(.12f);heading.addView(brand,new LinearLayout.LayoutParams(0,-2,1));
+  LinearLayout shortcuts=new LinearLayout(this);shortcuts.setOrientation(1);shortcuts.setVisibility(View.GONE);shortcuts.setPadding(0,dp(12),0,dp(8));
+  shortcuts.addView(button("✧ Conversa · escolher IA",()->settings()),new LinearLayout.LayoutParams(-1,dp(48)));
+  LinearLayout support=new LinearLayout(this);support.addView(button("? Ajuda",()->help()),tab());support.addView(button("⌘ Diagnóstico",()->diagnostics()),tab());shortcuts.addView(support,new LinearLayout.LayoutParams(-1,dp(58)));
+  Button menu=button("☰",()->shortcuts.setVisibility(shortcuts.getVisibility()==View.VISIBLE?View.GONE:View.VISIBLE));menu.setContentDescription("Abrir atalhos do aplicativo");heading.addView(menu,new LinearLayout.LayoutParams(dp(48),dp(48)));
+  welcome.addView(heading,new LinearLayout.LayoutParams(-1,-2));welcome.addView(shortcuts,new LinearLayout.LayoutParams(-1,-2));
+  TextView seal=label("✧",80,Color.rgb(137,193,255));seal.setGravity(Gravity.CENTER);seal.setPadding(0,dp(35),0,dp(22));welcome.addView(seal,new LinearLayout.LayoutParams(-1,-2));
+  LinearLayout card=new LinearLayout(this);card.setOrientation(1);card.setPadding(dp(22),dp(25),dp(22),dp(24));
+  GradientDrawable frame=new GradientDrawable(GradientDrawable.Orientation.TL_BR,new int[]{Color.rgb(19,39,65),Color.rgb(10,21,39)});frame.setCornerRadius(dp(16));frame.setStroke(dp(1),Color.rgb(65,111,166));card.setBackground(frame);
+  TextView eyebrow=label("O PORTAL DO REFÚGIO",10,Color.rgb(145,195,250));eyebrow.setLetterSpacing(.18f);card.addView(eyebrow);
+  TextView title=label("Uma alma.\nUma história sua.",29,Color.rgb(234,242,255));title.setPadding(0,dp(15),0,dp(13));card.addView(title);
+  TextView description=label("Um espaço para conversar, guardar memórias e descobrir o que sua Companion pode se tornar.",14,Color.rgb(163,185,211));description.setLineSpacing(dp(4),1);card.addView(description);
+  status=label("Seu mundo está guardado neste dispositivo.",12,Color.rgb(137,177,214));status.setPadding(0,dp(20),0,dp(15));status.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);card.addView(status);
+  startButton=button("◇  Entrar no Refúgio",()->{if(bound){failure=null;attempts=0;polling=true;startButton.setEnabled(false);poll();}else start();});card.addView(startButton,new LinearLayout.LayoutParams(-1,dp(56)));
+  welcome.addView(card,new LinearLayout.LayoutParams(-1,-2));
+  TextView foot=label("ALMAS · MEMÓRIAS · HISTÓRIAS",10,Color.rgb(110,148,190));foot.setLetterSpacing(.15f);foot.setGravity(Gravity.CENTER);foot.setPadding(0,dp(28),0,0);welcome.addView(foot);
+  launcher.addView(welcome,new ScrollView.LayoutParams(-1,-1));root.addView(launcher,new LinearLayout.LayoutParams(-1,0,1));
+  web=new WebView(this);web.setVisibility(View.GONE);web.setBackgroundColor(Color.rgb(8,13,34));WebSettings s=web.getSettings();s.setJavaScriptEnabled(true);s.setDomStorageEnabled(true);s.setAllowFileAccess(false);s.setAllowContentAccess(true);s.setAllowFileAccessFromFileURLs(false);s.setAllowUniversalAccessFromFileURLs(false);s.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);s.setSupportMultipleWindows(false);
   android.webkit.CookieManager.getInstance().setAcceptThirdPartyCookies(web,false);
   web.addJavascriptInterface(new ExportBridge(),"CompanionAndroid");
   web.setWebViewClient(new WebViewClient(){
+   @Override public void onPageFinished(WebView w,String url){if(coreReady&&failure==null&&allowed(Uri.parse(url))){launcher.setVisibility(View.GONE);web.setVisibility(View.VISIBLE);}}
    @Override public boolean shouldOverrideUrlLoading(WebView w,WebResourceRequest r){return !allowed(r.getUrl());}
    @Override public WebResourceResponse shouldInterceptRequest(WebView w,WebResourceRequest r){return allowed(r.getUrl())?null:blocked();}
    @Override public void onReceivedSslError(WebView w,SslErrorHandler h,android.net.http.SslError e){h.cancel();}
-   @Override public void onReceivedError(WebView w,WebResourceRequest r,WebResourceError e){if(r.isForMainFrame())status.setText("Não foi possível abrir o Core. Feche e abra o aplicativo; seus dados permanecem guardados.");}
+   @Override public void onReceivedError(WebView w,WebResourceRequest r,WebResourceError e){if(r.isForMainFrame())fail("Não foi possível abrir o Refúgio. Tente novamente ou abra o Diagnóstico no menu.");}
   });
   web.setWebChromeClient(new WebChromeClient(){
    @Override public boolean onShowFileChooser(WebView w,ValueCallback<Uri[]> cb,FileChooserParams params){
@@ -141,7 +147,11 @@ public final class MainActivity extends Activity {
    else {fail("O Core não respondeu. Abra o Diagnóstico para conferir a etapa.");releaseCore();}
   });
  },"core-health").start();}
+ private TextView label(String text,int size,int color){TextView t=new TextView(this);t.setText(text);t.setTextSize(size);t.setTextColor(color);t.setTypeface(Typeface.create("sans-serif",Typeface.NORMAL));return t;}
+ private void help(){new AlertDialog.Builder(this).setTitle("Seu Companion Core").setMessage("Seu Refúgio roda dentro deste APK. Crie seu acesso local e importe o Cristal no Hub.\n\nNo menu, abra Conversa para escolher IA no celular, Groq ou seu servidor Ollama.\n\nAntes de desinstalar ou limpar os dados, exporte e confira seu Cristal. O login local ainda é separado da conta web.").setPositiveButton("Entendi",null).show();}
  public final class ExportBridge{
+  @JavascriptInterface public void appAction(String action){if(!"conversation".equals(action)&&!"help".equals(action)&&!"diagnostics".equals(action))return;runOnUiThread(()->{if(isFinishing()||isDestroyed())return;if("conversation".equals(action))settings();else if("help".equals(action))help();else diagnostics();});}
+
   @JavascriptInterface public void saveCrystal(String contents,String filename){
    if(contents==null||contents.length()>24000000)return;
    runOnUiThread(()->{
@@ -166,8 +176,10 @@ public final class MainActivity extends Activity {
   EditText model=new EditText(this);model.setHint("Modelo Ollama, ex.: gemma3:4b");fields.addView(model);
   EditText auth=new EditText(this);auth.setInputType(129);fields.addView(auth);
   CheckBox free=new CheckBox(this);free.setText("Confirmei no Groq: minha conta está no plano Free, sem upgrade pago.");fields.addView(free);
+  TextView guide=new TextView(this);guide.setText("COMO CONECTAR AO GROQ\n\n1 · Toque em Criar minha chave Groq e entre ou crie sua conta.\n2 · Na página de chaves, toque em Create API Key e dê um nome, como Companion Core.\n3 · Copie a chave gerada e volte ao aplicativo.\n4 · Cole no campo Chave API Groq, confirme seu plano Free e toque em Salvar.\n\nSua chave é pessoal. O app guarda a configuração neste dispositivo.");guide.setPadding(0,dp(12),0,dp(12));guide.setLineSpacing(dp(3),1);fields.addView(guide);
   TextView note=new TextView(this);note.setText("Groq: GPT-OSS 20B. O app não consegue verificar seu plano. Ao atingir a cota, avisa e aguarda; não troca de serviço. Use sua própria chave.");fields.addView(note);
   Button keys=button("Criar minha chave Groq",()->{try{startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse("https://console.groq.com/keys")));}catch(Exception e){show("Abra console.groq.com/keys no navegador.");}});fields.addView(keys,new LinearLayout.LayoutParams(-1,dp(44)));
+  Button docs=button("Ver guia oficial do Groq",()->{try{startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse("https://console.groq.com/docs/quickstart")));}catch(Exception e){show("Abra console.groq.com/docs/quickstart no navegador.");}});fields.addView(docs,new LinearLayout.LayoutParams(-1,dp(44)));
   TextView localStatus=new TextView(this);localStatus.setText(LocalModel.model(this).length()==LocalModel.SIZE?"IA local instalada.":"Qwen 2.5 · 1,5B · Q4. Reserve 1,5 GB livres. Prefira Wi-Fi. O download não altera sua Companion.");fields.addView(localStatus);
   Button download=button("Baixar IA local · 1,12 GB",()->{if(coreMessenger==null){show("Abra meu Refúgio antes de baixar a IA.");return;}try{coreMessenger.send(Message.obtain(null,3));localStatus.setText("Iniciando download…");}catch(Exception e){show("Reabra o Refúgio e tente novamente.");}});fields.addView(download);
   Button cancelDownload=button("Cancelar download",()->{try{if(coreMessenger!=null)coreMessenger.send(Message.obtain(null,4));}catch(Exception ignored){}});fields.addView(cancelDownload);
@@ -179,7 +191,7 @@ public final class MainActivity extends Activity {
    @Override public void onNothingSelected(AdapterView<?> parent){}
    @Override public void onItemSelected(AdapterView<?> parent,View view,int position,long id){boolean groq=position==1;boolean local=position==0;
     localStatus.setVisibility(local?View.VISIBLE:View.GONE);download.setVisibility(local?View.VISIBLE:View.GONE);cancelDownload.setVisibility(local?View.VISIBLE:View.GONE);auth.setVisibility(local?View.GONE:View.VISIBLE);
-    url.setVisibility(position==2?View.VISIBLE:View.GONE);model.setVisibility(position==2?View.VISIBLE:View.GONE);free.setVisibility(groq?View.VISIBLE:View.GONE);note.setVisibility(groq?View.VISIBLE:View.GONE);keys.setVisibility(groq?View.VISIBLE:View.GONE);
+    url.setVisibility(position==2?View.VISIBLE:View.GONE);model.setVisibility(position==2?View.VISIBLE:View.GONE);free.setVisibility(groq?View.VISIBLE:View.GONE);guide.setVisibility(groq?View.VISIBLE:View.GONE);docs.setVisibility(groq?View.VISIBLE:View.GONE);note.setVisibility(groq?View.VISIBLE:View.GONE);keys.setVisibility(groq?View.VISIBLE:View.GONE);
     auth.setHint(groq?"Chave API Groq (gsk_…)":"Token do gateway (opcional)");auth.setText(position==previous?saved.optString(groq?"apiKey":"token"):"");
    }
   });
@@ -199,3 +211,4 @@ public final class MainActivity extends Activity {
  @Override public void onBackPressed(){if(web.canGoBack())web.goBack();else super.onBackPressed();}
  @Override protected void onDestroy(){releaseCore();stopService(new Intent(this,CoreService.class));handler.removeCallbacksAndMessages(null);if(chooser!=null)chooser.onReceiveValue(null);if(web!=null){web.removeJavascriptInterface("CompanionAndroid");web.destroy();}super.onDestroy();}
 }
+

@@ -1,3 +1,4 @@
+import { bindAndroidShell } from './modules/android-shell.js';
 import { mode } from './modules/runtime-mode.js';
 import { AccessGate } from './modules/access-gate.js';
 import { bindHudEffects } from './modules/hud-effects.js';
@@ -452,6 +453,7 @@ const access = new AccessGate(async () => {
 
   }
 });
+bindAndroidShell(() => closeDrawer());
 void access.start();
 
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});

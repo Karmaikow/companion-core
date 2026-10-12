@@ -62,6 +62,8 @@ export class AccessGate {
       const status=await this.request('status');if(status.authenticated){await this.continuity();return;}
       document.querySelector('#accessUsername').type='text';
       document.querySelector('#accessUsername').name='username';
+      document.querySelector('#accessUsername').placeholder='seu.apelido';
+      document.querySelector('#accessAccountNote').textContent='Depois de entrar, crie sua Companion ou continue uma história com um Cristal de Memória. Este acesso vale para este dispositivo.';
       document.querySelector('#accessUsername').autocomplete='username';
       document.querySelector('#accessUsername').minLength=3;document.querySelector('#accessUsername').maxLength=40;
       document.querySelector('#accessUsername').pattern='[a-zA-Z0-9_.-]{3,40}';
@@ -76,7 +78,8 @@ export class AccessGate {
   }
   configureCloudForm(){
     const notice=document.querySelector('#authNotice');notice.hidden=true;notice.textContent='';
-    const input=document.querySelector('#accessUsername');input.type='email';input.name='email';input.autocomplete='email';input.minLength=0;input.maxLength=254;input.removeAttribute('pattern');input.parentElement.childNodes[0].nodeValue='E-mail';
+    document.querySelector('#accessAccountNote').textContent='Sua conta dá acesso aos backups criptografados do Cofre. A senha do Cristal continua necessária para abri-lo.';
+    const input=document.querySelector('#accessUsername');input.placeholder='voce@exemplo.com';input.type='email';input.name='email';input.autocomplete='email';input.minLength=0;input.maxLength=254;input.removeAttribute('pattern');input.parentElement.childNodes[0].nodeValue='E-mail';
     document.querySelector('#authModeToggle').hidden=false;
     document.querySelector('#confirmationField').hidden=!this.setup;document.querySelector('#accessConfirm').required=this.setup;
     document.querySelector('#accessPassword').autocomplete=this.setup?'new-password':'current-password';

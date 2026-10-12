@@ -1,6 +1,6 @@
-# Android independente — beta 0.4.8 (ARM64)
+# Android independente — beta 0.4.9 (ARM64)
 
-O APK inclui Node.js Mobile 18.20.4, o Core compilado e a interface. Não usa Termux, não copia dados do Termux e não contém identidades reais ou modelos de linguagem. Mantém o applicationId do cliente 0.3, com versionCode 12. A 0.4.8 inicia uma nova assinatura persistente, incompatível com atualização por cima da 0.4.7; siga [SIGNING.md](SIGNING.md) para migrar.
+O APK inclui Node.js Mobile 18.20.4, o Core compilado e a interface. Não usa Termux, não copia dados do Termux e não contém identidades reais ou modelos de linguagem. Mantém o applicationId do cliente 0.3, com versionCode 13. A 0.4.8 inicia uma nova assinatura persistente, incompatível com atualização por cima da 0.4.7; siga [SIGNING.md](SIGNING.md) para migrar.
 
 ## Primeiro uso
 
@@ -12,7 +12,7 @@ O APK inclui Node.js Mobile 18.20.4, o Core compilado e a interface. Não usa Te
 
 ## Conversa
 
-A tela **Conversa** permite escolher **IA no celular**, **Groq** ou **Ollama**. Toque no botão de menu (☰) para revelar os atalhos em uma grade 2×2: Refúgio e Conversa; Ajuda e Diagnóstico. Refúgio inicia a sessão ou reabre o espaço já carregado. Para Groq, crie sua própria chave em https://console.groq.com/keys, confirme no painel que a conta permanece no plano Free, cole a chave no aplicativo e marque a confirmação. Não cadastre método de pagamento nem faça upgrade para este teste. Modelo fixo: `openai/gpt-oss-20b`, hospedado no Groq, sem chamadas à API da OpenAI.
+A tela **Conversa** permite escolher **IA no celular**, **Groq** ou **Ollama**. Os atalhos Refúgio, Conversa · IA, Ajuda e Diagnóstico ficam no menu integrado (☰) da interface. A tela de acesso também oferece esse menu; o cabeçalho nativo desaparece quando o Refúgio carrega. Refúgio inicia a sessão ou reabre o espaço já carregado. Para Groq, crie sua própria chave em https://console.groq.com/keys, confirme no painel que a conta permanece no plano Free, cole a chave no aplicativo e marque a confirmação. Não cadastre método de pagamento nem faça upgrade para este teste. Modelo fixo: `openai/gpt-oss-20b`, hospedado no Groq, sem chamadas à API da OpenAI.
 
 O APK não consulta nem garante o plano de faturamento da chave. Se a conta for paga, a API pode cobrar; a caixa de confirmação não é um bloqueio de faturamento do provedor. O app não usa alternativa automática, repetições ou ferramentas externas: cota atingida produz aviso e interrompe a solicitação. Respostas incompletas não são salvas.
 
@@ -30,7 +30,7 @@ Suporte deste pacote: Android 8+ ARM64, páginas de memória 4 KB. O libnode dis
 
 ## Compilar
 
-Na raiz: `npm ci` e `npm run build`. Use NDK r27c, plataforma Android 35, build-tools 35.0.0, ECJ 3.39.0, Java 17 e a distribuição oficial nodejs-mobile-v18.20.4-android.zip. O script `android/build-apk.py` recebe os caminhos por variáveis documentadas no cabeçalho. Certificado privado de assinatura nunca entra no Git. Artefato em `android/build/companion-core-standalone-v0.4.8-arm64-beta.apk`. A assinatura usa o kit privado e a senha por variável de ambiente; consulte [SIGNING.md](SIGNING.md).
+Na raiz: `npm ci` e `npm run build`. Use NDK r27c, plataforma Android 35, build-tools 35.0.0, ECJ 3.39.0, Java 17 e a distribuição oficial nodejs-mobile-v18.20.4-android.zip. O script `android/build-apk.py` recebe os caminhos por variáveis documentadas no cabeçalho. Certificado privado de assinatura nunca entra no Git. Artefato em `android/build/companion-core-standalone-v0.4.9-arm64-beta.apk`. A assinatura usa o kit privado e a senha por variável de ambiente; consulte [SIGNING.md](SIGNING.md).
 
 Origem do runtime: https://github.com/nodejs-mobile/nodejs-mobile/releases/tag/v18.20.4
 
@@ -77,3 +77,14 @@ Compilação e assinatura verificadas; validação de alternância entre aplicat
 Provider HTTP direto compatível com o runtime Node Mobile existente. Endpoint fixo, redirects bloqueados, timeout de 30 segundos, 2048 tokens máximos de saída e reasoning low. Usa apenas a resposta final, sem exibir reasoning. Erros 401/403/429, conectividade e resposta incompleta recebem mensagens sanitizadas. Configuração se aplica à próxima mensagem sem reiniciar. O seletor preserva configurações legadas do Ollama.
 
 Build TypeScript, testes de providers e do pacote Android, compilação Java e assinatura verificados. Disponibilidade e qualidade do modelo ainda precisam ser testadas com a conta Free do usuário. Não é uma garantia de disponibilidade ilimitada ou de gratuidade futura.
+
+## Portal e menu integrado — 0.4.9
+
+Atualize por cima da 0.4.8: mesma chave de assinatura, versionCode crescente. O cabeçalho duplicado foi retirado: após carregar a interface, a Activity mostra somente a WebView. A tela nativa de inicialização foi redesenhada como um portal e reaparece se o Core falhar, mantendo Diagnóstico disponível. Login, criação e Hub seguem o tema azul de fantasia.
+
+Conversa, Ajuda e Diagnóstico ficam no Menu do Refúgio e no menu anterior ao login. A ponte nativa aceita somente esses três nomes fixos; os controles do APK ficam ocultos no navegador comum. O cache da interface foi atualizado para incluir os novos arquivos.
+
+Em Conversa → Groq há links para [criar uma chave](https://console.groq.com/keys) e para o [guia oficial](https://console.groq.com/docs/quickstart). O tutorial explica como entrar, usar Create API Key, copiar a chave e colá-la no aplicativo. Cada usuário usa sua própria chave; a configuração continua privada ao dispositivo.
+
+Compilação Java/recursos, assinatura e alinhamento APK verificados. Testes da interface cobrem o menu, a ponte de ações e o comportamento sem a ponte Android. Execução no aparelho continua necessária.
+
