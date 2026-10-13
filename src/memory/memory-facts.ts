@@ -19,7 +19,7 @@ export function validPreference(value: string): boolean {
 export function preferenceFact(item: Pick<Memory, 'title' | 'content'>): { slot: string; value: string } | null {
   const title = normalizeFact(item.title);
   const content = normalizeFact(item.content);
-  const favorite = title.match(/^(cor favorita|animal favorito|animais misticos favoritos|passaro mistico favorito) de (.+)$/);
+  const favorite = title.match(/^(cor favorita|ser favorito|animal favorito|animais misticos favoritos|passaro mistico favorito) de (.+)$/);
   const legacyColor = title.match(/^a cor de (.+)$/);
   if (favorite || legacyColor) {
     const slot = favorite ? `${favorite[1]} de ${favorite[2]}` : `cor favorita de ${legacyColor![1]}`;
@@ -59,3 +59,4 @@ export function currentMemories(memories: Memory[]): Memory[] {
       return true;
     });
 }
+

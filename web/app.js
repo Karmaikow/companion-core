@@ -1,3 +1,4 @@
+import { manifestationStatus } from './modules/manifestation-rules.js';
 import { bindAndroidShell } from './modules/android-shell.js';
 import { mode } from './modules/runtime-mode.js';
 import { AccessGate } from './modules/access-gate.js';
@@ -16,6 +17,7 @@ let floatingChat;
 let previousFocus;
 let initialized = false, accessEpoch = 0;
 let pairingTimer;
+let formPreviewActive = false, chatWasMinimized = false;
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -115,6 +117,29 @@ function renderMemories(memories = []) {
   }).join('');
 }
 
+function renderEvolution(state) {
+  const status = state.manifestation || manifestationStatus(state);
+  $('#evolutionTitle').textContent = status.next?.title || 'Sua forma continua crescendo';
+  $('#evolutionCopy').textContent = status.hasBody ? 'Seu primeiro corpo já despertou. A evolução continua com suas experiências.' : 'A alma ganha sua primeira forma quando todos os requisitos abaixo forem atendidos. As escolhas são da Companion, não do usuário.';
+  $('#evolutionRequirements').innerHTML = (status.next?.requirements || []).map(r => `<div class="evolution-requirement"><div><span>${escapeHtml(r.label)}</span><strong>${escapeHtml(r.detail || `${r.current} / ${r.target}`)}</strong></div><progress max="${r.target}" value="${Math.min(r.current,r.target)}" aria-label="${escapeHtml(r.label)}"></progress></div>`).join('');
+  $('#evolutionPreview').hidden = status.hasBody;
+  $('#formInfluences').textContent = state.profile.appearance?.formInfluences?.length ? 'Sementes da forma: ' + state.profile.appearance.formInfluences.join(', ') + '.' : 'Uma forma única começa na sua identidade e mantém a cor da alma.';
+  $('#formRendererNotice').hidden = document.querySelector('#gameRenderer').dataset.bodyRenderer !== 'fallback';
+}
+
+function stopFormPreview() {
+  if(formPreviewActive) { viewport?.setFormPreview(false);floatingChat?.setMinimized(chatWasMinimized); }
+  formPreviewActive=false;document.body.classList.remove('is-form-preview');$('#formPreviewBanner').hidden=true;
+}
+
+function showFormPreview() {
+  if(!currentState || currentState.core.evolutionStage!=='SOUL') return;
+  closeDrawer();setViewMode('refugio');
+  chatWasMinimized=$('#panel-chat').classList.contains('is-chat-minimized');floatingChat?.setMinimized(true);
+  formPreviewActive=true;document.body.classList.add('is-form-preview');viewport?.setFormPreview(true);$('#formPreviewBanner').hidden=false;
+  $('#formRendererNotice').hidden=document.querySelector('#gameRenderer').dataset.bodyRenderer!=='fallback';
+}
+
 function escapeHtml(value) {
   return String(value ?? '')
     .replaceAll('&', '&amp;')
@@ -128,7 +153,9 @@ function applyState(state) {
   const changed=currentState?.identity.id!==state.identity.id;
   currentState = state;
   if(changed) applyTheme(preferences.get(`companion-theme-${state.identity.id}`) || '#3f8cff',false);
+  if(changed || state.core.evolutionStage!=='SOUL') stopFormPreview();
   viewport?.setState(state);
+  renderEvolution(state);
   document.title = `Companion Core · ${state.identity.name}`;
   $('.brand-copy small').textContent = `${state.identity.name} · SUA COMPANION`;
   $('#panel-companion .drawer-header h2').textContent = state.identity.name;
@@ -353,6 +380,8 @@ function bindUi() {
   $$('.theme-swatch').forEach(button => button.addEventListener('click', () => applyTheme(button.dataset.theme)));
   $('#customTheme').addEventListener('input', event => applyTheme(event.target.value));
 
+  $('#evolutionPreview').addEventListener('click',showFormPreview);
+  $('#leaveFormPreview').addEventListener('click',()=>{stopFormPreview();$('#evolutionPreview').focus({preventScroll:true});});
   $('#verifyButton').addEventListener('click', () => void verifyCore());
   $('#mobileVerify').addEventListener('click', async () => {
     const result = await api.verify().catch(error => ({ valid: false, reason: error.message }));
@@ -442,6 +471,7 @@ const access = new AccessGate(async () => {
   if (!initialized) { init(); initialized = true; }
   await loadState(); viewport.resume();
 }, () => {
+  stopFormPreview();
   accessEpoch++;
   if (initialized) {
     closeDrawer(); viewport.pause(); currentState = null;

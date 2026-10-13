@@ -1,3 +1,4 @@
+import { manifestationStatus } from '../core/manifestation.js';
 import { CrystalManager } from '../portability/crystal-manager.js';
 import { describeColor } from '../core/color-names.js';
 import { mkdir, readFile, readdir, unlink } from 'node:fs/promises';
@@ -119,6 +120,7 @@ export class CompanionRuntime {
         preferences: state.profile.preferences,
         companionOf: state.profile.companionOf
       },
+      manifestation: manifestationStatus(state),
       core: state.core,
       combat: state.combat,
       bond: state.bond,
@@ -301,3 +303,4 @@ export class CompanionRuntime {
     await setActiveCompanionId(this.dataRoot, this.core.getState().identity.id);
   }
 }
+

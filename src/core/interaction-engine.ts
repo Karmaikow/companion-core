@@ -169,6 +169,8 @@ export class InteractionEngine {
       }
     }
 
+    this.core.refreshEvolution();
+
     return {
       response,
       guarded
@@ -297,6 +299,18 @@ export class InteractionEngine {
       }
       return null;
     }
+    const asksBeing = /(?:seu|teu) (?:ser|estilo) favorito|(?:sua|tua) criatura favorita|escolha um ser|escolher um ser/.test(normalizedQuestion);
+    if (asksBeing && !/\b(?:nosso|nossos|nossa|nossas|meu|minha|meus|minhas)\b/.test(normalizedQuestion)) {
+      const name = state.profile.name;
+      const title = `Ser favorito de ${name}`;
+      const existing = currentMemories(state.memories).some(m => preferenceFact(m)?.slot === `ser favorito de ${normalizeFact(name)}`);
+      const match = response.match(/(?:meu (?:ser|estilo) favorito (?:é|e)|minha criatura favorita (?:é|e)|gosto muito de)\s+([^.!?]+)/i);
+      const value = this.cleanPreferenceValue(match?.[1] ?? '');
+      if (!existing && validPreference(value) && !/\b(?:nao tenho|nao sei|ainda nao|talvez|imaginei|seria)\b/.test(normalizeFact(response))) {
+        return { type:'IDENTITY_FORMING', title, content:`${name} declarou que seu ser favorito é ${value}.`, emotionalWeight:90 };
+      }
+      return null;
+    }
     const asksMysticBird = /(?:seu|teu) passaro mistico favorito/.test(normalizedQuestion);
     const asksAnimal = /(?:seu|teu) animal favorito/.test(normalizedQuestion);
     if (!asksMysticBird && !asksAnimal) return null;
@@ -324,3 +338,4 @@ export class InteractionEngine {
     };
   }
 }
+

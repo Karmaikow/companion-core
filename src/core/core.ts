@@ -1,3 +1,4 @@
+import { canAwaken, evolutionEvidence, SECOND_EVOLUTION, createManifestationRecipe } from './manifestation.js';
 import { sameFact, preferenceFact } from '../memory/memory-facts.js';
 import { randomUUID } from 'node:crypto';
 
@@ -480,7 +481,7 @@ if (
     );
 }
 
-this.checkEvolution();
+if (event.type !== 'EVOLUTION') this.checkEvolution();
 
 
 }
@@ -491,6 +492,8 @@ this.checkEvolution();
 *
 * A evolução não é decidida pela IA.
   */
+  refreshEvolution(): void { this.checkEvolution(); }
+
   private checkEvolution(): void {
   const state =
   this.data.state;
@@ -500,9 +503,7 @@ if (
 
 
 
-  state.core.evolutionStage === 'SOUL' &&
-  state.core.level >= 5 &&
-  state.bond.value >= 15
+  canAwaken(state)
 ) {
   state.core.evolutionStage =
     'AWAKENED';
@@ -516,9 +517,9 @@ if (
 
 if (
   state.core.evolutionStage === 'AWAKENED' &&
-  state.core.level >= 20 &&
-  state.bond.value >= 50 &&
-  state.personality.curiosity >= 70
+  state.core.level >= SECOND_EVOLUTION.level &&
+  state.bond.value >= SECOND_EVOLUTION.bond &&
+  state.personality.curiosity >= SECOND_EVOLUTION.curiosity
 ) {
   state.core.evolutionStage =
     'MANIFESTED';
@@ -539,8 +540,11 @@ if (
   private processInternalEvolution(
   stage: string
   ): void {
+  const state = this.data.state;
+  const evidence = evolutionEvidence(state);
+  if (!state.form) state.form = createManifestationRecipe(state.identity.id, state.profile, evidence);
   const companionName =
-  this.data.state.identity.name;
+  state.identity.name;
 
 
 const event =
@@ -550,7 +554,9 @@ const event =
   this.processEvent(
     'EVOLUTION',
     {
-      stage
+      stage,
+      form: structuredClone(state.form),
+      evidence: { favoriteColor:evidence.favoriteColor, favoriteBeing:evidence.favoriteBeing, relevantMemoryIds:evidence.relevantMemoryIds.slice(0,10), bond:state.bond.value, level:state.core.level }
     },
     {
       coreXp: 0,

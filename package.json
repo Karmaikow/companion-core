@@ -9,7 +9,7 @@
     "precrystal:migrate": "npm run build",
     "crystal:server": "node dist/server/crystal-server.js",
     "precrystal:server": "npm run build",
-    "build": "node node_modules/typescript/bin/tsc && node scripts/sync-color-module.mjs",
+    "build": "node node_modules/typescript/bin/tsc && node scripts/sync-color-module.mjs && node scripts/build-form-renderer.mjs",
     "start": "npm run web:start",
     "web": "node node_modules/tsx/dist/cli.mjs src/server/web-server.ts",
     "web:start": "node dist/server/web-server.js",
@@ -35,5 +35,8 @@
     "regexpu-core": "6.4.0",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"
+  },
+  "dependencies": {
+    "three": "0.186.1"
   }
 }

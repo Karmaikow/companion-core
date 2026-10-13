@@ -1,0 +1,19 @@
+.evolution-card { margin: 22px 0; padding: 18px; border: 1px solid var(--line); border-radius: 12px; background: linear-gradient(145deg, rgba(var(--accent-rgb), .12), #071426); }
+.evolution-card h3 { margin: 8px 0; color: var(--text); font-size: 20px; }
+.evolution-card p { color: var(--text-soft); font-size: 12px; line-height: 1.6; }
+.evolution-card small { display: block; margin-top: 10px; color: var(--text-soft); font-size: 10px; line-height: 1.5; }
+.evolution-requirement { margin: 14px 0; }
+.evolution-requirement > div { display: flex; justify-content: space-between; gap: 10px; font-size: 12px; color: var(--text-soft); }
+.evolution-requirement strong { color: var(--accent-soft); }
+.evolution-requirement progress { width: 100%; height: 7px; margin-top: 7px; accent-color: var(--accent); border: 0; border-radius: 6px; background: #0a1527; }
+.evolution-requirement progress::-webkit-progress-bar { background: #0a1527; border-radius: 6px; }
+.evolution-requirement progress::-webkit-progress-value { background: linear-gradient(90deg, var(--accent), var(--accent-soft)); border-radius: 6px; }
+#evolutionPreview[hidden], #formPreviewBanner[hidden], #formRendererNotice[hidden] { display: none !important; }
+.form-preview-banner { position: absolute; z-index: 8; bottom: 82px; left: 50%; transform: translateX(-50%); width: min(370px, calc(100% - 36px)); display: grid; gap: 8px; padding: 12px 16px; border: 1px solid var(--line); border-radius: 12px; color: var(--accent-soft); background: #0b1c33ee; text-align: center; font-size: 9px; letter-spacing: .06em; box-shadow: 0 8px 30px #0005; }
+.form-preview-banner button { min-height: 36px; border: 1px solid var(--line-soft); border-radius: 7px; background: rgba(var(--accent-rgb), .12); color: var(--text); cursor: pointer; font-size: 12px; }
+.form-renderer-notice { position: absolute; z-index: 8; top: 35%; left: 24px; right: 24px; margin: 0; padding: 10px; background: #0b1c33ee; color: var(--text-soft); font-size: 11px; text-align: center; border-radius: 8px; }
+.companion-body-canvas { transition: opacity .25s; }
+
+body.is-form-preview #panel-chat { display:none !important; }
+.companion-body-canvas[hidden] { display:none !important; }
+.evolution-requirement strong { text-align:right; overflow-wrap:anywhere; }

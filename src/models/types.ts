@@ -235,7 +235,24 @@ export interface CompanionIdentity {
  * ============================================================
  */
 
+export interface ManifestationRecipe {
+  version: 1;
+  seed: number;
+  archetype: 'LUMINOUS' | 'WINGED' | 'GUARDIAN' | 'SPECTRAL' | 'DRACONIC';
+  favoriteColor: string | null;
+  favoriteBeing: string | null;
+  markingColor: string;
+  soulColor: string;
+  headSize: number;
+  earLength: number;
+  tailLength: number;
+  hornSize: number;
+}
+
 export interface CompanionState {
+  /** Frozen at the first evolution. Older identities derive a read-only fallback. */
+  form?: ManifestationRecipe;
+
 
   identity: CompanionIdentity;
 

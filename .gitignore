@@ -32,3 +32,8 @@ android/build/
 *.p12
 signing-credentials.json
 *signing-backup*.zip
+
+# Built locally into the web/APK output from pinned source.
+web/modules/companion-body.js
+web/modules/manifestation-rules.js
+web/modules/THREE-LICENSE.txt

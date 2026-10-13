@@ -24,6 +24,7 @@ export function resolvePreferenceQuestion(context: AIContext): string | null {
         ? { slot: 'animais misticos favoritos', label: 'Animais místicos favoritos' }
         : { slot: 'animal favorito', label: 'Animais favoritos' });
   }
+  if (/\b(ser|seres|criatura|criaturas|estilo)\b/.test(q)) kinds.push({ slot:'ser favorito', label:'Ser favorito' });
   if (!kinds.length) return null;
   const facts = [...(context.preferenceMemories ?? []), ...context.memories];
   const lookup = (slot: string, owner: string): string | null => {
@@ -57,3 +58,4 @@ export function resolvePreferenceQuestion(context: AIContext): string | null {
   }
   return lines.join('\n');
 }
+

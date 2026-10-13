@@ -1,3 +1,5 @@
+import { CompanionBodyRenderer } from './companion-body.js';
+import { manifestationStatus } from './manifestation-rules.js';
 /** Renderer contract: mount(host), resize(width,height,dpr), setTheme(rgb),
  * setState(readOnlyDTO), setPresence(status), render(ms), destroy().
  * A future Phaser adapter can implement this contract without knowing the API/Core.
@@ -31,7 +33,8 @@ export class GameViewport {
     this.raf = requestAnimationFrame(tick);
   }
   setTheme(rgb) { this.renderer.setTheme(rgb); if (this.motion.matches) this.renderer.render(0); }
-  setState(state) { this.renderer.setState(structuredClone(state)); }
+  setState(state) { this.renderer.setState(structuredClone(state)); if(this.motion.matches) this.renderer.render(0); }
+  setFormPreview(value) { this.renderer.setFormPreview(value); this.renderer.render(this.motion.matches ? 0 : this.last); }
   setPresence(status) {
     this.host.dataset.presence = status;
     const label = document.querySelector('#entityPresence');
@@ -53,6 +56,7 @@ export class GameViewport {
 export class HolographicCoreRenderer {
   constructor() { this.accent = '63, 140, 255'; this.soulAccent='63, 140, 255'; this.width = 1; this.height = 1; this.presence = 'idle'; this.hover = false; this.hoverAmount = 0; this.lastRenderTime = 0; }
   mount(host) {
+    this.host = host;
     this.canvas = document.createElement('canvas'); this.canvas.id = 'worldCanvas';
     this.canvas.setAttribute('aria-label', 'Sua Companion em forma de alma no Refúgio');
     host.append(this.canvas); this.ctx = this.canvas.getContext('2d');
@@ -64,10 +68,23 @@ export class HolographicCoreRenderer {
     this.target?.addEventListener('pointerleave', this.leave);
   }
   setState(state) {
+    const changed = this.state?.identity?.id !== state.identity?.id;
     this.state=state;
+    if(changed || state.core?.evolutionStage !== 'SOUL') this.preview=false;
+    this.formStatus=state.core ? (state.manifestation || manifestationStatus(state)) : null;
+    this.updateBody();
     const hex=state.profile?.appearance?.soulColor;
     this.soulAccent=/^#[0-9a-f]{6}$/i.test(hex||'')?[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)).join(', '):'63, 140, 255';
-    this.canvas?.setAttribute('aria-label',`${state.identity.name} em forma de alma no Refúgio`);
+    this.canvas?.setAttribute('aria-label',`${state.identity.name}: ${this.formStatus?.stageName || "Alma"} no Refúgio`);
+  }
+  setFormPreview(value) { this.preview=Boolean(value && this.state?.core?.evolutionStage==='SOUL'); this.updateBody(); }
+  updateBody() {
+    const active = Boolean(this.formStatus && (this.formStatus.hasBody || this.preview));
+    if(active && this.host && !this.body) { this.body=new CompanionBodyRenderer();this.body.mount(this.host); }
+    if(active && this.body) { this.body.setRecipe(this.formStatus.recipe); if(this.body.canvas) this.body.canvas.hidden=false; }
+    else if(this.body?.canvas) this.body.canvas.hidden=true;
+    this.bodyActive=active;
+    this.canvas?.setAttribute('aria-label', `${this.state?.identity?.name || 'Sua Companion'}: ${this.preview ? 'prévia da forma nascente' : this.formStatus?.stageName || 'alma'} no Refúgio`);
   }
   setPresence(status) { this.presence = status; }
   setTheme(rgb) { this.accent = rgb; if (this.ctx) this.cacheScene(); }
@@ -147,6 +164,9 @@ export class HolographicCoreRenderer {
     const scale = Math.min(w/850,h/590), x = w*.5, y = (w <= 920 ? h*.49 : h*.73 - 120*scale) + Math.sin(time*.0013)*7;
     // Soul presence is visual, never a gameplay/evolution mutation.
     const r = Math.max(22,42*scale) * (this.presence === 'thinking' ? 1.1 : 1);
+    if(this.bodyActive && this.body?.available) {
+      this.body.resize(w,h,this.dpr,x,y);this.body.render(time,this.hoverAmount,this.presence==='thinking');
+    } else {
     const auraRadius = r * (3.4 + this.hoverAmount * .25);
     const aura = c.createRadialGradient(x,y,0,x,y,auraRadius);
     aura.addColorStop(0,'rgba(180,232,255,.65)');aura.addColorStop(.2,`rgba(${a},.4)`);aura.addColorStop(1,`rgba(${a},0)`);
@@ -166,10 +186,11 @@ export class HolographicCoreRenderer {
     }
     for(let i=0;i<28;i++){const phase=time*.00035+i*2.4,radius=r*(1.2+(i%7)*.22);c.fillStyle=`rgba(${a},${.3+(i%4)*.15})`;c.beginPath();c.arc(Math.cos(phase)*radius,Math.sin(phase)*radius*.65,i%5===0?1.9:1,0,Math.PI*2);c.fill();}
     c.restore();
+    }
     for(let i=0;i<35;i++){
       const px=(((i*127.1+time*.006)%1000)/1000)*w, py=(((i*61.7-time*.01)%700+700)%700)/700*h;
       c.fillStyle=`rgba(163,223,243,${.12+(i%3)*.1})`;c.beginPath();c.arc(px,py,i%4===0?1.5:.7,0,Math.PI*2);c.fill();
     }
   }
-  destroy() { this.target?.removeEventListener('pointerenter',this.enter); this.target?.removeEventListener('pointerleave',this.leave); this.canvas?.remove(); this.background = null; this.ctx = null; }
+  destroy() { this.target?.removeEventListener('pointerenter',this.enter); this.target?.removeEventListener('pointerleave',this.leave); this.body?.destroy(); this.canvas?.remove(); this.background = null; this.ctx = null; }
 }
