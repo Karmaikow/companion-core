@@ -1,10 +1,16 @@
 import { readableColor } from '../core/color-names.js';
 import type { AIContext } from './ai-provider.js';
-import { normalizeFact, preferenceFact, validPreference } from '../memory/memory-facts.js';
+import { normalizeFact, preferenceFact, validPreference, preferenceText, companionChoiceSlot } from '../memory/memory-facts.js';
 
 export function resolvePreferenceQuestion(context: AIContext): string | null {
   const q = normalizeFact(context.userMessage).replace(/\bvc\b/g, 'voce').replace(/\bpreferid([oa]s?)\b/g, 'favorit$1').replace(/favori+ta/g, 'favorita');
   if (/\b(historia|conto|finja|imagine|faz de conta)\b/.test(q)) return null;
+  // Defining an already known preference is recall, not permission to reroll it.
+  const choiceSlot=companionChoiceSlot(context.userMessage);
+  if(choiceSlot && /\b(?:definir|defina|escolher|escolha)\b/.test(q) && !/\b(?:minha|meu|mudar|trocar|outra|outro|talvez|que tal)\b/.test(q)) {
+    const recall=resolvePreferenceQuestion({...context,userMessage:choiceSlot==='cor favorita'?'Qual sua cor favorita?':`Qual seu ${choiceSlot}?`});
+    if(recall && !/ainda n[aã]o/.test(recall)) return recall;
+  }
   // A new declaration or a proposal needs a conversation, not recall of older facts.
   if (/\bminha cor (?:favorita|preferida)\s*(?:é|:)\s*\S/i.test(context.userMessage) || /\bminha cor favorita\s+e\s+(?!(?:(?:a|o)\s+)?(?:sua|seu)\b)/.test(q) || /\b(?:vamos definir|escolha|escolher|defina|talvez|que tal|poderia)\b/.test(q)) return null;
   const favorite = /\bfavorit[oa]s?\b/.test(q) || /qual animal voce prefere/.test(q);
@@ -30,7 +36,7 @@ export function resolvePreferenceQuestion(context: AIContext): string | null {
   const lookup = (slot: string, owner: string): string | null => {
     for (const memory of facts) {
       if (preferenceFact(memory)?.slot !== `${slot} de ${normalizeFact(owner)}`) continue;
-      const value = memory.content.match(/(?:favorit[oa]s?\s+(?:é|e|são|sao|seria|seriam)|escolheu)\s+([^.!?]+)/i)?.[1]
+      const value = preferenceText(memory.content).match(/(?:favorit[oa]s?\s+(?:é|e|são|sao|seria|seriam)|escolheu)\s+([^.!?]+)/i)?.[1]
         ?.replace(/^(?:a|o|as|os|um|uma)\s+/i, '').trim();
       if (!value || !validPreference(value)) continue;
       if (slot !== 'cor favorita' && /^(azul|azul-safira|verde|verde-musgo|vermelho|amarelo|roxo|preto|branco|rosa|laranja|cinza)$/.test(normalizeFact(value).replace(/ /g, '-'))) continue;
@@ -48,7 +54,7 @@ export function resolvePreferenceQuestion(context: AIContext): string | null {
     }
     if (companion) {
       const value = kind.slot === 'cor favorita'
-        ? context.companionPreferences?.favoriteColor ?? null
+        ? context.companionPreferences?.favoriteColor || lookup(kind.slot, context.identity.name)
         : lookup(kind.slot, context.identity.name);
       if (!value && kind.slot !== 'cor favorita' && !both && kinds.length === 1) return null; // Allow an explicit first choice.
       lines.push(value

@@ -1,6 +1,6 @@
 import { manifestationDescription } from '../core/manifestation.js';
 import { readableColor } from '../core/color-names.js';
-import { currentMemories, preferenceFact } from '../memory/memory-facts.js';
+import { currentMemories, preferenceFact, preferenceText, normalizeFact } from '../memory/memory-facts.js';
 import type {
   CompanionState
 } from '../models/types.js';
@@ -22,8 +22,8 @@ export class AIContextBuilder {
     const archived=new Set(companion.profile.bondHistory?.flatMap(passage=>passage.archivedMemoryIds)??[]);
     companion={...companion,memories:companion.memories.filter(memory=>!archived.has(memory.id))};
     const ownColorMemory = currentMemories(companion.memories).find(memory =>
-      preferenceFact(memory)?.slot === `cor favorita de ${companion.profile.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')}`);
-    const ownColor = companion.profile.preferences.favoriteColor ?? ownColorMemory?.content.match(/cor (?:favorita|preferida) (?:é|e)\s+([^.!?]+)/i)?.[1]?.trim();
+      preferenceFact(memory)?.slot === `cor favorita de ${normalizeFact(companion.profile.name)}`);
+    const ownColor = companion.profile.preferences.favoriteColor?.trim() || (ownColorMemory ? preferenceText(ownColorMemory.content) : '').match(/cor (?:favorita|preferida) (?:é|e)\s+([^.!?]+)/i)?.[1]?.trim();
     const retrieved =
       MemoryRetriever.retrieve(
         companion.memories,

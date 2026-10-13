@@ -60,3 +60,21 @@ export function currentMemories(memories: Memory[]): Memory[] {
     });
 }
 
+
+/** Remove emphasis without changing accents or the Companion's chosen wording. */
+export function preferenceText(text: string): string {
+  return text.replace(/[*_`]+/g, '').replace(/[“”«»]/g, '').trim();
+}
+
+/** Explicit requests addressed to the Companion, including "para você". */
+export function companionChoiceSlot(question: string): string | null {
+  const q=normalizeFact(question).replace(/\bvc\b/g,'voce');
+  if (/\b(historia|conto|finja|imagine|faz de conta|faca de conta)\b/.test(q)) return null;
+  const address = /\b(?:para|pra) (?:voce|ti)\b/.test(q);
+  const choosing = /\b(?:definir|defina|escolher|escolha)\b/.test(q);
+  if (/\b(?:sua|tua) cor favorita\b/.test(q) || choosing && (/\b(?:sua|tua) cor\b/.test(q) || address && /\bcor favorita\b/.test(q))) return 'cor favorita';
+  if (/\b(?:seu|teu) passaro mistico favorito\b/.test(q)) return 'passaro mistico favorito';
+  if (/\b(?:seu|teu) animal favorito\b/.test(q) || choosing && address && /\banimal favorito\b/.test(q)) return 'animal favorito';
+  if (/\b(?:seu|teu) (?:ser|estilo) favorito|\b(?:sua|tua) criatura favorita|escolha um ser|escolher um ser/.test(q) || choosing && address && /\b(?:ser|estilo) favorito\b/.test(q)) return 'ser favorito';
+  return null;
+}

@@ -1,5 +1,5 @@
 import type { CompanionProfile, CompanionState, ManifestationRecipe } from '../models/types.js';
-import { currentMemories, normalizeFact, preferenceFact, validPreference } from '../memory/memory-facts.js';
+import { currentMemories, normalizeFact, preferenceFact, validPreference, preferenceText } from '../memory/memory-facts.js';
 import { SOUL_PALETTE } from './color-names.js';
 
 export const FIRST_EVOLUTION = Object.freeze({ level: 5, bond: 15, relevantMemories: 10 });
@@ -25,7 +25,7 @@ export function evolutionEvidence(state: CompanionState) {
     for (const memory of memories) {
       const fact = preferenceFact(memory);
       if (!fact || !slots.some(slot => fact.slot === `${slot} de ${owner}`)) continue;
-      const value = memory.content.match(/(?:favorit[oa]s?\s+(?:é|e|são|sao|seria|seriam)|escolheu)\s+([^.!?]+)/i)?.[1]?.replace(/^(?:a|o|as|os|um|uma)\s+/i, '').trim();
+      const value = preferenceText(memory.content).match(/(?:favorit[oa]s?\s+(?:é|e|são|sao|seria|seriam)|escolheu)\s+([^.!?]+)/i)?.[1]?.replace(/^(?:a|o|as|os|um|uma)\s+/i, '').trim();
       if (value && validPreference(value)) return value;
     }
     return null;

@@ -1,4 +1,4 @@
-import { currentMemories, preferenceFact, validPreference, normalizeFact } from '../memory/memory-facts.js';
+import { currentMemories, preferenceFact, validPreference, normalizeFact, preferenceText, companionChoiceSlot } from '../memory/memory-facts.js';
 import type {
   CompanionState,
   MemoryType
@@ -223,7 +223,7 @@ export class InteractionEngine {
   }
 
   private cleanPreferenceValue(value: string): string {
-    return value.trim()
+    return preferenceText(value).trim()
       .replace(/\s*(?::d|:p|;)\s*$/i, '')
       .replace(/\s*(?:kkk+|haha+|rsrs+|rss+)[\s.!?,:;]*$/i, '')
       .replace(/\s+(?:tbm|tamb[eé]m)\s*$/i, '')
@@ -285,21 +285,22 @@ export class InteractionEngine {
 
   private extractCompanionPreference(state: CompanionState, question: string, response: string): { type: MemoryType; title: string; content: string; emotionalWeight: number } | null {
     const normalizedQuestion = question.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\bpreferid([oa]s?)\b/g, 'favorit$1');
+    response = preferenceText(response);
     const rawResponse = response.toLowerCase();
-    const asksColor = /\b(?:sua|tua) cor (?:favorita|preferida)\b/.test(normalizedQuestion)
-      || /\b(?:definir|escolher|escolha|defina)\b/.test(normalizedQuestion) && /\b(?:sua|tua) cor\b/.test(normalizedQuestion);
+    const slot = companionChoiceSlot(question);
+    const asksColor = slot === 'cor favorita';
     if (asksColor && !state.profile.preferences.favoriteColor) {
       const name = state.profile.name;
       const title = `Cor favorita de ${name}`;
       const existing = currentMemories(state.memories).some(m => preferenceFact(m)?.slot === `cor favorita de ${normalizeFact(name)}`);
-      const match = response.match(/minha cor (?:favorita|preferida) (?:é|e)\s+([^,.!?]+)/i);
+      const match = response.match(/(?:minha cor (?:favorita|preferida)\s*(?:é|e|:)|(?:eu )?escolho)\s+([^,.!?\n]+)/i);
       const value = this.cleanPreferenceValue(match?.[1] ?? '');
       if (!existing && validPreference(value) && !/\b(?:nao tenho|nao sei|ainda nao|talvez|seria)\b/.test(normalizeFact(response))) {
         return { type: 'IDENTITY_FORMING', title, content: `${name} declarou que sua cor favorita é ${value}.`, emotionalWeight: 90 };
       }
       return null;
     }
-    const asksBeing = /(?:seu|teu) (?:ser|estilo) favorito|(?:sua|tua) criatura favorita|escolha um ser|escolher um ser/.test(normalizedQuestion);
+    const asksBeing = slot === 'ser favorito';
     if (asksBeing && !/\b(?:nosso|nossos|nossa|nossas|meu|minha|meus|minhas)\b/.test(normalizedQuestion)) {
       const name = state.profile.name;
       const title = `Ser favorito de ${name}`;
@@ -311,18 +312,18 @@ export class InteractionEngine {
       }
       return null;
     }
-    const asksMysticBird = /(?:seu|teu) passaro mistico favorito/.test(normalizedQuestion);
-    const asksAnimal = /(?:seu|teu) animal favorito/.test(normalizedQuestion);
+    const asksMysticBird = slot === 'passaro mistico favorito';
+    const asksAnimal = slot === 'animal favorito';
     if (!asksMysticBird && !asksAnimal) return null;
     if (/\b(?:nosso|nossos|nossa|nossas|meu|minha|meus|minhas)\b/.test(normalizedQuestion)) return null;
 
     const name = state.profile.name;
     const title = asksMysticBird ? `Pássaro místico favorito de ${name}` : `Animal favorito de ${name}`;
-    if (state.memories.some(memory => memory.title.toLowerCase() === title.toLowerCase())) return null;
+    if (currentMemories(state.memories).some(memory => preferenceFact(memory)?.slot === `${slot} de ${normalizeFact(name)}`)) return null;
 
     const match = asksMysticBird
       ? rawResponse.match(/meu p[áa]ssaro m[íi]stico favorito (?:é|e)\s+([^.!?]+)/i)
-      : rawResponse.match(/meu animal favorito (?:é|e)\s+([^.!?]+)/i);
+      : rawResponse.match(/(?:meu animal favorito\s*(?:é|e|:)|(?:eu )?escolho)\s+([^.!?\n]+)/i);
     const value = this.cleanPreferenceValue(match?.[1] ?? '');
     const normalizedValue = normalizeFact(value);
     if (!validPreference(value) || /\b(?:ele|ela|eles|elas|isso|aquilo|seria|talvez)\b/.test(normalizedValue)) return null;
