@@ -25,10 +25,10 @@ export class CreationRitual {
   for(const color of policy.colors){const button=document.createElement('button');button.type='button';button.className='ritual-swatch';button.style.setProperty('--swatch',color.hex);button.setAttribute('aria-label',color.name);button.title=color.name;button.dataset.hex=color.hex;button.addEventListener('click',()=>{this.color.value=color.hex;this.paintColor();});palette.append(button);}
  }
  open(state){
-  this.form.hidden=false;this.root.classList.add('is-creating');
+  this.form.hidden=false;this.root.classList.add('is-creating');this.root.scrollTop=0;
   document.querySelector('#newOwnerName').value=state?.profile.companionOf.name||'';
   document.querySelector('#newPreferredAddress').value=state?.profile.companionOf.preferredAddress||'';
-  this.paintColor();this.summary();this.animate();document.querySelector('#newCompanionName').focus();
+  this.paintColor();this.summary();this.animate();document.querySelector('#newCompanionName').focus({preventScroll:true});
  }
  close(){if(this.root.classList.contains('is-creating'))document.querySelector('#accessTitle').textContent='Seu Hub';this.form.hidden=true;this.root.classList.remove('is-creating');cancelAnimationFrame(this.raf);document.querySelector('#showCreateCompanion').focus();}
  reset(){this.form.reset();this.traits.clear();for(const b of document.querySelectorAll('[data-trait]'))b.setAttribute('aria-pressed','false');this.close();}
