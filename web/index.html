@@ -137,6 +137,7 @@
         <button class="nav-item" data-open-panel="inventory">Inventário</button>
         <button class="nav-item" data-open-panel="skills">Skills</button>
         <button class="nav-item" data-open-panel="memories">Memórias</button>
+        <button id="desktopConversationTopShortcut" hidden class="nav-item" data-open-panel="settings">Conversa · IA</button>
       </nav>
 
       <div class="topbar-actions">
@@ -440,6 +441,20 @@
           <div id="pairingCodeDisplay" hidden><span class="pairing-code" id="pairingCode"></span><small id="pairingExpiry"></small></div>
           <p class="pairing-status" id="pairingStatus" role="status"></p>
         </section>
+        <section id="desktopConversation" class="pairing-card" hidden>
+          <h3>Conversa · IA</h3>
+          <p class="muted">Escolha a IA usada neste computador. Ao usar um serviço online, suas mensagens e o contexto da conversa são enviados a ele.</p>
+          <form id="desktopAIForm">
+            <label>Serviço <select id="desktopAIProvider"><option value="environment">Configuração atual do terminal</option><option value="groq">Groq · minha chave</option><option value="ollama">Ollama · local ou remoto</option><option value="openai">OpenAI · minha chave</option></select></label>
+            <div id="desktopGroqGuide" hidden><p>1. Abra o painel e crie uma API Key.<br>2. Copie a chave e cole abaixo.<br>3. Confira seu plano Free no painel e salve.</p><a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer">Criar chave Groq</a><p><label><input id="desktopAIFree" type="checkbox"> Conferi que minha conta Groq está no plano Free</label></p><small>O Core não consegue verificar o plano da sua conta.</small></div>
+            <label id="desktopAIUrlLabel" hidden>Endereço Ollama <input id="desktopAIUrl" type="url" value="http://127.0.0.1:11434"></label>
+            <label id="desktopAIModelLabel" hidden>Modelo <input id="desktopAIModel" type="text" placeholder="Ex.: gemma3:4b"></label>
+            <label id="desktopAISecretLabel">Chave de API / token opcional do Ollama <input id="desktopAISecret" type="password" autocomplete="new-password" maxlength="4096" placeholder="Cole aqui; não será exibida novamente"></label>
+            <p class="muted">A credencial é salva no arquivo privado deste PC, fora do Git. Ela não é criptografada no disco. Campo vazio mantém a chave salva do mesmo serviço.</p>
+            <button id="desktopAISave" class="primary-button full" type="submit">Salvar configuração</button>
+            <p id="desktopAIStatus" role="status" aria-live="polite"></p>
+          </form>
+        </section>
         <h3>Janelas do HUD</h3><p class="muted">Arraste pelo título ou use Alt + setas. Reabra uma janela abaixo.</p><div id="panelControls" class="panel-controls"></div><button id="resetLayout" class="secondary-button full">Restaurar disposição</button>
         <h3>Estilo da interface</h3><label class="style-picker">Acabamento <select id="interfaceStyle"><option value="astral">Astral</option><option value="sanctuary">Santuário</option><option value="obsidian">Obsidiana</option><option value="minimal">Essencial</option></select></label>
         <h3>Cor do HUD</h3>
@@ -463,6 +478,7 @@
         <button data-android-only hidden data-android-action="conversation">✧ <span>Conversa · IA</span></button>
         <button data-android-only hidden data-android-action="help">? <span>Ajuda</span></button>
         <button data-android-only hidden data-android-action="diagnostics">⌘ <span>Diagnóstico</span></button>
+        <button id="desktopConversationShortcut" hidden data-open-panel="settings">✧ <span>Conversa · IA</span></button>
         <button data-open-panel="companion">◇ <span>Companion</span></button>
         <button data-open-panel="inventory">▦ <span>Inventário</span></button>
         <button data-open-panel="skills">✦ <span>Skills</span></button>
@@ -476,5 +492,6 @@
   </div>
 
   <script type="module" src="/app.js"></script>
+  <script type="module" src="/modules/desktop-conversation.js"></script>
 </body>
 </html>

@@ -4,6 +4,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { AIConnectionError } from '../ai/openai-provider.js';
+import { DesktopAISettings } from '../ai/desktop-settings.js';
 import { createAIProvider } from '../ai/provider-factory.js';
 import { LocalAuth, AuthError } from './local-auth.js';
 import { CompanionRuntime, HubError } from './companion-runtime.js';
@@ -14,7 +15,8 @@ const HOST = process.env.HOST ?? '127.0.0.1';
 const WEB_ROOT = path.resolve(process.cwd(), 'web');
 const mock = process.env.MAYUNA_AI_PROVIDER === 'mock';
 const auth = new LocalAuth();
-const provider = createAIProvider();
+const desktopAI = !mock && process.env.MAYUNA_AI_PROVIDER !== 'android' ? new DesktopAISettings() : null;
+const provider = desktopAI ?? createAIProvider();
 const runtime = new CompanionRuntime(provider);
 const remoteOrigin = parseRemoteOrigin(process.env.MAYUNA_REMOTE_ORIGIN);
 const pairing = new RemotePairing(remoteOrigin);
@@ -159,6 +161,17 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, pathname: st
 
   if (!auth.authorized(req)) { json(res,401,{error:'Entre para acessar sua Companion.'}); return; }
 
+  if (pathname === '/api/conversation/settings') {
+    if (!desktopAI) { json(res,404,{error:'Configuração disponível no Core local do PC.'}); return; }
+    res.setHeader('Cache-Control','no-store');
+    try {
+      if(req.method==='GET') json(res,200,desktopAI.status());
+      else if(req.method==='POST') json(res,200,await desktopAI.save(await readJsonBody(req,8192)));
+      else json(res,405,{error:'Método inválido.'});
+    } catch(error) { json(res,400,{error:error instanceof Error?error.message:'Não foi possível salvar.'}); }
+    return;
+  }
+
   if (pathname.startsWith('/api/crystal/')) {
     try {
       if(req.method==='GET'&&pathname==='/api/crystal/status'){json(res,200,await runtime.crystalStatus());return;}
@@ -258,6 +271,7 @@ function chatErrorDetail(error: unknown): string {
 }
 
 async function main(): Promise<void> {
+  await desktopAI?.initialize();
   await auth.initialize();
   await runtime.initialize();
 
@@ -332,3 +346,4 @@ async function main(): Promise<void> {
 }
 
 void main();
+
