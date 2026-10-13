@@ -1,3 +1,4 @@
+import { initFormArt } from './modules/form-art.js';
 import { manifestationStatus } from './modules/manifestation-rules.js';
 import { bindAndroidShell } from './modules/android-shell.js';
 import { mode } from './modules/runtime-mode.js';
@@ -120,11 +121,11 @@ function renderMemories(memories = []) {
 function renderEvolution(state) {
   const status = state.manifestation || manifestationStatus(state);
   $('#evolutionTitle').textContent = status.next?.title || 'Sua forma continua crescendo';
-  $('#evolutionCopy').textContent = status.hasBody ? 'Seu primeiro corpo já despertou. A evolução continua com suas experiências.' : 'A alma ganha sua primeira forma quando todos os requisitos abaixo forem atendidos. As escolhas são da Companion, não do usuário.';
-  $('#evolutionRequirements').innerHTML = (status.next?.requirements || []).map(r => `<div class="evolution-requirement"><div><span>${escapeHtml(r.label)}</span><strong>${escapeHtml(r.detail || `${r.current} / ${r.target}`)}</strong></div><progress max="${r.target}" value="${Math.min(r.current,r.target)}" aria-label="${escapeHtml(r.label)}"></progress></div>`).join('');
+  $('#evolutionCopy').textContent = status.hasBody ? `Forma ${status.generation ?? 1}. Novos ciclos desenvolvem sua história sem uma forma final. A arte anterior continua até você aplicar a próxima.` : 'A alma ganha sua primeira forma quando todos os requisitos abaixo forem atendidos. As escolhas são da Companion, não do usuário.';
+  $('#evolutionRequirements').innerHTML = (status.next?.requirements || []).map(r => `<div class="evolution-requirement"><div><span>${r.current >= r.target ? '✓ ' : '○ '}${escapeHtml(r.label)}</span><strong>${escapeHtml(`${Math.min(r.current,r.target)} / ${r.target}`)}</strong></div><progress max="${r.target}" value="${Math.min(r.current,r.target)}" aria-label="${escapeHtml(r.label)}"></progress>${r.detail ? `<small>${escapeHtml(r.detail)}</small>` : ''}</div>`).join('');
   $('#evolutionPreview').hidden = status.hasBody;
   $('#formInfluences').textContent = state.profile.appearance?.formInfluences?.length ? 'Sementes da forma: ' + state.profile.appearance.formInfluences.join(', ') + '.' : 'Uma forma única começa na sua identidade e mantém a cor da alma.';
-  $('#formRendererNotice').hidden = document.querySelector('#gameRenderer').dataset.bodyRenderer !== 'fallback';
+  $('#formRendererNotice').hidden = !!state.artwork;
 }
 
 function stopFormPreview() {
@@ -137,7 +138,7 @@ function showFormPreview() {
   closeDrawer();setViewMode('refugio');
   chatWasMinimized=$('#panel-chat').classList.contains('is-chat-minimized');floatingChat?.setMinimized(true);
   formPreviewActive=true;document.body.classList.add('is-form-preview');viewport?.setFormPreview(true);$('#formPreviewBanner').hidden=false;
-  $('#formRendererNotice').hidden=document.querySelector('#gameRenderer').dataset.bodyRenderer!=='fallback';
+  $('#formRendererNotice').hidden=!!currentState.artwork;
 }
 
 function escapeHtml(value) {
@@ -152,6 +153,7 @@ function escapeHtml(value) {
 function applyState(state) {
   const changed=currentState?.identity.id!==state.identity.id;
   currentState = state;
+  window.dispatchEvent(new CustomEvent('companion:state',{detail:{id:state.identity.id,generation:state.core.formGeneration ?? ({SOUL:0,AWAKENED:1,MANIFESTED:2,ASCENDED:3}[state.core.evolutionStage])}}));
   if(changed) applyTheme(preferences.get(`companion-theme-${state.identity.id}`) || '#3f8cff',false);
   if(changed || state.core.evolutionStage!=='SOUL') stopFormPreview();
   viewport?.setState(state);
@@ -484,6 +486,8 @@ const access = new AccessGate(async () => {
   }
 });
 bindAndroidShell(() => closeDrawer());
+document.querySelector('#gameRenderer').addEventListener('companion-art-status',()=>{if(currentState)$('#formRendererNotice').hidden=document.querySelector('#gameRenderer').dataset.bodyRenderer==='sprite2d';});
+initFormArt(applyState);
 void access.start();
 
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});

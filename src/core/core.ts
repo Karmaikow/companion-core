@@ -1,4 +1,4 @@
-import { canAwaken, evolutionEvidence, SECOND_EVOLUTION, createManifestationRecipe } from './manifestation.js';
+import { manifestationStatus, formGeneration, evolutionEvidence, createManifestationRecipe } from './manifestation.js';
 import { sameFact, preferenceFact } from '../memory/memory-facts.js';
 import { randomUUID } from 'node:crypto';
 
@@ -481,7 +481,7 @@ if (
     );
 }
 
-if (event.type !== 'EVOLUTION') this.checkEvolution();
+if (event.type !== 'EVOLUTION' && event.data.kind !== 'FORM_ART') this.checkEvolution();
 
 
 }
@@ -495,42 +495,17 @@ if (event.type !== 'EVOLUTION') this.checkEvolution();
   refreshEvolution(): void { this.checkEvolution(); }
 
   private checkEvolution(): void {
-  const state =
-  this.data.state;
-
-
-if (
-
-
-
-  canAwaken(state)
-) {
-  state.core.evolutionStage =
-    'AWAKENED';
-
-  this.processInternalEvolution(
-    'AWAKENED'
-  );
-
-  return;
-}
-
-if (
-  state.core.evolutionStage === 'AWAKENED' &&
-  state.core.level >= SECOND_EVOLUTION.level &&
-  state.bond.value >= SECOND_EVOLUTION.bond &&
-  state.personality.curiosity >= SECOND_EVOLUTION.curiosity
-) {
-  state.core.evolutionStage =
-    'MANIFESTED';
-
-  this.processInternalEvolution(
-    'MANIFESTED'
-  );
-}
-
-
-}
+    const state = this.data.state;
+    const status = manifestationStatus(state);
+    if (!status.ready) return;
+    const evidence=evolutionEvidence(state);
+    const previous=new Set(state.core.evolutionMemoryIds??[]);
+    const milestoneMemories=status.generation>=2 ? evidence.relevantMemoryIds.filter(id=>!previous.has(id)) : evidence.relevantMemoryIds;
+    state.core.formGeneration = status.generation + 1;
+    state.core.evolutionStage = status.next.stage as CompanionState['core']['evolutionStage'];
+    state.core.evolutionMemoryIds = evidence.relevantMemoryIds;
+    this.processInternalEvolution(state.core.evolutionStage,milestoneMemories);
+  }
 
 /**
 
@@ -538,7 +513,8 @@ if (
 * memória e diário.
   */
   private processInternalEvolution(
-  stage: string
+  stage: string,
+  milestoneMemories: string[]
   ): void {
   const state = this.data.state;
   const evidence = evolutionEvidence(state);
@@ -555,8 +531,9 @@ const event =
     'EVOLUTION',
     {
       stage,
+      generation: formGeneration(state),
       form: structuredClone(state.form),
-      evidence: { favoriteColor:evidence.favoriteColor, favoriteBeing:evidence.favoriteBeing, relevantMemoryIds:evidence.relevantMemoryIds.slice(0,10), bond:state.bond.value, level:state.core.level }
+      evidence: { favoriteColor:evidence.favoriteColor, favoriteBeing:evidence.favoriteBeing, relevantMemoryIds:milestoneMemories.slice(0,10), bond:state.bond.value, level:state.core.level, curiosity:state.personality.curiosity }
     },
     {
       coreXp: 0,
@@ -567,8 +544,8 @@ const event =
 
 this.addMemory(
   'SIGNIFICANT',
-  `Evolução: ${stage}`,
-  `${companionName} alcançou a forma ${stage}.`,
+  `Evolução: ${stage} · forma ${formGeneration(state)}`,
+  `${companionName} alcançou a forma ${formGeneration(state)} (${stage}).`,
   90,
   [event.id]
 );

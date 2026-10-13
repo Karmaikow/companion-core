@@ -62,3 +62,37 @@ test('bond and level are independent gates, and old evolved companions never reg
  core.processEvent('CONVERSATION',{}, {coreXp:0,combatXp:0,bond:15});assert.equal(core.getState().core.evolutionStage,'AWAKENED');
  const data=core.getData();data.state.memories=[];data.state.form=undefined;const legacy=CompanionCore.from(data,core.getPrivateKey());legacy.refreshEvolution();assert.equal(legacy.getState().core.evolutionStage,'AWAKENED');
 });
+
+test('evolution continues beyond ascension, requires fresh memories, and survives reload without farming',()=>{
+ const core=fixture();choices(core);memories(core);progressed(core);
+ assert.equal(core.getState().core.formGeneration,1);
+ core.data.state.core.level=20;core.data.state.bond.value=60;core.data.state.personality.curiosity=70;
+ core.refreshEvolution();assert.equal(core.getState().core.formGeneration,2);
+ for(let generation=3;generation<=8;generation++) {
+  core.data.state.core.level=20+(generation-2)*15;
+  core.refreshEvolution();assert.equal(core.getState().core.formGeneration,generation-1);
+  for(let i=0;i<9;i++)core.addMemory('SIGNIFICANT',`Jornada ${generation}-${i}`,`Uma descoberta única na jornada ${generation}, encontro ${i}.`,80,[]);
+  core.refreshEvolution();assert.equal(core.getState().core.formGeneration,generation-1);
+  core.addMemory('SIGNIFICANT',`Jornada ${generation}-9`,`Uma descoberta única na jornada ${generation}, encontro 9.`,80,[]);
+  core.refreshEvolution();assert.equal(core.getState().core.formGeneration,generation);
+  core.refreshEvolution();assert.equal(core.getState().core.formGeneration,generation);
+ }
+ assert.equal(core.getState().core.evolutionStage,'ASCENDED');
+ const state=core.getState();assert.equal(manifestationStatus(state).next.requirements.find(r=>r.key==='memories').current,0);
+ const evolutions=core.getData().events.filter(e=>e.type==='EVOLUTION');
+ assert.equal(evolutions.length,8);
+ const freshEvidence=evolutions.slice(2).flatMap(e=>e.data.evidence.relevantMemoryIds);
+ assert.equal(freshEvidence.length,60);assert.equal(new Set(freshEvidence).size,60);
+ const restored=CompanionCore.from(JSON.parse(JSON.stringify(core.getData())),core.getPrivateKey());
+ assert.equal(restored.verifyLocal().valid,true);assert.deepEqual(restored.getState(),state);
+ restored.refreshEvolution();assert.equal(restored.getState().core.formGeneration,8);
+});
+
+test('legacy manifested and ascended identities have next quests without a state rewrite',()=>{
+ for(const [stage,generation] of [['MANIFESTED',2],['ASCENDED',3]]){
+  const core=fixture();core.data.state.core.evolutionStage=stage;
+  const before=core.getData();const status=manifestationStatus(core.getState());
+  assert.equal(status.generation,generation);assert.equal(status.next.stage,'ASCENDED');
+  assert.deepEqual(core.getData(),before);
+ }
+});

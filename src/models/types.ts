@@ -113,6 +113,10 @@ export interface CoreProgress {
   evolutionStage: EvolutionStage;
 
   evolutionProgress: number;
+
+  /** Unbounded form cycle; absent on older crystals. */
+  formGeneration?: number;
+  evolutionMemoryIds?: string[];
 }
 
 
@@ -249,7 +253,18 @@ export interface ManifestationRecipe {
   hornSize: number;
 }
 
+export interface FormArtwork {
+  id: string;
+  generation: number;
+  frames: number;
+  fps: number;
+  createdAt: string;
+  source: 'import' | 'openai';
+}
+
 export interface CompanionState {
+  artwork?: FormArtwork;
+  artworkHistory?: FormArtwork[];
   /** Frozen at the first evolution. Older identities derive a read-only fallback. */
   form?: ManifestationRecipe;
 

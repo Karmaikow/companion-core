@@ -1,4 +1,5 @@
-import { manifestationStatus } from '../core/manifestation.js';
+import { FormArtStore, validateArt } from './form-art.js';
+import { formArtPrompt, formGeneration, manifestationStatus } from '../core/manifestation.js';
 import { CrystalManager } from '../portability/crystal-manager.js';
 import { describeColor } from '../core/color-names.js';
 import { mkdir, readFile, readdir, unlink } from 'node:fs/promises';
@@ -121,6 +122,8 @@ export class CompanionRuntime {
         companionOf: state.profile.companionOf
       },
       manifestation: manifestationStatus(state),
+      artwork: state.artwork,
+      artworkHistory: state.artworkHistory ?? [],
       core: state.core,
       combat: state.combat,
       bond: state.bond,
@@ -288,6 +291,37 @@ export class CompanionRuntime {
     const result=await this.crystal.awaken(file,password,deviceName,this.hasCompanion()?this.core:undefined,recoveryCode,acceptGift);
     this.activateCore(result.core);return {state:this.getClientState(),recoveryCode:result.recoveryCode,status:await this.crystalStatus()};
   }); }
+
+  artContext() {
+    this.requireCompanion();
+    const state=this.core.getState();
+    return {id:state.identity.id,generation:formGeneration(state),prompt:formArtPrompt(state),artwork:state.artwork};
+  }
+  async artImage(id:string,artId:string) {
+    this.requireCompanion();
+    const state=this.core.getState();
+    if(state.identity.id!==id || ![state.artwork,...(state.artworkHistory??[])].some(art=>art?.id===artId)) throw new HubError(404,'Arte não encontrada nesta Companion.');
+    return new FormArtStore(this.dataRoot).get(id,artId);
+  }
+  applyArt(input:{id?:unknown;generation?:unknown;image?:unknown;frames?:unknown;fps?:unknown;source?:unknown}) {
+    return this.serial(async()=>{
+      this.requireCompanion();
+      await this.crystal.assertActive(this.core);
+      const state=this.core.getState();
+      if(input.id!==state.identity.id || input.generation!==formGeneration(state)) throw new HubError(409,'A Companion ou sua forma mudou. Abra a arte novamente antes de aplicar.');
+      const art=validateArt(input.image,input.frames,input.fps);
+      const metadata={id:art.id,generation:formGeneration(state),frames:art.frames,fps:art.fps,createdAt:new Date().toISOString(),source:input.source==='openai'?'openai' as const:'import' as const};
+      if(state.artwork && state.artwork.id===art.id && state.artwork.frames===art.frames && state.artwork.fps===art.fps && state.artwork.generation===metadata.generation)return this.getClientState();
+      await new FormArtStore(this.dataRoot).put(state.identity.id,art);
+      // The event records art only. It cannot grant XP, bond or evolution.
+      this.core.processEvent('SYSTEM',{kind:'FORM_ART',artwork:metadata},{coreXp:0,combatXp:0,bond:0});
+      const live=this.core.data.state;
+      live.artworkHistory=[...(live.artworkHistory??[]),...(live.artwork?[live.artwork]:[])];
+      live.artwork=metadata;
+      await this.save();
+      return this.getClientState();
+    });
+  }
 
   verify() {
     this.requireCompanion();

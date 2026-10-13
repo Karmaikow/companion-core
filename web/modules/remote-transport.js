@@ -45,7 +45,8 @@ export async function remoteRequest(url, options = {}) {
     clearRemoteSession();
     return new Response(JSON.stringify({ error: 'A conexão expirou. Gere um novo código no Core local.' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
   }
-  const route = ROUTES[url];
+  const artRoute=/^\/api\/companion\/art\/MC-[A-Z0-9-]+\/[a-f0-9]{64}$/.test(url) ? url.replace('/api/companion/art/','/api/remote/art/') : null;
+  const route = ROUTES[url] || artRoute;
   if (!route) throw new Error('Rota não disponível na conexão remota.');
   const headers = new Headers(options.headers || {});
   headers.set('Authorization', `Bearer ${accessToken}`);

@@ -80,8 +80,8 @@ export class HolographicCoreRenderer {
   setFormPreview(value) { this.preview=Boolean(value && this.state?.core?.evolutionStage==='SOUL'); this.updateBody(); }
   updateBody() {
     const active = Boolean(this.formStatus && (this.formStatus.hasBody || this.preview));
-    if(active && this.host && !this.body) { this.body=new CompanionBodyRenderer();this.body.mount(this.host); }
-    if(active && this.body) { this.body.setRecipe(this.formStatus.recipe); if(this.body.canvas) this.body.canvas.hidden=false; }
+    if(active && this.host && !this.body) { this.body=new CompanionBodyRenderer();this.body.mount(this.host);this.body.onChange=()=>{this.render(0);this.host.dispatchEvent(new Event('companion-art-status'));}; }
+    if(active && this.body) { this.body.setRecipe(this.formStatus.recipe,this.state.artwork,this.state.identity.id); if(this.body.canvas) this.body.canvas.hidden=false; }
     else if(this.body?.canvas) this.body.canvas.hidden=true;
     this.bodyActive=active;
     this.canvas?.setAttribute('aria-label', `${this.state?.identity?.name || 'Sua Companion'}: ${this.preview ? 'prévia da forma nascente' : this.formStatus?.stageName || 'alma'} no Refúgio`);

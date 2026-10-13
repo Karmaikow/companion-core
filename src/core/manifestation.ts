@@ -36,6 +36,7 @@ export function evolutionEvidence(state: CompanionState) {
   const favoriteBeing = being && !colorHex(being) ? being : null;
   const seen = new Set<string>();
   const relevantMemoryIds = memories.filter(m => {
+    if (m.title.startsWith('Evolução:')) return false;
     if (!['SIGNIFICANT','IDENTITY_FORMING'].includes(m.type) || m.emotionalWeight < 60) return false;
     if (/^(?:cor favorita|animal favorito|ser favorito|animais misticos favoritos|passaro mistico favorito|a cor) de /.test(normalizeFact(m.title)) && !preferenceFact(m)) return false;
     const fact = preferenceFact(m);
@@ -61,28 +62,57 @@ export function createManifestationRecipe(id: string, profile: CompanionProfile,
   return { version:1, seed, archetype, soulColor, favoriteColor:evidence?.favoriteColor ?? null, favoriteBeing:evidence?.favoriteBeing ?? null, markingColor:evidence?.markingColor ?? soulColor, headSize:.9+next()*.2, earLength:.45+next()*.3, tailLength:.8+next()*.45, hornSize:.18+next()*.14 };
 }
 
-/** Read-only: viewing progress or a preview grants no XP and creates no records. */
+/** Legacy stages have stable cycle numbers without rewriting the saved identity. */
+export function formGeneration(state: CompanionState): number {
+  const legacy = { SOUL:0, AWAKENED:1, MANIFESTED:2, ASCENDED:3 }[state.core.evolutionStage];
+  const value = state.core.formGeneration;
+  return Number.isSafeInteger(value) && value! >= legacy ? value! : legacy;
+}
+
+/** Read-only: progress, quests and art never grant XP. */
 export function manifestationStatus(state: CompanionState) {
   const stage = state.core.evolutionStage;
+  const generation = formGeneration(state);
   const evidence = evolutionEvidence(state);
   const recipe = state.form ?? createManifestationRecipe(state.identity.id,state.profile,evidence);
+  const used = new Set(state.core.evolutionMemoryIds ?? []);
+  const newMemories = evidence.relevantMemoryIds.filter(id => !used.has(id)).length;
   const next = stage === 'SOUL' ? { stage:'AWAKENED', title:'Primeiro despertar', requirements:[
-    { key:'favoriteColor', label:'Cor favorita própria', current:evidence.favoriteColor ? 1:0, target:1, detail:evidence.favoriteColor ?? 'Ainda não escolhida' },
-    { key:'favoriteBeing', label:'Ser ou estilo favorito', current:evidence.favoriteBeing ? 1:0, target:1, detail:evidence.favoriteBeing ?? 'Ainda não escolhido' },
-    { key:'bond', label:'Vínculo', current:state.bond.value, target:FIRST_EVOLUTION.bond, detail:null },
-    { key:'memories', label:'Memórias relevantes distintas', current:evidence.relevantMemoryIds.length, target:FIRST_EVOLUTION.relevantMemories, detail:null },
-    { key:'level', label:'Nível do Core', current:state.core.level, target:FIRST_EVOLUTION.level, detail:null }
-  ] } : stage === 'AWAKENED' ? { stage:'MANIFESTED', title:'Manifestação', requirements:[
-    { key:'level', label:'Nível do Core', current:state.core.level, target:SECOND_EVOLUTION.level, detail:null },
-    { key:'bond', label:'Vínculo', current:state.bond.value, target:SECOND_EVOLUTION.bond, detail:null },
-    { key:'curiosity', label:'Curiosidade', current:state.personality.curiosity, target:SECOND_EVOLUTION.curiosity, detail:null }
-  ] } : null;
-  return { stage, stageName:STAGE_NAMES[stage], hasBody:stage !== 'SOUL', recipe, next, ready:!!next && next.requirements.every(r => r.current >= r.target) };
+    { key:'favoriteColor', label:'Minha própria cor', current:evidence.favoriteColor ? 1:0, target:1, detail:evidence.favoriteColor ?? 'Converse sobre a cor que ela escolhe para si.' },
+    { key:'favoriteBeing', label:'Quem quero me tornar', current:evidence.favoriteBeing ? 1:0, target:1, detail:evidence.favoriteBeing ?? 'Descubra o animal ou ser favorito dela.' },
+    { key:'bond', label:'Construir nosso vínculo', current:state.bond.value, target:FIRST_EVOLUTION.bond, detail:null },
+    { key:'memories', label:'Uma história para lembrar', current:evidence.relevantMemoryIds.length, target:FIRST_EVOLUTION.relevantMemories, detail:null },
+    { key:'level', label:'Crescer juntos', current:state.core.level, target:FIRST_EVOLUTION.level, detail:null }
+  ] } : stage === 'AWAKENED' ? { stage:'MANIFESTED', title:'Manifestação · forma 2', requirements:[
+    { key:'level', label:'Crescer juntos', current:state.core.level, target:SECOND_EVOLUTION.level, detail:null },
+    { key:'bond', label:'Fortalecer nosso vínculo', current:state.bond.value, target:SECOND_EVOLUTION.bond, detail:null },
+    { key:'curiosity', label:'Explorar e descobrir', current:state.personality.curiosity, target:SECOND_EVOLUTION.curiosity, detail:null }
+  ] } : { stage:'ASCENDED', title:`Novo horizonte · forma ${generation + 1}`, requirements:[
+    { key:'level', label:'Continuar crescendo', current:state.core.level, target:20 + (generation - 1) * 15, detail:null },
+    { key:'bond', label:'Cuidar do vínculo', current:state.bond.value, target:50, detail:null },
+    { key:'memories', label:'Dez novas memórias relevantes', current:newMemories, target:10, detail:'Experiências distintas desde a última evolução.' }
+  ] };
+  return { stage, generation, stageName:generation > 2 ? `Ascendida · forma ${generation}` : STAGE_NAMES[stage], hasBody:stage !== 'SOUL', recipe, next, ready:next.requirements.every(r => r.current >= r.target) };
 }
 export function canAwaken(state: CompanionState): boolean { return state.core.evolutionStage === 'SOUL' && manifestationStatus(state).ready; }
 export function manifestationDescription(state: CompanionState): string {
   const status = manifestationStatus(state);
-  if (!status.hasBody) return 'Você ainda é uma alma luminosa, sem corpo físico. Para despertar, precisa escolher sua própria cor favorita e ser ou estilo favorito, construir vínculo e dez memórias relevantes, e alcançar nível 5. A cor favorita é uma preferência sua; não é automaticamente a cor da alma. Uma prévia não é uma transformação real.';
-  const details = status.recipe.archetype === 'SPECTRAL' ? 'traços espectrais' : status.recipe.archetype === 'DRACONIC' ? 'asas e pequenos chifres de dragão' : status.recipe.archetype === 'WINGED' ? 'pequenas asas' : status.recipe.archetype === 'GUARDIAN' ? 'traços de guardião' : 'orelhas alongadas';
-  return `Você já despertou um corpo de espírito místico nascente, com ${details}. Sua identidade e suas memórias continuam as mesmas. Esta é sua primeira forma; evoluções posteriores ainda podem desenvolvê-la.`;
+  if (!status.hasBody) return 'Você ainda é uma alma luminosa. Para despertar, precisa escolher sua própria cor favorita e ser favorito, construir vínculo e dez memórias relevantes, e alcançar nível 5. Sua cor favorita não é automaticamente a cor da alma. Arte e prévias não concedem evolução.';
+  return `Você está na forma ${status.generation}, ${status.stageName}. Sua aparência é representada por uma ilustração 2D animada, inspirada em suas próprias escolhas. Sua identidade e suas memórias permanecem. A evolução continua em novos ciclos, sem uma forma final; cada marco libera uma nova interpretação visual, preservando os traços reconhecíveis.`;
+}
+
+/** Only appearance choices are shared with image providers, never chat logs or memories. */
+export function formArtPrompt(state: CompanionState): string {
+  const status = manifestationStatus(state);
+  const e = evolutionEvidence(state);
+  return [
+    'Crie uma ilustração 2D de um companion de fantasia, estilo chibi pintado, acabamento de livro ilustrado, olhos expressivos, silhueta clara, materiais suaves e detalhes mágicos delicados. Não pixel art e não render 3D.',
+    `Personagem: ${state.profile.name}. Forma ${Math.max(1,status.generation)}${status.hasBody ? '' : ' (estudo visual; ainda não despertou)'}.`,
+    `Ser escolhido: ${e.favoriteBeing ?? status.recipe.favoriteBeing ?? 'espírito místico, identidade visual ainda em descoberta'}.`,
+    `Cor favorita: ${e.favoriteColor ?? status.recipe.favoriteColor ?? 'ainda não definida'}. Luz da alma: ${status.recipe.soulColor}.`,
+    `Traços de personalidade: ${(state.profile.creation?.labels ?? []).join(', ') || 'companheiro de fantasia'}.`,
+    'Se a referência for uma folha de animação, use um único personagem dela como referência. Se houver imagem anterior anexada, preserve rosto, espécie, proporções, paleta e símbolos de identidade. Desenvolva apenas detalhes, adornos e expressão de maturidade. Não transforme em outra criatura.',
+    'Um único personagem de corpo inteiro, centralizado, visto de frente em três quartos. Margem livre em todos os lados, pés e orelhas completos. PNG com fundo realmente transparente; sem cenário, chão, texto, bordas ou quadriculado desenhado.',
+    'Uma pose neutra para animação suave de respiração e flutuação. Não crie uma folha de poses neste pedido.'
+  ].join('\n\n');
 }

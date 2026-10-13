@@ -239,7 +239,7 @@
 
           <div class="world-heading"><span class="eyebrow" id="roomEyebrow">NOSSA HISTÓRIA</span><h1 id="roomHeading">Um espaço nosso</h1><p id="roomDescription">Converse, lembre e evolua ao lado da sua Companion.</p></div>
           <div id="formPreviewBanner" class="form-preview-banner" role="status" hidden><span>PRÉVIA DA FORMA · SUA COMPANION AINDA É UMA ALMA</span><button id="leaveFormPreview" type="button">Voltar à alma</button></div>
-          <p id="formRendererNotice" class="form-renderer-notice" hidden>Visualização 3D indisponível neste dispositivo. Usando a representação luminosa.</p>
+          <p id="formRendererNotice" class="form-renderer-notice" hidden>A ilustração ainda não está disponível. Abra Companion → Arte da forma para gerar ou importar seu PNG.</p>
           <button class="entity-target" data-open-panel="companion" aria-label="Inspecionar Companion no mundo"></button>
           <div class="entity-nameplate"><span id="entityStage">SOUL</span><strong id="entityName">Companion</strong><small id="entityPresence">Aguardando conexão</small></div>
     <section class="main-chat hud-panel" id="panel-chat" aria-label="Conversa com Companion">
@@ -389,10 +389,38 @@
           <div><small>Combat Level</small><strong id="drawerCombat">1</strong></div>
         </div>
         <section class="evolution-card" aria-labelledby="evolutionTitle">
-          <span class="eyebrow">EVOLUÇÃO DA FORMA</span><h3 id="evolutionTitle">Primeiro despertar</h3>
+          <span class="eyebrow">MISSÕES · EVOLUÇÃO CONTÍNUA</span><h3 id="evolutionTitle">Primeiro despertar</h3>
           <p id="evolutionCopy">Sua história está começando.</p><div id="evolutionRequirements"></div>
-          <p id="formInfluences" class="muted"></p><button id="evolutionPreview" class="primary-button full" type="button">Ver forma nascente · prévia 3D</button>
+          <p id="formInfluences" class="muted"></p><button id="evolutionPreview" class="primary-button full" type="button">Ver forma nascente · prévia 2D</button>
           <small>A prévia não concede XP nem altera a identidade.</small>
+        </section>
+        <section id="formArtPanel" class="evolution-card" aria-labelledby="formArtTitle">
+          <span class="eyebrow">ATELIÊ DA COMPANION</span><h3 id="formArtTitle">Arte da forma · 2D</h3>
+          <p>Ilustração de fantasia chibi, com movimento suave. A arte acompanha a evolução; não concede níveis ou missões.</p>
+          <button id="artOpen" class="primary-button full" type="button">Preparar minha arte</button>
+          <div id="artEditor" hidden>
+            <p id="artCycle"></p>
+            <label for="artPrompt">Seu pedido de imagem</label><textarea id="artPrompt" rows="7" readonly></textarea>
+            <button id="artCopy" type="button">Copiar pedido para o ChatGPT</button>
+            <small>Gere a imagem na plataforma de sua escolha e importe o PNG. Para evoluir a mesma aparência, anexe também a imagem anterior.</small>
+            <a id="artDownload" hidden download="companion-form.png">Baixar imagem atual</a>
+            <label for="artFile">Importar PNG · até 4 MB</label><input id="artFile" type="file" accept="image/png">
+            <div class="art-fields"><label>Quadros na faixa horizontal <input id="artFrames" type="number" min="1" max="8" value="1"></label><label>Quadros por segundo <input id="artFps" type="number" min="1" max="12" value="6"></label></div>
+            <small>Use 1 para uma ilustração. Para piscar ou mover partes do corpo, importe uma faixa com 2–8 quadros de tamanho igual.</small>
+            <details><summary>Gerar aqui com API OpenAI · opcional e pago</summary>
+              <p>A chave de conversa Groq não serve para imagens. O Core envia somente o pedido acima e a arte atual como referência.</p>
+              <label for="artKey">Chave OpenAI de imagens</label><input id="artKey" type="password" autocomplete="off" placeholder="Chave não exibida após salvar">
+              <button id="artSaveKey" type="button">Salvar chave</button><small>A chave fica no PC em data/.access/images.json, sem criptografia, fora do Cristal.</small>
+              <label><input id="artPaid" type="checkbox"> Entendo que esta geração usa créditos da API OpenAI.</label>
+              <button id="artGenerate" type="button">Gerar uma imagem · usa créditos</button>
+            </details>
+            <canvas id="artPreview" width="360" height="360" hidden aria-label="Prévia animada da nova arte"></canvas>
+            <a id="artPendingDownload" hidden download="nova-forma.png">Baixar esta prévia</a>
+            <button id="artApply" class="primary-button full" type="button" disabled>Aplicar esta arte</button>
+            <h4>Formas anteriores</h4><div id="artHistory"></div>
+          </div>
+          <p id="artStatus" role="status" aria-live="polite"></p>
+          <small>As imagens ficam na pasta data/artwork. Inclua essa pasta no backup e leve-a junto ao mudar de dispositivo com um Cristal.</small>
         </section>
         <h3>Personalidade</h3>
         <div class="personality-bars" id="personalityBars"></div>

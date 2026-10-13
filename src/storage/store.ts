@@ -19,7 +19,7 @@ const writeQueues = new Map<string, Promise<void>>();
 /** Write a complete replacement beside the target, then atomically rename it.
  * This prevents a process interruption from leaving half of a JSON document.
  */
-export async function writeFileAtomic(file: string, contents: string, mode = 0o600): Promise<void> {
+export async function writeFileAtomic(file: string, contents: string | Uint8Array, mode = 0o600): Promise<void> {
   const target = path.resolve(file);
   const previous = writeQueues.get(target) ?? Promise.resolve();
   const queued = previous
@@ -34,7 +34,7 @@ export async function writeFileAtomic(file: string, contents: string, mode = 0o6
   }
 }
 
-async function writeFileAtomicNow(file: string, contents: string, mode: number): Promise<void> {
+async function writeFileAtomicNow(file: string, contents: string | Uint8Array, mode: number): Promise<void> {
   const directory = path.dirname(file);
   await mkdir(directory, { recursive: true, mode: 0o700 });
   const temporary = path.join(directory, `.${path.basename(file)}.${process.pid}.${randomUUID()}.tmp`);
@@ -202,3 +202,4 @@ export class LocalStore {
     return data.privateKey;
   }
 }
+

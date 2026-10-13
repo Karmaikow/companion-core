@@ -1,3 +1,4 @@
+import { FormImageProvider } from './form-art.js';
 import { CrystalError, MAX_CRYSTAL_BYTES } from '../portability/crystal.js';
 import { fileURLToPath } from 'node:url';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
@@ -18,6 +19,7 @@ const auth = new LocalAuth();
 const desktopAI = !mock && process.env.MAYUNA_AI_PROVIDER !== 'android' ? new DesktopAISettings() : null;
 const provider = desktopAI ?? createAIProvider();
 const runtime = new CompanionRuntime(provider);
+const imageProvider = new FormImageProvider(process.env.MAYUNA_DATA_DIR ?? 'data');
 const remoteOrigin = parseRemoteOrigin(process.env.MAYUNA_REMOTE_ORIGIN);
 const pairing = new RemotePairing(remoteOrigin);
 
@@ -136,6 +138,12 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, pathname: st
     if (!token) { json(res, 401, { error: 'Conexão expirada. Gere um novo código no Core local.' }); return; }
     if (req.method === 'POST' && pathname === '/api/remote/logout') { pairing.revoke(token); json(res, 200, { ok: true }); return; }
     if (!runtime.hasCompanion()) { json(res,409,{error:'Desperte sua Companion no acesso local.',code:'COMPANION_NOT_CREATED'}); return; }
+    const remoteArt=pathname.match(/^\/api\/remote\/art\/(MC-[A-Z0-9-]+)\/([a-f0-9]{64})$/);
+    if(req.method==='GET'&&remoteArt){
+      try{const image=await runtime.artImage(remoteArt[1],remoteArt[2]);res.writeHead(200,{'Content-Type':'image/png','Cache-Control':'no-store'});res.end(image);}
+      catch{json(res,404,{error:'A imagem não está disponível neste Core.'});}
+      return;
+    }
     if (req.method === 'GET' && pathname === '/api/remote/state') { json(res, 200, runtime.getClientState()); return; }
     if (req.method === 'GET' && pathname === '/api/remote/verify') {
       const verification = runtime.verify();
@@ -219,6 +227,28 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, pathname: st
 
   if (!runtime.hasCompanion()) { json(res,409,{error:'Desperte sua primeira Companion.',code:'COMPANION_NOT_CREATED'}); return; }
 
+  if (pathname.startsWith('/api/companion/art')) {
+    try {
+      if(req.method==='GET' && pathname==='/api/companion/art') {json(res,200,{...runtime.artContext(),provider:imageProvider.status()});return;}
+      const match=pathname.match(/^\/api\/companion\/art\/(MC-[A-Z0-9-]+)\/([a-f0-9]{64})$/);
+      if(req.method==='GET'&&match){const image=await runtime.artImage(match[1],match[2]);res.writeHead(200,{'Content-Type':'image/png','Cache-Control':'no-store'});res.end(image);return;}
+      if(req.method==='POST') {
+        const body=await readJsonBody(req,5_400_000) as Record<string,unknown>;
+        if(pathname==='/api/companion/art/settings'){json(res,200,await imageProvider.configure(body));return;}
+        if(pathname==='/api/companion/art/apply'){json(res,200,await runtime.applyArt(body));return;}
+        if(pathname==='/api/companion/art/generate') {
+          const context=runtime.artContext();
+          if(body.id!==context.id||body.generation!==context.generation)throw new HubError(409,'A Companion mudou. Abra a arte novamente.');
+          const reference=context.artwork?await runtime.artImage(context.id,context.artwork.id):undefined;
+          const image=await imageProvider.generate(context.prompt,body.paidConsent,reference);
+          json(res,200,{id:context.id,generation:context.generation,image});return;
+        }
+      }
+      json(res,404,{error:'Operação de arte não encontrada.'});
+    }catch(error){json(res,error instanceof HubError||error instanceof CrystalError?error.status:400,{error:error instanceof Error?error.message:'Não foi possível preparar a arte.'});}
+    return;
+  }
+
   if (req.method === 'GET' && pathname === '/api/companion/state') {
     json(res, 200, runtime.getClientState());
     return;
@@ -272,6 +302,7 @@ function chatErrorDetail(error: unknown): string {
 
 async function main(): Promise<void> {
   await desktopAI?.initialize();
+  await imageProvider.initialize();
   await auth.initialize();
   await runtime.initialize();
 
