@@ -25,6 +25,10 @@ export const api = {
     if (!response.ok) throw new Error('Não foi possível carregar o Core.');
     return response.json();
   },
+  async affection(id) {
+    const response=await request('/api/companion/interaction',{method:'POST',signal:AbortSignal.timeout(15000),headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});
+    const data=await response.json();if(!response.ok)throw Error(data.error||'Não foi possível registrar o carinho.');return data;
+  },
   async chat(message) {
     const response = await request('/api/companion/chat', {
       method: 'POST',

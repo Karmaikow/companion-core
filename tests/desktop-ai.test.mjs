@@ -39,3 +39,17 @@ test('desktop settings HTTP requires owner login, rejects cross-origin writes an
  const get=await fetch(base+'/api/conversation/settings',{headers:{Cookie:cookie}});assert.equal(get.headers.get('cache-control'),'no-store');const status=await get.json();assert.equal(status.provider,'groq');assert.equal(status.hasSecret,true);
  }finally{if(child.exitCode===null&&child.signalCode===null){const exited=once(child,'exit');child.kill();await exited;}await rm(root,{recursive:true,force:true});}
 });
+
+test('switching providers restores each credential after restart, shared requires no key, legacy migrates',async()=>{
+ const root=await mkdtemp(path.join(tmpdir(),'ai-profiles-'));
+ try {
+ const s=new DesktopAISettings({MAYUNA_DATA_DIR:root});await s.initialize();assert.equal(s.name,'shared');
+ await s.save({provider:'groq',secret:'test-groq',freePlanConfirmed:true});
+ await s.save({provider:'openai',secret:'test-openai',model:'test-model'});
+ await s.save({provider:'shared'});
+ const next=new DesktopAISettings({MAYUNA_DATA_DIR:root});await next.initialize();assert.equal(next.name,'shared');
+ assert.equal(next.status().profiles.groq.hasSecret,true);assert.equal(next.status().profiles.openai.model,'test-model');
+ await next.save({provider:'groq',secret:'',freePlanConfirmed:true});
+ const saved=JSON.parse(await readFile(next.file,'utf8'));assert.equal(saved.profiles.groq.secret,'test-groq');assert.equal(saved.profiles.openai.secret,'test-openai');assert.ok(!JSON.stringify(next.status()).includes('test-groq'));
+ }finally{await rm(root,{recursive:true,force:true});}
+});

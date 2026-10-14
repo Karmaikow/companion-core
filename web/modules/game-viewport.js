@@ -41,6 +41,7 @@ export class GameViewport {
     if (label) label.textContent = status === 'thinking' ? 'Em conexão com você' : status === 'offline' ? 'Aguardando conexão' : 'Conectada ao núcleo';
     this.renderer.setPresence(status);
   }
+  react(kind) {this.renderer.react(kind);if(this.motion.matches)this.renderer.render(0);}
   pause() { this.running = false; cancelAnimationFrame(this.raf); }
   resume() { this.running = true; this.schedule(); }
   destroy() {
@@ -54,7 +55,7 @@ export class GameViewport {
  * only soul + motes animate. No textures, dependencies or per-frame style reads. */
 /** Procedural sapphire-blue core chamber; soul identity remains in the Companion DTO. */
 export class HolographicCoreRenderer {
-  constructor() { this.accent = '63, 140, 255'; this.soulAccent='63, 140, 255'; this.width = 1; this.height = 1; this.presence = 'idle'; this.hover = false; this.hoverAmount = 0; this.lastRenderTime = 0; }
+  constructor() { this.accent = '63, 140, 255'; this.soulAccent='63, 140, 255'; this.width = 1; this.height = 1; this.presence = 'idle'; this.hover = false; this.hoverAmount = 0; this.lastRenderTime = 0; this.position={x:0,y:0};this.destination={x:0,y:0};this.lastActivity=performance.now(); }
   mount(host) {
     this.host = host;
     this.canvas = document.createElement('canvas'); this.canvas.id = 'worldCanvas';
@@ -62,14 +63,36 @@ export class HolographicCoreRenderer {
     host.append(this.canvas); this.ctx = this.canvas.getContext('2d');
     this.background = document.createElement('canvas');
     this.target = document.querySelector('.entity-target');
+    this.nameplate=document.querySelector('.entity-nameplate');
     this.enter = () => { this.hover = true; };
     this.leave = () => { this.hover = false; };
     this.target?.addEventListener('pointerenter', this.enter);
     this.target?.addEventListener('pointerleave', this.leave);
+    this.motion=matchMedia('(prefers-reduced-motion: reduce)');
+    this.world=host.closest('#worldFrame');
+    this.notice=document.createElement('span');this.notice.className='refuge-reaction';this.notice.setAttribute('role','status');
+    this.notice.style.cssText='position:absolute;left:50%;top:35%;transform:translateX(-50%);z-index:3;pointer-events:none;color:#dcf0ff;text-shadow:0 2px 12px #00132b;font-size:14px;text-align:center;';host.append(this.notice);
+    this.pet=()=>{if(!this.state||document.body.classList.contains('is-locked'))return;this.react('affection');host.dispatchEvent(new CustomEvent('companion:affection',{bubbles:true,detail:{id:this.state.identity.id}}));};
+    this.target?.addEventListener('click',this.pet);
+    this.move=event=>{
+      if(!this.state||document.body.classList.contains('is-locked')||event.target.closest('button,a,input,textarea,select,.hud-panel,.world-topline,.entity-nameplate,.form-preview-banner'))return;
+      const box=this.host.getBoundingClientRect();
+      if(event.clientY<box.top+box.height*.32)return;
+      this.destination={x:Math.max(-.22,Math.min(.22,(event.clientX-box.left)/box.width-.5)),y:Math.max(-.08,Math.min(.10,(event.clientY-box.top)/box.height-.58))};
+      this.lastActivity=performance.now();
+      if(this.motion.matches){this.position={...this.destination};this.render(0);}
+    };
+    this.world?.addEventListener('click',this.move);
   }
   setState(state) {
     const changed = this.state?.identity?.id !== state.identity?.id;
+    const previous=this.state;
     this.state=state;
+    if(changed){this.position={x:0,y:0};this.destination={x:0,y:0};this.effect=null;this.lastActivity=performance.now();if(this.notice)this.notice.textContent='';}
+    else if(previous?.core&&state.core){
+      if(state.core.level>previous.core.level)this.react('level');
+      else if(state.core.xp>previous.core.xp)this.react('xp');
+    }
     if(changed || state.core?.evolutionStage !== 'SOUL') this.preview=false;
     this.formStatus=state.core ? (state.manifestation || manifestationStatus(state)) : null;
     this.updateBody();
@@ -86,7 +109,14 @@ export class HolographicCoreRenderer {
     this.bodyActive=active;
     this.canvas?.setAttribute('aria-label', `${this.state?.identity?.name || 'Sua Companion'}: ${this.preview ? 'prévia da forma nascente' : this.formStatus?.stageName || 'alma'} no Refúgio`);
   }
-  setPresence(status) { this.presence = status; }
+  react(kind) {
+    const labels={affection:'♡ Carinho',bond:'+1 vínculo ♡',level:'✦ Novo nível!',xp:'✧ Experiência recebida',reply:'♪ Estou aqui!',idle:'… descansando'};
+    if(['level','xp','bond'].includes(this.effect?.kind)&&['reply','idle'].includes(kind)&&performance.now()-this.effect.started<2600)return;
+    this.effect={kind,started:performance.now()};this.lastActivity=performance.now();
+    if(this.notice)this.notice.textContent=labels[kind]||'';
+    if(this.host)this.host.dataset.reaction=kind;
+  }
+  setPresence(status) { if(this.presence==='thinking'&&status==='idle')this.react('reply');this.presence = status;this.lastActivity=performance.now(); }
   setTheme(rgb) { this.accent = rgb; if (this.ctx) this.cacheScene(); }
   resize(w, h, dpr) {
     this.width = Math.max(1, w); this.height = Math.max(1, h); this.dpr = dpr;
@@ -161,11 +191,21 @@ export class HolographicCoreRenderer {
     this.hoverAmount += ((this.hover ? 1 : 0) - this.hoverAmount) * (1 - Math.exp(-dt / 220));
     const hoverScale = 1 + this.hoverAmount * .09;
     c.clearRect(0,0,w,h); c.drawImage(this.background,0,0,w,h);
-    const scale = Math.min(w/850,h/590), x = w*.5, y = (w <= 920 ? h*.49 : h*.73 - 120*scale) + Math.sin(time*.0013)*7;
+    const reduced=this.motion?.matches,now=performance.now();
+    if(!reduced&&now-this.lastActivity>60000&&this.presence==='idle')this.react('idle');
+    if(this.effect&&now-this.effect.started>2800){this.effect=null;if(this.notice)this.notice.textContent='';if(this.host)delete this.host.dataset.reaction;}
+    const ease=reduced?1:1-Math.exp(-dt/260);
+    this.position.x+=(this.destination.x-this.position.x)*ease;this.position.y+=(this.destination.y-this.position.y)*ease;
+    const depth=1+this.position.y*.9;
+    const scale = Math.min(w/850,h/590), x = w*(.5+this.position.x), y = (w <= 920 ? h*.49 : h*.73 - 120*scale)+h*this.position.y;
+    if(this.target){Object.assign(this.target.style,{left:x+'px',top:y+'px',transform:'translate(-50%,-50%)',width:Math.min(180,w*.35)*depth+'px',height:Math.min(220,h*.35)*depth+'px'});}
+    if(this.nameplate)Object.assign(this.nameplate.style,{left:x+'px',top:Math.min(h-155,y+Math.min(130,h*.17)*depth)+'px',transform:'translateX(-50%)'});
+    if(this.notice)Object.assign(this.notice.style,{left:x+'px',top:Math.max(100,y-Math.min(190,h*.30))+'px'});
+    c.save();c.fillStyle=`rgba(${a},.16)`;c.beginPath();c.ellipse(x,y+Math.min(170,h*.25)*depth,Math.min(75,w*.15)*depth,12*depth,0,0,Math.PI*2);c.fill();c.restore();
     // Soul presence is visual, never a gameplay/evolution mutation.
     const r = Math.max(22,42*scale) * (this.presence === 'thinking' ? 1.1 : 1);
     if(this.bodyActive && this.body?.available) {
-      this.body.resize(w,h,this.dpr,x,y);this.body.render(time,this.hoverAmount,this.presence==='thinking');
+      this.body.resize(w*depth,h*depth,this.dpr,x,y);this.body.render(time,this.hoverAmount,this.presence==='thinking',this.effect);
     } else {
     const auraRadius = r * (3.4 + this.hoverAmount * .25);
     const aura = c.createRadialGradient(x,y,0,x,y,auraRadius);
@@ -192,5 +232,5 @@ export class HolographicCoreRenderer {
       c.fillStyle=`rgba(163,223,243,${.12+(i%3)*.1})`;c.beginPath();c.arc(px,py,i%4===0?1.5:.7,0,Math.PI*2);c.fill();
     }
   }
-  destroy() { this.target?.removeEventListener('pointerenter',this.enter); this.target?.removeEventListener('pointerleave',this.leave); this.body?.destroy(); this.canvas?.remove(); this.background = null; this.ctx = null; }
+  destroy() { this.world?.removeEventListener('click',this.move);this.target?.removeEventListener('click',this.pet);this.notice?.remove();this.target?.removeEventListener('pointerenter',this.enter); this.target?.removeEventListener('pointerleave',this.leave); this.body?.destroy(); this.canvas?.remove(); this.background = null; this.ctx = null; }
 }

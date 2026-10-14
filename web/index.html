@@ -237,10 +237,10 @@
             <div class="world-system-state"><span class="status-dot"></span><span id="worldConnection">Conectando</span><button id="immersiveToggle" class="desktop-only" aria-label="Expandir mundo" aria-pressed="false" title="Alternar HUD compacto"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg></button></div>
           </div>
 
-          <div class="world-heading"><span class="eyebrow" id="roomEyebrow">NOSSA HISTÓRIA</span><h1 id="roomHeading">Um espaço nosso</h1><p id="roomDescription">Converse, lembre e evolua ao lado da sua Companion.</p></div>
+          <div class="world-heading"><span class="eyebrow" id="roomEyebrow">NOSSA HISTÓRIA</span><h1 id="roomHeading">Um espaço nosso</h1><p id="roomDescription">Converse, lembre e evolua ao lado da sua Companion. Toque nela para fazer carinho; toque no espaço livre para movê-la.</p><small style="color:#9bb8cd;font-size:11px">Toque na Companion para carinho · Toque no espaço livre para mover</small></div>
           <div id="formPreviewBanner" class="form-preview-banner" role="status" hidden><span>PRÉVIA DA FORMA · SUA COMPANION AINDA É UMA ALMA</span><button id="leaveFormPreview" type="button">Voltar à alma</button></div>
           <p id="formRendererNotice" class="form-renderer-notice" hidden>A ilustração ainda não está disponível. Abra Companion → Arte da forma para gerar ou importar seu PNG.</p>
-          <button class="entity-target" data-open-panel="companion" aria-label="Inspecionar Companion no mundo"></button>
+          <button class="entity-target" type="button" aria-label="Fazer carinho na Companion"></button>
           <div class="entity-nameplate"><span id="entityStage">SOUL</span><strong id="entityName">Companion</strong><small id="entityPresence">Aguardando conexão</small></div>
     <section class="main-chat hud-panel" id="panel-chat" aria-label="Conversa com Companion">
       <div class="chat-header" tabindex="0" aria-label="Mover conversa: arraste ou use Alt e as setas">
@@ -473,10 +473,11 @@
         <section id="desktopConversation" class="pairing-card" hidden>
           <h3>Conversa · IA</h3>
           <p class="muted">Escolha a IA usada neste computador. Ao usar um serviço online, suas mensagens e o contexto da conversa são enviados a ele.</p>
+          <p class="muted">Groq · Companion Core usa a sessão ativa do Cristal e tem uma cota compartilhada. Suas escolhas ficam salvas neste dispositivo. Ollama requer um modelo instalado localmente para conversar sem internet.</p>
           <form id="desktopAIForm">
-            <label>Serviço <select id="desktopAIProvider"><option value="environment">Configuração atual do terminal</option><option value="groq">Groq · minha chave</option><option value="ollama">Ollama · local ou remoto</option><option value="openai">OpenAI · minha chave</option></select></label>
+            <label>Serviço <select id="desktopAIProvider"><option value="environment">Configuração atual do terminal</option><option value="shared">Groq · Companion Core</option><option value="groq">Groq · minha chave</option><option value="ollama">Ollama · local ou remoto</option><option value="openai">OpenAI · minha chave</option><option value="compatible">Outra API compatível · minha chave</option></select></label>
             <div id="desktopGroqGuide" hidden><p>1. Abra o painel e crie uma API Key.<br>2. Copie a chave e cole abaixo.<br>3. Confira seu plano Free no painel e salve.</p><a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer">Criar chave Groq</a><p><label><input id="desktopAIFree" type="checkbox"> Conferi que minha conta Groq está no plano Free</label></p><small>O Core não consegue verificar o plano da sua conta.</small></div>
-            <label id="desktopAIUrlLabel" hidden>Endereço Ollama <input id="desktopAIUrl" type="url" value="http://127.0.0.1:11434"></label>
+            <label id="desktopAIUrlLabel" hidden>Endereço Ollama ou base da API (ex.: https://provedor/v1) <input id="desktopAIUrl" type="url" value="http://127.0.0.1:11434"></label>
             <label id="desktopAIModelLabel" hidden>Modelo <input id="desktopAIModel" type="text" placeholder="Ex.: gemma3:4b"></label>
             <label id="desktopAISecretLabel">Chave de API / token opcional do Ollama <input id="desktopAISecret" type="password" autocomplete="new-password" maxlength="4096" placeholder="Cole aqui; não será exibida novamente"></label>
             <p class="muted">A credencial é salva no arquivo privado deste PC, fora do Git. Ela não é criptografada no disco. Campo vazio mantém a chave salva do mesmo serviço.</p>

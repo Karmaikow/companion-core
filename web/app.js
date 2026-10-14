@@ -151,6 +151,7 @@ function escapeHtml(value) {
 }
 
 function applyState(state) {
+  if(currentState?.identity.id===state.identity.id&&state.meta?.eventCount<currentState.meta?.eventCount)return;
   const changed=currentState?.identity.id!==state.identity.id;
   currentState = state;
   window.dispatchEvent(new CustomEvent('companion:state',{detail:{id:state.identity.id,generation:state.core.formGeneration ?? ({SOUL:0,AWAKENED:1,MANIFESTED:2,ASCENDED:3}[state.core.evolutionStage])}}));
@@ -169,7 +170,7 @@ function applyState(state) {
   $('#panel-memories .drawer-header h2').textContent = `Memórias de ${state.identity.name}`;
   $('#panel-memories .drawer-content h3:last-of-type').textContent = `Diário de ${state.identity.name}`;
   const companionMenu = $('[data-open-panel="companion"] span'); if (companionMenu) companionMenu.textContent = state.identity.name;
-  const entityTarget = $('.entity-target'); if (entityTarget) entityTarget.setAttribute('aria-label', `Inspecionar ${state.identity.name} no mundo`);
+  const entityTarget = $('.entity-target'); if (entityTarget) entityTarget.setAttribute('aria-label', `Fazer carinho em ${state.identity.name}`);
   const companionButton = $('[data-open-panel="chat"]'); if (companionButton) { companionButton.setAttribute('aria-label', `Falar com ${state.identity.name}`); companionButton.textContent = `Falar com ${state.identity.name}`; }
   const companionName = $('[data-open-panel="companion-summary"]'); if (companionName) companionName.setAttribute('aria-label', `Inspecionar ${state.identity.name}`);
   const welcome = $('.chat-welcome'); if (welcome) welcome.textContent = `Sou ${state.identity.name}, sua Companion. ${state.core.evolutionStage === "SOUL" ? "Ainda sou uma alma, e minha forma vai se desenvolver com nossas experiências. " : ""}Estamos no Refúgio, nosso espaço em um mundo de fantasia ainda em construção. Conte algo de que gosta ou pergunte sobre mim para começarmos.`;
@@ -441,6 +442,19 @@ function init() {
   const savedTheme = preferences.get('mayuna-theme');
   applyTheme(!savedTheme || savedTheme.toLowerCase() === '#7657ff' ? '#3f8cff' : savedTheme, false);
   viewport.mount();
+  let affectionBusy=false;
+  document.querySelector('#gameRenderer').addEventListener('companion:affection',async event=>{
+    if(affectionBusy||chatBusy||!currentState||event.detail.id!==currentState.identity.id)return;
+    affectionBusy=true;
+    try {
+      const result=await api.affection(event.detail.id);
+      if(currentState?.identity.id!==event.detail.id)return;
+      applyState(result.state);
+      if(result.awarded)viewport.react('bond');
+      else $('#entityPresence').textContent=result.remaining===0?'Carinho recebido · cota de vínculo de hoje concluída':'Carinho recebido · vínculo disponível a cada minuto';
+    } catch(error){if(currentState?.identity.id===event.detail.id)$('#entityPresence').textContent=error.message;}
+    finally{affectionBusy=false;}
+  });
   window.addEventListener('pagehide', () => viewport.destroy(), { once: true });
   $$('.skill-slot, .gear-slot').forEach(button => { button.addEventListener('click', () => openDrawer(button.classList.contains('gear-slot') ? 'inventory' : 'skills')); });
   $$('[data-hotkey]').forEach(button => button.addEventListener('click', () => openDrawer('skills')));

@@ -19,6 +19,7 @@ const auth = new LocalAuth();
 const desktopAI = !mock && process.env.MAYUNA_AI_PROVIDER !== 'android' ? new DesktopAISettings() : null;
 const provider = desktopAI ?? createAIProvider();
 const runtime = new CompanionRuntime(provider);
+desktopAI?.setSharedSigner(context=>runtime.signSharedChat(context));
 const imageProvider = new FormImageProvider(process.env.MAYUNA_DATA_DIR ?? 'data');
 const remoteOrigin = parseRemoteOrigin(process.env.MAYUNA_REMOTE_ORIGIN);
 const pairing = new RemotePairing(remoteOrigin);
@@ -265,6 +266,11 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, pathname: st
     return;
   }
 
+  if (req.method==='POST' && pathname==='/api/companion/interaction') {
+    try {const body=await readJsonBody(req,1024) as {id?:unknown};json(res,200,await runtime.refugeInteraction(body.id));}
+    catch(error){json(res,error instanceof HubError||error instanceof CrystalError?error.status:503,{error:error instanceof HubError||error instanceof CrystalError?error.message:'Não foi possível salvar o carinho. Tente novamente.'});}
+    return;
+  }
   if (req.method === 'POST' && pathname === '/api/companion/chat') {
     try {
       const body = await readJsonBody(req) as { message?: unknown };

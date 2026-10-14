@@ -92,3 +92,15 @@ test('Ollama errors do not expose response bodies or configured gateway tokens',
    /HTTP 401/.test(error.message)&&!error.message.includes('TEST-OLLAMA-TOKEN')&&!error.message.includes('private prompt'));
  }finally{globalThis.fetch=original;}
 });
+
+
+test('custom compatible API uses only its own key and rejects insecure endpoints and partial replies',async()=>{
+ const {CompatibleProvider}=await import('../dist/ai/compatible-provider.js');
+ assert.throws(()=>new CompatibleProvider('test','model','http://example.com/v1'),/HTTPS/);
+ const original=globalThis.fetch;
+ try{
+  globalThis.fetch=async(url,options)=>{assert.equal(url,'https://example.com/v1/chat/completions');assert.equal(options.headers.Authorization,'Bearer test-compatible');assert.equal(options.redirect,'error');return Response.json({choices:[{finish_reason:'stop',message:{content:'Olá!'}}]});};
+  const provider=new CompatibleProvider('test-compatible','model','https://example.com/v1');assert.equal(await provider.generateResponse(context),'Olá!');
+  globalThis.fetch=async()=>Response.json({choices:[{finish_reason:'length',message:{content:'Partial'}}]});await assert.rejects(provider.generateResponse(context),/não concluiu/);
+ }finally{globalThis.fetch=original;}
+});

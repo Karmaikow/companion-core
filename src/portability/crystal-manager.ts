@@ -6,7 +6,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { CompanionCore } from '../core/core.js';
 import { LocalStore, writeFileAtomic } from '../storage/store.js';
-import { stableJson } from '../crypto/crypto.js';
+import { sha256, signData, stableJson } from '../crypto/crypto.js';
 import { RegistryClient } from './registry-client.js';
 import { CrystalError, sealCrystal, openCrystal, validatePayload, signCrystalData, crystalHash, type CrystalPayload } from './crystal.js';
 import type { Device } from './registry.js';
@@ -71,6 +71,14 @@ export class CrystalManager {
     if(!this.local)return;
     if(this.local.id!==core.getState().identity.id||this.local.phase!=='active')throw new CrystalError(409,'A Companion está recolhida ou com uma transferência pendente. Use o Cristal no seu vínculo.');
     await this.request('register',core,{session:this.local.session,recovery:this.local.recovery,device:this.local.device});
+  }
+  async signChat(core:CompanionCore,context:unknown,authority:string) {
+    if(!this.sessions[core.getState().identity.id]&&!this.configuredUrl)this.configuredUrl=authority;
+    await this.assertActive(core);
+    const id=core.getState().identity.id,local=this.sessions[id];
+    if(!local||local.phase!=='active'||local.authority!==authority)throw new CrystalError(409,'Ative o Cristal no registro online para usar a Groq compartilhada.');
+    const unsigned={action:'companion-chat:v1',id,publicKey:core.getState().identity.cryptographicIdentity.publicKey,timestamp:Date.now(),nonce:randomUUID(),payload:{sessionHash:sha256(local.session),context}};
+    return {...unsigned,signature:signData(stableJson(unsigned),core.getPrivateKey())};
   }
   async recollect(core:CompanionCore,password:string,name:string,gift?:BondInvitation){
     this.select(core.getState().identity.id);
@@ -195,3 +203,4 @@ export class CrystalManager {
   isActiveFor(id:string){return this.sessions[id]?.phase==='active';}
   getRecoveryCode(){return this.local?.recovery;}
 }
+

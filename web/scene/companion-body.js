@@ -32,17 +32,25 @@ export class CompanionBodyRenderer {
     if(this.size!==size||this.ratio!==ratio){this.size=size;this.ratio=ratio;this.canvas.width=Math.round(size*ratio);this.canvas.height=Math.round(size*ratio);}
     Object.assign(this.canvas.style,{width:size+'px',height:size+'px',left:(x-size/2)+'px',top:(y-size/2)+'px'});
   }
-  render(time,hover,thinking) {
+  render(time,hover,thinking,effect) {
     if(!this.available||!this.image)return;
     const c=this.ctx,size=this.size,reduced=this.motion?.matches;
     const frame=reduced?0:Math.floor(time*this.fps/1000)%this.frames;
     const sw=this.image.naturalWidth/this.frames,sh=this.image.naturalHeight;
     const scale=Math.min(size*.9/sw,size*.9/sh),w=sw*scale,h=sh*scale;
     c.setTransform(this.ratio,0,0,this.ratio,0,0);c.clearRect(0,0,size,size);c.save();
-    c.translate(size/2,size/2+(reduced?0:Math.sin(time*.0018)*3));
-    const breath=reduced?1:1+Math.sin(time*.002)*.012;
-    c.scale(1+(reduced?0:hover*.025),breath);c.rotate(reduced?0:Math.sin(time*(thinking ? .003 : .001))*.012);
+    const elapsed=effect?(performance.now()-effect.started)/1000:10;
+    const leap=!reduced&&['level','affection','bond','reply'].includes(effect?.kind)&&elapsed<1?Math.sin(elapsed*Math.PI)*8:0;
+    c.translate(size/2,size/2-leap);
+    if(thinking&&!reduced){c.shadowColor='#8cbaff';c.shadowBlur=8+Math.sin(time*.004)*4;}
+    if(effect?.kind==='level'&&!reduced){c.shadowColor='#ffe7a8';c.shadowBlur=18;}
+
     c.drawImage(this.image,frame*sw,0,sw,sh,-w/2,-h/2,w,h);c.restore();
+    if(effect&&!reduced&&elapsed<2.8){
+      c.save();c.globalAlpha=Math.max(0,1-elapsed/2.8);c.fillStyle=effect.kind==='level'?'#ffe4a0':'#b8d9ff';c.font='18px sans-serif';
+      for(let i=0;i<3;i++){const x=size/2+Math.sin(i*2.1)*w*.38,y=size/2-h*.30-elapsed*18-i*9;c.fillText(effect.kind==='idle'?'z':effect.kind==='affection'||effect.kind==='bond'?'♡':'✧',x,y);}
+      c.restore();
+    }
   }
   destroy(){this.signature=null;this.image=null;this.canvas?.remove();this.available=false;}
 }

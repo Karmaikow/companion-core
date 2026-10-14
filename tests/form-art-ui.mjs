@@ -91,5 +91,16 @@ try{
  await page.locator('#artEditor details').evaluate(el=>el.open=true);await page.click('#artGenerate');await page.waitForFunction(()=>document.querySelector('#artStatus').textContent.includes('créditos'));
  await page.click('#evolutionPreview');await page.waitForFunction(()=>document.querySelector('#gameRenderer').dataset.bodyRenderer==='sprite2d');
  assert.ok(await page.locator('.companion-body-canvas').evaluate(c=>c.width>0 && c.getContext('2d').getImageData(c.width/2,c.height/2,1,1).data[3]>0),'reduced motion must paint asynchronously loaded art');
+ // Reduced-motion interaction: actual click, server persistence, repeated click and movement.
+ const bondBefore=(await (await page.request.get(base+'/api/companion/state')).json()).bond.value;
+ await page.locator('.entity-target').click();
+ await page.waitForFunction(()=>document.querySelector('#gameRenderer').dataset.reaction==='bond');
+ assert.equal((await (await page.request.get(base+'/api/companion/state')).json()).bond.value,bondBefore+1);
+ await page.locator('.entity-target').click();
+ await page.waitForFunction(()=>document.querySelector('#entityPresence').textContent.includes('cada minuto'));
+ assert.equal((await (await page.request.get(base+'/api/companion/state')).json()).bond.value,bondBefore+1);
+ const beforeMove=await page.locator('.companion-body-canvas').boundingBox();
+ await page.locator('#worldFrame').evaluate(el=>{const b=document.querySelector('#gameRenderer').getBoundingClientRect();el.dispatchEvent(new MouseEvent('click',{bubbles:true,clientX:b.left+b.width*.72,clientY:b.top+b.height*.65}));});
+ const afterMove=await page.locator('.companion-body-canvas').boundingBox();assert.ok(afterMove.x>beforeMove.x+10,'companion follows destination');
  assert.deepEqual(errors,[]);console.log('PASS: 2172px/8-frame regression, large-image UI import, alpha preservation, JPEG/WebP conversion, >4 MB PNG reduction, invalid-image handling, persistence/history/reload, owner auth, private PNG, desktop/mobile rendering and reduced motion; no JS errors.');
 }finally{await browser?.close();if(child.exitCode===null&&child.signalCode===null){const exited=once(child,'exit');child.kill();await exited;}await rm(root,{recursive:true,force:true});}

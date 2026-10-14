@@ -1,3 +1,5 @@
+import { SHARED_REGISTRY_URL } from '../ai/shared-provider.js';
+import { refugeReward } from '../core/refuge-interaction.js';
 import { FormArtStore, validateArt } from './form-art.js';
 import { formArtPrompt, formGeneration, manifestationStatus } from '../core/manifestation.js';
 import { CrystalManager } from '../portability/crystal-manager.js';
@@ -249,6 +251,21 @@ export class CompanionRuntime {
     this.interaction = new InteractionEngine(this.core, this.provider, this.conversation);
   }
 
+  async signSharedChat(context:unknown) {this.requireCompanion();return this.crystal.signChat(this.core,context,SHARED_REGISTRY_URL);}
+  refugeInteraction(id:unknown) {
+    return this.serial(async()=>{
+      this.requireCompanion();
+      if(id!==this.getActiveId())throw new HubError(409,'A Companion mudou. Tente novamente.');
+      const reward=refugeReward(this.core.getData().events,Date.now());
+      if(!reward.awarded)return {...reward,state:this.getClientState()};
+      await this.crystal.assertActive(this.core);
+      const before=this.core.getState().bond.value;
+      if(before>=1000)return {...reward,awarded:false,bond:0,state:this.getClientState()};
+      this.core.processEvent('SOCIAL',{kind:'REFUGE_INTERACTION',action:'affection'},{bond:1,coreXp:0,combatXp:0});
+      await this.save();
+      return {...reward,bond:this.core.getState().bond.value-before,state:this.getClientState()};
+    });
+  }
   chat(message: string) {
     // Serialize interaction + persistence: the next request sees the preceding state.
     const next = this.queue.then(() => this.interactAndSave(message));
