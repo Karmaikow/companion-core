@@ -8,10 +8,10 @@ Atualize a branch, rode `npm ci` e `npm test`, e reinicie o Core com a mesma con
 
 1. O Core monta um pedido de ilustração de fantasia chibi com o nome, escolhas visuais e traços da companion. O prompt pode ser copiado para o ChatGPT ou outro gerador. O Core não cobra pela cópia/importação; cada plataforma tem seus próprios limites.
 2. Gere e baixe um PNG com fundo transparente. Nas próximas formas, anexe a imagem anterior para manter a identidade visual.
-3. Importe o PNG no ateliê, confira a prévia e clique em **Aplicar esta arte**. A imagem atual pode ser baixada e as anteriores ficam no histórico. Também é possível baixar uma prévia antes de aplicá-la.
+3. Importe a imagem no ateliê (PNG, JPEG ou WebP), confira a prévia e clique em **Aplicar esta arte**. O Core prepara um PNG automaticamente, preserva a proporção e a transparência existente, e ajusta a largura das faixas ao número de quadros selecionado. A imagem atual pode ser baixada e as anteriores ficam no histórico. Também é possível baixar uma prévia antes de aplicá-la.
 4. Uma imagem recebe respiração e flutuação suaves. Para movimentos desenhados, como piscar, importe uma faixa horizontal de 2 a 8 quadros iguais e ajuste os quadros por segundo (1–12). O sistema não inventa poses ou articulações a partir de um PNG único. Movimento reduzido é respeitado.
 
-Limites por PNG: 4 MB, 4.194.304 pixels, largura de até 8192 e altura de até 2048. O fundo precisa ser transparente de verdade; o Core não remove fundos magenta, brancos ou quadriculados desenhados.
+Importação: PNG, JPEG ou WebP de até 32 MB, nas dimensões que o navegador conseguir decodificar. Imagens grandes são reduzidas automaticamente antes de enviar ao Core, sem recortar o conteúdo; faixas horizontais são reamostradas em células de larguras inteiras, mesmo quando a largura original não é divisível pelos quadros (por exemplo, 2172 pixels com 8 quadros). O número de quadros continua sendo informado pelo usuário: o Core não detecta poses nem corrige desenhos desalinhados. O PNG armazenado mantém os limites de 4 MB, 4.194.304 pixels, largura de até 8192 e altura de até 2048. Se necessário, a resolução diminui novamente até caber nos 4 MB, mantendo o canal alfa. JPEG mantém o fundo original. O fundo precisa ser transparente de verdade; o Core não remove fundos magenta, brancos ou quadriculados desenhados.
 
 ## Geração direta opcional
 

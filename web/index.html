@@ -404,9 +404,10 @@
             <button id="artCopy" type="button">Copiar pedido para o ChatGPT</button>
             <small>Gere a imagem na plataforma de sua escolha e importe o PNG. Para evoluir a mesma aparência, anexe também a imagem anterior.</small>
             <a id="artDownload" hidden download="companion-form.png">Baixar imagem atual</a>
-            <label for="artFile">Importar PNG · até 4 MB</label><input id="artFile" type="file" accept="image/png">
+            <label for="artFile">Importar imagem · PNG, JPEG ou WebP · até 32 MB</label><input id="artFile" type="file" accept="image/png,image/jpeg,image/webp">
+            <small>O Core ajusta as dimensões e prepara o PNG automaticamente, preservando a proporção e a transparência existente. Imagens JPEG mantêm seu fundo.</small>
             <div class="art-fields"><label>Quadros na faixa horizontal <input id="artFrames" type="number" min="1" max="8" value="1"></label><label>Quadros por segundo <input id="artFps" type="number" min="1" max="12" value="6"></label></div>
-            <small>Use 1 para uma ilustração. Para piscar ou mover partes do corpo, importe uma faixa com 2–8 quadros de tamanho igual.</small>
+            <small>Use 1 para uma ilustração. Para piscar ou mover partes do corpo, importe uma faixa horizontal com 2–8 quadros. O Core ajusta a largura para dividir os quadros igualmente.</small>
             <details><summary>Gerar aqui com API OpenAI · opcional e pago</summary>
               <p>A chave de conversa Groq não serve para imagens. O Core envia somente o pedido acima e a arte atual como referência.</p>
               <label for="artKey">Chave OpenAI de imagens</label><input id="artKey" type="password" autocomplete="off" placeholder="Chave não exibida após salvar">
