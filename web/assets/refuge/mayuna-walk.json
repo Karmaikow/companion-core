@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "image": "mayuna-walk.png",
+  "frameWidth": 448,
+  "frameHeight": 448,
+  "columns": 4,
+  "rows": 2,
+  "pivot": {"x": 0.7, "y": 0.98},
+  "mirror": true,
+  "draft": true,
+  "clips": {
+    "idle": {"SE": {"frames": [0], "fps": 1}},
+    "walk": {"SE": {"frames": [0, 1, 2, 3, 4, 5, 6, 7], "fps": 8}}
+  }
+}

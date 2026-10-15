@@ -163,6 +163,8 @@ function applyState(state) {
   if(changed) applyTheme(preferences.get(`companion-theme-${state.identity.id}`) || '#3f8cff',false);
   if(changed || state.core.evolutionStage!=='SOUL') stopFormPreview();
   viewport?.setState(state);
+  const studioLink=document.getElementById('spriteStudioLink');
+  if(studioLink)studioLink.href='/sprite-studio.html?'+new URLSearchParams({id:state.identity.id,generation:String((state.manifestation||manifestationStatus(state)).generation)});
   renderEvolution(state);
   document.title = `Companion Core · ${state.identity.name}`;
   $('.brand-copy small').textContent = `${state.identity.name} · SUA COMPANION`;

@@ -6,8 +6,9 @@ import { refugeOrigin, refugeDestination, advanceRefuge } from './refuge-motion.
  * A future Phaser adapter can implement this contract without knowing the API/Core.
  */
 export class GameViewport {
-  constructor(host, renderer = new HolographicCoreRenderer()) {
-    this.host = host; this.renderer = renderer; this.raf = 0; this.last = 0; this.running = false;
+  constructor(host, renderer) {
+    this.auto3D = !renderer; this.state = null; this.destroyed = false;
+    this.host = host; this.renderer = renderer || new HolographicCoreRenderer(); this.raf = 0; this.last = 0; this.running = false;
     this.motion = matchMedia('(prefers-reduced-motion: reduce)');
     this.visibility = () => this.schedule();
   }
@@ -22,21 +23,50 @@ export class GameViewport {
     document.addEventListener('visibilitychange', this.visibility);
     this.motion.addEventListener('change', this.visibility);
     this.running = true; this.schedule();
+    this.contextLost = () => this.useFallback();
+    this.host.addEventListener('refuge:context-lost', this.contextLost);
+    if (this.auto3D) void this.upgrade3D();
+  }
+  async upgrade3D() {
+    let next;
+    try {
+      const { Refuge3DRenderer } = await import('./refuge-3d.js');
+      if (this.destroyed) return;
+      next = new Refuge3DRenderer(); next.mount(this.host);
+    } catch (error) {
+      next?.destroy(); this.host.dataset.renderer = 'canvas2d';
+      console.warn('Refúgio 3D indisponível; usando Canvas 2D.', error); return;
+    }
+    this.renderer.destroy(); this.renderer = next; this.host.dataset.renderer = 'webgl';
+    this.syncRenderer(); this.schedule();
+  }
+  syncRenderer() {
+    const rect = this.host.getBoundingClientRect();
+    this.renderer.resize(rect.width, rect.height, Math.min(devicePixelRatio || 1, 1.5));
+    if (this.theme) this.renderer.setTheme(this.theme);
+    if (this.state) this.renderer.setState(this.state);
+    this.renderer.setFormPreview(this.preview);
+    this.renderer.setPresence(this.presence || 'idle'); this.renderer.render(0);
+  }
+  useFallback() {
+    this.renderer.destroy(); this.renderer = new HolographicCoreRenderer();
+    this.renderer.mount(this.host); this.host.dataset.renderer = 'canvas2d'; this.syncRenderer(); this.schedule();
   }
   schedule() {
     cancelAnimationFrame(this.raf);
     if (!this.running || document.hidden) return;
-    if (this.motion.matches) { this.renderer.render(0); return; }
+    if (this.motion.matches && this.host.dataset.renderer !== 'webgl') { this.renderer.render(0); return; }
     const tick = time => {
       if (time - this.last >= 1000 / 30) { this.renderer.render(time); this.last = time; }
       this.raf = requestAnimationFrame(tick);
     };
     this.raf = requestAnimationFrame(tick);
   }
-  setTheme(rgb) { this.renderer.setTheme(rgb); if (this.motion.matches) this.renderer.render(0); }
-  setState(state) { this.renderer.setState(structuredClone(state)); if(this.motion.matches) this.renderer.render(0); }
-  setFormPreview(value) { this.renderer.setFormPreview(value); this.renderer.render(this.motion.matches ? 0 : this.last); }
+  setTheme(rgb) { this.theme=rgb; this.renderer.setTheme(rgb); if (this.motion.matches) this.renderer.render(0); }
+  setState(state) { this.state=structuredClone(state); this.renderer.setState(this.state); if(this.motion.matches) this.renderer.render(0); }
+  setFormPreview(value) { this.preview=value; this.renderer.setFormPreview(value); this.renderer.render(this.motion.matches ? 0 : this.last); }
   setPresence(status) {
+    this.presence=status;
     this.host.dataset.presence = status;
     const label = document.querySelector('#entityPresence');
     if (label) label.textContent = status === 'thinking' ? 'Em conexão com você' : status === 'offline' ? 'Aguardando conexão' : 'Conectada ao núcleo';
@@ -46,6 +76,7 @@ export class GameViewport {
   pause() { this.running = false; cancelAnimationFrame(this.raf); }
   resume() { this.running = true; this.schedule(); }
   destroy() {
+    this.destroyed = true; this.host.removeEventListener('refuge:context-lost', this.contextLost);
     this.running = false; cancelAnimationFrame(this.raf); this.observer?.disconnect();
     document.removeEventListener('visibilitychange', this.visibility); this.motion.removeEventListener('change', this.visibility);
     this.renderer.destroy();

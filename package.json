@@ -29,11 +29,15 @@
     "registry:check": "npm run build && node scripts/check-online-registry.mjs"
   },
   "devDependencies": {
+    "@playwright/test": "1.56.1",
     "@types/node": "^22.10.0",
     "acorn": "8.15.0",
     "esbuild": "0.28.2",
     "regexpu-core": "6.4.0",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"
+  },
+  "dependencies": {
+    "three": "0.180.0"
   }
 }

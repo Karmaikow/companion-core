@@ -1,4 +1,4 @@
-import { FormImageProvider } from './form-art.js';
+import { FormImageProvider, validateArt } from './form-art.js';
 import { CrystalError, MAX_CRYSTAL_BYTES } from '../portability/crystal.js';
 import { fileURLToPath } from 'node:url';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
@@ -25,6 +25,7 @@ const remoteOrigin = parseRemoteOrigin(process.env.MAYUNA_REMOTE_ORIGIN);
 const pairing = new RemotePairing(remoteOrigin);
 
 const contentTypes: Record<string, string> = {
+  '.glb': 'model/gltf-binary',
   '.html': 'text/html; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
@@ -237,6 +238,14 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, pathname: st
         const body=await readJsonBody(req,5_400_000) as Record<string,unknown>;
         if(pathname==='/api/companion/art/settings'){json(res,200,await imageProvider.configure(body));return;}
         if(pathname==='/api/companion/art/apply'){json(res,200,await runtime.applyArt(body));return;}
+        if(pathname==='/api/companion/art/sprite') {
+          const context=runtime.artContext();
+          if(body.id!==context.id||body.generation!==context.generation)throw new HubError(409,'Abra o Estúdio pela Companion ativa antes de gerar.');
+          if(typeof body.prompt!=='string'||body.prompt.trim().length<20||body.prompt.length>3000)throw new HubError(400,'Prepare um pedido de 20 a 3000 caracteres.');
+          const reference=validateArt(body.reference).bytes;
+          const image=await imageProvider.generate(body.prompt,body.paidConsent,reference);
+          json(res,200,{id:context.id,generation:context.generation,image});return;
+        }
         if(pathname==='/api/companion/art/generate') {
           const context=runtime.artContext();
           if(body.id!==context.id||body.generation!==context.generation)throw new HubError(409,'A Companion mudou. Abra a arte novamente.');
@@ -351,7 +360,7 @@ async function main(): Promise<void> {
       if (req.method === 'POST' && !(req.headers['content-type'] ?? '').startsWith('application/json')) { json(res,415,{error:'Envie JSON.'}); return; }
       res.setHeader('X-Content-Type-Options', 'nosniff');
       res.setHeader('Referrer-Policy', 'same-origin');
-      res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'");
+      res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' blob:; object-src 'none'; frame-ancestors 'none'; base-uri 'none'");
       if (url.pathname.startsWith('/api/')) {
         await handleApi(req, res, url.pathname);
         return;
