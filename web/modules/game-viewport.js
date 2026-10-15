@@ -75,7 +75,7 @@ export class HolographicCoreRenderer {
     this.pet=()=>{if(!this.state||document.body.classList.contains('is-locked'))return;this.react('affection');host.dispatchEvent(new CustomEvent('companion:affection',{bubbles:true,detail:{id:this.state.identity.id}}));};
     this.target?.addEventListener('click',this.pet);
     this.move=event=>{
-      if(!this.state||document.body.classList.contains('is-locked')||event.target.closest('button,a,input,textarea,select,.hud-panel,.world-topline,.entity-nameplate,.form-preview-banner'))return;
+      if(!this.state||!this.bodyActive||!this.body?.available||document.body.classList.contains('is-locked')||event.target.closest('button,a,input,textarea,select,.hud-panel,.world-topline,.entity-nameplate,.form-preview-banner'))return;
       const box=this.host.getBoundingClientRect();
       if(event.clientY<box.top+box.height*.32)return;
       this.destination={x:Math.max(-.22,Math.min(.22,(event.clientX-box.left)/box.width-.5)),y:Math.max(-.08,Math.min(.10,(event.clientY-box.top)/box.height-.58))};
@@ -107,6 +107,7 @@ export class HolographicCoreRenderer {
     if(active && this.body) { this.body.setRecipe(this.formStatus.recipe,this.state.artwork,this.state.identity.id); if(this.body.canvas) this.body.canvas.hidden=false; }
     else if(this.body?.canvas) this.body.canvas.hidden=true;
     this.bodyActive=active;
+    if(!active){this.position={x:0,y:0};this.destination={x:0,y:0};}
     this.canvas?.setAttribute('aria-label', `${this.state?.identity?.name || 'Sua Companion'}: ${this.preview ? 'prévia da forma nascente' : this.formStatus?.stageName || 'alma'} no Refúgio`);
   }
   react(kind) {
@@ -185,6 +186,7 @@ export class HolographicCoreRenderer {
 
   render(time = 0) {
     if (!this.ctx) return;
+    const hint=document.getElementById('refugeMoveHint');if(hint)hint.hidden=!(this.bodyActive&&this.body?.available);
     const c = this.ctx, w = this.width, h = this.height, a = this.soulAccent;
     const dt = Math.min(64, Math.max(0, time - this.lastRenderTime));
     this.lastRenderTime = time;

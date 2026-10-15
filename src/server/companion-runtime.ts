@@ -1,7 +1,8 @@
+import { companionQuests } from '../core/quests.js';
 import { SHARED_REGISTRY_URL } from '../ai/shared-provider.js';
 import { refugeReward } from '../core/refuge-interaction.js';
 import { FormArtStore, validateArt } from './form-art.js';
-import { formArtPrompt, formGeneration, manifestationStatus } from '../core/manifestation.js';
+import { formArtPrompt, formGeneration, manifestationStatus, evolutionEvidence } from '../core/manifestation.js';
 import { CrystalManager } from '../portability/crystal-manager.js';
 import { describeColor } from '../core/color-names.js';
 import { mkdir, readFile, readdir, unlink } from 'node:fs/promises';
@@ -123,6 +124,7 @@ export class CompanionRuntime {
         preferences: state.profile.preferences,
         companionOf: state.profile.companionOf
       },
+      quests: companionQuests(data),
       manifestation: manifestationStatus(state),
       artwork: state.artwork,
       artworkHistory: state.artworkHistory ?? [],
@@ -251,6 +253,17 @@ export class CompanionRuntime {
     this.interaction = new InteractionEngine(this.core, this.provider, this.conversation);
   }
 
+  claimQuest(id:unknown,questId:unknown) {
+    return this.serial(async()=>{
+      this.requireCompanion();
+      if(id!==this.getActiveId())throw new HubError(409,'A Companion mudou. Abra as missões novamente.');
+      const quest=companionQuests(this.core.getData()).find(q=>q.id===questId);
+      if(!quest||!quest.ready)throw new HubError(409,'Esta missão ainda não está pronta ou a recompensa já foi recebida.');
+      await this.crystal.assertActive(this.core);
+      this.core.processEvent('SYSTEM',{kind:'QUEST_REWARD',questId:quest.id,memoryIds:evolutionEvidence(this.core.getState()).relevantMemoryIds},{coreXp:quest.xp,combatXp:0,bond:0});
+      await this.save();return {xp:quest.xp,state:this.getClientState()};
+    });
+  }
   async signSharedChat(context:unknown) {this.requireCompanion();return this.crystal.signChat(this.core,context,SHARED_REGISTRY_URL);}
   refugeInteraction(id:unknown) {
     return this.serial(async()=>{

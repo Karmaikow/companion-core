@@ -26,7 +26,7 @@ Código do banco em `scripts/shared-chat-schema.sql`; função em `supabase/func
 
 ## Interações visuais
 
-Toque/clique na Companion para carinho; Enter/Espaço no botão também funciona. Toque no espaço livre do Refúgio para deslocamento com profundidade e sombra. São sprites 2D posicionados em um plano; uma única arte não cria visão lateral ou traseira. Não há navegação 3D, colisões, nem novos sprites direcionais nesta versão.
+Toque/clique na Companion para carinho; Enter/Espaço no botão também funciona. Quando o sprite estiver visível (forma ou prévia), toque no espaço livre do Refúgio para deslocamento com profundidade e sombra. A alma permanece centralizada; carinho continua disponível. São sprites 2D posicionados em um plano; uma única arte não cria visão lateral ou traseira. Não há navegação 3D, colisões, nem novos sprites direcionais nesta versão.
 
 Reações: brilho ao preparar resposta, pequenos saltos e partículas em carinho/resposta/subida de nível, partículas de XP e descanso após 60 segundos sem interação. Sprites não recebem mais rotação e esticamento contínuos. A opção de movimento reduzido mantém a arte estática e comunica reações em texto.
 

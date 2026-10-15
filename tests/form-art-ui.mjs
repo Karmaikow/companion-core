@@ -102,5 +102,17 @@ try{
  const beforeMove=await page.locator('.companion-body-canvas').boundingBox();
  await page.locator('#worldFrame').evaluate(el=>{const b=document.querySelector('#gameRenderer').getBoundingClientRect();el.dispatchEvent(new MouseEvent('click',{bubbles:true,clientX:b.left+b.width*.72,clientY:b.top+b.height*.65}));});
  const afterMove=await page.locator('.companion-body-canvas').boundingBox();assert.ok(afterMove.x>beforeMove.x+10,'companion follows destination');
+ // Returning to soul disables movement but keeps affection.
+ await page.click('#leaveFormPreview');
+ const soulBefore=await page.locator('.entity-target').boundingBox();
+ await page.locator('#worldFrame').evaluate(el=>{const b=document.querySelector('#gameRenderer').getBoundingClientRect();el.dispatchEvent(new MouseEvent('click',{bubbles:true,clientX:b.left+b.width*.2,clientY:b.top+b.height*.65}));});
+ const soulAfter=await page.locator('.entity-target').boundingBox();assert.equal(soulAfter.x,soulBefore.x);assert.ok(await page.locator('#refugeMoveHint').isHidden());
+ // Quest progress is server-owned. Existing conversations count; claiming happens once.
+ for(let i=0;i<14;i++){const reply=await page.request.post(base+'/api/companion/chat',{data:{message:'Vamos conversar sobre a trilha '+i+'?'}});assert.equal(reply.status(),200);}
+ await enter();await page.locator('.mobile-dock [data-open-panel="menu"]').click();await page.locator('#panel-menu [data-open-panel="companion"]').click();
+ const claim=page.locator('[data-quest-claim="bond-fifteen"]');await claim.waitFor({state:'visible'});assert.equal(await claim.isEnabled(),true);await claim.click();
+ await page.waitForFunction(()=>document.querySelector('#questStatus').textContent.includes('+150 XP'));
+ assert.equal(await page.locator('[data-quest-claim="bond-fifteen"]').count(),0);
+ await page.locator('[data-quest-prompt="own-color"]').click();assert.match(await page.locator('#chatInput').inputValue(),/cor.*favorita/);
  assert.deepEqual(errors,[]);console.log('PASS: 2172px/8-frame regression, large-image UI import, alpha preservation, JPEG/WebP conversion, >4 MB PNG reduction, invalid-image handling, persistence/history/reload, owner auth, private PNG, desktop/mobile rendering and reduced motion; no JS errors.');
 }finally{await browser?.close();if(child.exitCode===null&&child.signalCode===null){const exited=once(child,'exit');child.kill();await exited;}await rm(root,{recursive:true,force:true});}

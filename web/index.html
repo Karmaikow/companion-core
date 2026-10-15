@@ -237,7 +237,7 @@
             <div class="world-system-state"><span class="status-dot"></span><span id="worldConnection">Conectando</span><button id="immersiveToggle" class="desktop-only" aria-label="Expandir mundo" aria-pressed="false" title="Alternar HUD compacto"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg></button></div>
           </div>
 
-          <div class="world-heading"><span class="eyebrow" id="roomEyebrow">NOSSA HISTÓRIA</span><h1 id="roomHeading">Um espaço nosso</h1><p id="roomDescription">Converse, lembre e evolua ao lado da sua Companion. Toque nela para fazer carinho; toque no espaço livre para movê-la.</p><small style="color:#9bb8cd;font-size:11px">Toque na Companion para carinho · Toque no espaço livre para mover</small></div>
+          <div class="world-heading"><span class="eyebrow" id="roomEyebrow">NOSSA HISTÓRIA</span><h1 id="roomHeading">Um espaço nosso</h1><p id="roomDescription">Converse, lembre e evolua ao lado da sua Companion.</p><small style="color:#9bb8cd;font-size:11px">Toque na Companion para carinho<span id="refugeMoveHint" hidden> · Toque no espaço livre para mover</span></small></div>
           <div id="formPreviewBanner" class="form-preview-banner" role="status" hidden><span>PRÉVIA DA FORMA · SUA COMPANION AINDA É UMA ALMA</span><button id="leaveFormPreview" type="button">Voltar à alma</button></div>
           <p id="formRendererNotice" class="form-renderer-notice" hidden>A ilustração ainda não está disponível. Abra Companion → Arte da forma para gerar ou importar seu PNG.</p>
           <button class="entity-target" type="button" aria-label="Fazer carinho na Companion"></button>
@@ -388,6 +388,12 @@
           <div><small>Vínculo</small><strong id="drawerBond">0</strong></div>
           <div><small>Combat Level</small><strong id="drawerCombat">1</strong></div>
         </div>
+        <section class="evolution-card" aria-labelledby="questTitle">
+          <span class="eyebrow">NOSSA JORNADA</span><h3 id="questTitle">Missões do Refúgio</h3>
+          <p>Escolha um objetivo. A Companion ajuda a conduzir a conversa; o Core confere seu progresso e libera a recompensa.</p>
+          <div id="questList"></div><p id="questStatus" role="status"></p>
+          <small>Memórias relevantes são experiências distintas registradas pelo Core. Repetir mensagens ou apenas abrir uma missão não concede sua recompensa. Objetivos já alcançados também contam.</small>
+        </section>
         <section class="evolution-card" aria-labelledby="evolutionTitle">
           <span class="eyebrow">MISSÕES · EVOLUÇÃO CONTÍNUA</span><h3 id="evolutionTitle">Primeiro despertar</h3>
           <p id="evolutionCopy">Sua história está começando.</p><div id="evolutionRequirements"></div>

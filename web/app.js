@@ -118,7 +118,11 @@ function renderMemories(memories = []) {
   }).join('');
 }
 
+function renderQuests(state) {
+  $('#questList').innerHTML=(state.quests||[]).map(q=>`<article class="memory-card"><strong>${escapeHtml(q.title)} · +${q.xp} XP</strong><p>${escapeHtml(q.description)}</p><p>${q.current}/${q.target} · ${q.claimed?'Recompensa recebida':q.ready?'Pronta para receber':'Em andamento'}</p>${q.claimed?'':`<button type="button" class="secondary-button full" data-quest-prompt="${escapeHtml(q.id)}">Continuar com a Companion</button><button type="button" class="primary-button full" data-quest-claim="${escapeHtml(q.id)}" ${q.ready?'':'disabled'}>Receber ${q.xp} XP</button>`}</article>`).join('');
+}
 function renderEvolution(state) {
+  renderQuests(state);
   const status = state.manifestation || manifestationStatus(state);
   $('#evolutionTitle').textContent = status.next?.title || 'Sua forma continua crescendo';
   $('#evolutionCopy').textContent = status.hasBody ? `Forma ${status.generation ?? 1}. Novos ciclos desenvolvem sua história sem uma forma final. A arte anterior continua até você aplicar a próxima.` : 'A alma ganha sua primeira forma quando todos os requisitos abaixo forem atendidos. As escolhas são da Companion, não do usuário.';
@@ -155,6 +159,7 @@ function applyState(state) {
   const changed=currentState?.identity.id!==state.identity.id;
   currentState = state;
   window.dispatchEvent(new CustomEvent('companion:state',{detail:{id:state.identity.id,generation:state.core.formGeneration ?? ({SOUL:0,AWAKENED:1,MANIFESTED:2,ASCENDED:3}[state.core.evolutionStage])}}));
+  if(changed) $('#questStatus').textContent='';
   if(changed) applyTheme(preferences.get(`companion-theme-${state.identity.id}`) || '#3f8cff',false);
   if(changed || state.core.evolutionStage!=='SOUL') stopFormPreview();
   viewport?.setState(state);
@@ -442,6 +447,16 @@ function init() {
   const savedTheme = preferences.get('mayuna-theme');
   applyTheme(!savedTheme || savedTheme.toLowerCase() === '#7657ff' ? '#3f8cff' : savedTheme, false);
   viewport.mount();
+  let questBusy=false;
+  $('#questList').addEventListener('click',async event=>{
+    const prompt=event.target.closest('[data-quest-prompt]');
+    if(prompt){const quest=currentState?.quests?.find(q=>q.id===prompt.dataset.questPrompt);if(quest){openDrawer('chat');$('#chatInput').value=quest.prompt;$('#chatInput').focus();}return;}
+    const button=event.target.closest('[data-quest-claim]');if(!button||questBusy||!currentState)return;
+    questBusy=true;button.disabled=true;const id=currentState.identity.id,epoch=accessEpoch;
+    try{const result=await api.claimQuest(id,button.dataset.questClaim);if(epoch!==accessEpoch||currentState?.identity.id!==id)return;applyState(result.state);$('#questStatus').textContent=`Missão concluída! +${result.xp} XP do Core.`;}
+    catch(error){if(epoch===accessEpoch){$('#questStatus').textContent=error.message;renderQuests(currentState);}}
+    finally{questBusy=false;}
+  });
   let affectionBusy=false;
   document.querySelector('#gameRenderer').addEventListener('companion:affection',async event=>{
     if(affectionBusy||chatBusy||!currentState||event.detail.id!==currentState.identity.id)return;
