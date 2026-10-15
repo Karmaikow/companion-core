@@ -1,5 +1,6 @@
 import { CompanionBodyRenderer } from './companion-body.js';
 import { manifestationStatus } from './manifestation-rules.js';
+import { refugeOrigin, refugeDestination, advanceRefuge } from './refuge-motion.js';
 /** Renderer contract: mount(host), resize(width,height,dpr), setTheme(rgb),
  * setState(readOnlyDTO), setPresence(status), render(ms), destroy().
  * A future Phaser adapter can implement this contract without knowing the API/Core.
@@ -77,8 +78,9 @@ export class HolographicCoreRenderer {
     this.move=event=>{
       if(!this.state||!this.bodyActive||!this.body?.available||document.body.classList.contains('is-locked')||event.target.closest('button,a,input,textarea,select,.hud-panel,.world-topline,.entity-nameplate,.form-preview-banner'))return;
       const box=this.host.getBoundingClientRect();
-      if(event.clientY<box.top+box.height*.32)return;
-      this.destination={x:Math.max(-.22,Math.min(.22,(event.clientX-box.left)/box.width-.5)),y:Math.max(-.08,Math.min(.10,(event.clientY-box.top)/box.height-.58))};
+      const destination=refugeDestination(event.clientX,event.clientY,box,this.width,this.height);
+      if(!destination)return;
+      this.destination=destination;
       this.lastActivity=performance.now();
       if(this.motion.matches){this.position={...this.destination};this.render(0);}
     };
@@ -189,17 +191,19 @@ export class HolographicCoreRenderer {
     const hint=document.getElementById('refugeMoveHint');if(hint)hint.hidden=!(this.bodyActive&&this.body?.available);
     const c = this.ctx, w = this.width, h = this.height, a = this.soulAccent;
     const dt = Math.min(64, Math.max(0, time - this.lastRenderTime));
-    this.lastRenderTime = time;
+    if(time>0)this.lastRenderTime = time;
     this.hoverAmount += ((this.hover ? 1 : 0) - this.hoverAmount) * (1 - Math.exp(-dt / 220));
     const hoverScale = 1 + this.hoverAmount * .09;
     c.clearRect(0,0,w,h); c.drawImage(this.background,0,0,w,h);
     const reduced=this.motion?.matches,now=performance.now();
     if(!reduced&&now-this.lastActivity>60000&&this.presence==='idle')this.react('idle');
     if(this.effect&&now-this.effect.started>2800){this.effect=null;if(this.notice)this.notice.textContent='';if(this.host)delete this.host.dataset.reaction;}
-    const ease=reduced?1:1-Math.exp(-dt/260);
-    this.position.x+=(this.destination.x-this.position.x)*ease;this.position.y+=(this.destination.y-this.position.y)*ease;
+    const spriteVisible=Boolean(this.bodyActive&&this.body?.available);
+    if(!spriteVisible){this.position={x:0,y:0};this.destination={x:0,y:0};}
+    else this.position=advanceRefuge(this.position,this.destination,w,h,dt,reduced);
     const depth=1+this.position.y*.9;
-    const scale = Math.min(w/850,h/590), x = w*(.5+this.position.x), y = (w <= 920 ? h*.49 : h*.73 - 120*scale)+h*this.position.y;
+    const origin=refugeOrigin(w,h);
+    const scale = Math.min(w/850,h/590), x = origin.x+w*this.position.x, y = origin.y+h*this.position.y;
     if(this.target){Object.assign(this.target.style,{left:x+'px',top:y+'px',transform:'translate(-50%,-50%)',width:Math.min(180,w*.35)*depth+'px',height:Math.min(220,h*.35)*depth+'px'});}
     if(this.nameplate)Object.assign(this.nameplate.style,{left:x+'px',top:Math.min(h-155,y+Math.min(130,h*.17)*depth)+'px',transform:'translateX(-50%)'});
     if(this.notice)Object.assign(this.notice.style,{left:x+'px',top:Math.max(100,y-Math.min(190,h*.30))+'px'});
@@ -236,3 +240,4 @@ export class HolographicCoreRenderer {
   }
   destroy() { this.world?.removeEventListener('click',this.move);this.target?.removeEventListener('click',this.pet);this.notice?.remove();this.target?.removeEventListener('pointerenter',this.enter); this.target?.removeEventListener('pointerleave',this.leave); this.body?.destroy(); this.canvas?.remove(); this.background = null; this.ctx = null; }
 }
+
