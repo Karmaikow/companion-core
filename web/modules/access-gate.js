@@ -10,6 +10,9 @@ export class AccessGate {
     this.ritual=new CreationRitual(this.root);
     this.crystal=new CrystalPanel(()=>this.openHub());
     this.form.addEventListener('submit',e=>{e.preventDefault();void this.submit();});
+    document.querySelector('#passwordRecoveryForm').addEventListener('submit',e=>{e.preventDefault();void this.submitPasswordRecovery();});
+    document.querySelector('#authForgotPassword').addEventListener('click',()=>this.showPasswordRecovery(false));
+    document.querySelector('#recoveryBack').addEventListener('click',()=>this.configureCloudForm());
     document.querySelector('#authModeToggle').addEventListener('click',()=>{this.setup=!this.setup;this.error.textContent='';this.configureCloudForm();});
     document.querySelector('#cloudSaveCrystal').addEventListener('click',()=>void this.saveCloudCrystal());
     document.querySelector('#cloudRefreshBackups').addEventListener('click',()=>void this.refreshCloudVault());
@@ -40,7 +43,7 @@ export class AccessGate {
   }
   async start() {
     this.ritual.close();this.onLock?.();this.root.hidden=false;document.querySelector('#appShell').inert=true;document.body.classList.add('is-locked');
-    this.error.textContent='';this.form.hidden=true;this.remoteForm.hidden=true;document.querySelector('#continuityScreen').hidden=true;document.querySelector('#hubScreen').hidden=true;document.querySelector('#cloudVaultScreen').hidden=true;document.querySelector('#authModeToggle').hidden=true;document.querySelector('#accessRetry').hidden=true;
+    this.error.textContent='';this.form.hidden=true;this.remoteForm.hidden=true;document.querySelector('#passwordRecoveryForm').hidden=true;document.querySelector('#authForgotPassword').hidden=true;document.querySelector('#continuityScreen').hidden=true;document.querySelector('#hubScreen').hidden=true;document.querySelector('#cloudVaultScreen').hidden=true;document.querySelector('#authModeToggle').hidden=true;document.querySelector('#accessRetry').hidden=true;
     document.querySelector('#accessTitle').textContent='Conectando ao seu mundo';
     try{
       if(mode==='connect'){
@@ -54,6 +57,7 @@ export class AccessGate {
       }
       if(mode==='cloud'){
         document.querySelector('#hubButton').hidden=true;document.querySelector('#manageHub').hidden=true;
+        if(await cloudAuth.consumePasswordRecovery()){this.showPasswordRecovery(true);return;}
         const status=await cloudAuth.status();
         if(status.authenticated){await this.showCloudVault(status.user);return;}
         this.setup=true;this.form.hidden=false;this.configureCloudForm();return;
@@ -77,7 +81,7 @@ export class AccessGate {
   configureCloudForm(){
     const notice=document.querySelector('#authNotice');notice.hidden=true;notice.textContent='';
     const input=document.querySelector('#accessUsername');input.type='email';input.name='email';input.autocomplete='email';input.minLength=0;input.maxLength=254;input.removeAttribute('pattern');input.parentElement.childNodes[0].nodeValue='E-mail';
-    document.querySelector('#authModeToggle').hidden=false;
+    document.querySelector('#authModeToggle').hidden=false;document.querySelector('#authForgotPassword').hidden=false;document.querySelector('#passwordRecoveryForm').hidden=true;this.form.hidden=false;
     document.querySelector('#confirmationField').hidden=!this.setup;document.querySelector('#accessConfirm').required=this.setup;
     document.querySelector('#accessPassword').autocomplete=this.setup?'new-password':'current-password';
     document.querySelector('#accessTitle').textContent=this.setup?'Criar sua conta Companion Core':'Entrar na sua conta';
@@ -86,8 +90,42 @@ export class AccessGate {
     document.querySelector('#authModeToggle').textContent=this.setup?'Já tenho uma conta':'Criar uma conta';
     input.focus();
   }
+  showPasswordRecovery(update){
+    this.error.textContent='';this.recoveryUpdate=update;
+    this.form.hidden=true;this.remoteForm.hidden=true;document.querySelector('#passwordRecoveryForm').hidden=true;document.querySelector('#authForgotPassword').hidden=true;document.querySelector('#continuityScreen').hidden=true;document.querySelector('#hubScreen').hidden=true;document.querySelector('#cloudVaultScreen').hidden=true;
+    document.querySelector('#authModeToggle').hidden=true;document.querySelector('#authForgotPassword').hidden=true;
+    const form=document.querySelector('#passwordRecoveryForm');form.hidden=false;
+    document.querySelector('#recoveryEmailField').hidden=update;document.querySelector('#recoveryPasswordFields').hidden=!update;
+    document.querySelector('#recoveryEmail').required=!update;
+    document.querySelector('#recoveryPassword').required=update;document.querySelector('#recoveryPasswordConfirm').required=update;
+    document.querySelector('#recoverySubmit').textContent=update?'Salvar nova senha':'Enviar link de recuperação';
+    document.querySelector('#accessTitle').textContent=update?'Crie uma nova senha':'Recupere seu acesso';
+    document.querySelector('#accessSubtitle').textContent=update?'Escolha uma senha nova para sua conta Companion Core.':'Vamos enviar um link seguro para o e-mail cadastrado na sua conta.';
+    const notice=document.querySelector('#authNotice');notice.hidden=true;notice.textContent='';
+    (update?document.querySelector('#recoveryPassword'):document.querySelector('#recoveryEmail')).focus();
+  }
+  async submitPasswordRecovery(){
+    const button=document.querySelector('#recoverySubmit');if(button.disabled)return;
+    const notice=document.querySelector('#authNotice');notice.hidden=true;notice.textContent='';button.disabled=true;
+    try{
+      if(this.recoveryUpdate){
+        const password=document.querySelector('#recoveryPassword').value;
+        if(password.length<10||password.length>128)throw Error('Use uma senha com pelo menos 10 caracteres.');
+        if(password!==document.querySelector('#recoveryPasswordConfirm').value)throw Error('As senhas não coincidem.');
+        const user=await cloudAuth.updateRecoveredPassword(password);
+        document.querySelector('#passwordRecoveryForm').reset();this.recoveryUpdate=false;
+        await this.showCloudVault(user);
+        notice.textContent='Senha atualizada. Sua conta já está conectada.';notice.hidden=false;
+      }else{
+        await cloudAuth.requestPasswordReset(document.querySelector('#recoveryEmail').value);
+        document.querySelector('#recoveryEmail').value='';
+        notice.textContent='Se existir uma conta para esse endereço, enviaremos um link de recuperação. Confira sua caixa de entrada e o spam.';notice.hidden=false;
+      }
+    }catch(error){this.error.textContent=error.message;}
+    finally{button.disabled=false;}
+  }
   async showCloudVault(user){
-    this.form.hidden=true;this.remoteForm.hidden=true;document.querySelector('#continuityScreen').hidden=true;document.querySelector('#hubScreen').hidden=true;document.querySelector('#cloudVaultScreen').hidden=false;document.querySelector('#authModeToggle').hidden=true;
+    this.form.hidden=true;this.remoteForm.hidden=true;document.querySelector('#passwordRecoveryForm').hidden=true;document.querySelector('#authForgotPassword').hidden=true;document.querySelector('#continuityScreen').hidden=true;document.querySelector('#hubScreen').hidden=true;document.querySelector('#cloudVaultScreen').hidden=false;document.querySelector('#authModeToggle').hidden=true;
     document.querySelector('#accessTitle').textContent='Sua conta está conectada';
     document.querySelector('#accessSubtitle').textContent='Acesse seus backups criptografados do Cristal de Memória.';
     const account=user||await cloudAuth.currentUser();document.querySelector('#cloudAccountEmail').textContent=account?.email||'Conta autenticada';
