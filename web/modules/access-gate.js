@@ -125,7 +125,7 @@ export class AccessGate {
     finally{button.disabled=false;}
   }
   async showCloudVault(user){
-    this.form.hidden=true;this.remoteForm.hidden=true;document.querySelector('#continuityScreen').hidden=true;document.querySelector('#hubScreen').hidden=true;document.querySelector('#cloudVaultScreen').hidden=false;document.querySelector('#authModeToggle').hidden=true;
+    this.form.hidden=true;this.remoteForm.hidden=true;document.querySelector('#passwordRecoveryForm').hidden=true;document.querySelector('#authForgotPassword').hidden=true;document.querySelector('#continuityScreen').hidden=true;document.querySelector('#hubScreen').hidden=true;document.querySelector('#cloudVaultScreen').hidden=false;document.querySelector('#authModeToggle').hidden=true;
     document.querySelector('#accessTitle').textContent='Sua conta está conectada';
     document.querySelector('#accessSubtitle').textContent='Acesse seus backups criptografados do Cristal de Memória.';
     const account=user||await cloudAuth.currentUser();document.querySelector('#cloudAccountEmail').textContent=account?.email||'Conta autenticada';
