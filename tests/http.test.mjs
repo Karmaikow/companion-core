@@ -40,6 +40,9 @@ test('HTTP boundaries: local owner, remote pairing, DTO, interaction and revocat
   assert.equal((await (await request(base+'/api/companion/state')).json()).identity.id,state.identity.id);
 
   const page=await request(base+'/');assert.equal(page.status,200);assert.match(page.headers.get('content-security-policy'),/connect-src 'self'/);
+  assert.equal((await request(base+'/refuge-godot.html')).status,200);
+  assert.equal((await request(base+'/modules/refuge-godot-preview.bundle.js')).status,200);
+  assert.match((await request(base+'/assets/refuge/mayuna-reference.png')).headers.get('content-type'),/image\/png/);
   // A real browser includes its local Origin on the owner POST. This must work.
   const ownerHeaders={Origin:base,'Content-Type':'application/json'};
   assert.equal((await fetch(base+'/api/remote/pairing/code',{method:'POST',headers:ownerHeaders,body:'{}'})).status,401);
@@ -58,6 +61,8 @@ test('HTTP boundaries: local owner, remote pairing, DTO, interaction and revocat
   assert.equal((await remote('state',{headers:{Origin:'https://attacker.example'}})).status,403);
   const remoteChat=await remote('chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:'Olá, Mayuna'})});
   assert.equal(remoteChat.status,200);assert.equal((await remoteChat.json()).state.meta.eventCount,chat.state.meta.eventCount+1);
+  const remoteAffection=await remote('interaction',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:state.identity.id})});
+  assert.equal(remoteAffection.status,200);assert.equal((await remoteAffection.json()).state.bond.value,remoteState.bond.value+2);
   assert.equal((await (await remote('verify')).json()).valid,true);
   assert.equal((await remote('logout',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'})).status,200);
   assert.equal((await remote('state')).status,401);

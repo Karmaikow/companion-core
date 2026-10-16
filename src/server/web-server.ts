@@ -147,6 +147,11 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, pathname: st
       return;
     }
     if (req.method === 'GET' && pathname === '/api/remote/state') { json(res, 200, runtime.getClientState()); return; }
+    if (req.method === 'POST' && pathname === '/api/remote/interaction') {
+      try { const body=await readJsonBody(req,1024) as {id?:unknown}; json(res,200,await runtime.refugeInteraction(body.id)); }
+      catch (error) { json(res,error instanceof HubError||error instanceof CrystalError?error.status:503,{error:error instanceof HubError||error instanceof CrystalError?error.message:'Não foi possível salvar o carinho. Tente novamente.'}); }
+      return;
+    }
     if (req.method === 'GET' && pathname === '/api/remote/verify') {
       const verification = runtime.verify();
       json(res, verification.valid ? 200 : 409, { valid: verification.valid, reason: verification.reason, trustedSequence: verification.trustedSequence, acceptedEvents: verification.acceptedEvents });

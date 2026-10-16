@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#10213b">
+  <title>Refúgio de Mayuna · Companion Core</title>
+  <link rel="stylesheet" href="/refuge-godot.css">
+</head>
+<body>
+  <main class="game-shell">
+    <div id="world" aria-label="Refúgio 3D. Toque no chão para caminhar e em Mayuna para fazer carinho."></div>
+    <header class="topbar">
+      <a class="back" href="/">‹ Core</a>
+      <div class="identity"><span class="gem">✦</span><div><strong id="name">Mayuna</strong><small id="form">Carregando identidade…</small></div></div>
+      <div class="meters"><div><span>Core</span><b id="coreLevel">—</b><small id="coreXp">—</small></div><div><span>Combate</span><b id="combatLevel">—</b><small id="combatXp">—</small></div><div><span>Vínculo</span><b id="bond">—</b><small id="relationship">—</small></div><div><span>Memórias</span><b id="memories">—</b><small>persistidas</small></div></div>
+      <button id="mobileChat" class="mobile-chat" aria-label="Abrir conversa">✉</button>
+    </header>
+    <div class="scene-tip" id="status" role="status">A clareira está despertando…</div>
+    <div id="mayunaHit" aria-label="Fazer carinho em Mayuna"></div>
+    <div id="nameplate">Mayuna</div>
+    <section class="chat-panel" id="chatPanel" aria-label="Conversa com Mayuna">
+      <div class="chat-head"><div><small>CONVERSA</small><strong>Mayuna</strong></div><button id="closeChat" aria-label="Fechar conversa">×</button></div>
+      <div id="messages" class="messages" aria-live="polite"><p class="mayuna-message">Olá! Eu estava olhando as luzes no lago. Quer explorar comigo?</p></div>
+      <form id="chatForm"><label class="sr-only" for="chatInput">Mensagem para Mayuna</label><input id="chatInput" maxlength="2000" placeholder="Converse com Mayuna…" autocomplete="off"><button id="send" aria-label="Enviar mensagem">➤</button></form>
+      <div class="chat-note" id="chatNote">As conversas são salvas no Core.</div>
+    </section>
+    <div class="bottom-hint">Toque no chão para caminhar <span>·</span> toque em Mayuna para carinho</div>
+  </main>
+  <script type="module" src="/modules/refuge-godot-preview.bundle.js"></script>
+</body>
+</html>

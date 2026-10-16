@@ -4,6 +4,7 @@ let tokenExpiresAt = 0;
 
 const ROUTES = {
   '/api/companion/state': '/api/remote/state',
+  '/api/companion/interaction': '/api/remote/interaction',
   '/api/companion/chat': '/api/remote/chat',
   '/api/companion/verify': '/api/remote/verify',
   '/api/auth/logout': '/api/remote/logout'

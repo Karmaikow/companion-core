@@ -89,3 +89,8 @@ O teste de navegador usa Playwright; configure `MAYUNA_TEST_BROWSER` para um
 Chrome instalado, ou instale o Chromium do Playwright. Ele cobre carregamento
 dos GLBs, movimento, persistência/exportação do atlas e layout móvel, além da
 integração com a tela principal e a separação entre alma e corpo.
+
+
+## Protótipo Godot de Mayuna
+
+Há uma prévia Three.js para navegador e um projeto-fonte Godot separados. Consulte [Refúgio Godot](REFUGIO_GODOT.md) para execução, pareamento local e limitações. A página web não é uma exportação do Godot.

@@ -38,3 +38,4 @@ web/modules/companion-body.js
 web/modules/manifestation-rules.js
 web/modules/THREE-LICENSE.txt
 web/modules/refuge-3d.js
+web/modules/refuge-godot-preview.bundle.js
