@@ -12,7 +12,7 @@ export class AccessGate {
     this.form.addEventListener('submit',e=>{e.preventDefault();void this.submit();});
     document.querySelector('#passwordRecoveryForm').addEventListener('submit',e=>{e.preventDefault();void this.submitPasswordRecovery();});
     document.querySelector('#authForgotPassword').addEventListener('click',()=>this.showPasswordRecovery(false));
-    document.querySelector('#recoveryBack').addEventListener('click',()=>this.configureCloudForm());
+    document.querySelector('#recoveryBack').addEventListener('click',()=>{this.setup=false;this.error.textContent='';this.configureCloudForm();});
     document.querySelector('#authModeToggle').addEventListener('click',()=>{this.setup=!this.setup;this.error.textContent='';this.configureCloudForm();});
     document.querySelector('#cloudSaveCrystal').addEventListener('click',()=>void this.saveCloudCrystal());
     document.querySelector('#cloudRefreshBackups').addEventListener('click',()=>void this.refreshCloudVault());
@@ -60,7 +60,7 @@ export class AccessGate {
         if(await cloudAuth.consumePasswordRecovery()){this.showPasswordRecovery(true);return;}
         const status=await cloudAuth.status();
         if(status.authenticated){await this.showCloudVault(status.user);return;}
-        this.setup=true;this.form.hidden=false;this.configureCloudForm();return;
+        this.setup=false;this.form.hidden=false;this.configureCloudForm();return;
       }
       document.querySelector('#hubButton').hidden=mode==='demo';
       const status=await this.request('status');if(status.authenticated){await this.continuity();return;}
@@ -76,7 +76,10 @@ export class AccessGate {
       document.querySelector('#accessSubmit').textContent=this.setup?'Criar acesso local':'Entrar no núcleo';
       document.querySelector('#confirmationField').hidden=!this.setup;document.querySelector('#accessConfirm').required=this.setup;
       document.querySelector('#accessPassword').autocomplete=this.setup?'new-password':'current-password';document.querySelector('#accessUsername').focus();
-    }catch(error){this.error.textContent=error.message;document.querySelector('#accessRetry').hidden=false;}
+    }catch(error){
+      if(mode==='cloud'){this.setup=false;this.configureCloudForm();}
+      this.error.textContent=error.message;document.querySelector('#accessRetry').hidden=false;
+    }
   }
   configureCloudForm(){
     const notice=document.querySelector('#authNotice');notice.hidden=true;notice.textContent='';
