@@ -84,7 +84,7 @@ export class AccessGate {
     const notice=document.querySelector('#authNotice');notice.hidden=true;notice.textContent='';
     document.querySelector('#accessAccountNote').textContent='Sua conta dá acesso aos backups criptografados do Cofre. A senha do Cristal continua necessária para abri-lo.';
     const input=document.querySelector('#accessUsername');input.placeholder='voce@exemplo.com';input.type='email';input.name='email';input.autocomplete='email';input.minLength=0;input.maxLength=254;input.removeAttribute('pattern');input.parentElement.childNodes[0].nodeValue='E-mail';
-    document.querySelector('#authModeToggle').hidden=false;document.querySelector('#authForgotPassword').hidden=this.setup;document.querySelector('#passwordRecoveryForm').hidden=true;this.form.hidden=false;
+    document.querySelector('#authModeToggle').hidden=false;document.querySelector('#authForgotPassword').hidden=false;document.querySelector('#passwordRecoveryForm').hidden=true;this.form.hidden=false;
     document.querySelector('#confirmationField').hidden=!this.setup;document.querySelector('#accessConfirm').required=this.setup;
     document.querySelector('#accessPassword').autocomplete=this.setup?'new-password':'current-password';
     document.querySelector('#accessTitle').textContent=this.setup?'Criar sua conta Companion Core':'Entrar na sua conta';
