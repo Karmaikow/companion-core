@@ -32,7 +32,7 @@ async function refreshSession() {
   if (!current?.refresh_token) { writeSession(null); return null; }
   try {
     const next = await authRequest('token?grant_type=refresh_token', { refresh_token: current.refresh_token });
-    const session = { ...next, expires_at: Date.now() + Number(next.expires_in || 3600) * 1000 };
+    const session = { ...next, recovery_pending: current.recovery_pending === true, expires_at: Date.now() + Number(next.expires_in || 3600) * 1000 };
     writeSession(session);
     return session;
   } catch {
@@ -40,9 +40,12 @@ async function refreshSession() {
     return null;
   }
 }
-let recoveryLinkPending = false;
 async function consumeAuthRedirect() {
   const params = new URLSearchParams(window.location.hash.slice(1));
+  if (params.has('error') || params.has('error_code')) {
+    history.replaceState(null, '', window.location.pathname + window.location.search);
+    throw new Error('Este link é inválido, expirou ou já foi usado. Solicite um novo e-mail em Esqueci minha senha e abra somente o link mais recente.');
+  }
   const accessToken = params.get('access_token');
   const refreshToken = params.get('refresh_token');
   if (!accessToken || !refreshToken) return false;
@@ -53,8 +56,7 @@ async function consumeAuthRedirect() {
   if (!response.ok) { history.replaceState(null, '', window.location.pathname + window.location.search); throw new Error('Este link expirou ou já foi usado. Solicite um novo e-mail de recuperação.'); }
   const user = await response.json();
   const expiresIn = Number(params.get('expires_in') || 3600);
-  writeSession({ access_token: accessToken, refresh_token: refreshToken, expires_in: expiresIn, expires_at: Date.now() + expiresIn * 1000, user });
-  recoveryLinkPending = params.get('type') === 'recovery';
+  writeSession({ access_token: accessToken, refresh_token: refreshToken, expires_in: expiresIn, expires_at: Date.now() + expiresIn * 1000, user, recovery_pending: params.get('type') === 'recovery' });
   history.replaceState(null, '', window.location.pathname + window.location.search);
   return true;
 }
@@ -96,7 +98,7 @@ export const cloudAuth = {
   consumePasswordRecovery: async () => {
     if (!configured()) throw new Error('Supabase ainda não está configurado neste deploy.');
     await consumeAuthRedirect();
-    return recoveryLinkPending;
+    return readSession()?.recovery_pending === true;
   },
   requestPasswordReset: async email => {
     if (!configured()) throw new Error('Supabase ainda não está configurado neste deploy.');
@@ -109,9 +111,8 @@ export const cloudAuth = {
     if (!response.ok) throw new Error(messageOf(data, 'Não foi possível solicitar o e-mail de recuperação.'));
   },
   updateRecoveredPassword: async password => {
-    if (!recoveryLinkPending) throw new Error('Abra primeiro o link de recuperação enviado por e-mail.');
     const session = await validSession();
-    if (!session) throw new Error('O link expirou. Solicite um novo e-mail de recuperação.');
+    if (!session?.recovery_pending) throw new Error('Abra primeiro o link de recuperação enviado por e-mail.');
     const response = await fetch(`${cloudConfig.url}/auth/v1/user`, {
       method: 'PUT',
       headers: { apikey: cloudConfig.publishableKey, Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
@@ -119,7 +120,7 @@ export const cloudAuth = {
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(messageOf(data, 'Não foi possível atualizar a senha.'));
-    recoveryLinkPending = false;
+    writeSession({ ...session, user: data, recovery_pending: false });
     return data;
   },
   status: async () => {
@@ -146,7 +147,7 @@ export const cloudAuth = {
         const headers = { apikey: cloudConfig.publishableKey, Authorization: `Bearer ${session.access_token}` };
         await fetch(`${cloudConfig.url}/auth/v1/logout`, { method: 'POST', headers, cache: 'no-store' });
       }
-    } finally { writeSession(null); recoveryLinkPending = false; }
+    } finally { writeSession(null); }
     return { authenticated: false };
   },
   currentUser: async () => (await validSession())?.user || null
