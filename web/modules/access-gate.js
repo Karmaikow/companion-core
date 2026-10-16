@@ -97,10 +97,11 @@ export class AccessGate {
     this.error.textContent='';this.recoveryUpdate=update;
     this.form.hidden=true;this.remoteForm.hidden=true;document.querySelector('#passwordRecoveryForm').hidden=true;document.querySelector('#authForgotPassword').hidden=true;document.querySelector('#continuityScreen').hidden=true;document.querySelector('#hubScreen').hidden=true;document.querySelector('#cloudVaultScreen').hidden=true;
     document.querySelector('#authModeToggle').hidden=true;document.querySelector('#authForgotPassword').hidden=true;
-    const form=document.querySelector('#passwordRecoveryForm');form.hidden=false;
+    const form=document.querySelector('#passwordRecoveryForm');form.noValidate=true;form.hidden=false;
     document.querySelector('#recoveryEmailField').hidden=update;document.querySelector('#recoveryPasswordFields').hidden=!update;
-    document.querySelector('#recoveryEmail').required=!update;
+    document.querySelector('#recoveryEmail').required=!update;document.querySelector('#recoveryEmail').disabled=update;
     document.querySelector('#recoveryPassword').required=update;document.querySelector('#recoveryPasswordConfirm').required=update;
+    document.querySelector('#recoveryPassword').disabled=!update;document.querySelector('#recoveryPasswordConfirm').disabled=!update;
     document.querySelector('#recoverySubmit').textContent=update?'Salvar nova senha':'Enviar link de recuperação';
     document.querySelector('#accessTitle').textContent=update?'Crie uma nova senha':'Recupere seu acesso';
     document.querySelector('#accessSubtitle').textContent=update?'Escolha uma senha nova para sua conta Companion Core.':'Vamos enviar um link seguro para o e-mail cadastrado na sua conta.';
@@ -109,22 +110,26 @@ export class AccessGate {
   }
   async submitPasswordRecovery(){
     const button=document.querySelector('#recoverySubmit');if(button.disabled)return;
-    const notice=document.querySelector('#authNotice');notice.hidden=true;notice.textContent='';button.disabled=true;
+    const notice=document.querySelector('#authNotice');notice.hidden=true;notice.textContent='';this.error.textContent='';button.disabled=true;
     try{
       if(this.recoveryUpdate){
         const password=document.querySelector('#recoveryPassword').value;
-        if(password.length<10||password.length>128)throw Error('Use uma senha com pelo menos 10 caracteres.');
+        if(password.length<10||password.length>128)throw Error('A nova senha precisa ter entre 10 e 128 caracteres.');
         if(password!==document.querySelector('#recoveryPasswordConfirm').value)throw Error('As senhas não coincidem.');
+        notice.textContent='Salvando nova senha…';notice.hidden=false;
         const user=await cloudAuth.updateRecoveredPassword(password);
         document.querySelector('#passwordRecoveryForm').reset();this.recoveryUpdate=false;
         await this.showCloudVault(user);
-        notice.textContent='Senha atualizada. Sua conta já está conectada.';notice.hidden=false;
+        notice.textContent='Senha atualizada e confirmada pelo servidor. Sua conta está conectada.';notice.hidden=false;
       }else{
-        await cloudAuth.requestPasswordReset(document.querySelector('#recoveryEmail').value);
+        const email=document.querySelector('#recoveryEmail');
+        if(!email.checkValidity())throw Error('Informe um e-mail válido para receber o link de recuperação.');
+        notice.textContent='Solicitando e-mail de recuperação…';notice.hidden=false;
+        await cloudAuth.requestPasswordReset(email.value);
         document.querySelector('#recoveryEmail').value='';
         notice.textContent='Se existir uma conta para esse endereço, enviaremos um link de recuperação. Confira sua caixa de entrada e o spam.';notice.hidden=false;
       }
-    }catch(error){this.error.textContent=error.message;}
+    }catch(error){notice.hidden=true;this.error.textContent=error.message;this.error.scrollIntoView?.({block:'nearest'});}
     finally{button.disabled=false;}
   }
   async showCloudVault(user){
