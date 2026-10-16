@@ -40,6 +40,7 @@ async function refreshSession() {
     return null;
   }
 }
+let recoveryLinkPending = false;
 async function consumeAuthRedirect() {
   const params = new URLSearchParams(window.location.hash.slice(1));
   const accessToken = params.get('access_token');
@@ -49,10 +50,11 @@ async function consumeAuthRedirect() {
     headers: { apikey: cloudConfig.publishableKey, Authorization: `Bearer ${accessToken}` },
     cache: 'no-store'
   });
-  if (!response.ok) throw new Error('Não foi possível validar o e-mail. Tente entrar novamente.');
+  if (!response.ok) { history.replaceState(null, '', window.location.pathname + window.location.search); throw new Error('Este link expirou ou já foi usado. Solicite um novo e-mail de recuperação.'); }
   const user = await response.json();
   const expiresIn = Number(params.get('expires_in') || 3600);
   writeSession({ access_token: accessToken, refresh_token: refreshToken, expires_in: expiresIn, expires_at: Date.now() + expiresIn * 1000, user });
+  recoveryLinkPending = params.get('type') === 'recovery';
   history.replaceState(null, '', window.location.pathname + window.location.search);
   return true;
 }
@@ -91,6 +93,35 @@ async function dataRequest(path, options = {}, retry = true) {
 }
 
 export const cloudAuth = {
+  consumePasswordRecovery: async () => {
+    if (!configured()) throw new Error('Supabase ainda não está configurado neste deploy.');
+    await consumeAuthRedirect();
+    return recoveryLinkPending;
+  },
+  requestPasswordReset: async email => {
+    if (!configured()) throw new Error('Supabase ainda não está configurado neste deploy.');
+    const redirectTo = window.location.origin + '/';
+    const headers = { apikey: cloudConfig.publishableKey, 'Content-Type': 'application/json' };
+    const response = await fetch(`${cloudConfig.url}/auth/v1/recover?redirect_to=${encodeURIComponent(redirectTo)}`, {
+      method: 'POST', headers, body: JSON.stringify({ email: email.trim() }), cache: 'no-store'
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(messageOf(data, 'Não foi possível solicitar o e-mail de recuperação.'));
+  },
+  updateRecoveredPassword: async password => {
+    if (!recoveryLinkPending) throw new Error('Abra primeiro o link de recuperação enviado por e-mail.');
+    const session = await validSession();
+    if (!session) throw new Error('O link expirou. Solicite um novo e-mail de recuperação.');
+    const response = await fetch(`${cloudConfig.url}/auth/v1/user`, {
+      method: 'PUT',
+      headers: { apikey: cloudConfig.publishableKey, Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password }), cache: 'no-store'
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(messageOf(data, 'Não foi possível atualizar a senha.'));
+    recoveryLinkPending = false;
+    return data;
+  },
   status: async () => {
     const session = await validSession();
     return { configured: true, authenticated: Boolean(session), user: session?.user || null };
@@ -115,7 +146,7 @@ export const cloudAuth = {
         const headers = { apikey: cloudConfig.publishableKey, Authorization: `Bearer ${session.access_token}` };
         await fetch(`${cloudConfig.url}/auth/v1/logout`, { method: 'POST', headers, cache: 'no-store' });
       }
-    } finally { writeSession(null); }
+    } finally { writeSession(null); recoveryLinkPending = false; }
     return { authenticated: false };
   },
   currentUser: async () => (await validSession())?.user || null
