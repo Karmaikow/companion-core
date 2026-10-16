@@ -23,7 +23,16 @@
   <label>E-mail<input id="accessUsername" name="email" type="email" autocomplete="email" maxlength="254" required placeholder="voce@exemplo.com" /></label>
   <label>Senha<input id="accessPassword" name="password" type="password" autocomplete="current-password" minlength="10" maxlength="128" required placeholder="Pelo menos 10 caracteres" /></label>
   <label id="confirmationField" hidden>Confirme a senha<input id="accessConfirm" type="password" autocomplete="new-password" minlength="10" maxlength="128" /></label>
-  <button id="accessSubmit" class="primary-button" type="submit">Criar conta</button><small class="access-note">Sua conta protege os backups criptografados do Cristal de Memória. Nesta versão, ela ainda não cria uma Companion pela web; você poderá guardar um Cristal criado no Core local. A senha do Cristal continua necessária para abri-lo.</small><button id="authModeToggle" class="gate-logout" type="button">Já tenho uma conta</button>
+  <button id="accessSubmit" class="primary-button" type="submit">Criar conta</button><button id="authForgotPassword" class="gate-logout" type="button" hidden>Esqueci minha senha</button><small class="access-note">Sua conta protege os backups criptografados do Cristal de Memória. Nesta versão, ela ainda não cria uma Companion pela web; você poderá guardar um Cristal criado no Core local. A senha do Cristal continua necessária para abri-lo.</small><button id="authModeToggle" class="gate-logout" type="button">Já tenho uma conta</button>
+ </form>
+ <form id="passwordRecoveryForm" hidden>
+  <label id="recoveryEmailField">E-mail<input id="recoveryEmail" name="email" type="email" autocomplete="email" maxlength="254" required placeholder="voce@exemplo.com" /></label>
+  <div id="recoveryPasswordFields" hidden>
+   <label>Nova senha<input id="recoveryPassword" name="new-password" type="password" autocomplete="new-password" minlength="10" maxlength="128" required placeholder="Pelo menos 10 caracteres" /></label>
+   <label>Confirme a nova senha<input id="recoveryPasswordConfirm" name="confirm-password" type="password" autocomplete="new-password" minlength="10" maxlength="128" required placeholder="Digite a senha novamente" /></label>
+  </div>
+  <button id="recoverySubmit" class="primary-button" type="submit">Enviar link de recuperação</button>
+  <button id="recoveryBack" class="gate-logout" type="button">Voltar para entrar</button>
  </form>
  <p id="authNotice" class="access-note" role="status" aria-live="polite" hidden></p>
  <form id="remotePairForm" hidden>
