@@ -9,6 +9,7 @@ on:
       - main
       - feature/evolucao-3d
       - feature/asset-studio-web
+      - feature/modular-world-studio
 
 permissions:
   contents: read
@@ -44,6 +45,7 @@ jobs:
           node tests/asset-studio-cloud-browser.mjs
           node tests/world-studio-browser.mjs
           node tests/world-auth-browser.mjs
+          node tests/sprite-batch-browser.mjs
       - name: Build Vercel preview
         run: npm run vercel:build
       - name: Prepare shared registry function

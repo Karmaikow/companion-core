@@ -6,19 +6,20 @@ import { readSprite,saveSprite,spriteKey } from './sprite-store.js';
 import { decodeArtImage } from './art-image.js';
 const $=id=>document.getElementById(id),params=new URLSearchParams(location.search);
 const id=params.get('id')||'MC-MAYUNA-REFUGE-LAB',generation=Math.max(0,Number(params.get('generation'))||0),key=spriteKey(id,generation);
+let batchUI;
 let image,atlas,blob,reference,playing=!matchMedia('(prefers-reduced-motion: reduce)').matches,manualFrame=0,playbackStart=performance.now(),epoch=0,busy=false,canSaveLibrary=true;
 const status=text=>{$('status').textContent=text;};
 for(const name of ['direction','previewDirection']){for(const dir of DIRECTIONS){const option=document.createElement('option');option.value=dir;option.textContent=dir;$(name).append(option);}$(name).value='SE';}
 $('targetName').textContent=`${id} · forma ${generation} · salvo somente neste navegador`;
 $('refugeLink').href=id==='MC-MAYUNA-REFUGE-LAB'?'/refuge-lab.html':'/';
 function controls(){atlas.pivot={x:Number($('pivotX').value)/100,y:Number($('pivotY').value)/100};atlas.mirror=$('mirror').checked;validateAtlas(atlas,image.naturalWidth,image.naturalHeight);}
-async function action(work){if(busy)return;busy=true;const buttons=[...document.querySelectorAll('button')];buttons.forEach(b=>b.disabled=true);try{await work();}catch(e){status(e.message||'Não foi possível concluir.');}finally{busy=false;buttons.forEach(b=>b.disabled=false);$('saveLibrary').disabled=!canSaveLibrary;}}
+async function action(work){if(busy)return;busy=true;const buttons=[...document.querySelectorAll('button')];buttons.forEach(b=>b.disabled=true);try{await work();}catch(e){status(e.message||'Não foi possível concluir.');}finally{busy=false;buttons.forEach(b=>b.disabled=false);$('saveLibrary').disabled=!canSaveLibrary;batchUI?.refresh();}}
 function sync(){
   $('columns').value=atlas.columns;$('rows').value=atlas.rows;$('pivotX').value=atlas.pivot.x*100;$('pivotY').value=atlas.pivot.y*100;$('mirror').checked=!!atlas.mirror;
   $('clips').replaceChildren();
   for(const [act,dirs]of Object.entries(atlas.clips))for(const [dir,clip]of Object.entries(dirs)){
     const button=document.createElement('button');button.textContent=`${act} / ${dir} · ${clip.frames.length}`;
-    button.onclick=()=>{$('action').value=$('previewAction').value=act;$('direction').value=$('previewDirection').value=dir;$('frames').value=clip.frames.join(',');$('fps').value=clip.fps;$('loopClip').checked=clip.loop??['idle','walk','fly'].includes(act);};$('clips').append(button);
+    button.onclick=()=>{$('action').value=$('previewAction').value=act;$('direction').value=$('previewDirection').value=dir;$('frames').value=clip.frames.join(',');$('fps').value=clip.fps;$('loopClip').checked=clip.loop??['idle','walk','fly','sleep','happy','defend'].includes(act);};$('clips').append(button);
   }
   $('timeline').replaceChildren();
   for(let i=0;i<atlas.columns*atlas.rows;i++){
@@ -91,7 +92,7 @@ $('generate').onclick=()=>action(async()=>{
 function render(time){
   if(!document.hidden&&image&&atlas){
     const actionName=$('previewAction').value,dir=$('previewDirection').value,selection=selectClip(atlas,actionName,dir),clip=selection.clip;
-    const cursor=Math.floor((time-playbackStart)*clip.fps/1000),index=playing?clip.frames[(clip.loop??['idle','walk','fly'].includes(actionName))?cursor%clip.frames.length:Math.min(cursor,clip.frames.length-1)]:manualFrame,r=frameRect(atlas,index),c=$('preview').getContext('2d');
+    const cursor=Math.floor((time-playbackStart)*clip.fps/1000),index=playing?clip.frames[(clip.loop??['idle','walk','fly','sleep','happy','defend'].includes(actionName))?cursor%clip.frames.length:Math.min(cursor,clip.frames.length-1)]:manualFrame,r=frameRect(atlas,index),c=$('preview').getContext('2d');
     c.clearRect(0,0,640,540);c.fillStyle='#04111e77';c.beginPath();c.ellipse(320,470,85,15,0,0,Math.PI*2);c.fill();c.strokeStyle='#75d7b944';c.beginPath();c.moveTo(30,470);c.lineTo(610,470);c.stroke();
     const s=Math.min(400/r.w,410/r.h);c.save();c.translate(320,470);if(selection.flip)c.scale(-1,1);c.drawImage(image,r.x,r.y,r.w,r.h,-r.w*s*atlas.pivot.x,-r.h*s*atlas.pivot.y,r.w*s,r.h*s);c.restore();
     $('clipTitle').textContent=`${actionName} · ${dir}`;$('frameNumber').textContent=index;$('scrub').value=index;$('directionNotice').textContent=selection.exact&&atlas.clips[actionName]?.[dir]?'Sequência própria desta direção.':'Direção/ação ainda sem sequência própria: exibindo a disponível'+(selection.flip?' espelhada.':'.');
@@ -105,7 +106,7 @@ $('makePrompt').click();
 
 function renderCoverage(){const root=$('coverage');root.replaceChildren();for(const row of coverage(atlas)){const label=document.createElement('p');label.className='coverage-label';label.textContent=row.action;const grid=document.createElement('div');grid.className='coverage';for(const cell of row.directions){const item=document.createElement('span');item.className=cell.frames?'present':'missing';item.textContent=cell.direction+' · '+(cell.frames||'ausente');grid.append(item);}root.append(label,grid);}}
 $('deleteClip').onclick=()=>action(async()=>{if(!atlas)throw Error('Importe uma folha.');const candidate=structuredClone(atlas);delete candidate.clips[$('action').value]?.[$('direction').value];for(const key of Object.keys(candidate.clips))if(!Object.keys(candidate.clips[key]).length)delete candidate.clips[key];atlas=validateAtlas(candidate,image.naturalWidth,image.naturalHeight);sync();status('Sequência removida; os desenhos continuam na folha.');});
-$('action').addEventListener('change',()=>{$('loopClip').checked=['idle','walk','fly'].includes($('action').value);});
+$('action').addEventListener('change',()=>{$('loopClip').checked=['idle','walk','fly','sleep','happy','defend'].includes($('action').value);});
 $('exportGodot').onclick=()=>action(async()=>{controls();download(new Blob([godotSpriteFrames(atlas)],{type:'text/plain'}),'companion_frames.tres');status('SpriteFrames exportado. Baixe também o PNG como atlas.png.');});
 let assetLibrary=localLibrary;
 async function libraryAccess(){assetLibrary=$('storage').value==='cloud'?createCloudLibrary():localLibrary;canSaveLibrary=false;try{const a=await assetLibrary.access();canSaveLibrary=a.canWrite;$('accountStatus').textContent=a.label;}catch(e){$('accountStatus').textContent=e.message;}$('saveLibrary').disabled=!canSaveLibrary;}
@@ -118,3 +119,6 @@ if(params.get('asset'))await action(async()=>{const rows=await assetLibrary.list
 renderCoverage();
 
 for(const name of ['previewAction','previewDirection'])$(name).onchange=()=>{playbackStart=performance.now();};
+
+const {mountSpriteBatch}=await import('./sprite-batch-ui.js');
+batchUI=await mountSpriteBatch(document.getElementById('automaticSprites'),{id,generation,cloud:Boolean(cloudConfig?.url),onAssemble:async(png,project)=>{await load(png,project);status('Lote montado para revisão. Confira todas as direções, guarde na biblioteca e só então aplique ao mundo.');}});
