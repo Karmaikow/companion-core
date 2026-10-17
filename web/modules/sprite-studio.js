@@ -8,7 +8,7 @@ const $=id=>document.getElementById(id),params=new URLSearchParams(location.sear
 const id=params.get('id')||'MC-MAYUNA-REFUGE-LAB',generation=Math.max(0,Number(params.get('generation'))||0),key=spriteKey(id,generation);
 let batchUI;
 let image,atlas,blob,reference,playing=!matchMedia('(prefers-reduced-motion: reduce)').matches,manualFrame=0,playbackStart=performance.now(),epoch=0,busy=false,canSaveLibrary=true;
-const status=text=>{$('status').textContent=text;};
+const status=text=>{$('status').textContent=text;const feedback=$('generationFeedback');if(feedback)feedback.textContent=text;};
 for(const name of ['direction','previewDirection']){for(const dir of DIRECTIONS){const option=document.createElement('option');option.value=dir;option.textContent=dir;$(name).append(option);}$(name).value='SE';}
 $('targetName').textContent=`${id} · forma ${generation} · salvo somente neste navegador`;
 $('refugeLink').href=id==='MC-MAYUNA-REFUGE-LAB'?'/refuge-lab.html':'/';
@@ -80,6 +80,7 @@ $('makePrompt').onclick=()=>{try{$('prompt').value=spritePrompt({action:$('actio
 $('copyPrompt').onclick=()=>action(async()=>{await navigator.clipboard.writeText($('prompt').value);status('Pedido copiado. Anexe a referência no gerador de imagens.');});
 $('referenceFile').onchange=()=>action(async()=>{const file=$('referenceFile').files[0];if(!file)return;if(file.size>4000000||file.type!=='image/png')throw Error('Use referência PNG de até 4 MB.');await decodeArtImage(file);reference=await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsDataURL(file);});status('Referência preparada para a próxima geração.');});
 $('generate').onclick=()=>action(async()=>{
+  if(cloudConfig?.url)throw Error('Na versão web, use a seção 05 / Geração automática acima. Este botão é exclusivo do Core local; nenhuma geração foi enviada por ele.');
   if(!$('paidConsent').checked)throw Error('Confirme a cobrança da API ou copie o pedido para gerar externamente.');
   if(!reference)throw Error('Escolha a imagem de referência PNG.');
   const frames=Number($('generateFrames').value);if(!Number.isInteger(frames)||frames<1||frames>16)throw Error('Use de 1 a 16 quadros.');
