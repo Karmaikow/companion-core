@@ -24,13 +24,15 @@ async function transaction(mode, work) {
 }
 export const localLibrary = {
   access: async () => ({ canWrite: true, label: 'Neste navegador · exporte para levar a outro dispositivo' }),
+  get: id => transaction('readonly',s=>s.get(id)),
   list: async () => (await transaction('readonly', s => s.getAll())).sort((a,b) => b.created_at.localeCompare(a.created_at)),
-  image: async row => row.image || null,
+  image: async row => !row.metadata?.assetType || row.metadata.assetType==='sprite' ? row.image || null : null,
+  file: async row => row.image || null,
   references: async row => row.references || [],
   save: async draft => {
     const row = { id: crypto.randomUUID(), name: draft.brief.name, category: 'refuge', status: 'draft', prompt: draft.prompt,
-      created_at: new Date().toISOString(), image: draft.image || null, references: draft.references,
-      metadata: { studioVersion: 1, directionVersion: 1, brief: draft.brief, source: draft.source, alpha: draft.alpha } };
+      created_at: new Date().toISOString(), image: draft.image || null, references: draft.references || [], mime_type: draft.mimeType || (draft.image?'image/png':null),
+      metadata: { studioVersion: 1, directionVersion: 1, brief: draft.brief, source: draft.source, alpha: draft.alpha, ...draft.metadata } };
     await transaction('readwrite', s => s.add(row));
     return row;
   }
@@ -63,8 +65,10 @@ export function createCloudLibrary(request = studioCloudRequest, currentUser = c
       const rows = await json('studio_admins?select=user_id&user_id=eq.' + encodeURIComponent(user.id));
       return { canWrite: rows.length > 0, label: rows.length ? 'Conta online · rascunhos privados do Studio' : 'Conta online · catálogo publicado, sem edição' };
     },
+    get: async id => (await json('studio_assets?select=*&id=eq.'+encodeURIComponent(id)+'&limit=1'))[0]||null,
     list: () => json('studio_assets?select=*&order=created_at.desc&limit=100'),
     image: async row => row.object_path && (!row.mime_type || row.mime_type.startsWith('image/')) ? download(row.object_path) : null,
+    file: async row => row.object_path ? download(row.object_path) : null,
     references: async row => Promise.all((Array.isArray(row.metadata?.references) ? row.metadata.references : []).slice(0,3).map(async r => {
       const blob = await download(r.object_path);
       if (!blob) throw Error('Uma referência deste rascunho está indisponível.');
@@ -73,15 +77,15 @@ export function createCloudLibrary(request = studioCloudRequest, currentUser = c
     save: async draft => {
       const user = await currentUser();
       if (!user) throw Error('Entre novamente no Core.');
-      const id = crypto.randomUUID(), imagePath = draft.image ? `${user.id}/assets/${id}.png` : null;
-      const refs = draft.references.map((r,i) => ({ name:r.name, object_path:`${user.id}/references/${id}-${i}.png`, purpose:'style-reference-only' }));
-      const metadata = { studioVersion:1, directionVersion:1, brief:draft.brief, source:draft.source, alpha:draft.alpha, references:refs, saveState:'uploading' };
+      const id = crypto.randomUUID(), mime=draft.mimeType || 'image/png', imagePath = draft.reusePath || (draft.image ? `${user.id}/assets/${id}.${mime==='model/gltf-binary'?'glb':'png'}` : null);
+      const refs = (draft.references || []).map((r,i) => ({ name:r.name, object_path:`${user.id}/references/${id}-${i}.png`, purpose:'style-reference-only' }));
+      const metadata = { studioVersion:1, directionVersion:1, brief:draft.brief, source:draft.source, alpha:draft.alpha, references:refs, ...draft.metadata, saveState:'uploading' };
       await json('studio_assets', { method:'POST', headers:{'Content-Type':'application/json',Prefer:'return=representation'}, body:JSON.stringify({id,name:draft.brief.name,category:'refuge',status:'draft',prompt:draft.prompt,object_path:imagePath,metadata}) });
-      const upload = async (path, blob) => checked(await request('/storage/v1/object/companion-studio/' + objectPath(path), {method:'POST',headers:{'Content-Type':'image/png','x-upsert':'false'},body:blob}), 'O upload não foi confirmado. O rascunho permanece na biblioteca; confira antes de repetir.');
+      const upload = async (path, blob, contentType='image/png') => checked(await request('/storage/v1/object/companion-studio/' + objectPath(path), {method:'POST',headers:{'Content-Type':contentType,'x-upsert':'false'},body:blob}), 'O upload não foi confirmado. O rascunho permanece na biblioteca; confira antes de repetir.');
       for(let i=0;i<refs.length;i++) await upload(refs[i].object_path,draft.references[i].blob);
-      if (draft.image) await upload(imagePath,draft.image);
+      if (draft.image && !draft.reusePath) await upload(imagePath,draft.image,mime);
       metadata.saveState='ready';
-      const rows = await json('studio_assets?id=eq.' + id, {method:'PATCH',headers:{'Content-Type':'application/json',Prefer:'return=representation'},body:JSON.stringify({metadata,mime_type:draft.image?'image/png':null,file_bytes:draft.image?.size||0})});
+      const rows = await json('studio_assets?id=eq.' + id, {method:'PATCH',headers:{'Content-Type':'application/json',Prefer:'return=representation'},body:JSON.stringify({metadata,mime_type:imagePath?mime:null,file_bytes:draft.image?.size||draft.fileBytes||0})});
       if (!rows.length) throw Error('O salvamento não foi confirmado. Atualize a biblioteca.');
       return rows[0];
     }

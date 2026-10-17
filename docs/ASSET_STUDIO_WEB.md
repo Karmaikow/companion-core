@@ -103,3 +103,7 @@ para criar, importar ou gerar assets no Studio.
 
 Fontes de contrato: https://developers.openai.com/api/reference/resources/images/methods/edit
 e https://supabase.com/docs/guides/storage/buckets/fundamentals
+
+## Ampliação modular
+
+Login na mesma origem, GLB/variantes, folhas de sprites e mundo por chunks: veja [MODULAR_WORLD_STUDIO.md](MODULAR_WORLD_STUDIO.md).

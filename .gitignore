@@ -40,3 +40,5 @@ web/modules/THREE-LICENSE.txt
 web/modules/refuge-3d.js
 web/modules/refuge-godot-preview.bundle.js
 web/modules/asset-direction.js
+
+web/modules/world-stage.bundle.js

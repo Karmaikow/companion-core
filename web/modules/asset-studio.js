@@ -1,3 +1,4 @@
+import { accessPanel,preferredScope } from './studio-access.js';
 import { mode, cloudConfig } from './runtime-mode.js';
 import { studioCloudRequest } from './cloud-vault.js';
 import { decodeArtImage } from './art-image.js';
@@ -114,10 +115,12 @@ function renderLibrary() {
   const q=$('search').value.toLocaleLowerCase('pt-BR'),found=rows.filter(r=>r.name?.toLocaleLowerCase('pt-BR').includes(q)).slice(0,24),currentLibrary=library,epoch=scopeEpoch;
   if(!found.length){const p=document.createElement('p');p.className='fine-print';p.textContent='Nenhum rascunho por aqui. Guarde um pedido com suas referências para começar.';$('library').append(p);return;}
   observer=new IntersectionObserver(entries=>{for(const e of entries)if(e.isIntersecting){observer.unobserve(e.target);const row=found.find(r=>r.id===e.target.dataset.id);if(!row||row.metadata?.generation?.state==='generating')continue;void currentLibrary.image(row).then(blob=>{if(!blob||epoch!==scopeEpoch)return;const img=new Image();img.src=URL.createObjectURL(blob);libraryUrls.push(img.src);img.alt=row.name;e.target.querySelector('.draft-mark')?.replaceWith(img);}).catch(()=>{});}}, {rootMargin:'120px'});
-  for(const row of found){const b=document.createElement('button');b.type='button';b.className='asset-tile';b.dataset.id=row.id;const mark=document.createElement('div');mark.className='draft-mark';mark.textContent=row.metadata?.generation?.state==='generating'?'Gerando…':'◇ Briefing';const title=document.createElement('strong');title.textContent=row.name;const note=document.createElement('small');const state=row.metadata?.generation?.state;note.textContent=`${state==='failed'?'Pedido não confirmado':row.status==='published'?'Publicado · abrir como cópia':'Rascunho privado'} · ${new Date(row.created_at).toLocaleDateString('pt-BR')}`;b.append(mark,title,note);b.onclick=()=>void work(()=>openRow(row));$('library').append(b);observer.observe(b);}
+  for(const row of found){const b=document.createElement('button');b.type='button';b.className='asset-tile';b.dataset.id=row.id;const mark=document.createElement('div');mark.className='draft-mark';mark.textContent=row.metadata?.assetType==='model'?'◇ Modelo GLB':row.metadata?.assetType==='world'?'◇ Mundo':row.metadata?.assetType==='sprite'?'◇ Sprite':row.metadata?.generation?.state==='generating'?'Gerando…':'◇ Briefing';const title=document.createElement('strong');title.textContent=row.name;const note=document.createElement('small');const state=row.metadata?.generation?.state;note.textContent=`${state==='failed'?'Pedido não confirmado':row.status==='published'?'Publicado · abrir como cópia':'Rascunho privado'} · ${new Date(row.created_at).toLocaleDateString('pt-BR')}`;b.append(mark,title,note);b.onclick=()=>void work(()=>openRow(row));$('library').append(b);observer.observe(b);}
   $('libraryNote').textContent=`${found.length} peças exibidas (até 24 por busca, entre as 100 mais recentes). Rascunhos privados; guardar não publica no jogo.`;
 }
 async function openRow(row) {
+  if(row.metadata?.assetType==='model'||row.metadata?.assetType==='world'||row.mime_type==='model/gltf-binary'){location.assign('/world-studio.html?asset='+encodeURIComponent(row.id)+'&storage='+$('storage').value);return;}
+  if(row.metadata?.assetType==='sprite'){location.assign('/sprite-studio.html?asset='+encodeURIComponent(row.id)+'&storage='+$('storage').value);return;}
   const nextRefs=canWrite?await library.references(row):[],blob=await library.image(row);
   const b=row.metadata?.brief||{name:row.name,kind:'prop',prompt:row.prompt||'Objeto de fantasia ilustrado',palette:''};
   $('assetName').value=b.name;$('kind').value=b.kind;$('description').value=b.prompt;$('palette').value=b.palette;
@@ -159,6 +162,7 @@ $('copyPrompt').onclick=()=>void work(async()=>{const text=assetPrompt(brief());
 $('newDraft').onclick=()=>{if(busy)return;refs=[];candidates=[];selected=null;drawing=null;renderRefs();renderOptions();$('assetName').value='Novo elemento';$('description').value='';$('palette').value='Verde-musgo, azul-safira e rosa suave';$('previewEmpty').hidden=false;$('imageBadge').textContent='SEM ASSET';$('paidConsent').checked=false;updatePrompt();draw();buttons();feedback('Novo rascunho. As peças guardadas continuam na biblioteca.');};
 $('exportLibrary').onclick=()=>void work(async()=>{
   if(rows.length>30)throw Error('A exportação aceita até 30 peças. Baixe as artes individuais para bibliotecas maiores.');
+  if(rows.some(row=>row.metadata?.assetType==='model'||row.metadata?.assetType==='world'||row.metadata?.assetType==='sprite'))throw Error('Esta biblioteca contém modelos, mundos ou sprites. Exporte o pacote na Oficina do mundo, ou PNG/JSON no Estúdio de Sprites.');
   const assets=[];let total=0;
   for(const row of rows){const image=await library.image(row),references=canWrite?await library.references(row):[];const item={brief:row.metadata?.brief||{name:row.name,kind:'prop',prompt:row.prompt||'Objeto de fantasia ilustrado',palette:''},image:image?await toDataURL(image):null,references:await Promise.all(references.map(async r=>({name:r.name,image:await toDataURL(r.blob)})))};total+=JSON.stringify(item).length;if(total>32_000_000)throw Error('A biblioteca ultrapassa 32 MB para exportação. Baixe os PNGs individuais.');assets.push(item);}
   download(new Blob([JSON.stringify({format:'companion-asset-library',version:1,assets})],{type:'application/json'}),'companion-assets.json');feedback('Biblioteca exportada com imagens e referências. Nenhuma sessão ou credencial é incluída.');
@@ -172,4 +176,6 @@ $('libraryFile').onchange=()=>void work(async()=>{
 });
 if(!cloud){$('storage').value='local';$('storage').querySelector('[value=cloud]').disabled=true;}
 window.addEventListener('pagehide',()=>{observer?.disconnect();[...refUrls,...candidateUrls,...libraryUrls].forEach(URL.revokeObjectURL);});
-updatePrompt();draw();await changeScope();
+const accessUI=accessPanel($('accountStatus').parentElement,()=>void work(async()=>{await changeScope();await accessUI.refresh();}));
+if(preferredScope()==='local')$('storage').value='local';
+updatePrompt();draw();await changeScope();await accessUI.refresh();
