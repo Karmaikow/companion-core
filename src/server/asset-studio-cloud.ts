@@ -5,7 +5,7 @@ import { assetPrompt, validateBrief, DIRECTION_VERSION } from '../studio/asset-d
 const MAX_BODY = 4_100_000;
 type Reference = { name: string; image: string };
 export function studioInput(input: unknown) {
-  const b = input as { brief?: unknown; references?: unknown; paidConsent?: unknown; requestId?: unknown };
+  const b = input as { brief?: unknown; references?: unknown; paidConsent?: unknown; requestId?: unknown; sprite?: unknown };
   const brief = validateBrief(b?.brief);
   if (b.paidConsent !== true) throw Error('Confirme o envio das referências e o uso da API paga antes de gerar.');
   if (typeof b.requestId !== 'string' || !/^[\da-f]{8}-[\da-f]{4}-4[\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12}$/i.test(b.requestId)) throw Error('Identificador do pedido inválido.');
@@ -14,7 +14,10 @@ export function studioInput(input: unknown) {
     if (!r || typeof r.name !== 'string' || r.name.length > 160 || typeof r.image !== 'string' || r.image.length > 1_300_000) throw Error('Referência inválida ou maior que 950 KB.');
     return { name: r.name, bytes: validateArt(r.image).bytes };
   });
-  return { brief, prompt: assetPrompt(brief), references, id: b.requestId };
+  if (b.sprite !== undefined && typeof b.sprite !== 'boolean') throw Error('Modo de geração inválido.');
+  const sprite = b.sprite === true;
+  if (sprite && references.length !== 1) throw Error('A geração de sprites exige uma referência de personagem.');
+  return { brief, prompt: sprite ? brief.prompt : assetPrompt(brief), references, id: b.requestId, sprite };
 }
 type Provider = Pick<FormImageProvider, 'status' | 'generate'>;
 type Dependencies = { env?: NodeJS.ProcessEnv; request?: typeof fetch; provider?: Provider };
@@ -57,8 +60,8 @@ export function createStudioHandler(deps: Dependencies = {}) {
       id = job.id;
       if (!provider.status().configured) throw new StudioError(503, 'Geração indisponível: configure COMPANION_IMAGE_API_KEY no servidor. Upload, prompt e biblioteca continuam disponíveis.');
       const objectPath = `${user.id}/assets/${id}.png`;
-      const refs = job.references.map((r, i) => ({ name: r.name, object_path: `${user.id}/references/${id}-${i}.png`, purpose: 'style-reference-only' }));
-      metadata = { studioVersion: 1, directionVersion: DIRECTION_VERSION, brief: job.brief, source: 'openai', references: refs, generation: { state: 'generating', requestId: id, model: provider.status().model } };
+      const refs = job.references.map((r, i) => ({ name: r.name, object_path: `${user.id}/references/${id}-${i}.png`, purpose: job.sprite ? 'character-reference' : 'style-reference-only' }));
+      metadata = { studioVersion: 1, directionVersion: DIRECTION_VERSION, brief: job.brief, source: 'openai', assetType: job.sprite ? 'sprite-strip' : 'image', references: refs, generation: { state: 'generating', requestId: id, model: provider.status().model } };
       const insert = await backend('/rest/v1/studio_assets', { method: 'POST', headers: { 'Content-Type': 'application/json', Prefer: 'return=representation' }, body: JSON.stringify({ id, name: job.brief.name, category: 'refuge', prompt: job.prompt, status: 'draft', object_path: objectPath, metadata }) });
       if (insert.status === 409) throw new StudioError(409, 'Este pedido já foi enviado. Atualize a biblioteca antes de tentar outro; não houve nova geração.');
       if (!insert.ok) throw new StudioError(503, 'Não foi possível reservar o rascunho. Nenhuma geração foi iniciada.');
