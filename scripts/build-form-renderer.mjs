@@ -11,3 +11,5 @@ await build({ entryPoints:[fileURLToPath(new URL('../web/modules/refuge-godot-pr
 await copyFile(new URL('../node_modules/three/LICENSE',import.meta.url),new URL('../web/modules/THREE-LICENSE.txt',import.meta.url));
 
 await build({entryPoints:[fileURLToPath(new URL('../web/scene/world-stage.js',import.meta.url))],outfile:fileURLToPath(new URL('../web/modules/world-stage.bundle.js',import.meta.url)),bundle:true,format:'esm',platform:'browser',target:'es2022',minify:true,legalComments:'eof',external:['../modules/world-rules.js','../modules/refuge-navigation.js','../modules/sprite-atlas.js','../modules/art-image.js']});
+
+await build({entryPoints:[fileURLToPath(new URL('../web/modules/sprite-factory.js',import.meta.url))],outfile:fileURLToPath(new URL('../web/modules/sprite-factory.bundle.js',import.meta.url)),bundle:true,format:'esm',platform:'browser',target:'es2022',minify:true,legalComments:'eof',external:['./asset-studio-store.js']});
