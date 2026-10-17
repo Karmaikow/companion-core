@@ -39,14 +39,14 @@ export class FormImageProvider {
     try {const saved=JSON.parse(await readFile(this.file,'utf8'));if(typeof saved.key!=='string')throw Error();this.key=saved.key;}
     catch(e){if((e as NodeJS.ErrnoException).code!=='ENOENT')throw Error('Configuração de imagens inválida. Preserve data/.access/images.json.');}
   }
-  status() {return {configured:!!(this.key||this.env.COMPANION_IMAGE_API_KEY),model:'gpt-image-2.5-sunburst'};}
+  status() {return {configured:!!(this.key||this.env.COMPANION_IMAGE_API_KEY),model:this.env.COMPANION_IMAGE_MODEL||'gpt-image-2.5-sunburst'};}
   async configure(input:unknown) {
     const key=(input as {key?:unknown})?.key;
     if(typeof key!=='string'||key.length>4096||/[\r\n\x00]/.test(key))throw Error('Chave inválida.');
     await mkdir(path.dirname(this.file),{recursive:true,mode:0o700});
     await writeFileAtomic(this.file,JSON.stringify({key:key.trim()}),0o600);this.key=key.trim();return this.status();
   }
-  async generate(prompt:string, paidConsent:unknown, reference?:Buffer) {
+  async generate(prompt:string, paidConsent:unknown, reference?:Buffer|Buffer[]) {
     if(paidConsent!==true)throw Error('Confirme o uso da API paga de imagens.');
     const key=this.key||this.env.COMPANION_IMAGE_API_KEY;
     if(!key)throw Error('Configure uma chave OpenAI de imagens ou importe um PNG. A chave Groq não gera estas imagens.');
@@ -56,9 +56,10 @@ export class FormImageProvider {
       const params={model:this.status().model,prompt,n:1,size:'1024x1024',quality:'medium',background:'transparent',output_format:'png'};
       let body:BodyInit=JSON.stringify(params);
       const headers:Record<string,string>={Authorization:`Bearer ${key}`};
-      if(reference){const form=new FormData();for(const [k,v] of Object.entries(params))form.set(k,String(v));form.set('image[]',new Blob([new Uint8Array(reference)],{type:'image/png'}),'previous-form.png');body=form;}
+      const references=reference?(Array.isArray(reference)?reference:[reference]):[];
+      if(references.length){const form=new FormData();for(const [k,v] of Object.entries(params))form.set(k,String(v));for(const [i,image] of references.entries())form.append('image[]',new Blob([new Uint8Array(image)],{type:'image/png'}),`reference-${i}.png`);body=form;}
       else headers['Content-Type']='application/json';
-      const response=await this.request('https://api.openai.com/v1/images/'+(reference?'edits':'generations'),{method:'POST',headers,body,signal:AbortSignal.timeout(180_000)});
+      const response=await this.request('https://api.openai.com/v1/images/'+(references.length?'edits':'generations'),{method:'POST',headers,body,signal:AbortSignal.timeout(160_000)});
       if(!response.ok)throw Error(`A API de imagens recusou o pedido (${response.status}). Confira acesso ao modelo, saldo e chave no painel OpenAI.`);
       const data=await response.json() as {data?:{b64_json?:string}[]};
       const image='data:image/png;base64,'+(data.data?.[0]?.b64_json??'');validateArt(image);
@@ -67,3 +68,4 @@ export class FormImageProvider {
     finally{this.busy=false;}
   }
 }
+

@@ -10,6 +10,7 @@ import { createAIProvider } from '../ai/provider-factory.js';
 import { LocalAuth, AuthError } from './local-auth.js';
 import { CompanionRuntime, HubError } from './companion-runtime.js';
 import { PairingError, parseRemoteOrigin, RemotePairing } from './remote-pairing.js';
+import { studioInput } from './asset-studio-cloud.js';
 
 const PORT = Number(process.env.PORT ?? 4173);
 const HOST = process.env.HOST ?? '127.0.0.1';
@@ -175,6 +176,18 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, pathname: st
   }
 
   if (!auth.authorized(req)) { json(res,401,{error:'Entre para acessar sua Companion.'}); return; }
+
+  if (pathname === '/api/studio') {
+    if(req.method==='GET'){json(res,200,{...imageProvider.status(),mode:'local',storage:'browser'});return;}
+    if(req.method!=='POST'){json(res,405,{error:'Método inválido.'});return;}
+    try {
+      const job=studioInput(await readJsonBody(req,4_100_000));
+      if(!imageProvider.status().configured){json(res,503,{error:'Configure a API de imagens no Core local ou importe um PNG. Nenhuma geração foi iniciada.'});return;}
+      const image=await imageProvider.generate(job.prompt,true,job.references.map(r=>r.bytes));
+      json(res,200,{image});
+    }catch(error){json(res,400,{error:error instanceof Error?error.message:'Não foi possível gerar o asset.'});}
+    return;
+  }
 
   if (pathname === '/api/conversation/settings') {
     if (!desktopAI) { json(res,404,{error:'Configuração disponível no Core local do PC.'}); return; }

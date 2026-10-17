@@ -1,5 +1,10 @@
 # Companion Studio
 
+Novo fluxo integrado no Companion Core: `/asset-studio.html`. Consulte
+[Estúdio de Assets web](ASSET_STUDIO_WEB.md) para referências, geração opcional,
+persistência privada e testes. O site abaixo é o Studio anterior; sua biblioteca
+e permissões são reaproveitadas pela nova página.
+
 Studio independente: https://companion-studio.diegozxcvbnm.chatgpt.site
 
 O acesso está nos menus desktop e mobile do Companion Core. Administração autorizada no servidor pela tabela studio_admins do Supabase.

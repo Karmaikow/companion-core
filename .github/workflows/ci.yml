@@ -7,6 +7,7 @@ on:
   pull_request:
     branches:
       - main
+      - feature/evolucao-3d
 
 permissions:
   contents: read
@@ -30,6 +31,16 @@ jobs:
         run: npm ci
       - name: Run tests
         run: npm test
+      - name: Check Studio function types
+        run: npx tsc --noEmit -p api/tsconfig.json
+      - name: Install browser for Studio checks
+        if: runner.os == 'Linux'
+        run: npx playwright install --with-deps chromium
+      - name: Verify Studio browser flows without paid requests
+        if: runner.os == 'Linux'
+        run: |
+          node tests/asset-studio-browser.mjs
+          node tests/asset-studio-cloud-browser.mjs
       - name: Build Vercel preview
         run: npm run vercel:build
       - name: Prepare shared registry function

@@ -92,6 +92,20 @@ async function dataRequest(path, options = {}, retry = true) {
   return body ? JSON.parse(body) : null;
 }
 
+// Reuse the account session and refresh flow. No provider keys belong in the browser.
+export async function studioCloudRequest(path, options = {}, retry = true) {
+  const storage = path.startsWith('/storage/v1/object/companion-studio/') || path.startsWith('/storage/v1/object/authenticated/companion-studio/');
+  const catalog = /^\/rest\/v1\/studio_(assets|admins)(\?|$)/.test(path);
+  if (!storage && !catalog && path !== '/api/studio') throw Error('Rota do Studio inválida.');
+  const session = await validSession();
+  if (!session) throw Error('Entre na sua conta Companion Core para abrir a biblioteca online.');
+  const response = await fetch(path === '/api/studio' ? path : cloudConfig.url + path, {
+    ...options, cache: 'no-store', headers: { apikey: cloudConfig.publishableKey, Authorization: `Bearer ${session.access_token}`, ...(options.headers || {}) }
+  });
+  if (response.status === 401 && retry && await refreshSession()) return studioCloudRequest(path, options, false);
+  return response;
+}
+
 export const cloudAuth = {
   consumePasswordRecovery: async () => {
     if (!configured()) throw new Error('Supabase ainda não está configurado neste deploy.');

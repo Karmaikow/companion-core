@@ -1,0 +1,32 @@
+import assert from 'node:assert/strict';
+import {chromium} from '@playwright/test';
+import {spawn} from 'node:child_process';
+import {mkdtemp,rm,mkdir} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import path from 'node:path';
+const root=await mkdtemp(path.join(tmpdir(),'asset-studio-')),port=4198,base=`http://127.0.0.1:${port}`;
+const server=spawn(process.execPath,['dist/server/web-server.js'],{env:{...process.env,PORT:String(port),MAYUNA_AI_PROVIDER:'mock',MAYUNA_DATA_DIR:root},stdio:['ignore','pipe','pipe']});
+let browser;
+try{
+ await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('Server timeout')),20000);server.stdout.on('data',b=>{if(String(b).includes('Interface:')){clearTimeout(timer);resolve();}});server.once('exit',()=>reject(Error('Server exit')));});
+ browser=await chromium.launch({headless:true,...(process.env.MAYUNA_TEST_BROWSER?{executablePath:process.env.MAYUNA_TEST_BROWSER}:{}),args:['--no-sandbox']});
+ const page=await browser.newPage({viewport:{width:1440,height:1100}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
+ let generationPosts=0;page.on('request',r=>{if(r.url().endsWith('/api/studio')&&r.method()==='POST')generationPosts++;});
+ await page.goto(base+'/asset-studio.html');await page.waitForFunction(()=>document.querySelector('#accountStatus').textContent.includes('navegador'));
+ assert.equal(await page.locator('#generate').isDisabled(),true);
+ const refs=process.env.STUDIO_TEST_REFS?process.env.STUDIO_TEST_REFS.split('|'):['web/assets/refuge/mayuna-reference.png'];
+ await page.setInputFiles('#referenceFiles',refs);await page.waitForFunction(n=>document.querySelectorAll('.ref').length===n,refs.length);
+ await page.setInputFiles('#assetFile','web/assets/refuge/mayuna-reference.png');await page.waitForFunction(()=>document.querySelector('#imageBadge').textContent==='IMPORTADA');
+ await page.locator('#assetName').fill('Estudo privado com três referências');await page.locator('#save').click();await page.waitForFunction(()=>document.querySelector('#feedback').textContent.includes('guardado'));
+ assert.equal(await page.locator('.asset-tile').count(),1);
+ await page.reload();await page.locator('.asset-tile').waitFor();await page.locator('.asset-tile').click();await page.waitForFunction(n=>document.querySelectorAll('.ref').length===n,refs.length);
+ assert.equal(await page.locator('#assetName').inputValue(),'Estudo privado com três referências');assert.match(await page.locator('#compiledPrompt').inputValue(),/upper left/);
+ const png=page.waitForEvent('download');await page.locator('#download').click();assert.equal((await png).suggestedFilename(),'companion-asset.png');
+ const exported=page.waitForEvent('download');await page.locator('#exportLibrary').click();const file=await exported;const exportPath=await file.path();
+ await page.waitForFunction(()=>!document.querySelector('#libraryFile').disabled);await page.setInputFiles('#libraryFile',exportPath);await page.waitForFunction(()=>document.querySelectorAll('.asset-tile').length===2||document.querySelector('#feedback').classList.contains('error'));
+ assert.equal(await page.locator('.asset-tile').count(),2,await page.locator('#feedback').textContent());
+ await mkdir('test-results',{recursive:true});await page.screenshot({path:'test-results/asset-studio-desktop.png',fullPage:true});
+ await page.setViewportSize({width:390,height:844});await page.reload();await page.locator('.asset-tile').first().click();await page.waitForFunction(()=>document.querySelector('#imageBadge').textContent==='IMPORTADA');assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await page.screenshot({path:'test-results/asset-studio-mobile.png',fullPage:true});
+ assert.equal(generationPosts,0,'No simulated generation or paid calls');assert.deepEqual(errors,[]);
+ console.log('PASS: references, PNG import, IndexedDB persistence after reload, draft reopen, export/import, mobile layout, no paid calls.');
+}finally{await browser?.close();server.kill();await rm(root,{recursive:true,force:true});}

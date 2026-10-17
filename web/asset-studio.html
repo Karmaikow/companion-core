@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="pt-BR">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#172b27"><title>Estúdio de Assets · Companion Core</title><link rel="icon" href="/icon.svg"><link rel="stylesheet" href="/asset-studio.css"></head>
+<body>
+<header class="masthead"><a href="/" class="brand">✦ <span>COMPANION CORE<small>Oficina do mundo</small></span></a><nav><a href="/">Voltar ao Core</a><a href="/sprite-studio.html">Estúdio de Sprites ↗</a></nav></header>
+<main>
+  <section class="intro"><div><span class="eyebrow">DIREÇÃO DE ARTE / FANTASIA ILUSTRADA</span><h1>Um mundo, traço por traço.</h1><p>Transforme suas referências em elementos para o refúgio. Experimente antes de guardar.</p></div><label class="storage-label">Biblioteca<select id="storage"><option value="cloud">Minha conta online</option><option value="local">Neste navegador</option></select><small id="accountStatus" role="status">Conferindo acesso…</small></label></section>
+  <div class="workbench">
+    <section class="card composer" aria-labelledby="briefHeading"><div class="section-title"><span class="step">01</span><h2 id="briefHeading">Imagine o elemento</h2><button id="newDraft" class="text-button" type="button">Novo</button></div>
+      <form id="briefForm">
+      <label>Nome<input id="assetName" maxlength="120" value="Árvore de copa rosa" required></label>
+      <label>Elemento<select id="kind"><option value="tree">Árvore</option><option value="rock">Pedra / formação rochosa</option><option value="plant">Planta / vegetação</option><option value="building">Construção</option><option value="prop">Objeto do cenário</option></select></label>
+      <label>O que vamos criar?<textarea id="description" rows="4" maxlength="2400" required>Árvore de copa rosa arredondada, tronco curto com raízes delicadas, folhas em camadas e silhueta acolhedora.</textarea></label>
+      <label>Paleta<input id="palette" maxlength="240" value="Rosa coral suave, verde-musgo, madeira castanha e sombras azuladas"></label>
+      <div class="reference-heading"><h3>Referências visuais</h3><small id="referenceCount">0 / 3</small></div>
+      <label class="upload-area">+ Adicionar referências<input id="referenceFiles" type="file" accept="image/png,image/jpeg,image/webp" multiple><small>PNG, JPG ou WebP · até 3 imagens</small></label>
+      <div id="referenceList" class="references"></div><p class="fine-print">Referências guiam o estilo. Não serão publicadas como assets finais; envie imagens que você pode usar para esse estudo.</p>
+      <details><summary>Direção e pedido completo</summary><div class="direction-tags"><span>3/4 elevado</span><span>Contorno pintado</span><span>Luz superior esquerda</span><span>PNG transparente</span></div><p class="fine-print">Volumes de folhagem, planos das pedras, proporções e sombras seguem as referências escolhidas. O preset inicial traduz as três referências discutidas para o Companion Core.</p><textarea id="compiledPrompt" rows="10" readonly aria-label="Pedido completo"></textarea><button id="copyPrompt" class="secondary" type="button">Copiar pedido</button></details>
+      <p id="generationStatus" class="service-note" role="status">Conferindo o serviço de geração…</p>
+      <label class="consent"><input id="paidConsent" type="checkbox">Autorizo enviar este pedido e as referências ao provedor de imagens e usar a API paga para uma opção.</label>
+      <button id="generate" class="primary" type="submit" disabled>✦ Gerar uma opção</button><p class="fine-print">Uma chamada por clique. Nenhuma cobrança é feita ao abrir o Studio.</p>
+      </form>
+    </section>
+    <section class="card preview-card" aria-labelledby="previewHeading"><div class="section-title"><span class="step">02</span><h2 id="previewHeading">Veja no seu mundo</h2><span id="imageBadge" class="badge">SEM ASSET</span></div>
+      <div class="preview-toolbar"><label>Prévia<select id="previewMode"><option value="context">No cenário de estudo</option><option value="alpha">Transparência</option></select></label><label>Escala<input id="previewScale" type="range" min="30" max="100" value="70"></label></div>
+      <div class="canvas-wrap"><canvas id="preview" width="900" height="700" aria-label="Prévia do asset em uma pequena composição de estudo"></canvas><div id="previewEmpty"><span>◇</span><strong>Sua próxima peça começa aqui.</strong><p>Gere uma opção ou importe uma arte para conferir a composição.</p></div></div>
+      <p id="imageInfo" class="fine-print">O cenário de estudo serve para avaliar escala e sombra de contato. Não altera o refúgio do jogo.</p>
+      <div class="preview-actions"><label class="secondary file-button">Importar arte<input id="assetFile" type="file" accept="image/png,image/jpeg,image/webp"></label><button id="download" class="secondary" disabled>Baixar PNG</button><button id="save" class="primary">Guardar rascunho</button></div>
+      <div class="options-heading"><h3>Opções desta sessão</h3><small>Selecione para comparar</small></div><div id="options" class="options"><p class="fine-print">As opções geradas ou importadas aparecerão aqui.</p></div>
+    </section>
+  </div>
+  <section class="library-section" aria-labelledby="libraryHeading"><div class="library-heading"><div><span class="eyebrow">PEÇAS PARA FUTUROS REFÚGIOS</span><h2 id="libraryHeading">Sua biblioteca</h2></div><div><input id="search" type="search" placeholder="Buscar pelo nome…" aria-label="Buscar na biblioteca"><button id="refresh" class="secondary">Atualizar</button><button id="exportLibrary" class="secondary">Exportar biblioteca</button><label class="secondary file-button">Importar biblioteca<input id="libraryFile" type="file" accept="application/json,.json"></label></div></div><p id="libraryNote" class="fine-print">Os rascunhos ficam privados. Guardar não publica o asset no catálogo do jogo.</p><div id="library" class="library-grid"></div></section>
+  <p id="feedback" class="feedback" role="status" aria-live="polite">Prepare um elemento para começar.</p>
+</main>
+<footer>Companion Core · Estúdio de Assets <span>Identidade, memórias e progressão continuam no Core.</span></footer>
+<script type="module" src="/modules/asset-studio.js"></script>
+</body></html>
