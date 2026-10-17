@@ -33,3 +33,9 @@ export function routeTo(start,goal,obstacles,bounds){
     for(let dx=-1;dx<=1;dx++)for(let dz=-1;dz<=1;dz++){if(!dx&&!dz)continue;const p={x:n.x+dx*step,z:n.z+dz*step},k=key(p),g=n.g+Math.hypot(dx,dz)*step;if(closed.has(k)||g>=(best.get(k)??Infinity)||!clearSegment(n,p,obstacles,bounds))continue;best.set(k,g);open.push({...p,g,f:g+Math.hypot(p.x-end.x,p.z-end.z),parent:n});}}
   return null;
 }
+
+// Shared orthographic camera basis: atlas directions are screen-space, not world X/Z.
+export const WORLD_VIEW={x:11,y:14,z:14};
+const viewLength=Math.hypot(WORLD_VIEW.x,WORLD_VIEW.z),viewX=WORLD_VIEW.x/viewLength,viewZ=WORLD_VIEW.z/viewLength;
+export function movementInWorld(screenX,screenDown){return{x:screenX*viewZ+screenDown*viewX,z:-screenX*viewX+screenDown*viewZ};}
+export function worldFacing(dx,dz){const right=dx*viewZ-dz*viewX,down=(dx*viewX+dz*viewZ)*WORLD_VIEW.y/Math.hypot(viewLength,WORLD_VIEW.y);return ['E','SE','S','SW','W','NW','N','NE'][(Math.round(Math.atan2(down,right)/(Math.PI/4))+8)%8];}
