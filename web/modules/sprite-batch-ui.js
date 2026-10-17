@@ -44,7 +44,7 @@ export async function mountSpriteBatch(root,{id,generation,cloud,onAssemble}){
   $('jobs').textContent=jobs.map(j=>j.action+' / '+j.direction+' · '+j.status+(j.requestId?' · '+j.requestId:'')+(j.error?' · '+j.error:'')).join('\n');
   for(const el of root.querySelectorAll('input,select'))el.disabled=running;
   $('plan').disabled=running;$('run').disabled=running||!pending;$('pause').disabled=!running;$('assemble').disabled=running||!ready;
-  if(batch)note(jobs.length+' chamadas planejadas · '+ready+' prontas · '+pending+' não enviadas · '+uncertain+' sem confirmação. '+batch.total+' quadros previstos. Custo por imagem conforme modelo da API; nenhuma chamada ao preparar.');
+  if(batch){const active=jobs.find(j=>j.status==='inflight');const counts=jobs.length+' chamadas planejadas · '+ready+' prontas · '+pending+' não enviadas · '+uncertain+' sem confirmação.';note(running?(active?'Gerando '+labels[active.action]+' / '+active.direction+'. Aguarde a chamada atual; não clique novamente.':'Verificando acesso e preparando o lote…'):(counts+' '+(ready?'Clique em Montar atlas para revisão para ver os resultados. ':'')+batch.total+' quadros previstos. Custo por imagem conforme modelo da API; nenhuma chamada ao preparar.'));}
  }
  try{batch=await checkpoint(key);if(batch){for(const j of batch.jobs)if(j.status==='inflight')j.status='uncertain';await checkpoint(key,batch);}}catch(e){note('Não foi possível abrir os checkpoints: '+e.message);}
  render();
@@ -58,13 +58,14 @@ export async function mountSpriteBatch(root,{id,generation,cloud,onAssemble}){
  $('run').onclick=async()=>{
   if(running)return;if(!$('consent').checked){note('Confirme o custo das chamadas restantes antes de iniciar.');return;}
   if(!navigator.locks){note('Este navegador não oferece o bloqueio necessário para evitar lotes simultâneos. Use Chrome/Edge em HTTPS ou localhost.');return;}
+  running=true;pause=false;render();$('jobs').parentElement.open=true;
   try{await navigator.locks.request('companion-sprite-batch:'+key,{ifAvailable:true},async lock=>{
    if(!lock)throw Error('Este lote está aberto para geração em outra aba.');
    batch=await checkpoint(key);if(!batch)throw Error('Prepare um lote primeiro.');
    // An interrupted request is never automatically resubmitted.
    for(const j of batch.jobs)if(j.status==='inflight')j.status='uncertain';
    const localReference=await dataURL(batch.reference),library=createCloudLibrary();
-   if(cloud){const response=await studioCloudRequest('/api/studio');const info=await response.json();if(!response.ok||!info.configured)throw Error(info.error||'Configure a API de imagens no servidor e entre com uma conta autorizada.');}
+   if(cloud){const response=await studioCloudRequest('/api/studio',{signal:AbortSignal.timeout(20000)});const info=await response.json();if(!response.ok||!info.configured)throw Error(info.error||'Configure a API de imagens no servidor e entre com uma conta autorizada.');}
    running=true;pause=false;render();
    await runBatch(batch,{save:b=>checkpoint(key,b),paused:()=>pause,progress:render,generate:async job=>{
     const body=cloud?{sprite:true,brief:{name:'Sprite '+job.action+' '+job.direction,kind:'prop',prompt:job.prompt,palette:''},references:[{name:'character.png',image:localReference}],paidConsent:true,requestId:job.requestId}:{id,generation,prompt:job.prompt,reference:localReference,paidConsent:true};
