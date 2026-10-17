@@ -11,7 +11,7 @@ test('desktop AI persists privately, masks credentials and preserves same-provid
  await assert.rejects(settings.save({provider:'groq',secret:'test-key'}),/Free/);
  await settings.save({provider:'groq',secret:'test-key',freePlanConfirmed:true});
  assert.equal(JSON.stringify(settings.status()).includes('test-key'),false);
- assert.equal((await stat(settings.file)).mode&0o777,0o600);
+ if(process.platform!=='win32') assert.equal((await stat(settings.file)).mode&0o777,0o600);
  await settings.save({provider:'groq',secret:'',freePlanConfirmed:true});
  const reloaded=new DesktopAISettings({MAYUNA_DATA_DIR:root});await reloaded.initialize();assert.equal(reloaded.name,'groq');
  await assert.rejects(reloaded.save({provider:'openai',model:'test',secret:''}),/chave/);
@@ -53,3 +53,4 @@ test('switching providers restores each credential after restart, shared require
  const saved=JSON.parse(await readFile(next.file,'utf8'));assert.equal(saved.profiles.groq.secret,'test-groq');assert.equal(saved.profiles.openai.secret,'test-openai');assert.ok(!JSON.stringify(next.status()).includes('test-groq'));
  }finally{await rm(root,{recursive:true,force:true});}
 });
+
