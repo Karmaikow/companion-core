@@ -25,10 +25,12 @@ export async function assembleBatch(batch){
    const pixels=c.getImageData(i*sw,0,sw,sh).data;let minX=sw,minY=sh,maxX=-1,maxY=-1,transparent=0;
    for(let y=0;y<sh;y++)for(let x=0;x<sw;x++){const alpha=pixels[(y*sw+x)*4+3];if(alpha<24)transparent++;if(alpha>24){minX=Math.min(minX,x);minY=Math.min(minY,y);maxX=Math.max(maxX,x);maxY=Math.max(maxY,y);}}
    if(maxX<0||transparent<sw*sh*.01)throw Error(job.action+'/'+job.direction+': quadro vazio ou sem transparência real. Importe/corrija a sequência antes de montar.');
-   const w=maxX-minX+1,h=maxY-minY+1;globalScale=Math.min(globalScale,batch.cell*.88/w,batch.cell*.88/h);cells.push({source,x:i*sw+minX,y:minY,w,h});
+   const w=maxX-minX+1,h=maxY-minY+1;globalScale=Math.min(globalScale,batch.cell*.88/w,batch.cell*.88/h);cells.push({x:i*sw+minX,y:minY,w,h});
   }
+  source.width=source.height=1;
  }
- cells.forEach((c,i)=>{const w=c.w*globalScale,h=c.h*globalScale;ctx.drawImage(c.source,c.x,c.y,c.w,c.h,(i%8)*batch.cell+(batch.cell-w)/2,Math.floor(i/8)*batch.cell+batch.cell*.95-h,w,h);});
+ let index=0;
+ for(const job of ready){const image=await decodeArtImage(job.blob);for(let f=0;f<batch.frames;f++){const i=index++,c=cells[i],w=c.w*globalScale,h=c.h*globalScale;ctx.drawImage(image,c.x,c.y,c.w,c.h,(i%8)*batch.cell+(batch.cell-w)/2,Math.floor(i/8)*batch.cell+batch.cell*.95-h,w,h);}}
  return {blob:await toPNG(canvas),atlas:project};
 }
 export async function mountSpriteBatch(root,{id,generation,cloud,onAssemble}){
