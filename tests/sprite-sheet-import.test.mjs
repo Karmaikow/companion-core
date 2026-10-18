@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {MAYUNA_VIDEO_LAYOUT,sheetLayout,frameSelection,mappedAtlas,clipFrame} from '../web/modules/sprite-sheet-import.js';
+import {MAYUNA_VIDEO_LAYOUT,sheetLayout,frameSelection,mappedAtlas,classifyOrderedTurn,clipFrame} from '../web/modules/sprite-sheet-import.js';
 import {DIRECTIONS,selectClip} from '../web/modules/sprite-atlas.js';
 const layout=()=>sheetLayout(MAYUNA_VIDEO_LAYOUT,3127,5215);
 test('Mayuna layout removes all 5px gutters without trimming cells',()=>{
@@ -31,6 +31,25 @@ test('directions are explicitly mapped, never fabricated from the rotation video
  assert.equal(Object.keys(eight.clips.walk).length,8);
  for(const d of DIRECTIONS)assert.equal(selectClip(eight,'walk',d).exact,true);
  assert.throws(()=>mappedAtlas(layout(),'walk',{S:'0'},0,true));
+});
+test('AutoMap v1 distributes all 240 ordered frames across eight editable sectors at FPS 10',()=>{
+ const result=classifyOrderedTurn(240),counts=Object.fromEntries(DIRECTIONS.map(d=>[d,result.framesByDirection[d].length]));
+ assert.deepEqual(counts,Object.fromEntries(DIRECTIONS.map(d=>[d,30])));
+ assert.deepEqual(result.framesByDirection.S,[...Array(30).keys()]);
+ assert.deepEqual(result.framesByDirection.SE,[...Array(30).keys()].map(n=>n+210));
+ assert.equal(result.classification.method,'ordered-turn-v1');assert.equal(result.classification.reviewed,false);
+ const ranges=Object.fromEntries(DIRECTIONS.map(d=>[d,`${result.framesByDirection[d][0]}-${result.framesByDirection[d].at(-1)}`]));
+ const atlas=mappedAtlas(layout(),'walk',ranges,10,false,result.classification);
+ assert.equal(atlas.source.classification.method,'ordered-turn-v1');
+ assert.equal(atlas.clips.walk.S.fps,10);assert.equal(atlas.clips.walk.SE.frames.length,30);
+});
+test('AutoMap supports an anchor and reverse sequence and handles uneven frame counts without dropping frames',()=>{
+ const result=classifyOrderedTurn(11,{anchor:'N',clockwise:false});
+ assert.deepEqual(result.framesByDirection.N,[0,1]);assert.deepEqual(result.framesByDirection.NW,[2]);assert.deepEqual(result.framesByDirection.W,[3,4]);
+ assert.deepEqual(result.framesByDirection.S,[6]);assert.deepEqual(result.framesByDirection.SE,[7,8]);assert.deepEqual(result.framesByDirection.NE,[10]);
+ assert.equal(Object.values(result.framesByDirection).flat().length,11);
+ for(const bad of [0,513])assert.throws(()=>classifyOrderedTurn(bad));
+ assert.throws(()=>classifyOrderedTurn(8,{anchor:'sideways'}));
 });
 test('FPS, loop, final-frame hold and reduced motion',()=>{
  const c={frames:[4,7,10],fps:2,loop:false};

@@ -19,17 +19,18 @@ try{
  await page.waitForFunction(()=>!document.querySelector('#sheetCrop').disabled);
  await page.locator('#sheetCrop').click();
  await page.waitForFunction(()=>document.querySelector('#sheetStatus').textContent.includes('240'));
- await page.locator('#sheetImport').click();
- assert.match(await page.locator('#sheetStatus').textContent(),/pelo menos uma/);
+ await page.locator('#sheetAutoMap').click();
+ assert.equal(await page.locator('#sheetFps').inputValue(),'10');
+ for(const [i,d]of ['S','SW','W','NW','N','NE','E','SE'].entries())assert.equal(await page.locator('#sheet-range-'+d).inputValue(),`${i*30}-${i*30+29}`);
+ // The interval editor stays active after classification and records a manual review edit.
  for(const [i,d]of ['S','SW','W','NW','N','NE','E','SE'].entries())await page.locator('#sheet-range-'+d).fill(`${i*3}-${i*3+2}`);
- await page.locator('#sheetFps').fill('12');
  await page.locator('#sheetImport').click();
  await page.waitForFunction(()=>document.querySelector('#timeline').children.length===240);
- assert.equal(await page.locator('#fps').inputValue(),'12');
+ assert.equal(await page.locator('#fps').inputValue(),'10');
  await page.locator('#apply').click();
  await page.waitForFunction(()=>document.querySelector('#status').textContent.includes('aplicado'));
  const saved=await page.evaluate(async()=>{const {readSprite}=await import('/modules/sprite-store.js');const s=await readSprite('MC-MEGA-TEST:form:1');const b=await createImageBitmap(s.blob);const c=document.createElement('canvas');c.width=b.width;c.height=b.height;const x=c.getContext('2d');x.drawImage(b,0,0);return {width:b.width,height:b.height,atlas:s.atlas,transparent:[...x.getImageData(255,255,1,1).data],last:[...x.getImageData(11*256+100,19*256+100,1,1).data]};});
- assert.equal(saved.width,3072);assert.equal(saved.height,5120);assert.equal(Object.keys(saved.atlas.clips.walk).length,8);assert.equal(saved.atlas.clips.walk.N.fps,12);assert.equal(saved.atlas.clips.walk.N.loop,false);assert.equal(saved.transparent[3],0);assert.deepEqual(saved.last,[239,100,50,255]);
+ assert.equal(saved.width,3072);assert.equal(saved.height,5120);assert.equal(Object.keys(saved.atlas.clips.walk).length,8);assert.equal(saved.atlas.clips.walk.N.fps,10);assert.equal(saved.atlas.clips.walk.S.frames.length,3);assert.equal(saved.atlas.source.classification.method,'ordered-turn-v1');assert.equal(saved.atlas.source.classification.manualEdits,true);assert.equal(saved.atlas.source.classification.reviewed,false);assert.equal(saved.atlas.clips.walk.N.loop,false);assert.equal(saved.transparent[3],0);assert.deepEqual(saved.last,[239,100,50,255]);
  await page.goto('https://sprite.test/world-test');
  await page.evaluate(async()=>{const {GameViewport,HolographicCoreRenderer}=await import('/modules/game-viewport.js');window.viewport=new GameViewport(document.querySelector('#worldFrame'),new HolographicCoreRenderer());viewport.mount();viewport.setState({identity:{id:'MC-MEGA-TEST',name:'Teste'},core:{evolutionStage:'FIRST'},manifestation:{hasBody:true,generation:1,recipe:{}}});});
  await page.waitForFunction(()=>window.viewport.renderer.body?.available);
@@ -44,5 +45,5 @@ try{
  const uv=await page.evaluate(()=>{const r=world3d;r.direction='N';r.render(1000);const first=r.texture.offset.toArray();r.render(2000);const last=r.texture.offset.toArray();r.direction='W';r.render(3000);const restart=r.texture.offset.toArray();r.destroy();return {first,last,restart};});
  assert.deepEqual(uv.first,[0,.9]);assert.deepEqual(uv.last,[2/12,.9]);assert.deepEqual(uv.restart,[6/12,.95]);
  assert.deepEqual(errors,[]);
- console.log('PASS: real Studio import, 240 crops/alpha, eight directions, FPS, IndexedDB apply, Canvas and WebGL playback, live reload and generation isolation.');
+ console.log('PASS: real Studio AutoMap, editable eight-direction review, FPS 10, 240 crops/alpha, IndexedDB apply, Canvas and WebGL playback, live reload and generation isolation.');
 }finally{await browser.close();}

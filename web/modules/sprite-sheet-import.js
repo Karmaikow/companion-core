@@ -17,11 +17,22 @@ export function frameSelection(text,count){
  for(const item of text.split(',')){const m=/^\s*(\d+)(?:\s*-\s*(\d+))?\s*$/.exec(item);if(!m)throw Error('Use quadros como 0-15,20,22-25.');const a=Number(m[1]),b=Number(m[2]??m[1]);if(a>b||b>=count||out.length+b-a+1>512)throw Error(`Use quadros entre 0 e ${count-1}, em ordem crescente por intervalo.`);for(let i=a;i<=b;i++)out.push(i);}
  return out;
 }
-export function mappedAtlas(layout,action,ranges,fps,loop){
+/** Map an ordered turntable/video sheet into eight contiguous direction sectors. */
+export function classifyOrderedTurn(count,{anchor='S',clockwise=true}={}){
+ if(!Number.isInteger(count)||count<1||count>512||!DIRECTIONS.includes(anchor)||typeof clockwise!=='boolean')throw Error('Parâmetros do AutoMap inválidos.');
+ const first=DIRECTIONS.indexOf(anchor),framesByDirection=Object.fromEntries(DIRECTIONS.map(d=>[d,[]]));
+ for(let frame=0;frame<count;frame++){
+  const sector=Math.min(7,Math.floor(frame*8/count));
+  const direction=(first+(clockwise?sector:-sector)+8)%8;
+  framesByDirection[DIRECTIONS[direction]].push(frame);
+ }
+ return{framesByDirection,classification:{method:'ordered-turn-v1',anchor,clockwise,frameCount:count,reviewed:false}};
+}
+export function mappedAtlas(layout,action,ranges,fps,loop,classification=null){
  if(!ACTIONS.includes(action)||!Number.isFinite(fps)||fps<1||fps>30||typeof loop!=='boolean')throw Error('Ação, FPS ou repetição inválidos.');
  const dirs={};for(const dir of DIRECTIONS){const frames=frameSelection(ranges[dir]??'',layout.rects.length);if(frames.length)dirs[dir]={frames,fps,loop};}
  if(!Object.keys(dirs).length)throw Error('Marque os quadros de pelo menos uma direção antes de enviar ao Studio.');
- return validateAtlas({version:1,image:'atlas.png',frameWidth:layout.frameWidth,frameHeight:layout.frameHeight,columns:layout.columns,rows:layout.rows,pivot:{x:.5,y:.95},mirror:false,draft:true,clips:{[action]:dirs},source:{kind:'sheet-import',layout:layout.sourceLayout,width:layout.sourceWidth,height:layout.sourceHeight,scaled:layout.scaled}},layout.columns*layout.frameWidth,layout.rows*layout.frameHeight);
+ return validateAtlas({version:1,image:'atlas.png',frameWidth:layout.frameWidth,frameHeight:layout.frameHeight,columns:layout.columns,rows:layout.rows,pivot:{x:.5,y:.95},mirror:false,draft:true,clips:{[action]:dirs},source:{kind:'sheet-import',layout:layout.sourceLayout,width:layout.sourceWidth,height:layout.sourceHeight,scaled:layout.scaled,...(classification?{classification:{...classification}}:{})}},layout.columns*layout.frameWidth,layout.rows*layout.frameHeight);
 }
 export function clipFrame(clip,elapsedSeconds,reduced=false){const index=Math.max(0,Math.floor(elapsedSeconds*clip.fps));return clip.frames[reduced?0:clip.loop===false?Math.min(clip.frames.length-1,index):index%clip.frames.length];}
 export function cropSheet(image,layout){const canvas=document.createElement('canvas');canvas.width=layout.columns*layout.frameWidth;canvas.height=layout.rows*layout.frameHeight;const c=canvas.getContext('2d');if(!c)throw Error('Canvas indisponível.');layout.rects.forEach((r,i)=>c.drawImage(image,r.x,r.y,r.w,r.h,(i%layout.columns)*layout.frameWidth,Math.floor(i/layout.columns)*layout.frameHeight,layout.frameWidth,layout.frameHeight));return canvas;}
