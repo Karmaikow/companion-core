@@ -1,5 +1,9 @@
 # Importar a mega folha da Mayuna
 
+O importador agora inicia o **AutoMap v1 local**, com FPS padrão 10 e
+classificação revisável por referências confirmadas. Consulte
+[AutoMap v1](AUTOMAP_V1.md) para edição, confiança, histórico e limitações.
+
 No Sprite Studio, abra **Importar mega spritesheet com espaçamento**.
 
 1. Use a grade Mayuna e selecione o PNG original. O manifesto informa 240 quadros, 12 colunas, 20 linhas, células de 256 × 256 e intervalos de 5 px; dimensão total 3127 × 5215.
