@@ -6,6 +6,7 @@ import { request } from '../modules/http.js';
 import { findRoute, advanceRoute, facing } from '../modules/refuge-navigation.js';
 import { validateAtlas, selectClip, frameRect } from '../modules/sprite-atlas.js';
 import { readSprite, spriteKey, watchSprites } from '../modules/sprite-store.js';
+import {clipFrame} from '../modules/sprite-sheet-import.js';
 
 const ASSET='/assets/refuge/';
 const placements=[
@@ -111,7 +112,7 @@ export class Refuge3DRenderer {
       const canvas=document.createElement('canvas');canvas.width=image.width;canvas.height=image.height;canvas.getContext('2d').drawImage(image,0,0);
       this.texture=new THREE.CanvasTexture(canvas);this.texture.colorSpace=THREE.SRGBColorSpace;this.texture.minFilter=THREE.LinearFilter;this.texture.magFilter=THREE.LinearFilter;this.texture.generateMipmaps=false;
       this.sprite.material.map=this.texture;this.sprite.material.needsUpdate=true;
-      this.body.available=true;this.animTime=0;this.statusArt();this.render(performance.now());
+      this.body.available=true;this.playbackKey=null;this.animTime=0;this.statusArt();this.render(performance.now());
     }catch(e){if(epoch===this.loadEpoch&&!this.dead){this.message('Não foi possível abrir o sprite. Importe a arte no Estúdio.',6000);this.statusArt();console.warn(e);}}
   }
   statusArt(){this.host.dataset.bodyRenderer=this.body.available?'sprite2d':'awaiting-art';this.host.dispatchEvent(new Event('companion-art-status'));}
@@ -138,8 +139,10 @@ export class Refuge3DRenderer {
     this.shadow.position.set(this.position.x,groundY+.035,this.position.z);this.soul.position.set(this.position.x,1.2,this.position.z);
     if(!this.motion.matches){this.soul.rotation.y=time*.0003;this.soul.rotation.z=time*.00015;}
     if(this.sprite.visible){
-      const {clip,flip}=selectClip(this.atlas,moving?'walk':'idle',this.direction),t=moving?this.animTime:time/1000;
-      const index=clip.frames[this.motion.matches?0:Math.floor(t*clip.fps)%clip.frames.length],r=frameRect(this.atlas,index),a=this.atlas;
+      const action=moving?'walk':'idle',playbackKey=action+':'+this.direction;
+      if(this.playbackKey!==playbackKey){this.playbackKey=playbackKey;this.playbackStart=time;}
+      const {clip,flip}=selectClip(this.atlas,action,this.direction),t=Math.max(0,time-this.playbackStart)/1000;
+      const index=clipFrame(clip,t,this.motion.matches),r=frameRect(this.atlas,index),a=this.atlas;
       this.texture.repeat.set((flip?-1:1)/a.columns,1/a.rows);this.texture.offset.set((r.x/a.frameWidth+(flip?1:0))/a.columns,1-(r.y/a.frameHeight+1)/a.rows);
       this.sprite.center.set(flip?1-a.pivot.x:a.pivot.x,1-a.pivot.y);this.sprite.scale.set(2.3*a.frameWidth/a.frameHeight,2.3,1);this.sprite.position.set(this.position.x,groundY+.06,this.position.z);
     }
@@ -153,3 +156,4 @@ export class Refuge3DRenderer {
   }
   destroy(){this.dead=true;this.loadEpoch=(this.loadEpoch||0)+1;this.unwatch?.();this.world?.removeEventListener('pointerdown',this.down);this.world?.removeEventListener('pointerup',this.up);this.world?.removeEventListener('pointercancel',this.cancel);this.target?.removeEventListener('click',this.pet);this.canvas?.removeEventListener('webglcontextlost',this.onLost);this.scene&&this.disposeObject(this.scene);this.environment?.dispose();this.bitmap?.close();this.gl?.dispose();this.canvas?.remove();this.notice?.remove();}
 }
+

@@ -137,7 +137,7 @@ export class HolographicCoreRenderer {
   updateBody() {
     const active = Boolean(this.formStatus && (this.formStatus.hasBody || this.preview));
     if(active && this.host && !this.body) { this.body=new CompanionBodyRenderer();this.body.mount(this.host);this.body.onChange=()=>{this.render(0);this.host.dispatchEvent(new Event('companion-art-status'));}; }
-    if(active && this.body) { this.body.setRecipe(this.formStatus.recipe,this.state.artwork,this.state.identity.id); if(this.body.canvas) this.body.canvas.hidden=false; }
+    if(active && this.body) { this.body.setRecipe(this.formStatus.recipe,this.state.artwork,this.state.identity.id,this.formStatus.generation??0); if(this.body.canvas) this.body.canvas.hidden=false; }
     else if(this.body?.canvas) this.body.canvas.hidden=true;
     this.bodyActive=active;
     if(!active){this.position={x:0,y:0};this.destination={x:0,y:0};}
@@ -231,7 +231,7 @@ export class HolographicCoreRenderer {
     if(this.effect&&now-this.effect.started>2800){this.effect=null;if(this.notice)this.notice.textContent='';if(this.host)delete this.host.dataset.reaction;}
     const spriteVisible=Boolean(this.bodyActive&&this.body?.available);
     if(!spriteVisible){this.position={x:0,y:0};this.destination={x:0,y:0};}
-    else this.position=advanceRefuge(this.position,this.destination,w,h,dt,reduced);
+    else {const previous={...this.position};this.position=advanceRefuge(this.position,this.destination,w,h,dt,reduced);this.body.setMovement?.((this.position.x-previous.x)*this.width,(this.position.y-previous.y)*this.height,time);}
     const depth=1+this.position.y*.9;
     const origin=refugeOrigin(w,h);
     const scale = Math.min(w/850,h/590), x = origin.x+w*this.position.x, y = origin.y+h*this.position.y;
@@ -271,4 +271,5 @@ export class HolographicCoreRenderer {
   }
   destroy() { this.world?.removeEventListener('click',this.move);this.target?.removeEventListener('click',this.pet);this.notice?.remove();this.target?.removeEventListener('pointerenter',this.enter); this.target?.removeEventListener('pointerleave',this.leave); this.body?.destroy(); this.canvas?.remove(); this.background = null; this.ctx = null; }
 }
+
 

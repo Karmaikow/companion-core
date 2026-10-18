@@ -4,9 +4,11 @@ import {accessPanel,preferredScope} from './studio-access.js';
 import { ACTIONS,DIRECTIONS,validateAtlas,selectClip,frameRect,spritePrompt,coverage,godotSpriteFrames } from './sprite-atlas.js';
 import { readSprite,saveSprite,spriteKey } from './sprite-store.js';
 import { decodeArtImage } from './art-image.js';
+import { mountSheetImport } from './sprite-sheet-ui.js';
 const $=id=>document.getElementById(id),params=new URLSearchParams(location.search);
 const id=params.get('id')||'MC-MAYUNA-REFUGE-LAB',generation=Math.max(0,Number(params.get('generation'))||0),key=spriteKey(id,generation);
 let batchUI;
+mountSheetImport(document.getElementById('megaSheetImport'),{onImport:async(png,project)=>{if(busy)throw Error('Aguarde a operação atual do Studio.');await action(async()=>{await load(png,project);const act=Object.keys(project.clips)[0],dir=Object.keys(project.clips[act])[0];$('previewAction').value=$('action').value=act;$('previewDirection').value=$('direction').value=dir;$('frames').value=project.clips[act][dir].frames.join(',');$('fps').value=project.clips[act][dir].fps;$('loopClip').checked=project.clips[act][dir].loop;status('Mega folha importada. Confira direções, FPS e apoio antes de aplicar.');});}});
 let image,atlas,blob,reference,playing=!matchMedia('(prefers-reduced-motion: reduce)').matches,manualFrame=0,playbackStart=performance.now(),epoch=0,busy=false,canSaveLibrary=true;
 const status=text=>{$('status').textContent=text;const feedback=$('generationFeedback');if(feedback)feedback.textContent=text;};
 for(const name of ['direction','previewDirection']){for(const dir of DIRECTIONS){const option=document.createElement('option');option.value=dir;option.textContent=dir;$(name).append(option);}$(name).value='SE';}
@@ -105,7 +107,7 @@ await action(async()=>{let saved;try{saved=await readSprite(key);}catch{}if(save
 $('makePrompt').click();
 
 
-function renderCoverage(){const root=$('coverage');root.replaceChildren();for(const row of coverage(atlas)){const label=document.createElement('p');label.className='coverage-label';label.textContent=row.action;const grid=document.createElement('div');grid.className='coverage';for(const cell of row.directions){const item=document.createElement('span');item.className=cell.frames?'present':'missing';item.textContent=cell.direction+' · '+(cell.frames||'ausente');grid.append(item);}root.append(label,grid);}}
+function renderCoverage(){if(!atlas)return;const root=$('coverage');root.replaceChildren();for(const row of coverage(atlas)){const label=document.createElement('p');label.className='coverage-label';label.textContent=row.action;const grid=document.createElement('div');grid.className='coverage';for(const cell of row.directions){const item=document.createElement('span');item.className=cell.frames?'present':'missing';item.textContent=cell.direction+' · '+(cell.frames||'ausente');grid.append(item);}root.append(label,grid);}}
 $('deleteClip').onclick=()=>action(async()=>{if(!atlas)throw Error('Importe uma folha.');const candidate=structuredClone(atlas);delete candidate.clips[$('action').value]?.[$('direction').value];for(const key of Object.keys(candidate.clips))if(!Object.keys(candidate.clips[key]).length)delete candidate.clips[key];atlas=validateAtlas(candidate,image.naturalWidth,image.naturalHeight);sync();status('Sequência removida; os desenhos continuam na folha.');});
 $('action').addEventListener('change',()=>{$('loopClip').checked=['idle','walk','fly','sleep','happy','defend'].includes($('action').value);});
 $('exportGodot').onclick=()=>action(async()=>{controls();download(new Blob([godotSpriteFrames(atlas)],{type:'text/plain'}),'companion_frames.tres');status('SpriteFrames exportado. Baixe também o PNG como atlas.png.');});
@@ -123,3 +125,4 @@ for(const name of ['previewAction','previewDirection'])$(name).onchange=()=>{pla
 
 const {mountSpriteBatch}=await import('./sprite-batch-ui.js');
 batchUI=await mountSpriteBatch(document.getElementById('automaticSprites'),{id,generation,cloud:Boolean(cloudConfig?.url),onAssemble:async(png,project)=>{await load(png,project);status('Lote montado para revisão. Confira todas as direções, guarde na biblioteca e só então aplique ao mundo.');}});
+

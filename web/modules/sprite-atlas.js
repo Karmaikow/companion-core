@@ -11,7 +11,7 @@ export function validateAtlas(input,width,height){
   for(const [action,dirs] of Object.entries(a.clips)){
     if(!ACTIONS.includes(action)||!dirs||typeof dirs!=='object')throw Error('Animação inválida.');
     for(const [dir,clip] of Object.entries(dirs)){
-      if(!DIRECTIONS.includes(dir)||!Array.isArray(clip.frames)||!clip.frames.length||clip.frames.length>64||!clip.frames.every(n=>Number.isInteger(n)&&n>=0&&n<a.columns*a.rows)||!Number.isFinite(clip.fps)||clip.fps<1||clip.fps>30)throw Error('Sequência de quadros inválida.');
+      if(!DIRECTIONS.includes(dir)||!Array.isArray(clip.frames)||!clip.frames.length||clip.frames.length>512||!clip.frames.every(n=>Number.isInteger(n)&&n>=0&&n<a.columns*a.rows)||!Number.isFinite(clip.fps)||clip.fps<1||clip.fps>30)throw Error('Sequência de quadros inválida.');
       if(clip.loop!==undefined&&typeof clip.loop!=='boolean')throw Error('Repetição inválida.');
       count++;
     }
@@ -44,3 +44,4 @@ export function godotSpriteFrames(atlas){
  }
  return `[gd_resource type="SpriteFrames" load_steps=${next+1} format=3]\n\n[ext_resource type="Texture2D" path="res://atlas.png" id="1"]\n\n${resources.join('\n')}\n[resource]\nanimations = [${animations.join(',\n')}]\n`;
 }
+
