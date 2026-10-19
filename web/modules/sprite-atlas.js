@@ -5,13 +5,14 @@ export function validateAtlas(input,width,height){
   const a=structuredClone(input);
   for(const k of ['frameWidth','frameHeight','columns','rows'])if(!Number.isInteger(a[k])||a[k]<1)throw Error('Grade inválida.');
   if(a.columns*a.rows>512||a.frameWidth*a.columns!==width||a.frameHeight*a.rows!==height||width*height>16777216)throw Error('A grade deve corresponder ao PNG, com até 512 quadros e 16 milhões de pixels.');
+  if(a.frameCount!==undefined&&(!Number.isInteger(a.frameCount)||a.frameCount<1||a.frameCount>a.columns*a.rows))throw Error('Quantidade de quadros inválida.');
   if(!a.pivot||![a.pivot.x,a.pivot.y].every(n=>Number.isFinite(n)&&n>=0&&n<=1))throw Error('Ponto de apoio inválido.');
   if(!a.clips||typeof a.clips!=='object')throw Error('Adicione pelo menos uma animação.');
   let count=0;
   for(const [action,dirs] of Object.entries(a.clips)){
     if(!ACTIONS.includes(action)||!dirs||typeof dirs!=='object')throw Error('Animação inválida.');
     for(const [dir,clip] of Object.entries(dirs)){
-      if(!DIRECTIONS.includes(dir)||!Array.isArray(clip.frames)||!clip.frames.length||clip.frames.length>512||!clip.frames.every(n=>Number.isInteger(n)&&n>=0&&n<a.columns*a.rows)||!Number.isFinite(clip.fps)||clip.fps<1||clip.fps>30)throw Error('Sequência de quadros inválida.');
+      if(!DIRECTIONS.includes(dir)||!Array.isArray(clip.frames)||!clip.frames.length||clip.frames.length>512||!clip.frames.every(n=>Number.isInteger(n)&&n>=0&&n<(a.frameCount??a.columns*a.rows))||!Number.isFinite(clip.fps)||clip.fps<1||clip.fps>30)throw Error('Sequência de quadros inválida.');
       if(clip.loop!==undefined&&typeof clip.loop!=='boolean')throw Error('Repetição inválida.');
       count++;
     }

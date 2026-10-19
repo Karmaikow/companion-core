@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 const {chromium}=await import(process.env.PLAYWRIGHT_MODULE||'playwright');
-const browser=await chromium.launch({channel:process.env.BROWSER_CHANNEL||'chrome',headless:true,args:['--use-angle=swiftshader','--enable-unsafe-swiftshader']});
+const browser=await chromium.launch({channel:process.env.BROWSER_CHANNEL||undefined,headless:true,args:['--use-angle=swiftshader','--enable-unsafe-swiftshader']});
 try{
  const page=await browser.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.route('**/*',async route=>{
@@ -13,7 +13,7 @@ try{
  });
  await page.goto('https://sprite.test/sprite-studio.html?id=MC-MEGA-TEST&generation=1');
  await page.waitForFunction(()=>document.querySelector('#automaticSprites button'));
- await page.locator('#megaSheetImport summary').click();
+ await page.locator('#megaSheetImport > summary').click();
  const png=await page.evaluate(()=>{const c=document.createElement('canvas');c.width=3127;c.height=5215;const x=c.getContext('2d');x.fillStyle='#ff00ff';x.fillRect(0,0,c.width,c.height);for(let i=0;i<240;i++){const a=i%12*261,b=Math.floor(i/12)*261;x.clearRect(a,b,256,256);x.fillStyle=`rgb(${i},100,50)`;x.fillRect(a+64,b+64,128,180);}return c.toDataURL().split(',')[1];});
  await page.locator('#sheetFile').setInputFiles({name:'synthetic-mayuna-grid.png',mimeType:'image/png',buffer:Buffer.from(png,'base64')});
  await page.waitForFunction(()=>!document.querySelector('#sheetCrop').disabled);
@@ -23,7 +23,7 @@ try{
  assert.equal(await page.locator('#sheetFps').inputValue(),'10');
  for(const [i,d]of ['S','SW','W','NW','N','NE','E','SE'].entries())assert.equal(await page.locator('#sheet-range-'+d).inputValue(),`${i*30}-${i*30+29}`);
  // The interval editor stays active after classification and records a manual review edit.
- for(const [i,d]of ['S','SW','W','NW','N','NE','E','SE'].entries())await page.locator('#sheet-range-'+d).fill(`${i*3}-${i*3+2}`);
+ for(const [i,d]of ['S','SW','W','NW','N','NE','E','SE'].entries()){await page.locator('#sheetDirection').selectOption(d);await page.locator('#sheet-range-'+d).fill(`${i*3}-${i*3+2}`);}
  await page.locator('#sheetImport').click();
  await page.waitForFunction(()=>document.querySelector('#timeline').children.length===240);
  assert.equal(await page.locator('#fps').inputValue(),'10');

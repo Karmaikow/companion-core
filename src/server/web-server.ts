@@ -378,7 +378,7 @@ async function main(): Promise<void> {
       if (req.method === 'POST' && !(req.headers['content-type'] ?? '').startsWith('application/json')) { json(res,415,{error:'Envie JSON.'}); return; }
       res.setHeader('X-Content-Type-Options', 'nosniff');
       res.setHeader('Referrer-Policy', 'same-origin');
-      res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' blob:; object-src 'none'; frame-ancestors 'none'; base-uri 'none'");
+      res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' blob:; object-src 'none'; frame-ancestors 'none'; base-uri 'none'");
       if (url.pathname.startsWith('/api/')) {
         await handleApi(req, res, url.pathname);
         return;

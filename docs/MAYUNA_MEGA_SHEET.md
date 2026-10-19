@@ -27,3 +27,13 @@ A importação é local e não chama APIs de geração. Não altera identidade, 
 - Não foi executada a suíte completa de backend. O PNG anexado não pôde ser baixado neste ambiente; portanto a fidelidade visual da Mayuna e o mapeamento artístico dos trechos continuam pendentes. O arquivo real não foi substituído nem incluído como se tivesse sido validado.
 
 O PR se apoia em `feature/sprite-factory-prototype`, que já contém `feature/modular-world-studio`. Nenhum merge ou deploy é necessário para revisar o código.
+
+## Fluxo por ação e importação de vídeo
+
+Escolha uma ação nas abas e uma direção na rosa dos ventos. Revise a seleção e use **Salvar e próxima direção**; cada direção e ação mantém seu progresso no navegador. Ao completar as oito, avance para a próxima ação. O rascunho é separado do atlas aplicado no GameViewport.
+
+Folhas podem ter quantidades variáveis: configure a grade e o número real de quadros para excluir células vazias da última linha. Novas folhas são acrescentadas ao projeto sem apagar ações anteriores; reutilizar a fonte atual não duplica os quadros. O limite combinado é de 512 quadros e 16 megapixels.
+
+Em **Criar mega folha a partir de vídeo**, selecione MP4/WebM, trecho e FPS (10 por padrão). A extração ocorre localmente, sem API: o Studio monta a folha e abre o recorte. Há remoção opcional de uma cor uniforme de fundo; não há segmentação automática de cenários nem reconhecimento visual das direções. Prefira câmera fixa e fundo uniforme. Vídeos devem ter até 256 MB e a saída respeita os limites acima.
+
+Validação adicional: 14 testes unitários e dois fluxos Playwright passaram, cobrindo vídeo real WebM, transparência por cor, folhas de 16 e 37 quadros, salvamento das oito direções, recuperação após recarregar, preservação entre ações, edição manual, aplicação e layout mobile. O fluxo anterior também passou com 240 quadros e reprodução Canvas/WebGL. Não foi executada a suíte completa do backend neste checkout parcial.
