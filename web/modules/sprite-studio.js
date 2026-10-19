@@ -10,7 +10,7 @@ import {ACTION_LABELS,DIRECTION_LABELS,frameCount,reviewedCount,nextDirection,wi
 const $=id=>document.getElementById(id),params=new URLSearchParams(location.search);
 const id=params.get('id')||'MC-MAYUNA-REFUGE-LAB',generation=Math.max(0,Number(params.get('generation'))||0),key=spriteKey(id,generation);
 let batchUI,activeAction=ACTIONS.includes(params.get('action'))?params.get('action'):'walk',activeDirection='S',hasWork=false;
-const editorDrafts=new Map();
+const editorDrafts=new Map(),positionSlots=new Map();
 const sheetUI=mountSheetImport(document.getElementById('megaSheetImport'),{onActionChange:a=>selectAction(a),onImport:async(png,project,sourceId)=>{if(busy)throw Error('Aguarde a operação atual do Studio.');const ok=await action(async()=>{await importSheet(png,project,sourceId);status('Ação importada. Confira cada direção na rosa dos ventos e salve para continuar.');});if(!ok)throw Error('A ação não foi importada. Confira a mensagem do Studio.');}});
 let image,atlas,blob,reference,playing=!matchMedia('(prefers-reduced-motion: reduce)').matches,manualFrame=0,playbackStart=performance.now(),epoch=0,busy=false,canSaveLibrary=true;
 const status=text=>{$('status').textContent=text;const feedback=$('generationFeedback');if(feedback)feedback.textContent=text;};
@@ -19,7 +19,7 @@ for(const name of ['action','previewAction','direction','previewDirection'])$(na
 $('targetName').textContent=`${id} · forma ${generation} · salvo somente neste navegador`;
 $('refugeLink').href=id==='MC-MAYUNA-REFUGE-LAB'?'/refuge-lab.html':'/';
 function controls(){atlas.pivot={x:Number($('pivotX').value)/100,y:Number($('pivotY').value)/100};atlas.mirror=$('mirror').checked;validateAtlas(atlas,image.naturalWidth,image.naturalHeight);}
-async function action(work){if(busy)return false;busy=true;const buttons=[...document.querySelectorAll('button')].map(b=>[b,b.disabled]);buttons.forEach(([b])=>b.disabled=true);try{await work();return true;}catch(e){status(e.message||'Não foi possível concluir.');return false;}finally{busy=false;buttons.forEach(([b,disabled])=>b.disabled=disabled);$('saveLibrary').disabled=!canSaveLibrary;if(atlas)renderActionUI();batchUI?.refresh();}}
+async function action(work){if(busy)return false;busy=true;const buttons=[...document.querySelectorAll('button,input[type=file]')].map(b=>[b,b.disabled]);buttons.forEach(([b])=>b.disabled=true);try{await work();return true;}catch(e){status(e.message||'Não foi possível concluir.');return false;}finally{busy=false;buttons.forEach(([b,disabled])=>b.disabled=disabled);$('saveLibrary').disabled=!canSaveLibrary;if(atlas)renderActionUI();renderPositions();batchUI?.refresh();}}
 function sync(){
   $('columns').value=atlas.columns;$('rows').value=atlas.rows;$('pivotX').value=atlas.pivot.x*100;$('pivotY').value=atlas.pivot.y*100;$('mirror').checked=!!atlas.mirror;
   $('timeline').replaceChildren();
@@ -36,7 +36,43 @@ function fillSelection(){
  $('action').value=$('previewAction').value=activeAction;$('direction').value=$('previewDirection').value=activeDirection;
  $('frames').value=pending?.frames??c?.frames.join(',')??'';$('fps').value=pending?.fps??c?.fps??10;$('loopClip').checked=pending?.loop??c?.loop??false;
  $('directionSaveStatus').textContent=atlas?.studio?.reviewed?.[activeAction]?.[activeDirection]?'Esta direção está salva no rascunho.':'Confira os quadros e salve esta direção.';
- playbackStart=performance.now();sheetUI.setAction(activeAction);
+ playbackStart=performance.now();sheetUI.setAction(activeAction);renderPositions();
+}
+function renderPositions(){
+ const root=$('positionInputs');root.replaceChildren();
+ const slotKey=activeAction+':'+activeDirection,frames=atlas?.clips[activeAction]?.[activeDirection]?.frames||[];
+ const count=Math.max(9,frames.length,positionSlots.get(slotKey)||0);
+ for(let position=0;position<count;position++){
+  const row=document.createElement('label');row.className='position-input';
+  const title=document.createElement('span');title.textContent='Posição '+(position+1)+' · '+ACTION_LABELS[activeAction]+' / '+DIRECTION_LABELS[activeDirection];row.append(title);
+  if(image&&frames[position]!==undefined){const c=document.createElement('canvas');c.width=80;c.height=80;const r=frameRect(atlas,frames[position]);c.getContext('2d').drawImage(image,r.x,r.y,r.w,r.h,0,0,80,80);row.append(c);}
+  const input=document.createElement('input');input.type='file';input.accept='image/png,image/webp';input.dataset.position=position;input.disabled=busy;
+  input.setAttribute('aria-label',title.textContent+' · enviar imagem');
+  const a=activeAction,d=activeDirection;input.onchange=()=>action(async()=>{const file=input.files[0];if(file)await uploadPosition(file,a,d,position);});row.append(input);root.append(row);
+ }
+ $('addPosition').disabled=busy||count>=512;
+}
+$('addPosition').onclick=()=>{const k=activeAction+':'+activeDirection,n=Math.max(9,atlas?.clips[activeAction]?.[activeDirection]?.frames.length||0,positionSlots.get(k)||0);positionSlots.set(k,n+1);renderPositions();};
+async function uploadPosition(file,a,d,position){
+ if(file.size>32000000)throw Error('Use uma imagem de até 32 MB.');
+ const source=await decodeArtImage(file);
+ if(source.naturalWidth*source.naturalHeight>16777216)throw Error('Use uma imagem de até 16 milhões de pixels.');
+ const base=hasWork?atlas:null,clip=base?.clips[a]?.[d],frames=[...(clip?.frames||[])];
+ if(position>frames.length)throw Error('Preencha as posições anteriores primeiro.');
+ // Always append a private cell: replacing a shared frame must not alter another action.
+ const index=base?frameCount(base):0,total=index+1,columns=base?.columns||8,w=base?.frameWidth||256,h=base?.frameHeight||256,rows=Math.ceil(total/columns);
+ if(columns*rows>512||columns*rows*w*h>16777216)throw Error('A folha combinada excede o limite. Use quadros menores ou outro projeto.');
+ const canvas=document.createElement('canvas');canvas.width=columns*w;canvas.height=rows*h;const ctx=canvas.getContext('2d');if(base)ctx.drawImage(image,0,0);
+ const x=index%columns*w,y=Math.floor(index/columns)*h,scale=Math.min(w/source.naturalWidth,h/source.naturalHeight),sw=source.naturalWidth*scale,sh=source.naturalHeight*scale;
+ ctx.clearRect(x,y,w,h);ctx.drawImage(source,x+(w-sw)/2,y+(h-sh)/2,sw,sh);
+ frames[position]=index;
+ const next=base?structuredClone(base):{version:1,image:'atlas.png',frameWidth:w,frameHeight:h,columns,rows,pivot:{x:.5,y:.95},mirror:false,draft:true,clips:{}};
+ next.rows=rows;next.frameCount=total;next.clips[a]??={};next.clips[a][d]={frames,fps:clip?.fps??10,loop:clip?.loop??false};delete next.studio?.reviewed?.[a]?.[d];
+ validateAtlas(next,canvas.width,canvas.height);
+ const png=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));if(!png)throw Error('Não foi possível preparar a imagem.');
+ await saveSpriteDraft(key,{blob:png,atlas:next,editor:{action:a,direction:d},updatedAt:Date.now()});
+ hasWork=true;activeAction=a;activeDirection=d;editorDrafts.delete(a+':'+d);await load(png,next);
+ status('Posição '+(position+1)+' de '+ACTION_LABELS[a]+' / '+DIRECTION_LABELS[d]+' guardada. Revise e salve esta direção.');
 }
 function selectAction(a,d=activeDirection,remember=true){
  if(!ACTIONS.includes(a)||!DIRECTIONS.includes(d))return;

@@ -14,3 +14,5 @@
 #videoProgress{width:100%;margin-top:12px;accent-color:#95ddc9}#saveAndNext,#saveClip,#nextAction{width:100%;margin-top:8px}
 @media(max-width:650px){.studio>aside:first-child{order:2}.studio>aside:last-child{order:0}.action-tabs{padding:0 12px}.action-progress{padding:0 12px}.direction-compass{max-width:320px;margin:16px auto}}
 
+
+#individualFrames{margin:16px 0;padding:12px;border:1px solid #75d7b944;border-radius:12px}#positionInputs{display:grid;gap:10px;max-height:440px;overflow:auto}.position-input{display:grid;gap:6px;padding:10px;background:#04111e55;border-radius:8px;min-width:0}.position-input input{width:100%;min-width:0}.position-input canvas{background:repeating-conic-gradient(#18303e 0% 25%,#10222f 0% 50%) 0/16px 16px}
