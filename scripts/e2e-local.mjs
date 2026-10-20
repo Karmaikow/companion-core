@@ -34,6 +34,10 @@ const say = async (t) => {
   await page.click('.chat-input button');
   await page.waitForTimeout(120);
 };
+await say('Muito obrigado por existir, pequena luz');
+await page.waitForTimeout(400);
+await page.screenshot({ path: `${OUT}/02d-segredo.png` });
+await page.waitForTimeout(5600);
 const script = [
   'Oie',
   'Hoje choveu muito aqui na cidade e fiquei pensando em você',
@@ -61,21 +65,29 @@ await page.evaluate(() => { const k = 'companion-core:local:v1'; const s = JSON.
 await page.reload();
 await page.getByText('Jogar offline').click();
 await page.waitForSelector('.nameplate');
-await page.click('.rail button:nth-child(1)');
+await page.waitForTimeout(1500);
+await page.screenshot({ path: `${OUT}/03-refugio-crescido.png` });
+let ready = false;
+if (await page.isVisible('.awaken-call')) {
+  await page.screenshot({ path: `${OUT}/05-chamada-despertar.png` });
+  await page.click('.awaken-call .link'); // "ainda não"
+}
 await page.click('.rail button:nth-child(4)'); // quests
-await page.waitForTimeout(500);
-await page.screenshot({ path: `${OUT}/03-quests.png` });
+await page.waitForTimeout(400);
+await page.screenshot({ path: `${OUT}/03b-quests.png` });
 await page.click('.rail button:nth-child(3)'); // diário
 await page.click('text=Descansar e escrever no diário');
-await page.waitForTimeout(600);
+await page.waitForTimeout(700);
 await page.screenshot({ path: `${OUT}/04-diario.png` });
-await page.click('.rail button:nth-child(6)'); // vínculo
+await page.click('.rail button:nth-child(5)'); // inventário
 await page.waitForTimeout(400);
-await page.screenshot({ path: `${OUT}/05-vinculo.png` });
-const ready = await page.isEnabled('.awaken');
+await page.screenshot({ path: `${OUT}/05b-inventario.png` });
+await page.click('.rail button:nth-child(7)'); // vínculo
+await page.waitForTimeout(400);
+ready = await page.isEnabled('.panel .awaken');
 if (ready) {
-  await page.click('.awaken');
-  await page.waitForTimeout(2500);
+  await page.click('.panel .awaken');
+  await page.waitForTimeout(3000);
   await page.screenshot({ path: `${OUT}/06-despertar.png` });
 }
 // reinício: progresso precisa sobreviver

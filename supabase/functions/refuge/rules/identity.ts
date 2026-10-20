@@ -173,6 +173,7 @@ export interface Discoveries {
   dream?: string;
   pronoun?: 'ela' | 'ele';
   playerName?: string; // nome que o jogador informou na criação
+  playerPronoun?: 'ele' | 'ela' | 'neutro'; // como a pessoa prefere ser tratada
 }
 
 export interface IdentityContractV1 {

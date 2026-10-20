@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { TRAIT_GROUPS, TRAIT_BY_ID, MIN_TRAITS, MAX_TRAITS, traitLabel, validateSetup, type Pronoun } from '@rules';
+import { TRAIT_GROUPS, TRAIT_BY_ID, MIN_TRAITS, MAX_TRAITS, traitLabel, validateSetup, type Pronoun, type PlayerPronoun } from '@rules';
 import { useGame } from '../store';
 
 const STEPS = ['Você', 'Companion', 'Personalidade'] as const;
@@ -13,12 +13,13 @@ export function Creation() {
   const [playerName, setPlayerName] = useState('');
   const [name, setName] = useState('');
   const [pronoun, setPronoun] = useState<Pronoun>('ela');
+  const [playerPronoun, setPlayerPronoun] = useState<PlayerPronoun>('neutro');
   const [traits, setTraits] = useState<string[]>([]);
   const [hint, setHint] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const setup = { name: name.trim(), pronoun, playerName: playerName.trim(), traits };
-  const check = useMemo(() => validateSetup(setup), [name, pronoun, playerName, traits]); // eslint-disable-line react-hooks/exhaustive-deps
+  const setup = { name: name.trim(), pronoun, playerName: playerName.trim(), playerPronoun, traits };
+  const check = useMemo(() => validateSetup(setup), [name, pronoun, playerName, playerPronoun, traits]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const okPlayer = /^[\p{L}][\p{L}\p{M}' .-]{1,29}$/u.test(playerName.trim());
   const okName = /^[\p{L}][\p{L}\p{M}' -]{1,23}$/u.test(name.trim()) && name.trim().toLowerCase() !== playerName.trim().toLowerCase();
@@ -55,6 +56,12 @@ export function Creation() {
             <label>Como você se chama?
               <input value={playerName} onChange={(e) => setPlayerName(e.target.value)} placeholder="Seu nome ou apelido" maxLength={30} autoFocus autoComplete="given-name" />
             </label>
+            <fieldset className="pronoun">
+              <legend>Como prefere ser tratado(a)?</legend>
+              {([['ele', 'Ele · "animado"'], ['ela', 'Ela · "animada"'], ['neutro', 'Tanto faz']] as const).map(([p, label]) => (
+                <button key={p} type="button" aria-pressed={playerPronoun === p} onClick={() => setPlayerPronoun(p)}>{label}</button>
+              ))}
+            </fieldset>
             <button type="submit" className="primary" disabled={!okPlayer}>Continuar</button>
           </form>
         )}

@@ -76,7 +76,8 @@ export function offlineTurn(message: string, d: Discoveries, quests: QuestState[
     if (/\?$/.test(raw)) return { reply: 'Pode sim! Qual nome você quer me dar?', meaningful: false, mood: 'curiosa', discoveries, memories: [] };
   }
 
-  if (greeting && n.split(' ').length <= 3) {
+  if (/\b(obrigad[oa]|valeu|agradeco)\b/.test(n)) reply = 'Eu que agradeço por estar aqui comigo! 💛';
+  else if (greeting && n.split(' ').length <= 3) {
     reply = you ? `Oi, ${you}! Que bom te ver no Refúgio. ✨` : 'Oi! Que bom que você veio. ✨';
   }
 
@@ -120,7 +121,7 @@ export function offlineTurn(message: string, d: Discoveries, quests: QuestState[
       }
     }
     if (!reply) reply = pick(ASK[q.key], seed);
-    else if (greeting && !discoveries.length) reply += ' ' + pick(ASK[q.key], seed);
+    else if (!discoveries.length && reply.length < 60) reply += ' ' + pick(ASK[q.key], seed);
   } else if (!reply) {
     reply = pick(['Estou pronta para despertar quando você quiser. ✨', 'Fico feliz de estar aqui com você.', 'Me conta mais sobre o seu dia?'], seed);
   }

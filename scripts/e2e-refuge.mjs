@@ -33,6 +33,17 @@ for (const msg of process.argv.slice(2)) {
   console.log(`\n> ${msg}\n< [${r.status} ${turn?.source ?? '-'} ${Date.now() - t0}ms${turn?.diag ? ' ' + turn.diag : ''}] ${turn?.reply ?? r.data?.error}`);
   if (turn?.completed?.length) console.log('  descobertas:', turn.completed.join(', '), JSON.stringify(r.data.companion.discoveries));
   if (turn?.rejected?.length) console.log('  rejeitadas:', JSON.stringify(turn.rejected));
-  if (turn) console.log('  xp:', turn.xp.total, turn.xp.reason, 'memórias novas:', turn.newMemories);
+  if (turn?.secrets?.length) console.log('  SEGREDOS:', turn.secrets.join(', '));
+  if (turn?.recipes?.length) console.log('  RECEITAS:', turn.recipes.join(', '));
+  if (turn) console.log('  xp:', turn.xp.total, turn.xp.reason, turn.xp.boosted ? '(impulso)' : '', 'memórias novas:', turn.newMemories);
 }
+if (process.env.MUSE) {
+  await new Promise((r) => setTimeout(r, 47_000));
+  const m = await call('muse');
+  console.log('\n[muse]', m.status, m.data?.turn?.reply ?? '(não puxou assunto)');
+}
+const fin = await call('state');
+console.log('\nMEMÓRIAS:'); for (const m of fin.data?.memories ?? []) console.log(' -', m.subject.padEnd(9), m.content);
+console.log('RECEITAS:', JSON.stringify((fin.data?.recipes ?? []).map((r) => ({ n: r.name, i: r.ingredients }))));
+console.log('SEGREDOS:', (fin.data?.secrets ?? []).map((x) => x.key).join(', '), '| impulso:', fin.data?.boost);
 console.log('\nuser', signup.data.user.id);

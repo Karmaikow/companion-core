@@ -1,9 +1,10 @@
-import { Suspense, useEffect, useMemo, useState } from 'react';
-import { ELEMENTS, derivePalette } from '@rules';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { ELEMENTS, derivePalette, refugeFeatures } from '@rules';
 import { Refuge } from './scene/Refuge';
 import { useGame, type Tab } from './store';
 import { Icon } from './ui/icons';
-import { ChatPanel, MemoriesPanel, DiaryPanel, QuestsPanel, InventoryPanel, BondPanel } from './ui/Panels';
+import { ChatPanel, MemoriesPanel, DiaryPanel, QuestsPanel, InventoryPanel, RecipesPanel, BondPanel } from './ui/Panels';
+import { Celebration, AwakenCall } from './ui/Celebration';
 import { Entry } from './ui/Entry';
 import { Creation } from './ui/Creation';
 import { supabase } from './backend/online';
@@ -14,6 +15,7 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'diary', label: 'Diário' },
   { key: 'quests', label: 'Quests' },
   { key: 'inventory', label: 'Inventário' },
+  { key: 'recipes', label: 'Receitas' },
   { key: 'bond', label: 'Vínculo' },
 ];
 
@@ -25,7 +27,7 @@ function quality(): 'high' | 'low' {
 }
 
 export function App() {
-  const { backend, snap, tab, setTab, run, error, toasts, lastReply, pulse, busy, setBackend } = useGame();
+  const { backend, snap, tab, setTab, run, error, toasts, lastReply, pulse, burst, busy, setBackend } = useGame();
   const [bubble, setBubble] = useState<string | null>(null);
 
   useEffect(() => {
@@ -40,6 +42,19 @@ export function App() {
     const t = setTimeout(() => setBubble(null), Math.max(5000, lastReply.length * 70));
     return () => clearTimeout(t);
   }, [lastReply]);
+
+  // Silêncio: depois de um tempo sem a pessoa responder, o Companion puxa assunto (online, até 3 vezes por sessão).
+  const muses = useRef(0);
+  const lastEvent = snap?.timeline?.[snap.timeline.length - 1];
+  useEffect(() => {
+    if (!backend?.muse || busy || muses.current >= 3 || !lastEvent || lastEvent.kind !== 'chat.companion' || lastEvent.payload.muse) return;
+    const t = setTimeout(() => {
+      if (document.hidden) return;
+      muses.current++;
+      void run((b) => b.muse!());
+    }, 80_000);
+    return () => clearTimeout(t);
+  }, [backend, busy, lastEvent, run]);
 
   async function leave() {
     if (!backend) return;
@@ -59,15 +74,19 @@ export function App() {
     return { color: p?.primary ?? '#9fc9ff', glow: p?.glow ?? (d.element ? ELEMENTS[d.element].glow : '#ffffff') };
   }, [d.color, d.element]);
   const energy = c ? Math.min(1, (c.bond.level - 1) / 6 + c.bond.ratio / 6) : 0;
+  const features = useMemo(
+    () => refugeFeatures(d, snap?.quests ?? [], c?.bond.level ?? 1, { recipes: snap?.recipes?.length ?? 0, diary: snap?.diary?.length ?? 0 }),
+    [d, snap?.quests, c?.bond.level, snap?.recipes?.length, snap?.diary?.length],
+  );
 
-  const panel = { chat: ChatPanel, memories: MemoriesPanel, diary: DiaryPanel, quests: QuestsPanel, inventory: InventoryPanel, bond: BondPanel };
+  const panel = { chat: ChatPanel, memories: MemoriesPanel, diary: DiaryPanel, quests: QuestsPanel, inventory: InventoryPanel, recipes: RecipesPanel, bond: BondPanel };
   const Panel = tab ? panel[tab] : null;
 
   return (
     <div className="app">
       <div className="stage">
         <Suspense fallback={null}>
-          <Refuge color={visual.color} glow={visual.glow} element={d.element} energy={energy} pulseKey={pulse} contract={c?.stage === 'awakened' ? c.identityContract : null} quality={quality()} />
+          <Refuge color={visual.color} glow={visual.glow} element={d.element} energy={energy} pulseKey={pulse} burstKey={burst} features={features} contract={c?.stage === 'awakened' ? c.identityContract : null} quality={quality()} />
         </Suspense>
       </div>
 
@@ -111,6 +130,8 @@ export function App() {
         </>
       )}
 
+      {backend && c && <Celebration tint={visual.color} />}
+      {backend && c && <AwakenCall name={d.name ?? 'Seu Companion'} he={d.pronoun === 'ele'} />}
       {backend && snap && !c && <Creation />}
       {backend && !c && busy && !snap && <div className="loading">Abrindo o Refúgio…</div>}
 

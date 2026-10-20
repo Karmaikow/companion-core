@@ -71,7 +71,8 @@ export function traitLabel(id: string, pronoun: Pronoun): string {
   return o ? (pronoun === 'ele' ? o.m : o.f) : id;
 }
 
-export interface CompanionSetup { name: string; pronoun: Pronoun; playerName: string; traits: string[] }
+export type PlayerPronoun = 'ele' | 'ela' | 'neutro';
+export interface CompanionSetup { name: string; pronoun: Pronoun; playerName: string; playerPronoun?: PlayerPronoun; traits: string[] }
 
 export type SetupResult =
   | { ok: true; discoveries: Discoveries; traitIds: string[] }
@@ -97,6 +98,6 @@ export function validateSetup(input: unknown): SetupResult {
   return {
     ok: true,
     traitIds: ids,
-    discoveries: { name: named.patch.name, pronoun, playerName, traits: ids.map((id) => traitLabel(id, pronoun).toLowerCase()) },
+    discoveries: { name: named.patch.name, pronoun, playerName, playerPronoun: s.playerPronoun === 'ele' || s.playerPronoun === 'ela' ? s.playerPronoun : 'neutro', traits: ids.map((id) => traitLabel(id, pronoun).toLowerCase()) },
   };
 }

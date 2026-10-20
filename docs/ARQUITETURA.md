@@ -67,11 +67,40 @@ Modelos menores às vezes aceitam algo na fala ("vou ser Aurora!") sem propor a 
 detector determinístico na mensagem do jogador e só adiciona a proposta se a fala do Companion mencionar o mesmo valor.
 `validateDiscovery` continua decidindo.
 
+## Refúgio que cresce (v1.1)
+
+O Refúgio nasce só com o altar e o círculo mágico. `refugeFeatures()` (shared/rules/refuge.ts) decide o que aparece:
+lanternas por nível de vínculo, cristais na cor do Companion ("Minha cor"), estantes (vínculo 3/5 ou primeira página do diário),
+a peça da essência (água → cachoeira, fogo → braseiro, luz/sombra → claraboia, vento → sinos, raio → orbe, gelo/terra → cristais,
+natureza → flores e plantas), ninho com almofadas ("Primeiro laço"), janela para o mundo ("Primeiro sonho") e caldeirão (primeira receita).
+Cada peça surge com animação de crescimento; conquistas grandes soltam uma onda de luz do altar.
+
+## Quests secretas, impulso e livro de receitas (v1.1)
+
+- 7 segredos invisíveis no livro de quests, detectados por sinais determinísticos (`shared/rules/secrets.ts`): conversa na madrugada,
+  primeira receita, história longa, renomear, primeira página do diário, agradecer de coração, 5 perguntas sobre o Companion.
+  Recompensa: +25 de vínculo, item raro e impulso (as próximas 5 mensagens significativas valem o dobro). Tabela `companion_secrets`.
+- Receitas: o modelo devolve `recipes` quando a pessoa pede para anotar; `splitIngredient` separa "onde encontrar". Tabela `companion_recipes`.
+- "Puxar assunto": após ~80 s de silêncio (até 3x por sessão), ação `muse` gera uma fala espontânea com um gancho de fantasia.
+
+## Conversa (v1.1)
+
+Prompt com o mundo de fantasia, regra explícita de pronomes ("mim" = a pessoa; "você" = o Companion), tratamento da pessoa
+(ele/ela/neutro, escolhido na criação), limite de uso do nome/apelido, ganchos de assunto e memórias em terceira pessoa com nomes.
+`fixMemorySubject` corrige o sujeito pelos nomes citados e `sameMemory` evita repetições. Groq: espera e tenta de novo em 429.
+
+## Ideias registradas para depois
+
+- Lugares lendários inventados nas conversas (ex.: "Lago da Névoa", "Montanha Lumina", "Floresta de Espelhos") viram pontos do mapa
+  e eventos de busca quando o mundo abrir (MVP 2).
+- Culinária de verdade: coletar os ingredientes das receitas no mundo e cozinhar no caldeirão (itens estranhos com efeitos).
+
 ## Operação
 
 - Grants: este projeto Supabase não concede privilégios automáticos em tabelas novas; o `service_role` recebe grants
   explícitos (migração `20261020173000_mvp1_service_grants.sql`). Sem isso a função falha com 500.
 - Publicar a função: `npm run sync:rules && node scripts/bundle-refuge.mjs` gera `dist-fn/refuge/index.js` (um arquivo, só ASCII).
+- Formas do Companion: `node scripts/sprite-lab.mjs` com o Vite em `--port 5199` renderiza uma grade com várias espécies (client/sprite-lab.html).
 - Teste contra o servidor real: `node scripts/e2e-refuge.mjs "oi" "..."` (cria um convidado descartável; `SETUP='{"name":...}'` usa o ritual).
 - Teste no navegador (modo offline): `node scripts/e2e-local.mjs http://localhost:4173/ <pasta>`.
 

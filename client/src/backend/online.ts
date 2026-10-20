@@ -30,5 +30,6 @@ export class OnlineBackend implements Backend {
   chat(message: string) { return this.call('chat', { message }); }
   dream() { return this.call('dream'); }
   awaken() { return this.call('awaken'); }
+  muse() { return this.call('muse'); }
   async signOut() { await supabase().auth.signOut(); }
 }

@@ -8,3 +8,5 @@ export * from './clock.ts';
 export * from './engine.ts';
 export * from './offline.ts';
 export * from './creation.ts';
+export * from './secrets.ts';
+export * from './refuge.ts';

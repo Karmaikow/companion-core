@@ -5,7 +5,8 @@
  */
 import {
   DEFAULT_CONFIG, initialQuests, applyTurn, offlineTurn, levelForXp, levelProgress, checkAwakening,
-  buildIdentityContract, companionDay, QUEST_REWARDS, validateSetup, type Discoveries, type QuestState, type IdentityContractV1,
+  buildIdentityContract, companionDay, QUEST_REWARDS, validateSetup, evaluateSecrets, isQuestionAboutCompanion, gameTime,
+  SECRET_BY_KEY, SECRET_XP, SECRET_BOOST_TURNS, type SecretKey, type Discoveries, type QuestState, type IdentityContractV1,
   type CompanionSetup,
 } from '@rules';
 import type { Backend, Snapshot, MemoryRow, DiaryRow, InventoryRow, TimelineRow } from './types';
@@ -26,6 +27,8 @@ interface LocalSave {
   lastDreamAt: string | null;
   createdAt: string;
   seq: number;
+  secrets?: { key: string; achievedAt: string }[];
+  boost?: number;
 }
 
 const KEY = 'companion-core:local:v1';
@@ -66,12 +69,27 @@ export class LocalBackend implements Backend {
       memories: [...s.memories].reverse(),
       diary: [...s.diary].reverse(),
       inventory: s.inventory,
-      timeline: s.events.filter((e) => ['chat.player', 'chat.companion', 'quest.completed', 'identity.renamed', 'bond.level', 'companion.awakened'].includes(e.kind)).slice(-60),
+      timeline: s.events.filter((e) => ['chat.player', 'chat.companion', 'quest.completed', 'identity.renamed', 'secret.found', 'bond.level', 'companion.awakened'].includes(e.kind)).slice(-60),
+      secrets: s.secrets ?? [],
+      recipes: [],
+      boost: s.boost ?? 0,
       visualJob: s.contract ? { id: 'local', status: 'queued', contract_version: 1, created_at: s.awakenedAt ?? '' } : null,
       config: cfg,
       provider: 'offline',
       ...extra,
     };
+  }
+
+  private grant(s: LocalSave, keys: SecretKey[], sources: number[]) {
+    for (const key of keys) {
+      const def = SECRET_BY_KEY[key];
+      const now = new Date().toISOString();
+      (s.secrets ??= []).push({ key, achievedAt: now });
+      this.ev(s, 'system', 'secret.found', { secret: key, title: def.title, story: def.story, item: def.item.item, xp: SECRET_XP, boost: SECRET_BOOST_TURNS, sources });
+      s.inventory.push({ item_key: def.item.item, qty: 1, meta: { label: def.item.label, description: def.item.description, secret: key, rare: true }, acquired_at: now });
+      s.bondXp += SECRET_XP;
+      s.boost = (s.boost ?? 0) + SECRET_BOOST_TURNS;
+    }
   }
 
   async state() { return this.snap(); }
@@ -110,9 +128,10 @@ export class LocalBackend implements Backend {
     const recentPlayer = s.events.filter((e) => e.kind === 'chat.player').slice(-8).reverse().map((e) => String(e.payload.text));
     const meaningfulToday = s.events.filter((e) => e.kind === 'bond.xp' && e.payload.meaningful && Date.parse(e.created_at) > since).length;
     const lastCompanion = String([...s.events].reverse().find((e) => e.kind === 'chat.companion')?.payload.text ?? '');
-    const a = this.ev(s, 'player', 'chat.player', { text: message });
+    const asked = isQuestionAboutCompanion(message);
+    const a = this.ev(s, 'player', 'chat.player', { text: message, ...(asked ? { askedCompanion: true } : {}) });
     const model = offlineTurn(message, s.discoveries, s.quests, s.seq, recentPlayer, lastCompanion);
-    const plan = applyTurn({ playerMessage: message, model, discoveries: s.discoveries, quests: s.quests, bondXp: s.bondXp, existingMemories: s.memories, recentPlayerMessages: recentPlayer, meaningfulToday, cfg });
+    const plan = applyTurn({ playerMessage: message, model, discoveries: s.discoveries, quests: s.quests, bondXp: s.bondXp, existingMemories: s.memories, recentPlayerMessages: recentPlayer, meaningfulToday, cfg, boost: s.boost ?? 0 });
     const b = this.ev(s, 'companion', 'chat.companion', { text: model.reply, mood: model.mood, source: 'offline' });
     for (const c of plan.completed) {
       const id = this.ev(s, 'system', 'quest.completed', { quest: c.key, patch: c.patch, sources: [a, b] });
@@ -130,8 +149,14 @@ export class LocalBackend implements Backend {
     s.discoveries = plan.discoveries;
     s.quests = plan.quests;
     s.bondXp = plan.bondXp;
+    s.boost = plan.boostLeft;
+    const secretKeys = evaluateSecrets({
+      message, meaningful: plan.xp.meaningful, phase: gameTime(Date.now()).phase, renamed: !!plan.renamed,
+      questionsAboutCompanion: s.events.filter((e) => e.kind === 'chat.player' && e.payload.askedCompanion).length,
+    }, new Set((s.secrets ?? []).map((x) => x.key)));
+    this.grant(s, secretKeys, [a, b]);
     save(s);
-    return this.snap({ turn: { reply: model.reply, mood: model.mood, source: 'offline', xp: plan.xp, completed: plan.completed.map((c) => c.key), rejected: plan.rejected, newMemories: 0, levelUp: plan.levelAfter > plan.levelBefore ? plan.levelAfter : null, awakeningReady: plan.awakeningReady, renamed: plan.renamed } });
+    return this.snap({ turn: { reply: model.reply, mood: model.mood, source: 'offline', xp: plan.xp, completed: plan.completed.map((c) => c.key), rejected: plan.rejected, newMemories: 0, levelUp: plan.levelAfter > plan.levelBefore ? plan.levelAfter : null, awakeningReady: checkAwakening(s.quests, s.discoveries, levelForXp(s.bondXp, cfg), cfg).ready, renamed: plan.renamed, secrets: secretKeys } });
   }
 
   async dream() {
@@ -146,8 +171,10 @@ export class LocalBackend implements Backend {
     s.diary.push({ id: ++s.seq, game_day: companionDay(Date.parse(s.createdAt), Date.now()), body, source_event_ids: evs.map((e) => e.id), created_at: new Date().toISOString() });
     this.ev(s, 'system', 'companion.dreamed', { events: evs.length });
     s.lastDreamAt = new Date().toISOString();
+    const secretKeys = evaluateSecrets({ diaryTotal: s.diary.length }, new Set((s.secrets ?? []).map((x) => x.key)));
+    this.grant(s, secretKeys, evs.slice(-2).map((e) => e.id));
     save(s);
-    return this.snap({ dream: { dreamed: true } });
+    return this.snap({ dream: { dreamed: true, secrets: secretKeys } });
   }
 
   async awaken() {

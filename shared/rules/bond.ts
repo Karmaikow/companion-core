@@ -34,7 +34,7 @@ export interface TurnXpInput {
   newMemories: number;
 }
 
-export interface TurnXp { total: number; parts: { message: number; discoveries: number; memories: number }; reason: string; meaningful: boolean }
+export interface TurnXp { total: number; parts: { message: number; discoveries: number; memories: number }; reason: string; meaningful: boolean; boosted?: boolean }
 
 const PRAISE_ONLY = /^(?:(?:voce e|vc e|tu e|que)?\s*(?:muito|mt|tao|super)?\s*(?:linda|lindo|fofa|fofo|incrivel|perfeita|perfeito|legal|top|demais|maravilhosa|maravilhoso|amo voce|te amo|gosto de voce)\s*)+$/;
 

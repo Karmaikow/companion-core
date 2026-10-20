@@ -1,0 +1,11 @@
+<!doctype html><html><body style="margin:0;background:#1a1528"><div id="g" style="display:grid;grid-template-columns:repeat(4,256px);gap:6px;padding:6px;color:#ddd;font:12px sans-serif"></div>
+<script type="module">
+import { buildIdentityContract } from '@rules';
+import { drawCompanion } from './src/scene/companionSprite';
+const cases = [['raposa com asas','felino','#64834b','natureza'],['um gato preto','felino','#2a2a35','sombra'],['cachorrinho fofo','felino','#c07a3a','terra'],['coelho','felino','#f2f2f7','luz'],['dragão','serpente','#e8443a','fogo'],['coruja','passaro','#8a4fff','vento'],['touro forte','touro','#8a5a3a','terra'],['fada','mistica','#ee83b4','luz'],['lobo','felino','#8a8f99','gelo'],['unicórnio alado','mistica','#f2f2f7','luz'],['leão','felino','#edbd54','fogo'],['serpente marinha','serpente','#3fd2c0','agua']];
+const g = document.getElementById('g');
+for (const [desc, form, color, el] of cases) {
+  const c = buildIdentityContract('lab-' + desc, { name: 'Lumi', species: desc, form, color, traits: ['curiosa','gentil'], element: el, playerAddress: 'Di', dream: 'voar sobre montanhas' }, 5);
+  const d = document.createElement('div'); const cv = drawCompanion(c, 256); d.append(cv, Object.assign(document.createElement('div'), { textContent: desc })); g.append(d);
+}
+</script></body></html>

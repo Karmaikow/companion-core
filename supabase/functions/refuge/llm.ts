@@ -44,6 +44,12 @@ export async function complete(system: string, history: ChatLine[], user: string
       }),
     });
     let r = await call(true);
+    // Limite de uso (429): espera o tempo pedido (até 6 s) e tenta mais uma vez.
+    if (r.status === 429) {
+      const wait = Math.min(6, Number(r.headers.get('retry-after')) || 2);
+      await new Promise((ok) => setTimeout(ok, wait * 1000));
+      r = await call(true);
+    }
     // Modo JSON às vezes falha na validação do provedor (400): tenta de novo em texto livre;
     // parseModelTurn extrai o JSON da resposta ou usa o texto como fala.
     if (r.status === 400) r = await call(false);

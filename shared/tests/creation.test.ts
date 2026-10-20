@@ -7,7 +7,7 @@ describe('ritual de criação', () => {
   it('aceita setup válido e gera descobertas', () => {
     const r = validateSetup(ok);
     expect(r.ok).toBe(true);
-    if (r.ok) expect(r.discoveries).toEqual({ name: 'Lumi', pronoun: 'ela', playerName: 'Diego', traits: ['curiosa', 'gentil', 'sanguínea'] });
+    if (r.ok) expect(r.discoveries).toEqual({ name: 'Lumi', pronoun: 'ela', playerName: 'Diego', playerPronoun: 'neutro', traits: ['curiosa', 'gentil', 'sanguínea'] });
   });
   it('usa o masculino quando escolhido', () => {
     const r = validateSetup({ ...ok, pronoun: 'ele', traits: ['brincalhona', 'protetora'] });

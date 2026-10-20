@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { QUESTS, QUEST_REWARDS, FORM_FAMILIES, ELEMENTS } from '@rules';
+import { QUESTS, QUEST_REWARDS, FORM_FAMILIES, ELEMENTS, SECRETS, SECRET_BY_KEY, type SecretKey } from '@rules';
+import { ItemIcon } from './itemIcons';
 import { useGame } from '../store';
 
 const QUEST_FIELD: Record<string, (d: Record<string, unknown>) => string | null> = {
@@ -23,7 +24,7 @@ export function ChatPanel() {
   const run = useGame((s) => s.run);
   const [text, setText] = useState('');
   const list = useRef<HTMLDivElement>(null);
-  const lines = (snap?.timeline ?? []).filter((e) => ['chat.player', 'chat.companion', 'quest.completed', 'identity.renamed'].includes(e.kind));
+  const lines = (snap?.timeline ?? []).filter((e) => ['chat.player', 'chat.companion', 'quest.completed', 'identity.renamed', 'secret.found', 'recipe.added'].includes(e.kind));
   const online = useGame((s) => s.backend?.kind === 'online');
   const name = snap?.companion?.discoveries.name ?? 'Núcleo';
   useEffect(() => { list.current?.scrollTo({ top: list.current.scrollHeight, behavior: 'smooth' }); }, [lines.length, busy]);
@@ -42,9 +43,13 @@ export function ChatPanel() {
             <div key={e.id} className="line system">✦ {QUESTS.find((q) => q.key === e.payload.quest)?.title} — {e.payload.evidence === 'ritual de criação' ? 'definido na criação' : 'descoberta registrada'}</div>
           ) : e.kind === 'identity.renamed' ? (
             <div key={e.id} className="line system">✦ Agora me chamo {String(e.payload.to)}</div>
+          ) : e.kind === 'secret.found' ? (
+            <div key={e.id} className="line system secret">✧ Quest secreta: {SECRET_BY_KEY[e.payload.secret as SecretKey]?.title ?? String(e.payload.secret)}</div>
+          ) : e.kind === 'recipe.added' ? (
+            <div key={e.id} className="line system">✦ Receita anotada: {String(e.payload.name)}</div>
           ) : (
             <div key={e.id} className={'line ' + (e.kind === 'chat.player' ? 'me' : 'them')}>
-              {e.kind === 'chat.companion' && <span className="who">{name}{online && e.payload.source === 'offline' && <em className="src" title="O modelo de IA não respondeu a tempo; esta é uma resposta simples."> · resposta simples</em>}</span>}
+              {e.kind === 'chat.companion' && <span className="who">{name}{online && e.payload.source === 'offline' && <em className="src" title="O modelo de IA não respondeu a tempo; esta é uma resposta simples."> · resposta simples</em>}{e.payload.muse === true && <em className="src"> · puxou assunto</em>}</span>}
               {String(e.payload.text ?? '')}
             </div>
           ),
@@ -120,25 +125,79 @@ export function QuestsPanel() {
         );
       })}
       <p className="hint">Nome e traços nascem no ritual de criação; o resto surge da conversa. Não há respostas certas: o Companion decide junto com você.</p>
+      <SecretList />
     </ol>
+  );
+}
+
+function SecretList() {
+  const found = useGame((s) => s.snap?.secrets ?? []);
+  const boost = useGame((s) => s.snap?.boost ?? 0);
+  const keys = new Set(found.map((f) => f.key));
+  return (
+    <section className="secrets">
+      <h3>Segredos <small>{found.length}/{SECRETS.length}</small></h3>
+      {boost > 0 && <p className="boost">Impulso ativo: as próximas {boost} conversas valem o dobro.</p>}
+      <ul>
+        {SECRETS.filter((s) => keys.has(s.key)).map((s) => (
+          <li key={s.key}><span className="mark">✧</span><div><strong>{s.title}</strong><p>{s.story}</p></div></li>
+        ))}
+        {SECRETS.length > keys.size && <li className="hidden-secrets"><span className="mark">?</span><div><p>Ainda há {SECRETS.length - keys.size} segredos escondidos no Refúgio. Eles aparecem quando menos se espera.</p></div></li>}
+      </ul>
+    </section>
+  );
+}
+
+export function RecipesPanel() {
+  const recipes = useGame((s) => s.snap?.recipes ?? []);
+  const local = useGame((s) => s.backend?.kind === 'local');
+  if (!recipes.length) return <p className="empty">O livro de receitas está em branco. Invente um prato mágico com seu Companion e peça para anotar.{local ? ' (No modo offline as receitas não são criadas.)' : ''}</p>;
+  return (
+    <div className="recipes">
+      {recipes.map((r) => (
+        <article key={r.id} className="recipe">
+          <header><strong>{r.name}</strong><small>{when(r.created_at)}</small></header>
+          {r.description && <p className="desc">{r.description}</p>}
+          <ul>
+            {r.ingredients.map((i, k) => <li key={k}><span className="ing">{i.name}</span>{i.where && <span className="where">· {i.where}</span>}</li>)}
+          </ul>
+          <small className="hint">Os ingredientes estão no mundo lá fora — poderão ser buscados depois do despertar.</small>
+        </article>
+      ))}
+    </div>
   );
 }
 
 export function InventoryPanel() {
   const inv = useGame((s) => s.snap?.inventory ?? []);
+  const tint = useGame((s) => s.snap?.companion?.discoveries.color ?? '#9fc9ff');
   const slots = Object.values(QUEST_REWARDS);
+  const rare = inv.filter((i) => i.meta.rare);
   return (
-    <div className="inventory">
-      {slots.map((r) => {
-        const it = inv.find((i) => i.item_key === r.item);
-        return (
-          <div key={r.item} className={'slot' + (it ? ' has' : '')} title={it ? r.description : 'Ainda não descoberto'}>
-            <span className="gem" style={it?.meta.color ? { background: String(it.meta.color) } : undefined} />
-            <strong>{it ? r.label : '???'}</strong>
-            <small>{it ? r.description : 'Conclua uma quest para encontrar'}</small>
+    <div className="inventory-wrap">
+      <div className="inventory">
+        {slots.map((r) => {
+          const it = inv.find((i) => i.item_key === r.item);
+          return (
+            <div key={r.item} className={'slot' + (it ? ' has' : '')} title={it ? r.description : 'Ainda não descoberto'}>
+              <ItemIcon item={r.item} tint={tint} size={44} locked={!it} />
+              <strong>{it ? r.label : '???'}</strong>
+              <small>{it ? r.description : 'Conclua uma quest para encontrar'}</small>
+            </div>
+          );
+        })}
+      </div>
+      <h3 className="rare-title">Raros <small>{rare.length}/{SECRETS.length}</small></h3>
+      <div className="inventory">
+        {rare.map((it) => (
+          <div key={it.item_key} className="slot has rare" title={String(it.meta.description ?? '')}>
+            <ItemIcon item={it.item_key} tint={tint} size={44} />
+            <strong>{String(it.meta.label ?? it.item_key)}</strong>
+            <small>{String(it.meta.description ?? '')}</small>
           </div>
-        );
-      })}
+        ))}
+        {rare.length < SECRETS.length && <div className="slot rare-locked"><ItemIcon item="?" locked size={44} /><strong>???</strong><small>Itens raros vêm de quests secretas.</small></div>}
+      </div>
     </div>
   );
 }
