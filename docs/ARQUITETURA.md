@@ -54,10 +54,31 @@ client/              Vite + R3F (cena do Refúgio, painéis, modo local)
 scripts/e2e-local.mjs jornada completa no navegador (Playwright)
 ```
 
-## Pendências para colocar online
+## Ritual de criação
 
-1. ~~Aplicar as migrações em `supabase/migrations/`~~ (aplicadas em 20/10/2026).
-2. ~~Publicar a função `refuge`~~ (v1 publicada em 20/10/2026, verify_jwt = true).
-3. Ativar login anônimo (Auth → Providers → Anonymous) ou usar e-mail/senha.
-4. Opcional: secret `ANTHROPIC_API_KEY` (senão usa `GROQ_API_KEY`, já existente).
-5. Variáveis do cliente na Vercel: `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY` (o build já tem os valores do projeto como padrão).
+Antes do primeiro encontro o jogador informa o próprio nome, o nome e o pronome (ela/ele) do Companion e de 2 a 5 traços
+(catálogo portado do projeto antigo, `shared/rules/creation.ts`). Nome e traços concluem "Quem sou eu?" e "O que sinto?";
+cor, forma, essência, laço e sonho continuam vindo da conversa. Os traços viram direção de atuação no prompt.
+O nome pode ser trocado conversando (evento `identity.renamed`, sem XP).
+
+## Descobertas assistidas
+
+Modelos menores às vezes aceitam algo na fala ("vou ser Aurora!") sem propor a descoberta. `assistDiscoveries` roda o
+detector determinístico na mensagem do jogador e só adiciona a proposta se a fala do Companion mencionar o mesmo valor.
+`validateDiscovery` continua decidindo.
+
+## Operação
+
+- Grants: este projeto Supabase não concede privilégios automáticos em tabelas novas; o `service_role` recebe grants
+  explícitos (migração `20261020173000_mvp1_service_grants.sql`). Sem isso a função falha com 500.
+- Publicar a função: `npm run sync:rules && node scripts/bundle-refuge.mjs` gera `dist-fn/refuge/index.js` (um arquivo, só ASCII).
+- Teste contra o servidor real: `node scripts/e2e-refuge.mjs "oi" "..."` (cria um convidado descartável; `SETUP='{"name":...}'` usa o ritual).
+- Teste no navegador (modo offline): `node scripts/e2e-local.mjs http://localhost:4173/ <pasta>`.
+
+## Pendências
+
+1. ~~Migrações~~, ~~função `refuge`~~, ~~login anônimo~~, ~~variáveis na Vercel~~ (20/10/2026).
+2. Auth → URL Configuration: incluir as URLs da Vercel em *Redirect URLs* para os links de confirmação e de nova senha voltarem ao jogo.
+3. E-mail: o SMTP padrão do Supabase envia poucos e-mails por hora; para lançar, configurar SMTP próprio.
+4. Opcional: `ANTHROPIC_API_KEY` (modelo melhor para conversa e extração) — hoje usa `GROQ_API_KEY`.
+5. Captcha no login anônimo antes de abrir ao público.

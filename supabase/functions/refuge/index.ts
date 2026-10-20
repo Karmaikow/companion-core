@@ -3,8 +3,8 @@
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import {
   resolveConfig, levelForXp, levelProgress, initialQuests, applyTurn, parseModelTurn, buildChatSystemPrompt,
-  offlineTurn, buildDreamPrompt, parseDream, checkAwakening, buildIdentityContract, gameTime, companionDay, clampText,
-  QUESTS, QUEST_REWARDS, type GameConfig, type QuestState, type Discoveries, type MemoryLite, type ChatLine,
+  offlineTurn, assistDiscoveries, buildDreamPrompt, parseDream, checkAwakening, buildIdentityContract, gameTime, companionDay, clampText,
+  QUESTS, QUEST_REWARDS, validateSetup, type GameConfig, type QuestState, type Discoveries, type MemoryLite, type ChatLine,
 } from './rules/index.ts';
 import { complete, providerName } from './llm.ts';
 
@@ -63,7 +63,7 @@ async function snapshot(db: SupabaseClient, c: Record<string, unknown>, cfg: Gam
     db.from('companion_memories').select('id,subject,content,importance,source_event_ids,origin,created_at').eq('companion_id', cid).eq('status', 'active').order('id', { ascending: false }).limit(60),
     db.from('companion_diary').select('id,game_day,body,source_event_ids,created_at').eq('companion_id', cid).order('id', { ascending: false }).limit(30),
     db.from('companion_inventory').select('item_key,qty,meta,acquired_at').eq('companion_id', cid).order('acquired_at'),
-    db.from('companion_events').select('id,actor,kind,payload,created_at').eq('companion_id', cid).in('kind', ['chat.player', 'chat.companion', 'quest.completed', 'bond.level', 'companion.awakened']).order('id', { ascending: false }).limit(60),
+    db.from('companion_events').select('id,actor,kind,payload,created_at').eq('companion_id', cid).in('kind', ['chat.player', 'chat.companion', 'quest.completed', 'identity.renamed', 'bond.level', 'companion.awakened']).order('id', { ascending: false }).limit(60),
     db.from('visual_jobs').select('id,status,contract_version,created_at,updated_at,result').eq('companion_id', cid).order('created_at', { ascending: false }).limit(1),
   ]);
   const d = c.discoveries as Discoveries;
@@ -87,16 +87,36 @@ async function snapshot(db: SupabaseClient, c: Record<string, unknown>, cfg: Gam
 
 // ---------------------------------------------------------------------------
 
-async function actCreate(db: SupabaseClient, userId: string, cfg: Awaited<ReturnType<typeof loadConfig>>) {
+async function actCreate(db: SupabaseClient, userId: string, cfg: Awaited<ReturnType<typeof loadConfig>>, rawSetup: unknown) {
   const { count } = await db.from('companions').select('id', { count: 'exact', head: true }).eq('owner_id', userId);
   if ((count ?? 0) >= cfg.maxCompanions) {
     const existing = await getCompanion(db, userId);
     return existing;
   }
-  const { data: c, error } = await db.from('companions').insert({ owner_id: userId }).select('*').single();
-  if (error) throw new HttpError(500, 'Não foi possível criar o Companion.');
-  await db.from('companion_quests').insert(initialQuests().map((q) => ({ companion_id: c.id, quest_key: q.key, status: q.status })));
-  await event(db, c.id, 'system', 'companion.born', { stage: 'particles' });
+  // Ritual de criação (opcional): nome, pronome, como a pessoa se chama e personalidade.
+  const setup = rawSetup ? validateSetup(rawSetup) : null;
+  if (setup && !setup.ok) throw new HttpError(400, setup.error);
+  const discoveries = setup?.ok ? setup.discoveries : {};
+  const { data: c, error } = await db.from('companions').insert({ owner_id: userId, discoveries }).select('*').single();
+  if (error) {
+    console.error('create', error.code, error.message);
+    throw new HttpError(500, 'Não foi possível criar o Companion.');
+  }
+  const preDone = setup?.ok ? new Set(['identity', 'traits']) : new Set<string>();
+  const now = new Date().toISOString();
+  await db.from('companion_quests').insert(initialQuests().map((q) => ({ companion_id: c.id, quest_key: q.key, status: preDone.has(q.key) ? 'done' : q.status, completed_at: preDone.has(q.key) ? now : null })));
+  const born = await event(db, c.id, 'system', 'companion.born', { stage: 'particles', ritual: !!setup });
+  if (setup?.ok) {
+    const d = setup.discoveries;
+    for (const key of ['identity', 'traits'] as const) {
+      const patch = key === 'identity' ? { name: d.name } : { traits: d.traits };
+      const evId = await event(db, c.id, 'system', 'quest.completed', { quest: key, patch, evidence: 'ritual de criação', sources: [born] });
+      await db.from('companion_quests').update({ source_event_id: evId }).eq('companion_id', c.id).eq('quest_key', key);
+      const reward = QUEST_REWARDS[key];
+      await db.from('companion_inventory').upsert({ companion_id: c.id, item_key: reward.item, qty: 1, meta: { label: reward.label, description: reward.description, quest: key, ...patch } });
+    }
+    await db.from('companion_memories').insert({ companion_id: c.id, subject: 'player', content: `A pessoa se chama ${d.playerName}.`, importance: 5, source_event_ids: [born], origin: 'conversation' });
+  }
   return c;
 }
 
@@ -123,17 +143,23 @@ async function actChat(db: SupabaseClient, c: Record<string, unknown>, message: 
 
   const system = buildChatSystemPrompt({ discoveries: d, quests, bondLevel: level, memories, history, gamePhase: gameTime(Date.now()).phase, firstMeeting: history.length === 0 });
   let model;
-  let source = providerName();
+  let source: string = providerName();
+  let diag: string | undefined;
   try {
     const raw = await complete(system, history, message);
     model = raw ? parseModelTurn(raw) : null;
+    if (!raw) diag = 'sem resposta';
   } catch (e) {
-    console.error('llm', (e as Error).message);
+    diag = (e as Error).message.slice(0, 60);
+    console.error('llm', diag);
     model = null;
   }
+  const lastCompanion = [...history].reverse().find((h) => h.role === 'companion')?.text ?? '';
   if (!model) {
     source = 'offline';
-    model = offlineTurn(message, d, quests);
+    model = offlineTurn(message, d, quests, Date.now(), recentPlayer, lastCompanion);
+  } else {
+    model = assistDiscoveries(message, model, d, quests, recentPlayer, lastCompanion);
   }
 
   const plan = applyTurn({
@@ -150,6 +176,7 @@ async function actChat(db: SupabaseClient, c: Record<string, unknown>, message: 
     await db.from('companion_inventory').upsert({ companion_id: cid, item_key: reward.item, qty: 1, meta: { label: reward.label, description: reward.description, quest: comp.key, ...comp.patch } });
   }
   if (plan.rejected.length) await event(db, cid, 'system', 'quest.rejected', { items: plan.rejected });
+  if (plan.renamed) await event(db, cid, 'system', 'identity.renamed', { from: d.name ?? null, to: plan.renamed, sources: [playerEventId, replyEventId] });
   if (plan.newMemories.length) {
     await db.from('companion_memories').insert(plan.newMemories.map((m) => ({ companion_id: cid, subject: m.subject, content: m.content, importance: m.importance, source_event_ids: [playerEventId, replyEventId], origin: 'conversation' })));
   }
@@ -157,7 +184,7 @@ async function actChat(db: SupabaseClient, c: Record<string, unknown>, message: 
   if (plan.levelAfter > plan.levelBefore) await event(db, cid, 'system', 'bond.level', { level: plan.levelAfter });
   const { data: updated } = await db.from('companions').update({ discoveries: plan.discoveries, bond_xp: plan.bondXp, updated_at: new Date().toISOString() }).eq('id', cid).select('*').single();
 
-  return { companion: updated, turn: { reply: model.reply, mood: model.mood, source, xp: plan.xp, completed: plan.completed.map((x) => x.key), rejected: plan.rejected, newMemories: plan.newMemories.length, levelUp: plan.levelAfter > plan.levelBefore ? plan.levelAfter : null, awakeningReady: plan.awakeningReady } };
+  return { companion: updated, turn: { reply: model.reply, mood: model.mood, source, diag, renamed: plan.renamed, xp: plan.xp, completed: plan.completed.map((x) => x.key), rejected: plan.rejected, newMemories: plan.newMemories.length, levelUp: plan.levelAfter > plan.levelBefore ? plan.levelAfter : null, awakeningReady: plan.awakeningReady } };
 }
 
 async function actDream(db: SupabaseClient, c: Record<string, unknown>) {
@@ -206,7 +233,7 @@ async function actAwaken(db: SupabaseClient, c: Record<string, unknown>, cfg: Ga
   const level = levelForXp(c.bond_xp as number, cfg);
   const check = checkAwakening(quests, d, level, cfg);
   if (!check.ready) throw new HttpError(409, 'Ainda não é hora de despertar: ' + check.missing.join(', '));
-  const contract = buildIdentityContract(cid, d as Required<Discoveries>, level);
+  const contract = buildIdentityContract(cid, d as Required<Discoveries>, level, d.pronoun ?? 'ela');
   const version = (c.identity_version as number) + 1;
   const evId = await event(db, cid, 'system', 'companion.awakened', { contractVersion: version });
   await db.from('companions').update({ stage: 'awakened', identity_contract: contract, identity_version: version, awakened_at: new Date().toISOString() }).eq('id', cid);
@@ -234,7 +261,7 @@ Deno.serve(async (req) => {
     let c = await getCompanion(db, userId, typeof body.companionId === 'string' ? body.companionId : undefined);
 
     if (action === 'create') {
-      c = c ?? (await actCreate(db, userId, cfg));
+      c = c ?? (await actCreate(db, userId, cfg, body.setup));
       return json(200, await snapshot(db, c!, cfg));
     }
     if (!c) return json(200, { companion: null, config: cfg, provider: providerName() });

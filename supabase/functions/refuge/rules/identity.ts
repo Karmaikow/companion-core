@@ -20,7 +20,7 @@ export const FORM_FAMILIES: Record<FormFamily, { label: string; vocation: string
   felino: {
     label: 'Felino',
     vocation: 'Agilidade e precisão',
-    aliases: ['felino', 'gato', 'gata', 'leao', 'tigre', 'onca', 'pantera', 'lince', 'raposa', 'lobo', 'loba', 'kitsune', 'coelho'],
+    aliases: ['felino', 'gato', 'gata', 'leao', 'tigre', 'onca', 'pantera', 'lince', 'raposa', 'lobo', 'loba', 'kitsune', 'coelho', 'cachorro', 'cachorrinho', 'cao', 'cadela', 'filhote'],
   },
   serpente: {
     label: 'Serpente',
@@ -171,6 +171,8 @@ export interface Discoveries {
   element?: Element;
   playerAddress?: string; // como chama o jogador
   dream?: string;
+  pronoun?: 'ela' | 'ele';
+  playerName?: string; // nome que o jogador informou na criação
 }
 
 export interface IdentityContractV1 {

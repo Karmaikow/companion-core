@@ -1,4 +1,4 @@
-import type { Discoveries, QuestState, AwakeningCheck, GameConfig, IdentityContractV1, TurnXp } from '@rules';
+import type { Discoveries, QuestState, AwakeningCheck, GameConfig, IdentityContractV1, TurnXp, CompanionSetup } from '@rules';
 
 export interface MemoryRow { id: number; subject: 'player' | 'companion' | 'shared'; content: string; importance: number; source_event_ids: number[]; origin: string; created_at: string }
 export interface DiaryRow { id: number; game_day: number; body: string; source_event_ids: number[]; created_at: string }
@@ -26,16 +26,17 @@ export interface Snapshot {
   visualJob?: { id: string; status: string; contract_version: number; created_at: string } | null;
   config?: GameConfig;
   provider?: string;
-  turn?: { reply: string; mood: string; source: string; xp: TurnXp; completed: string[]; rejected: { quest: string; reason: string }[]; newMemories: number; levelUp: number | null; awakeningReady: boolean };
+  turn?: { reply: string; mood: string; source: string; diag?: string; renamed?: string | null; xp: TurnXp; completed: string[]; rejected: { quest: string; reason: string }[]; newMemories: number; levelUp: number | null; awakeningReady: boolean };
   dream?: { dreamed: boolean; reason?: string };
 }
 
 export interface Backend {
   readonly kind: 'online' | 'local';
   state(): Promise<Snapshot>;
-  create(): Promise<Snapshot>;
+  create(setup?: CompanionSetup): Promise<Snapshot>;
   chat(message: string): Promise<Snapshot>;
   dream(): Promise<Snapshot>;
   awaken(): Promise<Snapshot>;
   reset?(): Promise<void>;
+  signOut?(): Promise<void>;
 }

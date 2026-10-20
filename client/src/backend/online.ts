@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import type { CompanionSetup } from '@rules';
 import type { Backend, Snapshot } from './types';
 
 export const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL ?? 'https://rqdukyenuecrshzmofdo.supabase.co';
@@ -25,8 +26,9 @@ export class OnlineBackend implements Backend {
     return data as Snapshot;
   }
   state() { return this.call('state'); }
-  create() { return this.call('create'); }
+  create(setup?: CompanionSetup) { return this.call('create', setup ? { setup } : {}); }
   chat(message: string) { return this.call('chat', { message }); }
   dream() { return this.call('dream'); }
   awaken() { return this.call('awaken'); }
+  async signOut() { await supabase().auth.signOut(); }
 }

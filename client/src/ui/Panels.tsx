@@ -23,7 +23,8 @@ export function ChatPanel() {
   const run = useGame((s) => s.run);
   const [text, setText] = useState('');
   const list = useRef<HTMLDivElement>(null);
-  const lines = (snap?.timeline ?? []).filter((e) => e.kind === 'chat.player' || e.kind === 'chat.companion' || e.kind === 'quest.completed');
+  const lines = (snap?.timeline ?? []).filter((e) => ['chat.player', 'chat.companion', 'quest.completed', 'identity.renamed'].includes(e.kind));
+  const online = useGame((s) => s.backend?.kind === 'online');
   const name = snap?.companion?.discoveries.name ?? 'Núcleo';
   useEffect(() => { list.current?.scrollTo({ top: list.current.scrollHeight, behavior: 'smooth' }); }, [lines.length, busy]);
   const send = () => {
@@ -35,13 +36,15 @@ export function ChatPanel() {
   return (
     <div className="chat">
       <div className="chat-list" ref={list}>
-        {lines.length === 0 && <p className="empty">O núcleo pulsa, esperando a primeira palavra. Diga oi.</p>}
+        {lines.filter((e) => e.kind !== 'quest.completed').length === 0 && <p className="empty">O núcleo pulsa, esperando a primeira palavra. Diga oi.</p>}
         {lines.map((e) =>
           e.kind === 'quest.completed' ? (
-            <div key={e.id} className="line system">✦ {QUESTS.find((q) => q.key === e.payload.quest)?.title} — descoberta registrada</div>
+            <div key={e.id} className="line system">✦ {QUESTS.find((q) => q.key === e.payload.quest)?.title} — {e.payload.evidence === 'ritual de criação' ? 'definido na criação' : 'descoberta registrada'}</div>
+          ) : e.kind === 'identity.renamed' ? (
+            <div key={e.id} className="line system">✦ Agora me chamo {String(e.payload.to)}</div>
           ) : (
             <div key={e.id} className={'line ' + (e.kind === 'chat.player' ? 'me' : 'them')}>
-              {e.kind === 'chat.companion' && <span className="who">{name}</span>}
+              {e.kind === 'chat.companion' && <span className="who">{name}{online && e.payload.source === 'offline' && <em className="src" title="O modelo de IA não respondeu a tempo; esta é uma resposta simples."> · resposta simples</em>}</span>}
               {String(e.payload.text ?? '')}
             </div>
           ),
@@ -116,7 +119,7 @@ export function QuestsPanel() {
           </li>
         );
       })}
-      <p className="hint">As descobertas surgem da conversa. Não há respostas certas: o Companion decide junto com você.</p>
+      <p className="hint">Nome e traços nascem no ritual de criação; o resto surge da conversa. Não há respostas certas: o Companion decide junto com você.</p>
     </ol>
   );
 }

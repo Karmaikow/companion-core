@@ -13,7 +13,18 @@ page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
 await page.goto(URL);
 await page.waitForTimeout(2500);
 await page.screenshot({ path: `${OUT}/01-entrada.png` });
-await page.getByText('Jogar no modo local').click();
+await page.getByText('Jogar offline').click();
+// ritual de criação
+await page.waitForSelector('.ritual');
+await page.screenshot({ path: `${OUT}/02a-criacao-voce.png` });
+await page.fill('.ritual input', 'Diego');
+await page.click('.ritual button.primary');
+await page.fill('.ritual input', 'Lumi');
+await page.screenshot({ path: `${OUT}/02b-criacao-nome.png` });
+await page.click('.ritual button.primary');
+for (const t of ['Curiosa', 'Gentil', 'Brincalhona', 'Sanguínea']) await page.click(`.chip-btn:text-is("${t}")`);
+await page.screenshot({ path: `${OUT}/02c-criacao-tracos.png` });
+await page.click('text=Dar vida ao núcleo');
 await page.waitForSelector('.nameplate');
 await page.waitForTimeout(2000);
 await page.screenshot({ path: `${OUT}/02-refugio.png` });
@@ -24,11 +35,9 @@ const say = async (t) => {
   await page.waitForTimeout(120);
 };
 const script = [
-  'Oi! Que bom te conhecer, pequena luz.',
-  'Acho que seu nome deveria ser Lumi',
+  'Oie',
   'Hoje choveu muito aqui na cidade e fiquei pensando em você',
   'acho que azul combina com sua luz',
-  'Você me parece curiosa, gentil e corajosa',
   'Eu imagino você como uma raposa com asas',
   'Sinto que sua essência é a luz das estrelas',
 ];
@@ -50,7 +59,7 @@ const xpBefore = await page.evaluate(() => JSON.parse(localStorage.getItem('comp
 console.log('xp real após conversa:', xpBefore);
 await page.evaluate(() => { const k = 'companion-core:local:v1'; const s = JSON.parse(localStorage.getItem(k)); s.bondXp = Math.max(s.bondXp, 560); localStorage.setItem(k, JSON.stringify(s)); });
 await page.reload();
-await page.getByText('Jogar no modo local').click();
+await page.getByText('Jogar offline').click();
 await page.waitForSelector('.nameplate');
 await page.click('.rail button:nth-child(1)');
 await page.click('.rail button:nth-child(4)'); // quests
@@ -71,17 +80,30 @@ if (ready) {
 }
 // reinício: progresso precisa sobreviver
 await page.reload();
-await page.getByText('Jogar no modo local').click();
+await page.getByText('Jogar offline').click();
 await page.waitForSelector('.nameplate');
 await page.waitForTimeout(1500);
 const name = await page.textContent('.nameplate h1');
 const save = await page.evaluate(() => JSON.parse(localStorage.getItem('companion-core:local:v1')));
-console.log(JSON.stringify({ ready, name, stage: save.stage, bondXp: save.bondXp, questsDone: save.quests.filter((q) => q.status === 'done').length, inventory: save.inventory.length, diary: save.diary.length, errors }, null, 1));
+const firstReply = save.events.find((e) => e.kind === 'chat.companion')?.payload.text;
+console.log(JSON.stringify({ ready, name, firstReply, stage: save.stage, bondXp: save.bondXp, questsDone: save.quests.filter((q) => q.status === 'done').length, inventory: save.inventory.length, diary: save.diary.length, errors }, null, 1));
 
 const m = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
 const mp = await m.newPage();
 await mp.goto(URL + '?q=low');
-await mp.getByText('Jogar no modo local').click();
+await mp.waitForTimeout(2500);
+await mp.screenshot({ path: `${OUT}/07-celular-inicio.png`, timeout: 90000 });
+await mp.getByText('Jogar offline').dispatchEvent('click');
+await mp.waitForSelector('.ritual');
+await mp.screenshot({ path: `${OUT}/07a-celular-entrada.png` });
+await mp.fill('.ritual input', 'Diego');
+await mp.click('.ritual button.primary');
+await mp.fill('.ritual input', 'Kai');
+await mp.click('text=Ele ·');
+await mp.click('.ritual button.primary');
+for (const t of ['Curioso', 'Protetor', 'Colérico']) await mp.click(`.chip-btn:text-is("${t}")`);
+await mp.screenshot({ path: `${OUT}/07b-celular-tracos.png`, fullPage: true });
+await mp.click('text=Dar vida ao núcleo');
 await mp.waitForSelector('.nameplate');
 await mp.waitForTimeout(2000);
 await mp.waitForTimeout(800);

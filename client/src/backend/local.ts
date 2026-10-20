@@ -5,7 +5,8 @@
  */
 import {
   DEFAULT_CONFIG, initialQuests, applyTurn, offlineTurn, levelForXp, levelProgress, checkAwakening,
-  buildIdentityContract, companionDay, QUEST_REWARDS, type Discoveries, type QuestState, type IdentityContractV1,
+  buildIdentityContract, companionDay, QUEST_REWARDS, validateSetup, type Discoveries, type QuestState, type IdentityContractV1,
+  type CompanionSetup,
 } from '@rules';
 import type { Backend, Snapshot, MemoryRow, DiaryRow, InventoryRow, TimelineRow } from './types';
 
@@ -65,7 +66,7 @@ export class LocalBackend implements Backend {
       memories: [...s.memories].reverse(),
       diary: [...s.diary].reverse(),
       inventory: s.inventory,
-      timeline: s.events.filter((e) => ['chat.player', 'chat.companion', 'quest.completed', 'bond.level', 'companion.awakened'].includes(e.kind)).slice(-60),
+      timeline: s.events.filter((e) => ['chat.player', 'chat.companion', 'quest.completed', 'identity.renamed', 'bond.level', 'companion.awakened'].includes(e.kind)).slice(-60),
       visualJob: s.contract ? { id: 'local', status: 'queued', contract_version: 1, created_at: s.awakenedAt ?? '' } : null,
       config: cfg,
       provider: 'offline',
@@ -75,13 +76,27 @@ export class LocalBackend implements Backend {
 
   async state() { return this.snap(); }
 
-  async create() {
+  async create(setup?: CompanionSetup) {
     if (!this.s) {
+      const r = setup ? validateSetup(setup) : null;
+      if (r && !r.ok) throw new Error(r.error);
+      const now = new Date().toISOString();
       const s: LocalSave = {
-        v: 1, id: crypto.randomUUID(), stage: 'particles', discoveries: {}, bondXp: 0, quests: initialQuests(), events: [], memories: [], diary: [], inventory: [],
-        contract: null, awakenedAt: null, lastDreamAt: null, createdAt: new Date().toISOString(), seq: 0,
+        v: 1, id: crypto.randomUUID(), stage: 'particles', discoveries: r?.ok ? r.discoveries : {}, bondXp: 0, quests: initialQuests(), events: [], memories: [], diary: [], inventory: [],
+        contract: null, awakenedAt: null, lastDreamAt: null, createdAt: now, seq: 0,
       };
-      this.ev(s, 'system', 'companion.born', {});
+      const born = this.ev(s, 'system', 'companion.born', { ritual: !!r });
+      if (r?.ok) {
+        for (const key of ['identity', 'traits'] as const) {
+          const patch = key === 'identity' ? { name: r.discoveries.name } : { traits: r.discoveries.traits };
+          const id = this.ev(s, 'system', 'quest.completed', { quest: key, patch, evidence: 'ritual de criação', sources: [born] });
+          const q = s.quests.find((x) => x.key === key)!;
+          Object.assign(q, { status: 'done', completedAt: now, sourceEventId: id });
+          const rw = QUEST_REWARDS[key];
+          s.inventory.push({ item_key: rw.item, qty: 1, meta: { label: rw.label, description: rw.description, quest: key, ...patch }, acquired_at: now });
+        }
+        s.memories.push({ id: ++s.seq, subject: 'player', content: `A pessoa se chama ${r.discoveries.playerName}.`, importance: 5, source_event_ids: [born], origin: 'conversation', created_at: now });
+      }
       mem = s;
       save(s);
     }
@@ -94,8 +109,9 @@ export class LocalBackend implements Backend {
     const since = Date.now() - 24 * 3600_000;
     const recentPlayer = s.events.filter((e) => e.kind === 'chat.player').slice(-8).reverse().map((e) => String(e.payload.text));
     const meaningfulToday = s.events.filter((e) => e.kind === 'bond.xp' && e.payload.meaningful && Date.parse(e.created_at) > since).length;
+    const lastCompanion = String([...s.events].reverse().find((e) => e.kind === 'chat.companion')?.payload.text ?? '');
     const a = this.ev(s, 'player', 'chat.player', { text: message });
-    const model = offlineTurn(message, s.discoveries, s.quests, s.seq);
+    const model = offlineTurn(message, s.discoveries, s.quests, s.seq, recentPlayer, lastCompanion);
     const plan = applyTurn({ playerMessage: message, model, discoveries: s.discoveries, quests: s.quests, bondXp: s.bondXp, existingMemories: s.memories, recentPlayerMessages: recentPlayer, meaningfulToday, cfg });
     const b = this.ev(s, 'companion', 'chat.companion', { text: model.reply, mood: model.mood, source: 'offline' });
     for (const c of plan.completed) {
@@ -108,13 +124,14 @@ export class LocalBackend implements Backend {
       // No modo local, cada descoberta vira uma memória de identidade rastreável.
       s.memories.push({ id: ++s.seq, subject: 'companion', content: `Descobri: ${r.label.toLowerCase()} — ${Object.values(c.patch).flat().join(', ')}`, importance: 4, source_event_ids: [a, b, id], origin: 'conversation', created_at: new Date().toISOString() });
     }
+    if (plan.renamed) this.ev(s, 'system', 'identity.renamed', { from: s.discoveries.name ?? null, to: plan.renamed, sources: [a, b] });
     this.ev(s, 'system', 'bond.xp', { ...plan.xp });
     if (plan.levelAfter > plan.levelBefore) this.ev(s, 'system', 'bond.level', { level: plan.levelAfter });
     s.discoveries = plan.discoveries;
     s.quests = plan.quests;
     s.bondXp = plan.bondXp;
     save(s);
-    return this.snap({ turn: { reply: model.reply, mood: model.mood, source: 'offline', xp: plan.xp, completed: plan.completed.map((c) => c.key), rejected: plan.rejected, newMemories: 0, levelUp: plan.levelAfter > plan.levelBefore ? plan.levelAfter : null, awakeningReady: plan.awakeningReady } });
+    return this.snap({ turn: { reply: model.reply, mood: model.mood, source: 'offline', xp: plan.xp, completed: plan.completed.map((c) => c.key), rejected: plan.rejected, newMemories: 0, levelUp: plan.levelAfter > plan.levelBefore ? plan.levelAfter : null, awakeningReady: plan.awakeningReady, renamed: plan.renamed } });
   }
 
   async dream() {
@@ -139,7 +156,7 @@ export class LocalBackend implements Backend {
     const level = levelForXp(s.bondXp, cfg);
     const check = checkAwakening(s.quests, s.discoveries, level, cfg);
     if (!check.ready) throw new Error('Ainda não é hora de despertar: ' + check.missing.join(', '));
-    s.contract = buildIdentityContract(s.id, s.discoveries as Required<Discoveries>, level);
+    s.contract = buildIdentityContract(s.id, s.discoveries as Required<Discoveries>, level, s.discoveries.pronoun ?? 'ela');
     s.stage = 'awakened';
     s.awakenedAt = new Date().toISOString();
     this.ev(s, 'system', 'companion.awakened', { contractVersion: 1 });

@@ -33,19 +33,23 @@ export async function complete(system: string, history: ChatLine[], user: string
     return (data?.content ?? []).filter((b: { type: string }) => b.type === 'text').map((b: { text: string }) => b.text).join('') || null;
   }
   if (GROQ) {
-    const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    const call = (json: boolean) => fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       signal: AbortSignal.timeout(25_000),
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${GROQ}` },
       body: JSON.stringify({
         model: GROQ_MODEL, reasoning_effort: 'low', include_reasoning: false, max_completion_tokens: 1200,
-        response_format: { type: 'json_object' },
+        ...(json ? { response_format: { type: 'json_object' } } : {}),
         messages: [{ role: 'system', content: system }, ...msgs, { role: 'user', content: user }],
       }),
     });
+    let r = await call(true);
+    // Modo JSON às vezes falha na validação do provedor (400): tenta de novo em texto livre;
+    // parseModelTurn extrai o JSON da resposta ou usa o texto como fala.
+    if (r.status === 400) r = await call(false);
     if (!r.ok) throw new Error('groq ' + r.status);
     const data = await r.json();
-    return data?.choices?.[0]?.message?.content ?? null;
+    return data?.choices?.[0]?.message?.content || null;
   }
   return null;
 }

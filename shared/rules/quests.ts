@@ -56,7 +56,7 @@ export function validateDiscovery(p: DiscoveryProposal, ctx: { bondLevel: number
   if (!value) return { ok: false, quest: p.quest, reason: 'vazio' };
   switch (p.quest) {
     case 'identity': {
-      const name = value.replace(/^["'“]|["'”]$/g, '').trim();
+      const name = value.replace(/^["'\u201c]|["'\u201d]$/g, '').trim();
       if (!NAME_RE.test(name) || BAD_NAMES.has(normalize(name))) return { ok: false, quest: p.quest, reason: 'nome inválido' };
       return { ok: true, quest: p.quest, patch: { name: name[0].toUpperCase() + name.slice(1) } };
     }
@@ -85,7 +85,7 @@ export function validateDiscovery(p: DiscoveryProposal, ctx: { bondLevel: number
     }
     case 'bond': {
       if (ctx.bondLevel < ctx.cfg.firstBondLevel) return { ok: false, quest: p.quest, reason: `vínculo abaixo do nível ${ctx.cfg.firstBondLevel}` };
-      const address = value.replace(/^["'“]|["'”]$/g, '').trim();
+      const address = value.replace(/^["'\u201c]|["'\u201d]$/g, '').trim();
       if (address.length < 2 || address.length > 40) return { ok: false, quest: p.quest, reason: 'tratamento inválido' };
       return { ok: true, quest: p.quest, patch: { playerAddress: address } };
     }

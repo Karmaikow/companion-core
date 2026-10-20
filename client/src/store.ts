@@ -55,6 +55,7 @@ export const useGame = create<State>((set, get) => ({
         for (const k of t.completed) get().toast(`Descoberta: ${labels[k] ?? k}`, 'gold');
         if (t.completed.length) set({ pulse: get().pulse + 1 });
         if (t.levelUp) get().toast(`Vínculo nível ${t.levelUp}`, 'gold');
+        if (t.renamed) get().toast(`Novo nome: ${t.renamed}`, 'gold');
         if (t.awakeningReady && snap.companion?.stage === 'particles') get().toast('Algo está pronto para despertar…', 'gold');
       }
       if (snap.dream) get().toast(snap.dream.dreamed ? 'Uma nova página no diário' : snap.dream.reason ?? '', snap.dream.dreamed ? 'gold' : 'soft');

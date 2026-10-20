@@ -5,6 +5,8 @@ import { useGame, type Tab } from './store';
 import { Icon } from './ui/icons';
 import { ChatPanel, MemoriesPanel, DiaryPanel, QuestsPanel, InventoryPanel, BondPanel } from './ui/Panels';
 import { Entry } from './ui/Entry';
+import { Creation } from './ui/Creation';
+import { supabase } from './backend/online';
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'chat', label: 'Conversa' },
@@ -23,15 +25,13 @@ function quality(): 'high' | 'low' {
 }
 
 export function App() {
-  const { backend, snap, tab, setTab, run, error, toasts, lastReply, pulse, busy } = useGame();
+  const { backend, snap, tab, setTab, run, error, toasts, lastReply, pulse, busy, setBackend } = useGame();
   const [bubble, setBubble] = useState<string | null>(null);
 
   useEffect(() => {
     if (!backend) return;
-    void run(async (b) => {
-      const s = await b.state();
-      return s.companion ? s : b.create();
-    });
+    // Sem Companion ainda: o ritual de criação aparece (não cria automaticamente).
+    void run((b) => b.state());
   }, [backend, run]);
 
   useEffect(() => {
@@ -40,6 +40,17 @@ export function App() {
     const t = setTimeout(() => setBubble(null), Math.max(5000, lastReply.length * 70));
     return () => clearTimeout(t);
   }, [lastReply]);
+
+  async function leave() {
+    if (!backend) return;
+    const guest = backend.kind === 'online' && (await supabase().auth.getUser()).data.user?.is_anonymous;
+    const text = guest
+      ? 'Você está jogando como convidado. Se sair, não será possível voltar a este Companion. Sair mesmo assim?'
+      : 'Sair do Refúgio? Seu progresso continua salvo.';
+    if (!confirm(text)) return;
+    await backend.signOut?.();
+    setBackend(null);
+  }
 
   const c = snap?.companion;
   const d = c?.discoveries ?? {};
@@ -71,7 +82,8 @@ export function App() {
               <p>{c.stage === 'awakened' ? 'Primeira forma' : 'Partículas'} · vínculo {c.bond.level}</p>
               <div className="bar small"><i style={{ width: Math.round(c.bond.ratio * 100) + '%' }} /></div>
             </div>
-            {backend.kind === 'local' && <span className="mode" title="Progresso salvo apenas neste navegador">Modo local</span>}
+            {backend.kind === 'local' && <span className="mode" title="Progresso salvo apenas neste navegador; respostas sem IA">Offline · sem IA</span>}
+            <button className="leave" title="Sair" aria-label="Sair" onClick={() => void leave()}>⎋</button>
           </header>
 
           {bubble && !tab && <div className="bubble" role="status">{bubble}</div>}
@@ -99,11 +111,13 @@ export function App() {
         </>
       )}
 
-      {backend && !c && busy && <div className="loading">Abrindo o Refúgio…</div>}
+      {backend && snap && !c && <Creation />}
+      {backend && !c && busy && !snap && <div className="loading">Abrindo o Refúgio…</div>}
 
       <div className="toasts" aria-live="polite">
         {toasts.map((t) => <div key={t.id} className={'toast ' + t.tone}>{t.text}</div>)}
         {error && <div className="toast warn" onClick={() => useGame.setState({ error: null })}>{error}</div>}
+        {backend && !snap && error && <button className="toast warn" onClick={() => setBackend(null)}>Voltar ao início</button>}
       </div>
     </div>
   );
