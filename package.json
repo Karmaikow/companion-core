@@ -1,32 +1,34 @@
 {
-  "name": "companion-core-mvp",
-  "version": "0.7.0",
+  "name": "companion-core-arpg",
   "private": true,
+  "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "npm run web",
-    "crystal:migrate": "node scripts/migrate-registry.mjs",
-    "precrystal:migrate": "npm run build",
-    "crystal:server": "node dist/server/crystal-server.js",
-    "precrystal:server": "npm run build",
-    "build": "node node_modules/typescript/bin/tsc && node scripts/sync-color-module.mjs",
-    "start": "npm run web:start",
-    "web": "node node_modules/tsx/dist/cli.mjs src/server/web-server.ts",
-    "web:start": "node dist/server/web-server.js",
-    "test": "npm run build && node scripts/run-tests.mjs",
-    "web:mock": "node scripts/start-mock.mjs",
-    "android:start": "node scripts/start-android-preview.mjs",
-    "android:check": "node scripts/android-self-check.mjs",
-    "preweb:start": "npm run build",
-    "preweb:mock": "npm run build",
-    "demo": "node dist/demo.js",
-    "predemo": "npm run build",
-    "demo:dev": "tsx src/demo.ts",
-    "vercel:build": "npm run build && node scripts/build-vercel-preview.mjs"
+    "dev": "vite --config client/vite.config.ts",
+    "build": "tsc -p client/tsconfig.json --noEmit && vite build --config client/vite.config.ts",
+    "preview": "vite preview --config client/vite.config.ts",
+    "test": "vitest run",
+    "sync:rules": "node scripts/sync-rules.mjs"
   },
   "devDependencies": {
-    "@types/node": "^22.10.0",
-    "tsx": "^4.19.2",
-    "typescript": "^5.7.2"
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@types/three": "^0.186.0",
+    "@vitejs/plugin-react": "^4.7.0",
+    "playwright": "^1.64.1",
+    "typescript": "5.8",
+    "vite": "^6.4.4",
+    "vitest": "^3.2.7"
+  },
+  "dependencies": {
+    "@react-three/drei": "^10.7.9",
+    "@react-three/fiber": "^9.8.2",
+    "@react-three/postprocessing": "^3.2.1",
+    "@supabase/supabase-js": "^2.118.0",
+    "postprocessing": "^6.39.5",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "three": "^0.180.0",
+    "zustand": "^5.0.15"
   }
 }

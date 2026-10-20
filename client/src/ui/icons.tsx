@@ -1,0 +1,18 @@
+import type { Tab } from '../store';
+
+const P: Record<Tab, string> = {
+  chat: 'M4 5h16v10H9l-5 4z',
+  memories: 'M12 3l2.5 5 5.5.8-4 3.9.9 5.5L12 15.6 7.1 18.2l.9-5.5-4-3.9 5.5-.8z',
+  diary: 'M6 3h11a2 2 0 012 2v16H8a2 2 0 01-2-2zM6 19a2 2 0 012-2h11M10 7h6M10 10h5',
+  quests: 'M7 3h10v4a5 5 0 01-10 0zM12 12v5M8 21h8M9 17h6M7 5H4a3 3 0 003 4M17 5h3a3 3 0 01-3 4',
+  inventory: 'M5 8h14l-1 12H6zM9 8V6a3 3 0 016 0v2',
+  bond: 'M12 20s-7-4.4-7-10a4 4 0 017-2.6A4 4 0 0119 10c0 5.6-7 10-7 10z',
+};
+
+export function Icon({ tab, size = 22 }: { tab: Tab; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d={P[tab]} />
+    </svg>
+  );
+}

@@ -1,4 +1,0 @@
-# Replace with a domain pointing to your server before enabling.
-registro.seu-dominio.example {
-    reverse_proxy 127.0.0.1:4174
-}

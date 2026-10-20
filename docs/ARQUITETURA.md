@@ -1,0 +1,63 @@
+# Companion Core — Arquitetura (v2, baseada no GDD v0.2)
+
+## Decisão de stack
+
+| Camada | Escolha | Por quê |
+|---|---|---|
+| Cliente | **Three.js + React Three Fiber + TypeScript (Vite)** | HD-2D = sprites 2D em cena 3D com luz, bloom e tilt-shift. Roda leve no navegador e no celular (o GDD exige PC, web e mobile); empacota para lojas com Capacitor. |
+| UI | React (DOM) sobre o canvas | Chat, diário, memórias e inventário são interfaces de texto — DOM é mais acessível e barato que UI dentro do canvas. |
+| Regras | `shared/rules` — TypeScript puro, sem dependências | Mesmo código no cliente (modo local), na Edge Function e no futuro servidor de simulação. Testado com Vitest. |
+| Back-end MVP 1 | **Supabase** (Postgres + RLS + Edge Functions + Auth) | Persistência, eventos imutáveis, proveniência de memórias; clientes só leem, toda escrita passa pela função `refuge`. |
+| IA | Provedor plugável (Anthropic → Groq → offline) | A IA **propõe** (fala, descobertas, memórias em JSON); as regras **decidem**. Sem modelo, o respondedor offline mantém o jogo funcionando. |
+| Hospedagem do cliente | Vercel | Estático; sem lógica de jogo. |
+| MVP 2+ (mundo vivo) | Servidor de simulação persistente (Colyseus ou SpacetimeDB) em Fly.io/Railway | Vercel/Edge Functions não mantêm loop contínuo. O servidor roda o tick determinístico (navegação, dano, coleta) e chama a IA só para planejamento e reflexão (GDD 10). |
+
+Alternativas avaliadas: **Godot 4** (ótimo editor, mas export web pesado, só renderizador Compatibility e desempenho fraco em navegador mobile); **Phaser** (2D puro, não entrega profundidade HD-2D); **Unity** (WebGL pesado no mobile).
+
+## Mudanças em relação ao projeto anterior
+
+- **Servidor autoritativo** no lugar do Core local com cristal criptografado: o GDD pede agentes que vivem com o jogador offline e um mundo compartilhado.
+- **Extração estruturada** no lugar das regex de grounding: o modelo devolve JSON; `validateDiscovery` decide se a quest conclui.
+- **Primeira forma procedural** gerada do contrato de identidade (determinística pelo seed). O despertar nunca depende da geração de imagem; a arte final do Studio entra pela fila `visual_jobs`.
+- Reaproveitar depois: Studio de sprites (vira a Fábrica de Companions), Passagem do Vínculo (presentear/transferir), tom de voz da Mayuna.
+
+## Fluxo de um turno de conversa
+
+```
+jogador ──► refuge(chat) ──► evento chat.player (imutável)
+                     │
+                     ├─► LLM: {reply, mood, meaningful, discoveries[], memories[]}
+                     │        (falhou? respondedor offline)
+                     ├─► applyTurn (shared/rules): valida descobertas, deduplica memórias,
+                     │        calcula XP anti-farm, verifica despertar
+                     ├─► eventos chat.companion, quest.completed, bond.xp, bond.level
+                     ├─► memórias com source_event_ids = [fala do jogador, resposta]
+                     └─► snapshot completo ao cliente
+```
+
+## Regras do MVP 1 (configuráveis em `game_config.values`)
+
+- Despertar: 7 quests + vínculo nível 5.
+- Curva de vínculo sem teto: `limiar(L) = 60 · (L-1)^1.6`.
+- XP por mensagem: só se significativa, não repetida (similaridade < 0,8), não elogio genérico; retorno decrescente `8 / (1 + n/25)` no dia.
+- Descoberta: +40 uma vez por quest. Memória nova: +4 (máx. 2 por turno).
+- "Primeiro laço" exige vínculo ≥ 2.
+- Relógio: 8 h reais = 1 dia de jogo.
+
+## Estrutura
+
+```
+shared/rules/        regras puras + testes (shared/tests)
+supabase/migrations/ schema do MVP 1
+supabase/functions/refuge/  Edge Function (rules/ é cópia gerada por `npm run sync:rules`)
+client/              Vite + R3F (cena do Refúgio, painéis, modo local)
+scripts/e2e-local.mjs jornada completa no navegador (Playwright)
+```
+
+## Pendências para colocar online
+
+1. ~~Aplicar as migrações em `supabase/migrations/`~~ (aplicadas em 20/10/2026).
+2. ~~Publicar a função `refuge`~~ (v1 publicada em 20/10/2026, verify_jwt = true).
+3. Ativar login anônimo (Auth → Providers → Anonymous) ou usar e-mail/senha.
+4. Opcional: secret `ANTHROPIC_API_KEY` (senão usa `GROQ_API_KEY`, já existente).
+5. Variáveis do cliente na Vercel: `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY` (o build já tem os valores do projeto como padrão).
