@@ -24,7 +24,7 @@ export interface Snapshot {
   diary?: DiaryRow[];
   inventory?: InventoryRow[];
   timeline?: TimelineRow[];
-  visualJob?: { id: string; status: string; contract_version: number; created_at: string } | null;
+  visualJob?: { id: string; status: string; contract_version: number; created_at: string; artUrl?: string } | null;
   secrets?: { key: string; achievedAt: string }[];
   recipes?: RecipeRow[];
   boost?: number;

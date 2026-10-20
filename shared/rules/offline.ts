@@ -102,7 +102,13 @@ export function offlineTurn(message: string, d: Discoveries, quests: QuestState[
         break;
       }
       case 'species': {
-        if (resolveForm(raw)) { discoveries.push({ quest: 'species', value: raw.slice(0, 80) }); reply = 'Consigo me imaginar assim! Um dia vou ter esse corpo.'; }
+        if (resolveForm(raw)) {
+          // "eu te imagino como uma raposa com asas" -> "raposa com asas"
+          const m = raw.match(/\b(?:como|ser|seria|vira|virar|fosse)\s+(?:um|uma|o|a)\s+([^.!?]{3,60})/i);
+          const value = (m && resolveForm(m[1]) ? m[1] : raw).trim().slice(0, 80);
+          discoveries.push({ quest: 'species', value });
+          reply = 'Consigo me imaginar assim! Um dia vou ter esse corpo.';
+        }
         break;
       }
       case 'essence': {

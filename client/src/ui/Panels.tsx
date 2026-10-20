@@ -233,11 +233,13 @@ export function BondPanel() {
       {c.stage === 'awakened' && c.identityContract ? (
         <div className="contract">
           <p>{d.name} despertou como {FORM_FAMILIES[c.identityContract.species.family].label.toLowerCase()} de {c.identityContract.element.label.toLowerCase()}.</p>
-          <small>Contrato de identidade v{c.identityContract.version} · arte final: {snap?.visualJob?.status === 'queued' ? 'na fila do Studio' : snap?.visualJob?.status ?? '—'}</small>
-          <details>
-            <summary>Ver JSON de identidade</summary>
-            <pre>{JSON.stringify(c.identityContract, null, 2)}</pre>
-          </details>
+          <ul className="identity-card">
+            <li><span>Forma</span>{c.identityContract.species.description}</li>
+            <li><span>Essência</span>{c.identityContract.element.label}</li>
+            <li><span>Jeito de ser</span>{c.identityContract.personality.traits.join(', ')}</li>
+            <li><span>Sonho</span>{c.identityContract.aspiration}</li>
+          </ul>
+          <p className="art-note">{snap?.visualJob?.artUrl ? 'A forma definitiva chegou do ateliê.' : 'O corpo ainda está se formando: os artesãos do Refúgio estão desenhando a forma definitiva.'}</p>
         </div>
       ) : (
         <button className="awaken" disabled={!a.ready || busy} onClick={() => void run((b) => b.awaken())}>

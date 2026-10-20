@@ -18,6 +18,8 @@ export interface RefugeProps {
   burstKey?: number;
   features?: RefugeFeatures;
   contract: IdentityContractV1 | null;
+  /** Arte final aprovada no painel do ADM (URL assinada). */
+  artUrl?: string;
   quality: 'high' | 'low';
 }
 
@@ -498,7 +500,7 @@ export function Refuge(props: RefugeProps) {
       <Dust count={Math.round((high ? 260 : 120) * (0.35 + f.walls * 0.65))} />
       <Shockwave burstKey={props.burstKey ?? 0} color={props.glow} />
       {props.contract ? (
-        <FirstForm contract={props.contract} pulseKey={props.pulseKey} />
+        <FirstForm contract={props.contract} pulseKey={props.pulseKey} artUrl={props.artUrl} />
       ) : (
         <ParticleCore color={props.color} glow={props.glow} element={props.element} energy={props.energy} pulseKey={props.pulseKey} count={high ? 1600 : 800} />
       )}

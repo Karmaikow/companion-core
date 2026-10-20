@@ -93,3 +93,22 @@ describe('ingredientes', () => {
     expect(splitIngredient({ name: 'Sal de prata', where: 'pedras do rio' })).toEqual({ name: 'Sal de prata', where: 'pedras do rio' });
   });
 });
+
+describe('forma no modo offline', () => {
+  it('guarda só a criatura descrita', () => {
+    const q = initialQuests().map((s) => ({ ...s, status: (['identity', 'traits', 'color'].includes(s.key) ? 'done' : 'active') as 'done' | 'active' }));
+    expect(offlineTurnFn('Eu imagino você como uma raposa com asas', q)).toEqual({ quest: 'species', value: 'raposa com asas' });
+    expect(offlineTurnFn('dragão', q)).toEqual({ quest: 'species', value: 'dragão' });
+  });
+  it('prompt de arte usa o contrato', async () => {
+    const { buildArtPrompt, buildIdentityContract } = await import('../rules/index.ts');
+    const c = buildIdentityContract('x', { name: 'Mayuna', species: 'raposa com asas', form: 'felino', color: '#64834b', traits: ['curiosa', 'gentil'], element: 'natureza', playerAddress: 'Di', dream: 'voar' }, 5);
+    const a = buildArtPrompt(c);
+    expect(a.prompt).toContain('"Mayuna"');
+    expect(a.prompt).toContain('raposa com asas');
+    expect(a.prompt).toContain('#64834b');
+    expect(a.summaryPt).toContain('Natureza');
+  });
+});
+import { offlineTurn as _ot } from '../rules/index.ts';
+function offlineTurnFn(msg: string, q: ReturnType<typeof initialQuests>) { return _ot(msg, { name: 'Lumi' }, q, 1).discoveries[0]; }

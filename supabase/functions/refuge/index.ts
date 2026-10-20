@@ -5,7 +5,7 @@ import {
   resolveConfig, levelForXp, levelProgress, initialQuests, applyTurn, parseModelTurn, buildChatSystemPrompt,
   offlineTurn, assistDiscoveries, buildDreamPrompt, parseDream, checkAwakening, buildIdentityContract, gameTime, companionDay, clampText,
   QUESTS, QUEST_REWARDS, validateSetup, evaluateSecrets, isQuestionAboutCompanion, buildMusePrompt,
-  SECRET_BY_KEY, SECRET_XP, SECRET_BOOST_TURNS, type SecretKey, type GameConfig, type QuestState, type Discoveries, type MemoryLite, type ChatLine,
+  SECRET_BY_KEY, SECRET_XP, SECRET_BOOST_TURNS, buildArtPrompt, type SecretKey, type GameConfig, type IdentityContractV1, type QuestState, type Discoveries, type MemoryLite, type ChatLine,
 } from './rules/index.ts';
 import { complete, providerName } from './llm.ts';
 
@@ -57,6 +57,72 @@ async function loadQuests(db: SupabaseClient, cid: string): Promise<QuestState[]
   });
 }
 
+const ART_BUCKET = 'companion-studio';
+
+/** A arte fica num bucket privado; o dono do Companion recebe uma URL assinada temporária. */
+async function withArtUrl(db: SupabaseClient, job: Record<string, unknown> | null) {
+  if (!job) return null;
+  const art = (job.result as { art?: { path?: string } } | null)?.art;
+  const out: Record<string, unknown> = { id: job.id, status: job.status, contract_version: job.contract_version, created_at: job.created_at, updated_at: job.updated_at };
+  if (job.status === 'approved' && art?.path) {
+    const { data } = await db.storage.from(ART_BUCKET).createSignedUrl(art.path, 6 * 3600);
+    if (data?.signedUrl) out.artUrl = data.signedUrl;
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// Fábrica de Companions (painel do ADM)
+// ---------------------------------------------------------------------------
+
+async function isAdmin(db: SupabaseClient, userId: string) {
+  const { data } = await db.from('studio_admins').select('user_id').eq('user_id', userId).maybeSingle();
+  return !!data;
+}
+
+async function adminJobs(db: SupabaseClient) {
+  const { data: jobs } = await db.from('visual_jobs').select('id,companion_id,contract_version,contract,status,result,error,created_at,updated_at').order('created_at', { ascending: false }).limit(60);
+  const ids = [...new Set((jobs ?? []).map((j) => j.companion_id as string))];
+  const { data: comps } = ids.length ? await db.from('companions').select('id,discoveries,stage,bond_xp').in('id', ids) : { data: [] };
+  const byId = new Map((comps ?? []).map((c) => [c.id as string, c]));
+  const out = [];
+  for (const j of jobs ?? []) {
+    const art = (j.result as { art?: { path?: string } } | null)?.art;
+    let artUrl: string | undefined;
+    if (art?.path) artUrl = (await db.storage.from(ART_BUCKET).createSignedUrl(art.path, 3600)).data?.signedUrl;
+    const comp = byId.get(j.companion_id as string);
+    out.push({
+      id: j.id, companionId: j.companion_id, status: j.status, createdAt: j.created_at, updatedAt: j.updated_at, contractVersion: j.contract_version,
+      name: (comp?.discoveries as Discoveries | undefined)?.name ?? (j.contract as IdentityContractV1).identity?.name,
+      contract: j.contract, prompt: buildArtPrompt(j.contract as IdentityContractV1), artUrl, artPath: art?.path ?? null, error: j.error,
+    });
+  }
+  return { jobs: out };
+}
+
+const JOB_STATUSES = new Set(['queued', 'generating', 'review', 'approved', 'failed']);
+
+async function adminUpdate(db: SupabaseClient, body: Record<string, unknown>) {
+  const jobId = String(body.jobId ?? '');
+  const status = String(body.status ?? '');
+  if (!JOB_STATUSES.has(status)) throw new HttpError(400, 'Status inválido.');
+  const { data: job } = await db.from('visual_jobs').select('id,companion_id,result').eq('id', jobId).maybeSingle();
+  if (!job) throw new HttpError(404, 'Pedido de arte não encontrado.');
+  const result = { ...((job.result as Record<string, unknown>) ?? {}) };
+  if (typeof body.artPath === 'string' && body.artPath) {
+    const path = body.artPath;
+    // a arte precisa estar na pasta do próprio Companion e existir no bucket
+    if (!path.startsWith(`companions/${job.companion_id}/`) || path.includes('..')) throw new HttpError(400, 'Caminho de arte inválido.');
+    const { error } = await db.storage.from(ART_BUCKET).createSignedUrl(path, 60);
+    if (error) throw new HttpError(400, 'Arquivo de arte não encontrado no bucket.');
+    result.art = { bucket: ART_BUCKET, path, uploadedAt: new Date().toISOString() };
+  }
+  if (status === 'approved' && !(result.art as { path?: string } | undefined)?.path) throw new HttpError(400, 'Envie a arte antes de aprovar.');
+  await db.from('visual_jobs').update({ status, result, error: typeof body.error === 'string' ? body.error.slice(0, 300) : null, updated_at: new Date().toISOString() }).eq('id', jobId);
+  if (status === 'approved') await event(db, job.companion_id as string, 'system', 'companion.art', { jobId, path: (result.art as { path: string }).path });
+  return adminJobs(db);
+}
+
 async function snapshot(db: SupabaseClient, c: Record<string, unknown>, cfg: GameConfig) {
   const cid = c.id as string;
   const [quests, mem, diary, inv, chat, job, secrets, recipes] = await Promise.all([
@@ -82,7 +148,7 @@ async function snapshot(db: SupabaseClient, c: Record<string, unknown>, cfg: Gam
     diary: diary.data ?? [],
     inventory: inv.data ?? [],
     timeline: (chat.data ?? []).reverse(),
-    visualJob: job.data?.[0] ?? null,
+    visualJob: await withArtUrl(db, job.data?.[0] ?? null),
     secrets: (secrets.data ?? []).map((r) => ({ key: r.secret_key, achievedAt: r.achieved_at })),
     recipes: recipes.data ?? [],
     boost: (c.xp_boost as number) ?? 0,
@@ -336,6 +402,12 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const action = String(body.action ?? 'state');
     const cfg = await loadConfig(db);
+    if (action.startsWith('admin.')) {
+      if (!(await isAdmin(db, userId))) return json(403, { error: 'Esta conta não é administradora.' });
+      if (action === 'admin.jobs') return json(200, await adminJobs(db));
+      if (action === 'admin.update') return json(200, await adminUpdate(db, body));
+      return json(404, { error: 'Ação desconhecida.' });
+    }
     let c = await getCompanion(db, userId, typeof body.companionId === 'string' ? body.companionId : undefined);
 
     if (action === 'create') {

@@ -86,7 +86,7 @@ export function App() {
     <div className="app">
       <div className="stage">
         <Suspense fallback={null}>
-          <Refuge color={visual.color} glow={visual.glow} element={d.element} energy={energy} pulseKey={pulse} burstKey={burst} features={features} contract={c?.stage === 'awakened' ? c.identityContract : null} quality={quality()} />
+          <Refuge color={visual.color} glow={visual.glow} element={d.element} energy={energy} pulseKey={pulse} burstKey={burst} features={features} contract={c?.stage === 'awakened' ? c.identityContract : null} artUrl={snap?.visualJob?.artUrl} quality={quality()} />
         </Suspense>
       </div>
 
