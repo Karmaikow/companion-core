@@ -79,6 +79,9 @@ export function facingYaw(root: THREE.Object3D): number {
   return size.x > size.z * 1.3 ? Math.PI / 2 : 0;
 }
 
+/** Pedido: o Companion andava devagar demais; o passo natural da animação vezes 2. */
+const SPEED_BOOST = 2;
+
 const ONCE = new Set(['happy', 'jump', 'attack', 'hurt', 'eat']);
 
 /** Onde o Companion pode andar. No Refúgio: a clareira em volta do altar. No mundo aberto: longe, com passeios perto de onde está. */
@@ -94,7 +97,7 @@ const REFUGE_ROAM: Roam = {
   wander: () => { const a = Math.random() * Math.PI * 2, rr = 2.3 + Math.random() * (CLEAR_R - 4); return [Math.cos(a) * rr, Math.sin(a) * rr]; },
 };
 
-export function CompanionModel({ files, world, burstKey, speech, onFail, roam = REFUGE_ROAM, appendages }: { files: CompanionModelFiles; world: WorldShape; burstKey: number; speech: string | null; onFail: () => void; roam?: Roam; /** cauda e asas da classe, desenhadas por código */ appendages?: AppendageSpec | null }) {
+export function CompanionModel({ files, world, burstKey, speech, onFail, roam = REFUGE_ROAM, appendages, speed = 1 }: { /** velocidade da classe (1 = padrão) */ speed?: number; files: CompanionModelFiles; world: WorldShape; burstKey: number; speech: string | null; onFail: () => void; roam?: Roam; /** cauda e asas da classe, desenhadas por código */ appendages?: AppendageSpec | null }) {
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   useEffect(() => {
     let alive = true;
@@ -113,13 +116,13 @@ export function CompanionModel({ files, world, burstKey, speech, onFail, roam = 
     return () => { alive = false; };
   }, [files, onFail]);
   if (!loaded) return null;
-  return <Walker loaded={loaded} world={world} burstKey={burstKey} speech={speech} roam={roam} appendages={appendages ?? null} />;
+  return <Walker loaded={loaded} world={world} burstKey={burstKey} speech={speech} roam={roam} appendages={appendages ?? null} speed={speed} />;
 }
 
-function Walker({ loaded, world, burstKey, speech, roam, appendages }: { loaded: Loaded; world: WorldShape; burstKey: number; speech: string | null; roam: Roam; appendages: AppendageSpec | null }) {
+function Walker({ loaded, world, burstKey, speech, roam, appendages, speed }: { loaded: Loaded; world: WorldShape; burstKey: number; speech: string | null; roam: Roam; appendages: AppendageSpec | null; speed: number }) {
   const root = useRef<THREE.Group>(null);
   const pose = useRef<THREE.Group>(null);
-  const { model, scale, mixer, actions, walkSpeed, runSpeed, anchors } = useMemo(() => {
+  const { model, scale, mixer, actions, walkSpeed: natWalk, runSpeed: natRun, anchors } = useMemo(() => {
     // cópia com esqueleto próprio: o React pode repetir este cálculo, e o original não pode ser movido entre grupos
     const model = cloneSkinned(loaded.gltf.scene);
     sanitizeSkins(model);
@@ -154,6 +157,16 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages }: { loaded:
     const runSpeed = run ? strideSpeed(run.stride * scale, 1, walkSpeed * 2) : walkSpeed * 1.8;
     return { model: orient, scale, mixer, actions, walkSpeed, runSpeed, anchors: findAnchors(model) };
   }, [loaded]);
+
+  // Velocidade: o dobro do passo natural da animação × a velocidade da classe. A animação acelera junto
+  // (timeScale), então os pés continuam sem patinar.
+  const mul = SPEED_BOOST * speed;
+  const walkSpeed = natWalk * mul, runSpeed = natRun * mul;
+  useEffect(() => {
+    const w = actions.get('walk'), r = actions.get('run');
+    if (w) w.timeScale = Math.min(3, Math.max(0.5, mul));
+    if (r) r.timeScale = Math.min(3, Math.max(0.5, mul));
+  }, [actions, mul]);
 
   const start = roam.start ?? [1.6, 1.4];
   const st = useRef({ target: new THREE.Vector3(start[0], 0, start[1]), wait: 2, act: '' as string, yaw: 0, burst: burstKey, once: 0, player: false, running: false, req: moveRequest.id, blocked: 0, lift: 0, stuck: false });

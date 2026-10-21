@@ -23,6 +23,7 @@ export interface WorldSceneProps {
   creatures: CreatureDef[];
   model: CompanionModelFiles;
   appendages?: AppendageSpec | null;
+  speed?: number;
   speech: string | null;
   burstKey: number;
   color: string;
@@ -267,7 +268,7 @@ export function WorldScene(props: WorldSceneProps) {
       <Waystones cw={cw} discovered={props.discovered} center={center} />
       <WorldCreatures cw={cw} creatures={props.creatures} center={center} night={daylight < 0.35} high={high} />
       <Suspense fallback={null}>
-        <CompanionModel files={props.model} world={shape} burstKey={props.burstKey} speech={props.speech} onFail={props.onHome} roam={roam} appendages={props.appendages} />
+        <CompanionModel files={props.model} world={shape} burstKey={props.burstKey} speech={props.speech} onFail={props.onHome} roam={roam} appendages={props.appendages} speed={props.speed} />
       </Suspense>
       <WorldLogic cw={cw} discovered={props.discovered} explore={props.explore} goal={goal} onCenter={setCenter} onRegion={(s) => { setRegion(s); props.onRegion(s); }} onDiscover={props.onDiscover} onHome={props.onHome} />
       <EffectComposer multisampling={0} enableNormalPass={false}>

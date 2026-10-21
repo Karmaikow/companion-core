@@ -57,7 +57,7 @@ O Refúgio deixou de ser uma sala fechada: é uma clareira por seed (`client/src
 cercada de pedras lavanda e árvores. Nasce só com o altar e o círculo de runas; as peças de `refugeFeatures()` surgem nela:
 fogueira e postes de lanterna (vínculo), cristais, recanto de leitura (no lugar da estante), plantas, peça da essência,
 ninho, caldeirão. A "janela para o mundo" virou a **passagem na muralha**: só abre (com trilha) depois do primeiro sonho.
-Dia e noite seguem o relógio do jogo (noite azul-lavanda). Materiais originais dos modelos (o filtro anime ficou só no lab).
+Dia e noite seguem o relógio do jogo (noite azul-lavanda). Sem desfoque nas bordas (o tilt-shift saiu em 21/10). Materiais originais dos modelos (o filtro anime ficou só no lab).
 - Assets do usuário (Tripo) otimizados com `gltf-transform` (meshopt + WebP, texturas 1024/512): de ~17 MB para ~670 KB,
   em `client/public/assets/refuge/`. Espalhados como malhas instanciadas; vegetação com vento no vertex shader.
 - Árvores altas entre a câmera e o centro somem. Câmera gira arrastando, roda/pinça aproxima.
@@ -175,6 +175,9 @@ futuro sistema de pets).
   o chão): escamosa com barbatana (dracônica), peluda (feral), fina com tufo (taurina), de penas, de luz. Asas de pena,
   de dragão ou de fada batem devagar paradas e mais rápido andando. A descrição do jogador ajusta ("dragão com asas"
   ganha asas de dragão; "sem cauda" tira). Lab: `client/forge-lab.html?cauda`. Teste no jogo: `?cauda=scaly&asas=dragon`.
+- **Velocidade por classe** (`speed`, `speciesSpeed`): Feral 1,25× · Alada 1,15× · Feérica 1,05× · Dracônica 1× ·
+  Taurina 0,88×. O Companion anda no dobro do passo natural da animação × a classe; a animação acelera junto
+  (`timeScale`), então os pés não patinam. A Agilidade da árvore pode somar aqui quando os atributos existirem.
 - **Ficha do personagem** (`characterSheet`): o JSON que a Fábrica mostra — humanoide, classe, traços, cauda/asas.
   Dois prompts: **referência do modelo 3D** (A-pose, roupa justa, sem cauda e sem asas; a folha de vistas sai dela) e
   **arte do retrato** (com cauda e asas). O prompt do modelo não descreve a cauda/asas nem para negar: geradores de

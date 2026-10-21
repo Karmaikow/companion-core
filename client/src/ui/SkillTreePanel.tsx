@@ -94,7 +94,7 @@ export function SkillTreePanel() {
       <div className="st-head">
         <div>
           <strong>{sp.label}</strong>{essence && <> · {ELEMENTS[essence].label}</>}
-          <small>{sp.lineage} · afinidade com {sp.affinities.map((e) => ELEMENTS[e].label).join(' e ')} ({Math.round((fx.classAffinity - 1) * 100)}%)</small>
+          <small>{sp.lineage} · afinidade com {sp.affinities.map((e) => ELEMENTS[e].label).join(' e ')} ({Math.round((fx.classAffinity - 1) * 100)}%) · velocidade {sp.speed.toLocaleString('pt-BR')}×</small>
         </div>
         <div className={'st-points' + (free > 0 ? ' has' : '')} aria-live="polite"><b>{free}</b><small>ponto{free === 1 ? '' : 's'} livre{free === 1 ? '' : 's'}{saving ? ' · salvando…' : ''}</small></div>
       </div>

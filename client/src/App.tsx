@@ -1,5 +1,5 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { ELEMENTS, derivePalette, refugeFeatures, animKind, sanitizeBiome, sanitizeCreature, makeCompanionWorld, characterSheet, WORLD_SEED, REFUGE_BIOME, WORLD_FALLBACK_BIOMES, DEFAULT_CREATURES, type BiomeConfig, type CreatureDef, type WorldSite } from '@rules';
+import { ELEMENTS, derivePalette, refugeFeatures, animKind, sanitizeBiome, sanitizeCreature, makeCompanionWorld, characterSheet, speciesSpeed, WORLD_SEED, REFUGE_BIOME, WORLD_FALLBACK_BIOMES, DEFAULT_CREATURES, type BiomeConfig, type CreatureDef, type WorldSite } from '@rules';
 import { Refuge } from './scene/Refuge';
 import { WorldScene } from './scene/World';
 import { WorldMap } from './ui/WorldMap';
@@ -169,8 +169,9 @@ export function App() {
     const q = new URLSearchParams(location.search);
     const contract = c?.identityContract;
     const sheet = contract ? characterSheet(contract) : null;
-    const tail = (q.get('cauda') ?? sheet?.appendages.tail ?? null) as never;
-    const wings = (q.get('asas') ?? sheet?.appendages.wings ?? null) as never;
+    const qt = q.get('cauda'), qw = q.get('asas');
+    const tail = (qt && ['scaly', 'fluffy', 'tuft', 'feather', 'wisp'].includes(qt) ? qt : sheet?.appendages.tail ?? null) as never;
+    const wings = (qw && ['feather', 'dragon', 'fairy'].includes(qw) ? qw : sheet?.appendages.wings ?? null) as never;
     if (!tail && !wings) return null;
     const pal = contract?.palette ?? { primary: visual.color, secondary: visual.color, accent: '#9e6bc7', glow: visual.glow };
     return { tail, wings, palette: { primary: pal.primary, secondary: pal.secondary, accent: pal.accent, glow: pal.glow } };
@@ -184,8 +185,8 @@ export function App() {
       <div className="stage">
         <Suspense fallback={null}>
           {place === 'world' && model ? (
-            <WorldScene world={companionWorld} creatures={creatures} model={model} appendages={appendages} speech={bubble} burstKey={burst} color={visual.color} quality={quality()} discovered={discovered} explore={explore} onRegion={enterRegion} onDiscover={discover} onHome={goHome} />
-          ) : <Refuge color={visual.color} glow={visual.glow} element={d.element} energy={energy} pulseKey={pulse} burstKey={burst} features={passage && !features.window ? { ...features, window: true } : features} contract={c?.stage === 'awakened' ? c.identityContract : null} speech={bubble} model={model} seed={seed} biome={biome} quality={quality()} appendages={appendages} />}
+            <WorldScene world={companionWorld} creatures={creatures} model={model} appendages={appendages} speed={speciesSpeed(d.form)} speech={bubble} burstKey={burst} color={visual.color} quality={quality()} discovered={discovered} explore={explore} onRegion={enterRegion} onDiscover={discover} onHome={goHome} />
+          ) : <Refuge color={visual.color} glow={visual.glow} element={d.element} energy={energy} pulseKey={pulse} burstKey={burst} features={passage && !features.window ? { ...features, window: true } : features} contract={c?.stage === 'awakened' ? c.identityContract : null} speech={bubble} model={model} seed={seed} biome={biome} quality={quality()} appendages={appendages} speed={speciesSpeed(d.form)} />}
         </Suspense>
       </div>
 

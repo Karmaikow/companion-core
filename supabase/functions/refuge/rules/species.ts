@@ -31,6 +31,8 @@ export interface SpeciesDef {
   tail: TailKind | null;      // cauda desenhada pelo jogo
   wings: WingKind | null;     // asas desenhadas pelo jogo (dracônica só quando a descrição pede)
   formSkill: string;          // habilidade de forma (Forja)
+  /** velocidade de movimento (1 = padrão): algumas classes andam mais rápido, outras mais devagar */
+  speed: number;
 }
 
 export const SPECIES: Record<SpeciesKey, SpeciesDef> = {
@@ -39,37 +41,42 @@ export const SPECIES: Record<SpeciesKey, SpeciesDef> = {
     affinities: ['agua', 'fogo'], attrs: { defesa: 1, sintonia: 2, agilidade: -1 },
     features: 'small dragon horns, fin-like ears, a few shiny scales on the cheeks, forearms and shins, slit-pupil bright eyes',
     featuresPt: 'chifres pequenos, orelhas de barbatana, escamas nas bochechas, antebraços e canelas',
-    tail: 'scaly', wings: null, formSkill: 'chicote-de-cauda',
+    tail: 'scaly', wings: null, formSkill: 'chicote-de-cauda', speed: 1.0,
   },
   passaro: {
     key: 'passaro', label: 'Alada', lineage: 'Gente do céu, de penas e ventos', vocation: 'Mobilidade e vento',
     affinities: ['vento', 'luz'], attrs: { agilidade: 2, energia: 1, defesa: -1 },
     features: 'feathers mixed in the hair, small feather tufts on the shoulders and ankles, light airy clothes',
     featuresPt: 'penas no cabelo, tufos de pena nos ombros e tornozelos',
-    tail: null, wings: 'feather', formSkill: 'rasante',
+    tail: null, wings: 'feather', formSkill: 'rasante', speed: 1.15,
   },
   felino: {
     key: 'felino', label: 'Feral', lineage: 'Orelhas atentas e passos leves', vocation: 'Agilidade e precisão',
     affinities: ['natureza', 'raio'], attrs: { agilidade: 2, poder: 1, vida: -1 },
     features: 'fluffy animal ears on top of the head, small fangs, soft fur cuffs on wrists and ankles',
     featuresPt: 'orelhas de bicho, presinhas, punhos de pelo',
-    tail: 'fluffy', wings: null, formSkill: 'bote',
+    tail: 'fluffy', wings: null, formSkill: 'bote', speed: 1.25,
   },
   touro: {
     key: 'touro', label: 'Taurina', lineage: 'Força tranquila de quem segura o chão', vocation: 'Força e resistência',
     affinities: ['terra', 'fogo'], attrs: { vida: 2, defesa: 1, agilidade: -1 },
     features: 'curved bull horns, small cow-like ears, sturdy build, chunky boots and bracers',
     featuresPt: 'chifres curvos, orelhas bovinas, porte robusto',
-    tail: 'tuft', wings: null, formSkill: 'investida',
+    tail: 'tuft', wings: null, formSkill: 'investida', speed: 0.88,
   },
   mistica: {
     key: 'mistica', label: 'Feérica', lineage: 'Fadas, elfos e espíritos da luz e da sombra', vocation: 'Magia',
     affinities: ['luz', 'sombra'], attrs: { sintonia: 2, energia: 1, vida: -1 },
     features: 'long pointed elf ears, softly glowing markings on the cheeks and arms, flowing magical clothes',
     featuresPt: 'orelhas pontudas, marcas brilhantes no rosto e nos braços',
-    tail: null, wings: 'fairy', formSkill: 'guarda',
+    tail: null, wings: 'fairy', formSkill: 'guarda', speed: 1.05,
   },
 };
+
+/** Velocidade da classe (1 sem classe ainda); a agilidade da árvore pode somar no futuro. */
+export function speciesSpeed(species: SpeciesKey | null | undefined): number {
+  return species ? SPECIES[species]?.speed ?? 1 : 1;
+}
 
 /** Multiplicador da afinidade da classe com uma essência. */
 export function speciesAffinity(species: SpeciesKey, essence: Element | null): number {

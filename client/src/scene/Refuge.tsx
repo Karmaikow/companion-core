@@ -6,7 +6,7 @@
  */
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { EffectComposer, Bloom, Vignette, TiltShift2, ToneMapping, SMAA } from '@react-three/postprocessing';
+import { EffectComposer, Bloom, Vignette, ToneMapping, SMAA } from '@react-three/postprocessing';
 import { ToneMappingMode } from 'postprocessing';
 import * as THREE from 'three';
 import { gameTime, REFUGE_BIOME, type BiomeConfig, type IdentityContractV1, type RefugeFeatures } from '@rules';
@@ -42,6 +42,8 @@ export interface RefugeProps {
   quality: 'high' | 'low';
   /** cauda e asas da classe (desenhadas por código) */
   appendages?: AppendageSpec | null;
+  /** velocidade da classe (1 = padrão) */
+  speed?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -147,7 +149,7 @@ export function Refuge(props: RefugeProps) {
       <Motes world={world} night={night} amount={0.4 + f.walls * 0.6} />
       <Shockwave burstKey={props.burstKey ?? 0} color={props.glow} />
       {props.model && !modelFailed ? (
-        <Suspense fallback={null}><CompanionModel files={props.model} world={world} burstKey={props.burstKey ?? 0} speech={props.speech ?? null} onFail={onFail} appendages={props.appendages} /></Suspense>
+        <Suspense fallback={null}><CompanionModel files={props.model} world={world} burstKey={props.burstKey ?? 0} speech={props.speech ?? null} onFail={onFail} appendages={props.appendages} speed={props.speed} /></Suspense>
       ) : (
         <>
           {/* sem modelo aprovado: o núcleo (ou o corpo de partículas) no altar; a imagem de referência vai para o retrato */}
@@ -160,7 +162,6 @@ export function Refuge(props: RefugeProps) {
       )}
       <EffectComposer multisampling={0} enableNormalPass={false}>
         <Bloom mipmapBlur intensity={0.55 + night * 0.45} luminanceThreshold={0.78 - night * 0.12} luminanceSmoothing={0.2} />
-        <TiltShift2 blur={high ? 0.12 : 0.06} taper={0.6} start={[0.5, 0.0]} end={[0.5, 1.0]} />
         <Vignette offset={0.3} darkness={0.35} />
         <ToneMapping mode={ToneMappingMode.NEUTRAL} />
         <SMAA />

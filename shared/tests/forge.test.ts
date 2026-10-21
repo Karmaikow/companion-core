@@ -94,3 +94,13 @@ describe('Árvore de habilidades', () => {
       }
   });
 });
+
+describe('velocidade das classes', () => {
+  it('Feral é a mais rápida, Taurina a mais lenta, sem classe = 1', async () => {
+    const { SPECIES, speciesSpeed } = await import('../rules/index.ts');
+    const v = Object.values(SPECIES).map((s) => s.speed);
+    expect(speciesSpeed('felino')).toBe(Math.max(...v));
+    expect(speciesSpeed('touro')).toBe(Math.min(...v));
+    expect(speciesSpeed(null)).toBe(1);
+  });
+});
