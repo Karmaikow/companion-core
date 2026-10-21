@@ -540,3 +540,38 @@ html:has(.admin), body:has(.admin), #root:has(.admin) { height: auto; min-height
 .xp-curve { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 0.82rem; color: var(--mist); }
 .xp-curve b { color: var(--parchment); }
 @media (max-width: 860px) { .server-studio { grid-template-columns: 1fr; } }
+.dmg.heal { color: #9dffb0; font-size: 1.4rem; }
+
+/* Barra de habilidades (1–9) */
+.skill-bar { position: absolute; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom)); transform: translateX(-50%); display: flex; gap: 6px; padding: 6px; border-radius: 16px; background: rgba(14, 18, 34, 0.62); border: 1px solid rgba(240, 214, 150, 0.28); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35); backdrop-filter: blur(6px); z-index: 3; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+.sb-slot { position: relative; width: 52px; height: 52px; border-radius: 12px; padding: 0; display: grid; place-items: center; overflow: hidden; border: 2px solid color-mix(in srgb, var(--sk, #8c7a55) 70%, #fff 10%); background: radial-gradient(circle at 40% 30%, color-mix(in srgb, var(--sk, #2a3352) 55%, #fff 20%), color-mix(in srgb, var(--sk, #1a2038) 45%, #10142a)); color: #fff; cursor: pointer; transition: transform 0.08s ease, filter 0.15s ease; }
+.sb-slot:hover { filter: brightness(1.12); }
+.sb-slot:active, .sb-slot.fire { transform: scale(0.9); }
+.sb-slot.fire::after { content: ''; position: absolute; inset: 0; border-radius: 10px; background: radial-gradient(circle, rgba(255, 255, 255, 0.85), transparent 70%); animation: sb-fire 0.25s ease-out forwards; }
+@keyframes sb-fire { from { opacity: 1; } to { opacity: 0; } }
+.sb-slot.empty { border-style: dashed; border-color: rgba(240, 214, 150, 0.3); background: rgba(20, 26, 46, 0.6); }
+.sb-slot.sel { outline: 2px solid #ffe68a; outline-offset: 1px; }
+.sb-slot kbd { position: absolute; left: 4px; top: 2px; font: 700 0.62rem var(--sans); color: rgba(255, 255, 255, 0.85); text-shadow: 0 1px 2px #000; z-index: 2; }
+.sb-slot em { position: absolute; right: 4px; bottom: 2px; font: 700 0.62rem var(--sans); font-style: normal; color: #ffe68a; text-shadow: 0 1px 2px #000; z-index: 2; }
+.sb-icon { font-size: 1.55rem; line-height: 1; filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.45)); }
+.sb-plus { font-size: 1.3rem; color: rgba(240, 214, 150, 0.55); }
+.sb-cd { position: absolute; inset: 0; display: grid; place-items: center; background: conic-gradient(rgba(8, 10, 22, 0.72) calc(var(--f) * 360deg), transparent 0); z-index: 1; }
+.sb-cd b { font: 700 0.95rem var(--sans); color: #fff; text-shadow: 0 1px 3px #000; }
+.sb-pick { position: absolute; bottom: calc(100% + 10px); left: 50%; transform: translateX(-50%); width: min(340px, calc(100vw - 24px)); max-height: 50vh; overflow: auto; padding: 10px; border-radius: 14px; background: var(--night-2, #141a2e); border: 1px solid rgba(240, 214, 150, 0.35); box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5); display: flex; flex-direction: column; gap: 6px; }
+.sb-pick header { display: flex; justify-content: space-between; align-items: center; color: var(--brass, #e6c178); font-family: var(--serif); }
+.sb-pick p { margin: 0; font-size: 0.85rem; color: var(--mist, #b9c2d8); }
+.sb-pick > button { display: grid; grid-template-columns: 34px 1fr; grid-template-rows: auto auto; column-gap: 10px; align-items: center; text-align: left; padding: 6px 8px; border-radius: 10px; background: var(--night-3, #1c2440); border: 1px solid transparent; color: var(--parchment, #f3e9d2); }
+.sb-pick > button:hover { border-color: rgba(240, 214, 150, 0.45); }
+.sb-pick > button.in { opacity: 0.7; }
+.sb-pick > button span { grid-row: span 2; width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center; font-size: 1.1rem; }
+.sb-pick > button small { color: var(--mist, #b9c2d8); font-size: 0.72rem; }
+.sb-pick .sb-clear { display: block; text-align: center; background: transparent; border: 1px dashed rgba(255, 140, 140, 0.5); color: #ffb3b3; }
+.app.has-panel .skill-bar { left: calc((100% - min(400px, 100vw - 28px) - 14px) / 2); }
+@media (max-width: 760px) {
+  .app.has-panel .skill-bar { display: none; }
+  .skill-bar { left: 50%; bottom: calc(78px + env(safe-area-inset-bottom)); gap: 3px; padding: 4px; border-radius: 12px; }
+  .sb-slot { width: 36px; height: 36px; border-radius: 9px; }
+  .sb-icon { font-size: 1.1rem; }
+  .sb-slot kbd { display: none; }
+  .attack-btn { bottom: calc(132px + env(safe-area-inset-bottom)); }
+}

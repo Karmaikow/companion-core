@@ -3,67 +3,22 @@
  * Classe e Vínculo. Montada a partir do catálogo publicado na Forja (sem ele, o catálogo inicial).
  * Online, a distribuição fica na tabela companion_skill_alloc; offline, neste navegador. Redistribuir é de graça.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useState } from 'react';
 import {
-  DEFAULT_SKILLS, ELEMENTS, SPECIES, STATUSES, SHAPES, TIER_BOND, buildSkillTree, canSpend, validateAllocation, treeEffects, skillPoints, spent, sanitizeSkill,
-  type Allocation, type SkillDef, type TreeBranch, type TreeNode,
+  ELEMENTS, SPECIES, STATUSES, SHAPES, TIER_BOND, canSpend, validateAllocation, treeEffects, spent,
+  type Allocation, type TreeBranch, type TreeNode,
 } from '@rules';
-import { useGame } from '../store';
-import { supabase } from '../backend/online';
+import { useSkillData, useSkills, persistAlloc } from './skillState';
 
 const ATTR_LABEL: Record<string, string> = { vida: 'Vida', energia: 'Energia', poder: 'Poder', defesa: 'Defesa', agilidade: 'Agilidade', sintonia: 'Sintonia' };
-const localKey = (id: string) => 'companion-core:skill-alloc:' + id;
 
 export function SkillTreePanel() {
-  const snap = useGame((s) => s.snap);
-  const backend = useGame((s) => s.backend);
-  const c = snap?.companion;
+  const { companion: c, species, essence, bond, points, tree, catalog, alloc } = useSkillData();
   const d = c?.discoveries;
-  const species = d?.form ?? null;
-  const essence = d?.element ?? null;
-  const bond = c?.bond.level ?? 1;
-  const points = skillPoints(bond);
-
-  const [catalog, setCatalog] = useState<SkillDef[]>(DEFAULT_SKILLS);
-  useEffect(() => {
-    let alive = true;
-    supabase().from('skills').select('slug,name,data').eq('status', 'published').then(({ data }) => {
-      const list = (data ?? []).map((r) => sanitizeSkill({ ...(r.data as object), slug: r.slug, name: r.name })).filter((x): x is SkillDef => !!x);
-      if (alive && list.length) setCatalog(list);
-    }, () => {});
-    return () => { alive = false; };
-  }, []);
-
-  const tree = useMemo(() => (species ? buildSkillTree(catalog, { essence, species }) : null), [catalog, essence, species]);
-  const [alloc, setAlloc] = useState<Allocation>({});
+  const saving = useSkills((s) => s.saving);
   const [branch, setBranch] = useState<TreeBranch>('essencia');
   const [sel, setSel] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-
-  // carregar (e conferir pelas regras)
-  useEffect(() => {
-    if (!c || !tree) return;
-    let alive = true;
-    (async () => {
-      let raw: Allocation = {};
-      try {
-        if (backend?.kind === 'online') raw = ((await supabase().from('companion_skill_alloc').select('alloc').eq('companion_id', c.id).maybeSingle()).data?.alloc ?? {}) as Allocation;
-        else raw = JSON.parse(localStorage.getItem(localKey(c.id)) ?? '{}');
-      } catch { /* começa vazio */ }
-      if (alive) setAlloc(validateAllocation(tree, raw, bond, points));
-    })();
-    return () => { alive = false; };
-  }, [c?.id, tree, backend?.kind, bond, points]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  async function persist(next: Allocation) {
-    setAlloc(next);
-    if (!c) return;
-    setSaving(true);
-    try {
-      if (backend?.kind === 'online') await supabase().from('companion_skill_alloc').upsert({ companion_id: c.id, alloc: next, updated_at: new Date().toISOString() });
-      else localStorage.setItem(localKey(c.id), JSON.stringify(next));
-    } catch { /* fica só nesta sessão */ } finally { setSaving(false); }
-  }
+  const persist = (next: Allocation) => (c ? persistAlloc(c.id, next) : Promise.resolve());
 
   if (!c) return null;
   if (!tree || !species) {
@@ -142,7 +97,7 @@ export function SkillTreePanel() {
       <div className="st-summary">
         <div><span>Habilidades</span>{[...fx.skills.entries()].map(([slug, lv]) => { const s = catalog.find((x) => x.slug === slug); return s ? <b key={slug}>{s.name}{lv > 1 ? ` +${lv - 1}` : ''}</b> : null; })}{!fx.skills.size && <i>nenhuma ainda</i>}</div>
         <div><span>Bônus</span>{Object.entries(fx.bonus).filter(([, v]) => v).map(([k, v]) => <b key={k}>{ATTR_LABEL[k]} +{v}%</b>)}{!Object.values(fx.bonus).some(Boolean) && <i>nenhum ainda</i>}</div>
-        <small className="hint">1 ponto por nível de vínculo (a batalha vai somar mais). Tirar pontos é de graça.</small>
+        <small className="hint">1 ponto por nível de vínculo (a batalha vai somar mais). Tirar pontos é de graça. As habilidades abertas entram na barra de atalhos (teclas 1–9).</small>
       </div>
     </div>
   );

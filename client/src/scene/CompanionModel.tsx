@@ -15,8 +15,8 @@ import { CLEAR_R, companionFocus, moveRequest, resolveCollisions, platformHeight
 import { SpeechBubble } from './SpeechBubble';
 import { Appendages, findAnchors, type AppendageSpec } from './Appendages';
 import { EquipmentLayer, findGearBones } from './Equipment';
-import { combatInput, chargeState, fxQueue, targets } from './Combat';
-import { basicAttack, bowShot, ELEMENTS, type ItemDef, type SpeciesKey } from '@rules';
+import { combatInput, chargeState, fxQueue, skillInput, targets } from './Combat';
+import { basicAttack, bowShot, ELEMENTS, expectedDamage, RANK_POWER, type ItemDef, type SpeciesKey } from '@rules';
 
 /** O que o Companion carrega: itens visíveis, a arma (escolhe o ataque) e o que muda o dano. */
 export interface Gear { items: ItemDef[]; weapon: ItemDef | null; species: SpeciesKey | null; color: string; poder: number }
@@ -60,9 +60,18 @@ export function sanitizeSkins(root: THREE.Object3D) {
   });
 }
 
-/** Caixa do modelo pela geometria em pose de descanso (sem consultar ossos — mais robusto com rigs gerados). */
+/**
+ * Caixa do modelo como ele aparece de verdade: com os ossos aplicados (a malha "crua" de alguns rigs do Tripo vem em
+ * outra escala — a Mayuna humana media 2 m crua e 0,98 m com os ossos, e encolhia para metade). Se a conta precisa
+ * falhar, cai para a geometria em pose de descanso.
+ */
 export function restBox(root: THREE.Object3D) {
   root.updateMatrixWorld(true);
+  try {
+    const precise = new THREE.Box3().setFromObject(root, true);
+    const sz = precise.getSize(new THREE.Vector3());
+    if (!precise.isEmpty() && Number.isFinite(sz.y) && sz.y > 1e-4) return precise;
+  } catch { /* cai para a geometria */ }
   const box = new THREE.Box3(), tmp = new THREE.Box3();
   root.traverse((o) => {
     const m = o as THREE.Mesh;
@@ -73,9 +82,14 @@ export function restBox(root: THREE.Object3D) {
   return box;
 }
 
-/** Para onde o modelo olha: pelo osso/objeto da cabeça; sem cabeça, pelo comprimento do corpo. O jogo anda com a frente em +Z. */
+/**
+ * Para onde o modelo olha (o jogo anda com a frente em +Z). Humanoide em pé (mais alto que largo) segue a convenção
+ * do glTF/Tripo/Mixamo: frente em +Z — de braços abertos ele é mais largo que fundo, e a regra de quadrúpede o
+ * girava 90° (andava de lado). Corpo deitado: pela cabeça ou pelo comprimento.
+ */
 export function facingYaw(root: THREE.Object3D): number {
   const box = restBox(root), c = box.getCenter(new THREE.Vector3()), size = box.getSize(new THREE.Vector3());
+  if (size.y > 1.1 * Math.max(size.x, size.z)) return 0;
   let head: THREE.Object3D | null = null;
   root.traverse((o) => { if (!head && o.name && /head|cabe[cç]a/i.test(o.name)) head = o; });
   if (head) {
@@ -205,7 +219,8 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
 
   // ---- ataque: golpe/magia ao apertar; arco carrega enquanto segura e atira ao soltar
   const charge = useRef(0);
-  const cb = useRef({ press: combatInput.pressId, release: combatInput.releaseId, charging: false, held: 0, cd: 0, lunge: 0 });
+  const cb = useRef({ press: combatInput.pressId, release: combatInput.releaseId, charging: false, held: 0, cd: 0, lunge: 0, skill: skillInput.id, move: null as null | { from: THREE.Vector3; to: THREE.Vector3; t: number; dur: number; arc: number } });
+  useEffect(() => { skillInput.body = true; return () => { skillInput.body = false; }; }, []);
   const prof = useMemo(() => basicAttack(gear?.weapon ?? null, gear?.species), [gear?.weapon, gear?.species]);
   const ESSENCE_FX: Record<string, string> = { fogo: 'chamas', agua: 'gotas', terra: 'pedras', vento: 'vento', luz: 'luz', sombra: 'sombra', gelo: 'gelo', raio: 'raios', natureza: 'folhas' };
   const fxColor = gear?.weapon?.essence ? ELEMENTS[gear.weapon.essence].glow : gear?.color ?? '#ffd56b';
@@ -270,6 +285,41 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
       }
     }
     if (cs.charging) return;
+    // habilidade da barra (1–9): vira para o alvo, anima e dispara; investida e salto deslocam o corpo
+    if (skillInput.id !== cs.skill) {
+      cs.skill = skillInput.id;
+      const q = skillInput.req;
+      if (q) {
+        const sk = q.skill;
+        let best: { x: number; z: number } | null = null, bd = Math.max(sk.range, sk.radius) + 1.5;
+        targets.forEach((tg) => { const dd = Math.hypot(tg.x - r.position.x, tg.z - r.position.z); if (dd < bd && dd > 0.3) { bd = dd; best = tg; } });
+        const b = best as { x: number; z: number } | null;
+        if (b && sk.shape !== 'aura') { s.yaw = Math.atan2(b.x - r.position.x, b.z - r.position.z); r.rotation.y = s.yaw; }
+        const fv = new THREE.Vector3(Math.sin(s.yaw), 0, Math.cos(s.yaw));
+        const aimed = (sk.shape === 'circle' || sk.shape === 'leap') && b && bd <= sk.range + 0.5;
+        const tgt = aimed ? new THREE.Vector3(b!.x, 0, b!.z) : r.position.clone().setY(0).addScaledVector(fv, sk.shape === 'leap' ? sk.range : Math.min(sk.range, 3.5));
+        const travel = sk.shape === 'dash' ? 0.3 : sk.shape === 'leap' ? 0.45 : 0;
+        const kind = sk.anim === 'attack' && sk.shape !== 'melee' && actions.has('cast') ? 'cast' : actions.has(sk.anim) ? sk.anim : actions.has('attack') ? 'attack' : null;
+        if (kind) { play(kind, 0.08); s.act = ''; s.once = Math.max(sk.windup + travel + 0.2, Math.min(1.2, actions.get(kind)!.getClip().duration * 0.85)); } else { s.once = sk.windup + travel + 0.3; cs.lunge = 0.35; }
+        s.target.copy(r.position); s.player = false; s.wait = Math.max(s.wait, 1.6);
+        const rank = 1 + RANK_POWER * (q.level - 1);
+        const atk = 60 * (1 + (gear?.poder ?? 0) / 100);
+        fxQueue.push({ kind: 'skill', pos: r.position.clone(), yaw: s.yaw, target: tgt, skill: sk, damage: Math.round(expectedDamage(sk, atk, 40) * rank), heal: Math.round(sk.heal * rank), color: q.color });
+        if (travel) cs.move = { from: r.position.clone(), to: sk.shape === 'dash' ? r.position.clone().addScaledVector(fv, sk.range) : tgt.clone(), t: -sk.windup, dur: travel, arc: sk.shape === 'leap' ? 1.3 : 0 };
+      }
+    }
+    if (cs.move) {
+      const m = cs.move; m.t += dt;
+      if (m.t >= 0) {
+        const k = Math.min(1, m.t / m.dur);
+        const x = m.from.x + (m.to.x - m.from.x) * k, z = m.from.z + (m.to.z - m.from.z) * k, rad = Math.hypot(x, z), lim = roam.limit;
+        r.position.x = rad > lim ? (x / rad) * lim : x; r.position.z = rad > lim ? (z / rad) * lim : z;
+        r.position.y = world.heightAt(r.position.x, r.position.z) + Math.sin(k * Math.PI) * m.arc;
+        companionFocus.set(r.position.x, r.position.y, r.position.z);
+        s.target.copy(r.position);
+        if (k >= 1) cs.move = null;
+      }
+    }
     if (cs.lunge > 0) { cs.lunge -= dt; const k = Math.max(0, cs.lunge) / 0.35; p.position.z = Math.sin(k * Math.PI) * 0.18; p.rotation.x = Math.sin(k * Math.PI) * 0.25; } else { p.position.z = 0; p.rotation.x = 0; }
     // conquista: comemora (se tiver a animação) e para um pouco
     if (s.burst !== burstKey) { s.burst = burstKey; if (actions.has('happy')) { play('happy', 0.15); s.once = actions.get('happy')!.getClip().duration; } s.wait = 2.5; s.target.copy(r.position); }

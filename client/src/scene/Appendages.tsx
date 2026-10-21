@@ -29,7 +29,7 @@ export function findAnchors(model: THREE.Object3D) {
 }
 
 const TAIL: Record<TailKind, { len: number; r0: number; profile: (u: number) => number; curl: number; stiff: number }> = {
-  scaly: { len: 0.9, r0: 0.095, profile: (u) => 1 - u * 0.82, curl: 0.55, stiff: 7 },
+  scaly: { len: 0.7, r0: 0.075, profile: (u) => 1 - u * 0.82, curl: 0.55, stiff: 7 },
   fluffy: { len: 0.5, r0: 0.07, profile: (u) => 0.75 + Math.sin(u * Math.PI) * 0.75 - u * 0.4, curl: 0.9, stiff: 9 },
   tuft: { len: 0.55, r0: 0.022, profile: (u) => 1 - u * 0.4, curl: 0.4, stiff: 6 },
   feather: { len: 0.28, r0: 0.05, profile: (u) => 0.6 + u * 1.2, curl: 0.2, stiff: 12 },

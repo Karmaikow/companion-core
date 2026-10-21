@@ -265,6 +265,27 @@ Os efeitos deixaram de ser pontos com textura e passaram a usar um motor própri
   - Combate no Refúgio e no mundo: corte, magia com o estilo da essência da arma, flecha com rastro, acerto e carga.
 - **Lab:** `forge-lab.html?vfx=missil|area|cone|corte|aura|feixe&so=chamas,gelo`, com `&congela=0.15` para parar num instante exato (útil para capturas).
 
+## Barra de habilidades 1–9 (v1.12)
+
+- **Espaços e teclas:** 9 espaços para as habilidades abertas na árvore. Lança com as teclas 1–9 ou tocando no espaço.
+- **Montar a barra:**
+  - Espaço vazio: abre a escolha. Botão direito ou segurar: tira da barra.
+  - Habilidade nova entra sozinha no primeiro espaço livre. Uma que foi tirada não volta sozinha.
+  - A barra fica salva neste navegador, por Companion.
+- **Recarga:** vale a recarga da habilidade com o desconto dos níveis da árvore, mais a preparação. Aparece como um relógio escurecendo o ícone.
+- **Estado compartilhado:** `client/src/ui/skillState.ts` guarda o catálogo, a distribuição de pontos e a barra. A árvore e a barra leem o mesmo estado, e `useSkillSync` roda uma vez no App.
+- **No jogo:**
+  - O pedido vai por `requestSkill`. O Companion vira para o alvo mais perto, usa a animação da habilidade (ou "lançando magia" quando existe e a habilidade é à distância) e espera um pouco antes de voltar a passear.
+  - Investida e salto deslocam o corpo.
+  - `runSkill`, em Combat.tsx, mostra o aviso no chão para área, salto e aura, roda a receita de efeito do formato e acerta os alvos dentro da forma: corpo a corpo, cone, linha, círculo, aura e o primeiro alvo no caminho do projétil.
+  - Dano: `expectedDamage` × (1 + 15% por nível). A cura aparece em verde.
+- **Ainda não tem:** gasto de energia e efeitos de status. Vêm com a batalha.
+
+## Escala e frente do modelo 3D (v1.12)
+
+- **Medida pelos ossos:** o tamanho do modelo é medido com os ossos aplicados (`Box3.setFromObject(model, true)`). Alguns rigs do Tripo trazem a malha "crua" em outra escala: a Mayuna humana media 2 m crua e 0,98 m de verdade, e ficava com metade do tamanho.
+- **Frente do humanoide:** humanoide em pé usa a frente em +Z (convenção do glTF, Tripo e Mixamo). De braços abertos ele é mais largo que fundo, e a regra antiga de quadrúpede o girava 90°, fazendo-o andar de lado.
+
 ## Companion 3D e animações (v1.4)
 
 - A Fábrica recebe o **modelo .GLB** e **várias animações .GLB** do mesmo rig (o Tripo exporta uma por arquivo). O tipo vem

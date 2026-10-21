@@ -11,6 +11,8 @@ import { Celebration, AwakenCall } from './ui/Celebration';
 import { Entry } from './ui/Entry';
 import { Creation } from './ui/Creation';
 import { SkillTreePanel } from './ui/SkillTreePanel';
+import { SkillBar } from './ui/SkillBar';
+import { useSkillSync } from './ui/skillState';
 import { pressAttack, releaseAttack } from './scene/Combat';
 import { ownsItem } from './ui/EquipmentPanel';
 import { WeatherOverlay } from './ui/WeatherOverlay';
@@ -186,6 +188,8 @@ export function App() {
   const goWorld = () => { setPlace('world'); setExplore(false); };
   const goHome = () => { setPlace('refuge'); setExplore(false); toast('De volta ao Refúgio.', 'soft'); };
 
+  useSkillSync();
+
   // cauda e asas da classe (o modelo 3D vem sem elas). Teste: ?cauda=scaly|fluffy|tuft|feather|wisp&asas=feather|dragon|fairy
   const appendages = useMemo(() => {
     const q = new URLSearchParams(location.search);
@@ -283,6 +287,7 @@ export function App() {
               )}
             </div>
           )}
+          {model && <SkillBar color={visual.glow} />}
           {model && (
             <button className={'attack-btn' + (bowEquipped ? ' bow' : '')} aria-label={bowEquipped ? 'Segure para carregar o arco e solte para atirar' : 'Atacar'}
               onPointerDown={(e) => { e.preventDefault(); (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId); pressAttack(); }}

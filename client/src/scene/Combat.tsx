@@ -10,7 +10,9 @@ import { Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { gameVfx } from './vfx/engine';
 import { VfxLayer } from './vfx/VfxLayer';
-import { burst, Charge, Missile, slash } from './vfx/recipes';
+import { area, aura, beam, burst, Charge, cone, Missile, missile, slash } from './vfx/recipes';
+import { K } from './vfx/engine';
+import type { SkillDef } from '@rules';
 import type { WorldShape } from './world';
 
 /** Entrada: apertar começa (o arco carrega enquanto segura), soltar termina. */
@@ -24,8 +26,14 @@ export const chargeState = { active: false, charge: 0, perfect: false, pos: new 
 export type FxEvent =
   | { kind: 'slash'; pos: THREE.Vector3; yaw: number; range: number; damage: number; color: string; heavy: boolean }
   | { kind: 'magic'; pos: THREE.Vector3; yaw: number; range: number; damage: number; color: string; style?: string }
-  | { kind: 'arrow'; pos: THREE.Vector3; yaw: number; range: number; speed: number; damage: number; color: string; perfect: boolean };
+  | { kind: 'arrow'; pos: THREE.Vector3; yaw: number; range: number; speed: number; damage: number; color: string; perfect: boolean }
+  | { kind: 'skill'; pos: THREE.Vector3; yaw: number; target: THREE.Vector3; skill: SkillDef; damage: number; heal: number; color: string };
 export const fxQueue: FxEvent[] = [];
+
+/** Habilidade pedida pela barra de atalhos (1–9); o Companion lê, vira para o alvo, anima e dispara. */
+export interface SkillCast { skill: SkillDef; level: number; color: string }
+export const skillInput = { id: 0, req: null as SkillCast | null, /** há um corpo 3D para lançar */ body: false };
+export function requestSkill(c: SkillCast) { skillInput.req = c; skillInput.id++; }
 
 /** Alvos que podem ser acertados (bonecos, criaturas). */
 export interface Target { x: number; z: number; r: number; hit: (damage: number) => void }
@@ -38,7 +46,7 @@ function hitAt(x: number, z: number, radius: number, damage: number): boolean {
 }
 
 interface Live { id: number; ev: FxEvent; t: number; done: boolean; hit: boolean; at: THREE.Vector3; fx?: Missile }
-interface Num { id: number; pos: THREE.Vector3; text: string; gold: boolean; t: number }
+interface Num { id: number; pos: THREE.Vector3; text: string; gold: boolean | 'heal'; t: number }
 let seq = 0;
 
 export function CombatFx({ world }: { world: WorldShape }) {
@@ -49,13 +57,14 @@ export function CombatFx({ world }: { world: WorldShape }) {
   const line = useRef<THREE.Mesh>(null);
   const tip = useRef<THREE.Mesh>(null);
   const charger = useMemo(() => new Charge(gameVfx), []);
-  const pop = (pos: THREE.Vector3, text: string, gold: boolean) => setNums((n) => [...n.slice(-8), { id: ++seq, pos: pos.clone(), text, gold, t: performance.now() }]);
+  const pop = (pos: THREE.Vector3, text: string, gold: boolean | 'heal') => setNums((n) => [...n.slice(-8), { id: ++seq, pos: pos.clone(), text, gold, t: performance.now() }]);
 
   useFrame((s, dtRaw) => {
     const dt = Math.min(dtRaw, 0.05), t = s.clock.elapsedTime;
     // novos eventos
     while (fxQueue.length) {
       const ev = fxQueue.shift()!, L: Live = { id: ++seq, ev, t: 0, done: false, hit: false, at: ev.pos.clone() };
+      if (ev.kind === 'skill') { runSkill(ev, world, pop); continue; }
       if (ev.kind === 'slash') slash(gameVfx, ev.pos.clone().setY(world.heightAt(ev.pos.x, ev.pos.z) + 0.65), ev.yaw, ev.range, ev.color, ev.heavy);
       else L.fx = ev.kind === 'magic' ? new Missile(gameVfx, ev.style ?? 'luz', ev.color, 0.55) : new Missile(gameVfx, ev.perfect ? 'luz' : 'faiscas', ev.color, ev.perfect ? 0.32 : 0.16);
       live.current.push(L); force((x) => x + 1);
@@ -91,6 +100,7 @@ export function CombatFx({ world }: { world: WorldShape }) {
     let changed = false;
     for (const L of live.current) {
       const ev = L.ev; L.t += dt;
+      if (ev.kind === 'skill') continue;
       if (ev.kind === 'arrow' || ev.kind === 'magic') {
         const speed = ev.kind === 'arrow' ? ev.speed : 12, dist = Math.min(ev.range, L.t * speed);
         const f = new THREE.Vector3(Math.sin(ev.yaw), 0, Math.cos(ev.yaw));
@@ -131,7 +141,7 @@ export function CombatFx({ world }: { world: WorldShape }) {
       {live.current.map((L) => <FxView key={L.id} L={L} />)}
       {nums.map((n) => (
         <Html key={n.id} position={n.pos} center style={{ pointerEvents: 'none' }}>
-          <div className={'dmg' + (n.gold ? ' gold' : '')}>{n.text}</div>
+          <div className={'dmg' + (n.gold === 'heal' ? ' heal' : n.gold ? ' gold' : '')}>{n.text}</div>
         </Html>
       ))}
     </group>
@@ -153,5 +163,64 @@ function FxView({ L }: { L: Live }) {
   );
 }
 
+/** Lança uma habilidade no mundo: aviso no chão, efeito do formato e do estilo, e o dano nos alvos dentro da área. */
+function runSkill(ev: Extract<FxEvent, { kind: 'skill' }>, world: WorldShape, pop: (p: THREE.Vector3, t: string, g: boolean | 'heal') => void) {
+  const s = ev.skill, st = s.vfx.style, col = ev.color, yaw = ev.yaw, V = gameVfx;
+  const fw = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw));
+  const gy = (x: number, z: number) => world.heightAt(x, z);
+  const feet = ev.pos.clone().setY(gy(ev.pos.x, ev.pos.z)), chest = feet.clone().add(new THREE.Vector3(0, 0.6, 0));
+  const tp = ev.target.clone().setY(gy(ev.target.x, ev.target.z));
+  const at = (t: Target) => new THREE.Vector3(t.x, gy(t.x, t.z) + 0.7, t.z);
+  const inShape = (t: Target) => {
+    const dx = t.x - feet.x, dz = t.z - feet.z, f = dx * fw.x + dz * fw.z, l = Math.abs(dx * fw.z - dz * fw.x), dist = Math.hypot(dx, dz);
+    const ang = (Math.atan2(l, f) * 180) / Math.PI;
+    switch (s.shape) {
+      case 'melee': return dist <= s.range + t.r && ang <= 70;
+      case 'cone': return dist <= s.range + t.r && ang <= s.angle / 2 + 8;
+      case 'line': case 'dash': return f >= 0 && f <= s.range + t.r && l <= s.radius + t.r;
+      case 'circle': case 'leap': return Math.hypot(t.x - tp.x, t.z - tp.z) <= s.radius + t.r;
+      case 'aura': return dist <= s.radius + t.r;
+      case 'projectile': return false;
+    }
+  };
+  const strike = (list: Target[], delay: number) => V.after(delay, () => {
+    for (const t of list) { if (ev.damage > 0) { t.hit(ev.damage); pop(at(t).setY(at(t).y + 0.4), String(ev.damage), false); } burst(V, st, at(t), col, 0.5, gy(t.x, t.z)); }
+  });
+  const inside = () => { const l: Target[] = []; targets.forEach((t) => { if (inShape(t)) l.push(t); }); return l; };
+  // aviso: onde vai cair (área, salto, aura)
+  if (s.windup > 0.05 && (s.shape === 'circle' || s.shape === 'leap' || s.shape === 'aura')) {
+    const c = s.shape === 'aura' ? feet : tp;
+    V.emit({ k: K.RING, flat: true, pos: { x: c.x, y: c.y + 0.05, z: c.z }, life: s.windup, size: s.radius * 2.1, c1: '#c9b8ff', alpha: 0.7 });
+    V.emit({ k: K.RING, flat: true, pos: { x: c.x, y: c.y + 0.06, z: c.z }, life: s.windup, size: 0.2, size1: s.radius * 2.1, c1: '#c9b8ff', alpha: 0.5 });
+  }
+  V.after(s.windup, () => {
+    switch (s.shape) {
+      case 'melee': slash(V, chest, yaw, s.range, col, s.power >= 40); strike(inside(), 0.07); break;
+      case 'cone': cone(V, st, chest.clone().addScaledVector(fw, 0.3), yaw, s.angle, s.range, col); strike(inside(), 0.2); break;
+      case 'line': beam(V, st, chest, chest.clone().addScaledVector(fw, s.range), s.radius, col); strike(inside(), 0.05); break;
+      case 'dash': missile(V, { style: st, color: col, from: chest, to: chest.clone().addScaledVector(fw, s.range), duration: 0.3, size: 0.6 }); strike(inside(), 0.2); break;
+      case 'projectile': {
+        let best: Target | null = null, bf = s.range + 0.5;
+        targets.forEach((t) => { const dx = t.x - feet.x, dz = t.z - feet.z, f = dx * fw.x + dz * fw.z, l = Math.abs(dx * fw.z - dz * fw.x); if (f > 0 && f < bf && l <= s.radius + t.r + 0.2) { bf = f; best = t; } });
+        const hit = best as Target | null, to = hit ? at(hit) : chest.clone().addScaledVector(fw, s.range);
+        missile(V, { style: st, color: col, from: chest.clone().addScaledVector(fw, 0.4), to, duration: Math.max(0.15, chest.distanceTo(to) / 14), arc: 0.3, size: Math.max(0.55, s.radius * 1.3), onArrive: (p) => {
+          burst(V, st, p, col, 0.85, gy(p.x, p.z));
+          if (hit && ev.damage > 0) { hit.hit(ev.damage); pop(p.clone().setY(p.y + 0.4), String(ev.damage), false); }
+        } });
+        break;
+      }
+      case 'circle': {
+        const land = () => { area(V, st, tp, s.radius, col, tp.y); strike(inside(), 0); };
+        if (['chamas', 'pedras', 'raios', 'gelo', 'gotas'].includes(st)) missile(V, { style: st, color: col, from: tp.clone().add(new THREE.Vector3(-1.2, 6, -0.8)), to: tp.clone().setY(tp.y + 0.3), duration: 0.3, size: 0.8, onArrive: land });
+        else land();
+        break;
+      }
+      case 'leap': V.after(0.4, () => { area(V, st, tp, s.radius, col, tp.y); strike(inside(), 0); }); break;
+      case 'aura': aura(V, st, feet, s.radius, col, feet.y); strike(inside(), 0.1); break;
+    }
+    if (ev.heal > 0) V.after(0.15, () => pop(chest.clone().setY(chest.y + 0.7), '+' + ev.heal, 'heal'));
+  });
+}
+
 // testes no navegador (só no dev)
-if (import.meta.env.DEV && typeof window !== 'undefined') (window as unknown as { __combat: unknown }).__combat = { combatInput, chargeState, targets, fxQueue, vfx: gameVfx };
+if (import.meta.env.DEV && typeof window !== 'undefined') (window as unknown as { __combat: unknown }).__combat = { combatInput, chargeState, targets, fxQueue, vfx: gameVfx, skillInput, requestSkill };
