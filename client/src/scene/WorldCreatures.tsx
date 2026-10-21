@@ -17,7 +17,6 @@ import { burst } from './vfx/recipes';
 import { hurtCompanion } from './vitals';
 
 const ESSENCE_STYLE: Record<string, string> = { fogo: 'chamas', agua: 'gotas', terra: 'pedras', vento: 'vento', luz: 'luz', sombra: 'sombra', gelo: 'gelo', raio: 'raios', natureza: 'folhas' };
-const RESPAWN = 45;
 
 export function WorldCreatures({ cw, creatures, center, night, high }: { cw: CompanionWorld; creatures: CreatureDef[]; center: [number, number]; night: boolean; high: boolean }) {
   const bySlug = useMemo(() => new Map(creatures.map((c) => [c.slug, c])), [creatures]);
@@ -68,7 +67,7 @@ function WorldCreature({ cw, def, spawn }: { cw: CompanionWorld; def: CreatureDe
           burst(gameVfx, style, at, def.color, 1.3 + def.size * 0.4, gy);
           gameVfx.after(0.12, () => burst(gameVfx, 'sombra', at.clone().setY(at.y + 0.2), def.color, 0.9, gy));
           rollDrops(def, Math.random).forEach((d, i) => numQueue.push({ pos: at.clone().setY(at.y + 0.6 + i * 0.32), text: `+${d.qty} ${d.item}`, kind: 'drop' }));
-          L.dead = RESPAWN; setDead(true);
+          L.dead = def.respawn; setDead(true);
           const tg = targets.get(id); if (tg) tg.r = -99; // fora do alcance enquanto não volta
         }
         return dealt;

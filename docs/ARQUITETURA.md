@@ -325,6 +325,9 @@ Os efeitos deixaram de ser pontos com textura e passaram a usar um motor própri
     - A pegada pode ser ajustada só para aquele modelo (`gripByModel[id do Companion]`, `gripFor`); os outros usam a pegada padrão.
     - No envio de .GLB dá para reaproveitar os modelos já enviados para o mesmo tipo de arma.
   - Componente comum: `scene/TrainingModel.tsx`. Lista de modelos: `ui/companionModels.ts` (via `admin.jobs`).
+- **Câmera dos campos de treino** (Forja e Arsenal): arrastar gira, roda ou pinça aproxima (OrbitControls, sem deslocar).
+- **Pegada no Arsenal:** fica logo abaixo do campo de treino, para ajustar vendo a arma na mão.
+- **Tempo de volta do monstro:** no Invocador, em "Onde e quando aparece", `respawn` em segundos (5 s a 1 h; padrão 45 s).
 - **Lab:** `forge-lab.html?treino=/arquivo.glb` mostra os dois campos de treino com um modelo local.
 
 ## Escala e frente do modelo 3D (v1.12)

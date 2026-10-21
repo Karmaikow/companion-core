@@ -5,7 +5,7 @@
  */
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { Html } from '@react-three/drei';
+import { Html, OrbitControls } from '@react-three/drei';
 import { TrainingModel, type Cue } from './TrainingModel';
 import { AssetBoundary } from './Biome';
 import * as THREE from 'three';
@@ -213,6 +213,8 @@ export function SkillPreview({ skill, companionColor, defenderEssence, body }: {
         <color attach="background" args={['#bfe6ff']} />
         <hemisphereLight args={['#ffffff', '#5aa84c', 1.4]} />
         <directionalLight position={[5, 10, -4]} intensity={1.6} castShadow />
+        {/* arraste para girar, roda/pinça para aproximar — para conferir os ângulos */}
+        <OrbitControls makeDefault target={[0, 0.5, Math.min(3, skill.range / 2)]} enablePan={false} enableDamping dampingFactor={0.12} minDistance={2} maxDistance={Math.max(14, far * 1.8)} maxPolarAngle={Math.PI * 0.49} />
         <Scene key={(body?.url ?? '') + skill.slug + skill.shape + skill.windup + skill.range + skill.radius + skill.angle + skill.vfx.style} skill={skill} color={color} body={body} onHit={(n) => setLast((l) => ({ n, id: l.id + 1 }))} />
       </Canvas>
       <div className="fx-hud">

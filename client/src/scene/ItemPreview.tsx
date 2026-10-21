@@ -4,6 +4,7 @@
  */
 import { Suspense, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
+import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { ITEM_TYPES, basicAttack, type ItemDef } from '@rules';
 import { ItemModel } from './ItemModel';
@@ -81,6 +82,8 @@ export function ItemPreview({ item, charge, body }: { item: ItemDef; charge: num
   return (
     <Canvas shadows dpr={[1, 1.5]} camera={body ? { position: [0.6, 1.1, 2.9], fov: 38 } : { position: [0.2, 1.1, 2.6], fov: 38 }} onCreated={({ camera }) => camera.lookAt(body ? 0.6 : 0.2, 0.55, 0)}>
       <color attach="background" args={['#cfe9ff']} />
+      {/* arraste para girar, roda/pinça para aproximar (ver a mão de perto) */}
+      <OrbitControls makeDefault target={[body ? 0.6 : 0.2, 0.55, 0]} enablePan={false} enableDamping dampingFactor={0.12} minDistance={0.4} maxDistance={6} maxPolarAngle={Math.PI * 0.55} />
       <hemisphereLight args={['#ffffff', '#5aa84c', 1.4]} />
       <directionalLight position={[3, 6, 4]} intensity={1.7} castShadow />
       <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow><circleGeometry args={[3.5, 40]} /><meshLambertMaterial color="#8fcf60" /></mesh>

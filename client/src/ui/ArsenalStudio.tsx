@@ -102,6 +102,22 @@ export function ArsenalStudio() {
             </div>
           </div>
           <div className="biome-form">
+            <fieldset className="grip-box">
+              <legend>Pegada (ajuste na mão / no osso){trainerModel ? ` — ${trainerModel.name}` : ' — padrão'}</legend>
+              {trainerModel && <small className="hint">{ownGrip ? `Ajuste próprio de ${trainerModel.name}: vale só para este modelo.` : `${trainerModel.name} usa a pegada padrão. Mexa nos controles para criar um ajuste só dele.`}</small>}
+              <div className="look-sliders">
+                {(['x', 'y', 'z'] as const).map((a, i) => <label key={'p' + a}>Posição {a}<input type="range" min={-0.3} max={0.3} step={0.01} value={grip.pos[i]} onChange={(e) => setGrip('pos', i, Number(e.target.value))} /><small>{grip.pos[i].toFixed(2)}</small></label>)}
+                {(['x', 'y', 'z'] as const).map((a, i) => <label key={'r' + a}>Giro {a}<input type="range" min={-3.14} max={3.14} step={0.05} value={grip.rot[i]} onChange={(e) => setGrip('rot', i, Number(e.target.value))} /><small>{Math.round((grip.rot[i] * 180) / Math.PI)}°</small></label>)}
+                <label>Tamanho<input type="range" min={0.3} max={2.5} step={0.05} value={grip.scale} onChange={(e) => putGrip({ ...grip, scale: Number(e.target.value) })} /><small>{grip.scale.toFixed(2)}×</small></label>
+              </div>
+              <div className="row">
+                <button className="link" onClick={() => putGrip(DEFAULT_GRIP)}>zerar pegada</button>
+                {ownGrip && <button className="link" onClick={() => { const m = { ...(draft.gripByModel ?? {}) }; delete m[trainer]; edit({ gripByModel: m }); }}>voltar à pegada padrão neste modelo</button>}
+                {trainerModel && !ownGrip && <button className="link" onClick={() => putGrip(structuredClone(draft.grip))}>criar ajuste só para {trainerModel.name}</button>}
+              </div>
+              <small className="hint">Escolha um Companion no campo de treino para ver a arma na mão dele, golpeando. Modelos de tamanhos diferentes podem ter a pegada ajustada um a um; salve o item para valer no jogo.{draft.gripByModel && Object.keys(draft.gripByModel).length ? ` Ajustes por modelo: ${Object.keys(draft.gripByModel).map((k) => models?.find((m) => m.companionId === k)?.name ?? k.slice(0, 6)).join(', ')}.` : ''}</small>
+            </fieldset>
+
             <div className="row-3">
               <label>Nome<input value={draft.name} onChange={(e) => edit({ name: e.target.value })} maxLength={40} /></label>
               <label>Tipo<select value={draft.type} onChange={(e) => edit({ type: e.target.value as ItemType, grip: DEFAULT_GRIP })}>{(Object.keys(ITEM_TYPES) as ItemType[]).map((k) => <option key={k} value={k}>{ITEM_TYPES[k].label} ({SLOTS_EQ[ITEM_TYPES[k].slot].label})</option>)}</select></label>
@@ -143,22 +159,6 @@ export function ArsenalStudio() {
                 {draft.model && <button className={'link' + (draft.look ? ' tinted' : '')} onClick={() => setLookOpen(!lookOpen)}>aparência</button>}
               </div>
               {draft.model && lookOpen && <LookEditor look={draft.look} onChange={(look) => edit({ look })} />}
-            </fieldset>
-
-            <fieldset>
-              <legend>Pegada (ajuste na mão / no osso){trainerModel ? ` — ${trainerModel.name}` : ' — padrão'}</legend>
-              {trainerModel && <small className="hint">{ownGrip ? `Ajuste próprio de ${trainerModel.name}: vale só para este modelo.` : `${trainerModel.name} usa a pegada padrão. Mexa nos controles para criar um ajuste só dele.`}</small>}
-              <div className="look-sliders">
-                {(['x', 'y', 'z'] as const).map((a, i) => <label key={'p' + a}>Posição {a}<input type="range" min={-0.3} max={0.3} step={0.01} value={grip.pos[i]} onChange={(e) => setGrip('pos', i, Number(e.target.value))} /><small>{grip.pos[i].toFixed(2)}</small></label>)}
-                {(['x', 'y', 'z'] as const).map((a, i) => <label key={'r' + a}>Giro {a}<input type="range" min={-3.14} max={3.14} step={0.05} value={grip.rot[i]} onChange={(e) => setGrip('rot', i, Number(e.target.value))} /><small>{Math.round((grip.rot[i] * 180) / Math.PI)}°</small></label>)}
-                <label>Tamanho<input type="range" min={0.3} max={2.5} step={0.05} value={grip.scale} onChange={(e) => putGrip({ ...grip, scale: Number(e.target.value) })} /><small>{grip.scale.toFixed(2)}×</small></label>
-              </div>
-              <div className="row">
-                <button className="link" onClick={() => putGrip(DEFAULT_GRIP)}>zerar pegada</button>
-                {ownGrip && <button className="link" onClick={() => { const m = { ...(draft.gripByModel ?? {}) }; delete m[trainer]; edit({ gripByModel: m }); }}>voltar à pegada padrão neste modelo</button>}
-                {trainerModel && !ownGrip && <button className="link" onClick={() => putGrip(structuredClone(draft.grip))}>criar ajuste só para {trainerModel.name}</button>}
-              </div>
-              <small className="hint">Escolha um Companion no campo de treino para ver a arma na mão dele, golpeando. Modelos de tamanhos diferentes podem ter a pegada ajustada um a um; salve o item para valer no jogo.{draft.gripByModel && Object.keys(draft.gripByModel).length ? ` Ajustes por modelo: ${Object.keys(draft.gripByModel).map((k) => models?.find((m) => m.companionId === k)?.name ?? k.slice(0, 6)).join(', ')}.` : ''}</small>
             </fieldset>
 
             <fieldset>

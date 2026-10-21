@@ -260,6 +260,7 @@ export function SummonerStudio() {
                 <label>Horário<select value={draft.time} onChange={(e) => edit({ time: e.target.value as TimeOfDay })}>{Object.entries(TIMES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>
                 <label>Grupo mín.<input type="number" min={1} max={12} value={draft.group[0]} onChange={(e) => edit({ group: [Number(e.target.value), draft.group[1]] })} /></label>
                 <label>Grupo máx.<input type="number" min={1} max={12} value={draft.group[1]} onChange={(e) => edit({ group: [draft.group[0], Number(e.target.value)] })} /></label>
+                <label>Volta depois de (s)<input type="number" min={5} max={3600} step={5} value={draft.respawn} onChange={(e) => edit({ respawn: Number(e.target.value) })} /><small className="hint">{draft.respawn >= 60 ? `${Math.floor(draft.respawn / 60)} min${draft.respawn % 60 ? ` ${draft.respawn % 60} s` : ''}` : `${draft.respawn} s`} depois de derrotada, no mesmo canto</small></label>
                 <label>Raridade<select value={String(draft.rarity)} onChange={(e) => edit({ rarity: Number(e.target.value) })}>
                   {[[1, 'Comum'], [0.5, 'Incomum'], [0.2, 'Rara'], [0.05, 'Lendária']].map(([v, l]) => <option key={v} value={String(v)}>{l}</option>)}
                   {![1, 0.5, 0.2, 0.05].includes(draft.rarity) && <option value={String(draft.rarity)}>{draft.rarity}</option>}

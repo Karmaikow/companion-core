@@ -52,6 +52,7 @@ export interface CreatureDef {
   time: TimeOfDay;
   group: [number, number];
   rarity: number;                // 0,05 (rara) .. 1 (comum)
+  respawn: number;               // segundos até voltar depois de derrotada (no mesmo canto)
   drops: { item: string; chance: number; min: number; max: number }[];
   color: string;                 // cor da criatura (corpo de reserva, brilho, partículas)
   look?: ModelLook;
@@ -99,6 +100,7 @@ export function sanitizeCreature(input: unknown): CreatureDef | null {
     time: c.time && c.time in TIMES ? c.time : 'sempre',
     group: pair(c.group, 1, 12, [1, 2]),
     rarity: n(c.rarity, 0.02, 1, 0.5),
+    respawn: Math.round(n(c.respawn, 5, 3600, 45)),
     drops: list(c.drops, 10, (d) => (typeof d.item === 'string' && d.item.trim() ? { item: d.item.trim().slice(0, 40), chance: n(d.chance, 0, 1, 0.5), ...(() => { const [a, b] = pair([d.min, d.max], 1, 99, [1, 1]); return { min: a, max: b }; })() } : null)),
     color: typeof c.color === 'string' && /^#[0-9a-f]{6}$/i.test(c.color) ? c.color.toLowerCase() : '#b9a6ff',
     look: sanitizeLook(c.look),

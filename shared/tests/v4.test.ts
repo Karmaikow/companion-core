@@ -36,3 +36,11 @@ describe('arsenal: pegada por modelo', () => {
     expect(gripFor(it2, null)).toEqual(it2.grip);
   });
 });
+
+describe('monstros: tempo de volta', () => {
+  it('tem padrão de 45 s e limites', () => {
+    expect(sanitizeCreature({ slug: 'x-y' })!.respawn).toBe(45);
+    expect(sanitizeCreature({ slug: 'x-y', respawn: 1 })!.respawn).toBe(5);
+    expect(sanitizeCreature({ slug: 'x-y', respawn: 120 })!.respawn).toBe(120);
+  });
+});
