@@ -5,7 +5,7 @@ import {
   resolveConfig, levelForXp, levelProgress, initialQuests, applyTurn, parseModelTurn, buildChatSystemPrompt,
   offlineTurn, assistDiscoveries, buildDreamPrompt, parseDream, checkAwakening, buildIdentityContract, gameTime, companionDay, clampText,
   QUESTS, QUEST_REWARDS, validateSetup, evaluateSecrets, isQuestionAboutCompanion, buildMusePrompt,
-  SECRET_BY_KEY, SECRET_XP, SECRET_BOOST_TURNS, buildArtPrompt, type SecretKey, type GameConfig, type IdentityContractV1, type QuestState, type Discoveries, type MemoryLite, type ChatLine,
+  SECRET_BY_KEY, SECRET_XP, SECRET_BOOST_TURNS, buildArtPrompt, ANIM_KINDS, type SecretKey, type GameConfig, type IdentityContractV1, type QuestState, type Discoveries, type MemoryLite, type ChatLine,
 } from './rules/index.ts';
 import { complete, providerName } from './llm.ts';
 
@@ -59,14 +59,33 @@ async function loadQuests(db: SupabaseClient, cid: string): Promise<QuestState[]
 
 const ART_BUCKET = 'companion-studio';
 
-/** A arte fica num bucket privado; o dono do Companion recebe uma URL assinada temporária. */
+interface StudioResult { art?: { path?: string }; model?: { path: string; uploadedAt?: string }; anims?: { path: string; kind: string; name: string }[] }
+const ANIM_KIND_SET = new Set([...ANIM_KINDS.map((a) => a.kind), 'special']);
+
+async function sign(db: SupabaseClient, path: string | undefined, seconds: number) {
+  if (!path) return undefined;
+  return (await db.storage.from(ART_BUCKET).createSignedUrl(path, seconds)).data?.signedUrl ?? undefined;
+}
+/** Modelo .GLB + animações (cada uma num .GLB do mesmo rig), com URLs assinadas. */
+async function signedModel(db: SupabaseClient, r: StudioResult, seconds: number) {
+  if (!r.model?.path) return undefined;
+  const url = await sign(db, r.model.path, seconds);
+  if (!url) return undefined;
+  const anims = [];
+  for (const a of r.anims ?? []) { const u = await sign(db, a.path, seconds); if (u) anims.push({ url: u, kind: a.kind, name: a.name }); }
+  return { url, anims };
+}
+
+/** Arte e modelo ficam num bucket privado; o dono do Companion recebe URLs assinadas temporárias. */
 async function withArtUrl(db: SupabaseClient, job: Record<string, unknown> | null) {
   if (!job) return null;
-  const art = (job.result as { art?: { path?: string } } | null)?.art;
+  const r = (job.result as StudioResult | null) ?? {};
   const out: Record<string, unknown> = { id: job.id, status: job.status, contract_version: job.contract_version, created_at: job.created_at, updated_at: job.updated_at };
-  if (job.status === 'approved' && art?.path) {
-    const { data } = await db.storage.from(ART_BUCKET).createSignedUrl(art.path, 6 * 3600);
-    if (data?.signedUrl) out.artUrl = data.signedUrl;
+  if (job.status === 'approved') {
+    const artUrl = await sign(db, r.art?.path, 6 * 3600);
+    if (artUrl) out.artUrl = artUrl;
+    const model = await signedModel(db, r, 6 * 3600);
+    if (model) out.model = model;
   }
   return out;
 }
@@ -87,14 +106,15 @@ async function adminJobs(db: SupabaseClient) {
   const byId = new Map((comps ?? []).map((c) => [c.id as string, c]));
   const out = [];
   for (const j of jobs ?? []) {
-    const art = (j.result as { art?: { path?: string } } | null)?.art;
-    let artUrl: string | undefined;
-    if (art?.path) artUrl = (await db.storage.from(ART_BUCKET).createSignedUrl(art.path, 3600)).data?.signedUrl;
+    const r = (j.result as StudioResult | null) ?? {};
     const comp = byId.get(j.companion_id as string);
     out.push({
       id: j.id, companionId: j.companion_id, status: j.status, createdAt: j.created_at, updatedAt: j.updated_at, contractVersion: j.contract_version,
       name: (comp?.discoveries as Discoveries | undefined)?.name ?? (j.contract as IdentityContractV1).identity?.name,
-      contract: j.contract, prompt: buildArtPrompt(j.contract as IdentityContractV1), artUrl, artPath: art?.path ?? null, error: j.error,
+      contract: j.contract, prompt: buildArtPrompt(j.contract as IdentityContractV1),
+      artUrl: await sign(db, r.art?.path, 3600), artPath: r.art?.path ?? null,
+      model: await signedModel(db, r, 3600), modelPath: r.model?.path ?? null, animPaths: (r.anims ?? []).map((a) => ({ path: a.path, kind: a.kind, name: a.name })),
+      error: j.error,
     });
   }
   return { jobs: out };
@@ -108,18 +128,34 @@ async function adminUpdate(db: SupabaseClient, body: Record<string, unknown>) {
   if (!JOB_STATUSES.has(status)) throw new HttpError(400, 'Status inválido.');
   const { data: job } = await db.from('visual_jobs').select('id,companion_id,result').eq('id', jobId).maybeSingle();
   if (!job) throw new HttpError(404, 'Pedido de arte não encontrado.');
-  const result = { ...((job.result as Record<string, unknown>) ?? {}) };
-  if (typeof body.artPath === 'string' && body.artPath) {
-    const path = body.artPath;
-    // a arte precisa estar na pasta do próprio Companion e existir no bucket
-    if (!path.startsWith(`companions/${job.companion_id}/`) || path.includes('..')) throw new HttpError(400, 'Caminho de arte inválido.');
+  const r: StudioResult & Record<string, unknown> = { ...((job.result as Record<string, unknown>) ?? {}) };
+  // todo arquivo precisa estar na pasta do próprio Companion e existir no bucket
+  const checkPath = async (path: unknown) => {
+    if (typeof path !== 'string' || !path.startsWith(`companions/${job.companion_id}/`) || path.includes('..')) throw new HttpError(400, 'Caminho de arquivo inválido.');
     const { error } = await db.storage.from(ART_BUCKET).createSignedUrl(path, 60);
-    if (error) throw new HttpError(400, 'Arquivo de arte não encontrado no bucket.');
-    result.art = { bucket: ART_BUCKET, path, uploadedAt: new Date().toISOString() };
+    if (error) throw new HttpError(400, 'Arquivo não encontrado no bucket.');
+    return path;
+  };
+  const now = new Date().toISOString();
+  if (typeof body.artPath === 'string' && body.artPath) r.art = { path: await checkPath(body.artPath), uploadedAt: now } as StudioResult['art'];
+  if (typeof body.modelPath === 'string' && body.modelPath) r.model = { path: await checkPath(body.modelPath), uploadedAt: now };
+  if (Array.isArray(body.addAnims)) {
+    const anims = [...(r.anims ?? [])];
+    for (const a of body.addAnims.slice(0, 20) as { path?: unknown; kind?: unknown; name?: unknown }[]) {
+      const path = await checkPath(a.path);
+      const kind = ANIM_KIND_SET.has(String(a.kind)) ? String(a.kind) : 'special';
+      anims.push({ path, kind, name: clampText(String(a.name ?? ''), 80) });
+    }
+    r.anims = anims.slice(-30);
   }
-  if (status === 'approved' && !(result.art as { path?: string } | undefined)?.path) throw new HttpError(400, 'Envie a arte antes de aprovar.');
-  await db.from('visual_jobs').update({ status, result, error: typeof body.error === 'string' ? body.error.slice(0, 300) : null, updated_at: new Date().toISOString() }).eq('id', jobId);
-  if (status === 'approved') await event(db, job.companion_id as string, 'system', 'companion.art', { jobId, path: (result.art as { path: string }).path });
+  if (body.setAnim && typeof body.setAnim === 'object') {
+    const { path, kind } = body.setAnim as { path?: string; kind?: string };
+    r.anims = (r.anims ?? []).map((a) => a.path === path && ANIM_KIND_SET.has(String(kind)) ? { ...a, kind: String(kind) } : a);
+  }
+  if (typeof body.removeAnim === 'string') r.anims = (r.anims ?? []).filter((a) => a.path !== body.removeAnim);
+  if (status === 'approved' && !r.art?.path && !r.model?.path) throw new HttpError(400, 'Envie a arte ou o modelo antes de aprovar.');
+  await db.from('visual_jobs').update({ status, result: r, error: typeof body.error === 'string' ? body.error.slice(0, 300) : null, updated_at: now }).eq('id', jobId);
+  if (status === 'approved') await event(db, job.companion_id as string, 'system', 'companion.art', { jobId, art: r.art?.path ?? null, model: r.model?.path ?? null, anims: (r.anims ?? []).length });
   return adminJobs(db);
 }
 

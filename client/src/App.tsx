@@ -1,6 +1,7 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { ELEMENTS, derivePalette, refugeFeatures } from '@rules';
+import { ELEMENTS, derivePalette, refugeFeatures, animKind } from '@rules';
 import { Refuge } from './scene/Refuge';
+import { stableSeed } from './scene/world';
 import { useGame, type Tab } from './store';
 import { Icon } from './ui/icons';
 import { ChatPanel, MemoriesPanel, DiaryPanel, QuestsPanel, InventoryPanel, RecipesPanel, BondPanel } from './ui/Panels';
@@ -79,6 +80,13 @@ export function App() {
     [d, snap?.quests, c?.bond.level, snap?.recipes?.length, snap?.diary?.length],
   );
 
+  const seed = useMemo(() => stableSeed(c?.id ?? 'refugio'), [c?.id]);
+  // Teste: ?modelo=corpo.glb,andando.glb mostra um modelo 3D no Refúgio sem passar pela Fábrica (o 1º arquivo é o corpo).
+  const testModel = useMemo(() => {
+    const list = new URLSearchParams(location.search).get('modelo')?.split(',').map((u) => u.trim()).filter(Boolean);
+    return list?.length ? { url: list[0], anims: list.map((u) => ({ url: u, kind: animKind(u) ?? 'special', name: u })) } : undefined;
+  }, []);
+
   const panel = { chat: ChatPanel, memories: MemoriesPanel, diary: DiaryPanel, quests: QuestsPanel, inventory: InventoryPanel, recipes: RecipesPanel, bond: BondPanel };
   const Panel = tab ? panel[tab] : null;
 
@@ -86,7 +94,7 @@ export function App() {
     <div className="app">
       <div className="stage">
         <Suspense fallback={null}>
-          <Refuge color={visual.color} glow={visual.glow} element={d.element} energy={energy} pulseKey={pulse} burstKey={burst} features={features} contract={c?.stage === 'awakened' ? c.identityContract : null} artUrl={snap?.visualJob?.artUrl} quality={quality()} />
+          <Refuge color={visual.color} glow={visual.glow} element={d.element} energy={energy} pulseKey={pulse} burstKey={burst} features={features} contract={c?.stage === 'awakened' ? c.identityContract : null} artUrl={snap?.visualJob?.artUrl} model={testModel ?? snap?.visualJob?.model} seed={seed} quality={quality()} />
         </Suspense>
       </div>
 

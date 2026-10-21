@@ -120,3 +120,18 @@ describe('forma no modo offline', () => {
 });
 import { offlineTurn as _ot } from '../rules/index.ts';
 function offlineTurnFn(msg: string, q: ReturnType<typeof initialQuests>) { return _ot(msg, { name: 'Lumi' }, q, 1).discoveries[0]; }
+
+describe('animações', () => {
+  it('reconhece o tipo pelo nome do arquivo', async () => {
+    const { animKind, strideSpeed } = await import('../rules/index.ts');
+    expect(animKind('mayuna_parado.glb', 'Take 001')).toBe('idle');
+    expect(animKind('mayuna-andando.glb')).toBe('walk');
+    expect(animKind('Mayuna_Run_v2.glb')).toBe('run');
+    expect(animKind('mayuna desmaiada.glb')).toBe('faint');
+    expect(animKind('ataque_mordida.glb')).toBe('attack');
+    expect(animKind('dormindo.glb')).toBe('sleep');
+    expect(animKind('model.glb', 'Take 001')).toBeNull();
+    expect(strideSpeed(1.2, 1)).toBeCloseTo(1.2);
+    expect(strideSpeed(0, 1)).toBe(0.8);
+  });
+});

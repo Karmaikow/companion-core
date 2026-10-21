@@ -320,3 +320,12 @@ html:has(.admin), body:has(.admin), #root:has(.admin) { height: auto; min-height
 .identity-card { list-style: none; padding: 0; margin: 8px 0; display: flex; flex-direction: column; gap: 6px; }
 .identity-card li { display: flex; flex-direction: column; padding: 8px 10px; background: var(--night-2); border-radius: 8px; font-family: var(--serif); }
 .identity-card li span { font-family: var(--sans); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--brass); }
+
+/* Fábrica: modelo 3D e animações */
+.model-box { display: grid; gap: 6px; margin-top: 12px; padding: 10px; border: 1px solid rgba(214, 176, 106, .35); border-radius: 10px; }
+.model-box small { color: var(--mist); line-height: 1.35; }
+.model-box small.ok { color: #9fe0a0; }
+.anim-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.anim-list li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 6px; align-items: center; font-size: .85rem; }
+.anim-list li span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.anim-list select { font: inherit; padding: 2px 4px; }

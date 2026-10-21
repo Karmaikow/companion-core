@@ -51,6 +51,29 @@ fogo e cristais com brilho suave.
 - Perspectiva, FOV 30–40°, inclinação ~45–55°, afastada; o jogador gira a câmera.
 - 2–4 luzes pontuais dinâmicas; sombra só da luz principal; níveis de qualidade (no baixo, sem sombra e sem bloom).
 
+## Refúgio = Clareira (v1.4)
+
+O Refúgio deixou de ser uma sala fechada: é uma clareira por seed (`client/src/scene/world.ts`, seed do Companion),
+cercada de pedras lavanda e árvores. Nasce só com o altar e o círculo de runas; as peças de `refugeFeatures()` surgem nela:
+fogueira e postes de lanterna (vínculo), cristais, recanto de leitura (no lugar da estante), plantas, peça da essência,
+ninho, caldeirão. A "janela para o mundo" virou a **passagem na muralha**: só abre (com trilha) depois do primeiro sonho.
+Dia e noite seguem o relógio do jogo (noite azul-lavanda). Materiais originais dos modelos (o filtro anime ficou só no lab).
+- Assets do usuário (Tripo) otimizados com `gltf-transform` (meshopt + WebP, texturas 1024/512): de ~17 MB para ~670 KB,
+  em `client/public/assets/refuge/`. Espalhados como malhas instanciadas; vegetação com vento no vertex shader.
+- Árvores altas entre a câmera e o centro somem. Câmera gira arrastando, roda/pinça aproxima.
+- Teste rápido de modelo: `/?modelo=corpo.glb,andando.glb` (arquivos servidos pelo próprio site).
+
+## Companion 3D e animações (v1.4)
+
+- A Fábrica recebe o **modelo .GLB** e **várias animações .GLB** do mesmo rig (o Tripo exporta uma por arquivo). O tipo vem
+  do nome do arquivo (`shared/rules/anim.ts`): parado, andando, correndo, ataque, ferido, desmaiado, feliz, dormindo, pulo,
+  comendo; dá para corrigir no painel. `visual_jobs.result = { art, model: {path}, anims: [{path, kind, name}] }`.
+- Aprovado, o jogo recebe URLs assinadas e o `CompanionModel` junta os clipes no mesmo esqueleto (cópia com SkeletonUtils),
+  descobre a frente pelo osso da cabeça e passeia pela clareira: anda, para, dorme na madrugada, comemora conquistas.
+- **Passo sem patinar**: a animação de andar é tocada no lugar e a velocidade de andar vem do deslocamento da raiz por
+  segundo (`strideSpeed`). Patas "arrastando" eram o Companion andando mais rápido que o passo da animação.
+- Rigs com índice de osso inválido são saneados (não derrubam a cena).
+
 ## Criação do personagem (pipeline v1.3)
 
 1. **Contrato de identidade (JSON)** gerado no despertar → fila `visual_jobs` (o jogador nunca vê o JSON).
@@ -165,4 +188,4 @@ Prompt com o mundo de fantasia, regra explícita de pronomes ("mim" = a pessoa; 
 3. E-mail: o SMTP padrão do Supabase envia poucos e-mails por hora; para lançar, configurar SMTP próprio.
 4. Opcional: `ANTHROPIC_API_KEY` (modelo melhor para conversa e extração) — hoje usa `GROQ_API_KEY`.
 5. Captcha no login anônimo antes de abrir ao público.
-6. Direção de arte: kit do primeiro bioma (10–15 chunks, ~40 props) e portar a Clareira (toon, vento, contorno) para o jogo.
+6. Direção de arte: kit do primeiro bioma (10–15 chunks, ~40 props). Tufo de grama com 100–400 triângulos para encher mais a clareira.

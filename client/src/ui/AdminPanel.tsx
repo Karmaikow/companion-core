@@ -4,12 +4,13 @@
  * montado a partir do contrato de identidade e recebe a arte final.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { buildArtPrompt, type ArtPrompt, type IdentityContractV1 } from '@rules';
+import { buildArtPrompt, animKind, ANIM_KINDS, type ArtPrompt, type IdentityContractV1 } from '@rules';
 import { supabase } from '../backend/online';
 
 interface Job {
   id: string; companionId: string; status: string; createdAt: string; updatedAt: string; contractVersion: number;
   name: string; contract: IdentityContractV1; prompt: ArtPrompt; artUrl?: string; artPath: string | null; error?: string | null;
+  model?: { url: string }; modelPath: string | null; animPaths: { path: string; kind: string; name: string }[];
 }
 
 const STATUS: Record<string, string> = { queued: 'Na fila', generating: 'Gerando', review: 'Em revisão', approved: 'Aprovada (no jogo)', failed: 'Falhou' };
@@ -53,20 +54,51 @@ export function AdminPanel() {
     if (r.error) setMsg('E-mail ou senha incorretos.'); else setSession(true);
   }
 
-  async function update(job: Job, status: string, artPath?: string) {
+  async function update(job: Job, status: string, extra: Record<string, unknown> = {}) {
     setBusy(true); setMsg(null);
-    try { setJobs(withPrompt((await call('admin.update', { jobId: job.id, status, artPath })).jobs)); } catch (e) { setMsg((e as Error).message); } finally { setBusy(false); }
+    try { setJobs(withPrompt((await call('admin.update', { jobId: job.id, status, ...extra })).jobs)); } catch (e) { setMsg((e as Error).message); } finally { setBusy(false); }
+  }
+
+  async function put(job: Job, file: File, folder: string, type: string) {
+    const ext = file.name.split('.').pop()?.toLowerCase() ?? 'bin';
+    const safe = file.name.replace(/\.[^.]+$/, '').normalize('NFD').replace(/[^\w-]+/g, '_').slice(0, 40);
+    const path = `companions/${job.companionId}/${folder}/v${job.contractVersion}-${Date.now()}-${safe}.${ext}`;
+    const { error } = await supabase().storage.from('companion-studio').upload(path, file, { contentType: type, upsert: false });
+    if (error) throw new Error('Falha no envio de ' + file.name + ': ' + error.message);
+    return path;
+  }
+
+  // Modelo 3D (.GLB do Tripo) e animações: cada animação vem num .GLB separado do mesmo rig.
+  async function uploadModel(job: Job, file: File) {
+    if (!/\.glb$/i.test(file.name)) { setMsg('Envie o modelo em .GLB.'); return; }
+    setBusy(true); setMsg(null);
+    try {
+      const modelPath = await put(job, file, 'model', 'model/gltf-binary');
+      const kind = animKind(file.name);
+      // o arquivo do corpo também costuma trazer uma animação (ex.: "parado"); entra na lista se o nome disser qual é
+      await update(job, job.status === 'approved' ? 'approved' : 'review', { modelPath, ...(kind ? { addAnims: [{ path: modelPath, kind, name: file.name }] } : {}) });
+    } catch (e) { setMsg((e as Error).message); setBusy(false); }
+  }
+  async function uploadAnims(job: Job, files: File[]) {
+    const glbs = files.filter((f) => /\.glb$/i.test(f.name));
+    if (!glbs.length) { setMsg('Envie as animações em .GLB.'); return; }
+    setBusy(true); setMsg(null);
+    try {
+      const addAnims = [];
+      for (const f of glbs) addAnims.push({ path: await put(job, f, 'anims', 'model/gltf-binary'), kind: animKind(f.name) ?? 'special', name: f.name });
+      await update(job, job.status === 'approved' ? 'approved' : 'review', { addAnims });
+    } catch (e) { setMsg((e as Error).message); setBusy(false); }
   }
 
   async function upload(job: Job, file: File) {
-    if (!/^image\/(png|webp)$/.test(file.type)) { setMsg('Envie PNG ou WebP com fundo transparente.'); return; }
+    if (!/^image\/(png|webp|jpeg)$/.test(file.type)) { setMsg('Envie a imagem em PNG, JPG ou WebP.'); return; }
     if (file.size > 6 * 1024 * 1024) { setMsg('Arquivo grande demais (máx. 6 MB).'); return; }
     setBusy(true); setMsg(null);
-    const ext = file.type === 'image/webp' ? 'webp' : 'png';
+    const ext = file.type === 'image/webp' ? 'webp' : file.type === 'image/jpeg' ? 'jpg' : 'png';
     const path = `companions/${job.companionId}/v${job.contractVersion}-${Date.now()}.${ext}`;
     const { error } = await supabase().storage.from('companion-studio').upload(path, file, { contentType: file.type, upsert: false });
     if (error) { setBusy(false); setMsg('Falha no envio: ' + error.message); return; }
-    await update(job, 'review', path);
+    await update(job, 'review', { artPath: path });
   }
 
   const shown = (jobs ?? []).filter((j) => filter === 'all' || j.status !== 'approved');
@@ -126,12 +158,39 @@ export function AdminPanel() {
               <div className="art">
                 {j.artUrl ? <img src={j.artUrl} alt={`Arte de ${j.name}`} /> : <div className="art-empty">Sem arte ainda</div>}
                 <label className="upload">
-                  <input type="file" accept="image/png,image/webp" disabled={busy} onChange={(e) => { const f = e.target.files?.[0]; if (f) void upload(j, f); e.target.value = ''; }} />
-                  {j.artUrl ? 'Trocar arte' : 'Enviar arte (PNG transparente)'}
+                  <input type="file" accept="image/png,image/webp,image/jpeg" disabled={busy} onChange={(e) => { const f = e.target.files?.[0]; if (f) void upload(j, f); e.target.value = ''; }} />
+                  {j.artUrl ? 'Trocar imagem de referência' : 'Enviar imagem de referência'}
                 </label>
+                <div className="model-box">
+                  <strong>Modelo 3D</strong>
+                  {j.modelPath ? <small className="ok">Modelo enviado: {j.modelPath.split('/').pop()}</small> : <small>Sem modelo ainda (.GLB do Tripo, com rig)</small>}
+                  <label className="upload">
+                    <input type="file" accept=".glb,model/gltf-binary" disabled={busy} onChange={(e) => { const f = e.target.files?.[0]; if (f) void uploadModel(j, f); e.target.value = ''; }} />
+                    {j.modelPath ? 'Trocar modelo .GLB' : 'Enviar modelo .GLB'}
+                  </label>
+                  <strong>Animações</strong>
+                  {j.animPaths.length ? (
+                    <ul className="anim-list">
+                      {j.animPaths.map((a) => (
+                        <li key={a.path}>
+                          <span title={a.name}>{a.name || a.path.split('/').pop()}</span>
+                          <select value={a.kind} disabled={busy} onChange={(e) => void update(j, j.status, { setAnim: { path: a.path, kind: e.target.value } })} aria-label={'Tipo de ' + a.name}>
+                            {ANIM_KINDS.map((k) => <option key={k.kind} value={k.kind}>{k.label}</option>)}
+                            <option value="special">Especial</option>
+                          </select>
+                          <button className="link" disabled={busy} onClick={() => void update(j, j.status, { removeAnim: a.path })}>tirar</button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : <small>Nenhuma. Exporte cada animação do mesmo rig num .GLB e ponha o tipo no nome: parado, andando, correndo, ataque, desmaiado, feliz, dormindo, pulo, comendo.</small>}
+                  <label className="upload">
+                    <input type="file" accept=".glb,model/gltf-binary" multiple disabled={busy || !j.modelPath} onChange={(e) => { const fs = [...(e.target.files ?? [])]; if (fs.length) void uploadAnims(j, fs); e.target.value = ''; }} />
+                    + Animações .GLB (pode escolher várias)
+                  </label>
+                </div>
                 <div className="row">
                   {j.status === 'queued' && <button className="ghost" disabled={busy} onClick={() => void update(j, 'generating')}>Marcar "gerando"</button>}
-                  {j.artPath && j.status !== 'approved' && <button className="primary" disabled={busy} onClick={() => void update(j, 'approved')}>Aprovar e liberar no jogo</button>}
+                  {(j.artPath || j.modelPath) && j.status !== 'approved' && <button className="primary" disabled={busy} onClick={() => void update(j, 'approved')}>Aprovar e liberar no jogo</button>}
                   {j.status === 'approved' && <button className="ghost" disabled={busy} onClick={() => void update(j, 'review')}>Tirar do jogo</button>}
                 </div>
               </div>

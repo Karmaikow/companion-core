@@ -24,7 +24,7 @@ export interface Snapshot {
   diary?: DiaryRow[];
   inventory?: InventoryRow[];
   timeline?: TimelineRow[];
-  visualJob?: { id: string; status: string; contract_version: number; created_at: string; artUrl?: string } | null;
+  visualJob?: { id: string; status: string; contract_version: number; created_at: string; artUrl?: string; model?: CompanionModelFiles } | null;
   secrets?: { key: string; achievedAt: string }[];
   recipes?: RecipeRow[];
   boost?: number;
@@ -46,3 +46,6 @@ export interface Backend {
   reset?(): Promise<void>;
   signOut?(): Promise<void>;
 }
+
+/** Modelo 3D aprovado na Fábrica: o .GLB do corpo e as animações (cada uma num .GLB do mesmo rig). */
+export interface CompanionModelFiles { url: string; anims: { url: string; kind: string; name: string }[] }
