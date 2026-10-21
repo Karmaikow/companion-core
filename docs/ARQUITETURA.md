@@ -14,6 +14,43 @@
 
 Alternativas avaliadas: **Godot 4** (ótimo editor, mas export web pesado, só renderizador Compatibility e desempenho fraco em navegador mobile); **Phaser** (2D puro, não entrega profundidade HD-2D); **Unity** (WebGL pesado no mobile).
 
+## Direção de arte (v1.3)
+
+Cenário 3D com personagens 3D em visual anime. Fantasia aconchegante e clara (substitui a referência Torchlight II da v1.2,
+considerada escura demais): céu azul-claro, grama viva, pedras lavanda, cerejeiras e menta, noite azul-lavanda (nunca preta),
+fogo e cristais com brilho suave.
+
+**Render (testado no lab "Clareira do Refúgio")**
+- Luz em tons (MeshToonMaterial com rampa de 3–4 degraus) em todo o cenário e nos .GLB importados; o estilo original do
+  arquivo continua disponível para comparação.
+- Personagens: contorno por casco invertido (funciona com esqueleto, compartilha os ossos) + brilho de borda (rim light) que
+  muda de cor com o dia/noite.
+- Vento no vertex shader para vegetação: base presa, topo solto, fase por cópia. Vale para a grama procedural e para .GLB
+  (detectado pelo nome: grama/tufo/flor → forte; árvore/arbusto → suave; pedra e objetos → sem vento).
+- Um .GLB de grama pode ser espalhado pela clareira como malha instanciada nos mesmos pontos da grama procedural.
+- Objetos altos somem quando ficam entre a câmera e o Companion.
+- Modelos de geradores (Tripo/Meshy) chegam com ~1 m: árvore é escalada para ~3 m e tufo para ~0,45 m.
+
+**Orçamento**
+- Tufo para espalhar: idealmente 100–400 triângulos (os tufos atuais têm ~4 mil e limitam a densidade).
+- Companion: até ~8 mil triângulos e textura de 1024 px no celular (a Mayuna do Tripo tem ~38 mil e 2048 px; usar a opção
+  de baixa contagem de polígonos do gerador ou decimar no pipeline).
+
+## Criação do personagem (pipeline v1.3)
+
+1. **Contrato de identidade (JSON)** gerado no despertar → fila `visual_jobs` (o jogador nunca vê o JSON).
+2. **Imagem de referência**: prompt montado do contrato (`buildArtPrompt`), pose neutra, luz uniforme, fundo cinza-claro
+   liso, o que os geradores de imagem→3D leem melhor. O visual anime vem do shader do jogo, não da imagem.
+3. **Modelo 3D** a partir da imagem (Tripo ou Meshy), com textura.
+4. **Rig + animação**: auto-rig do gerador pelo tipo de corpo. Tripo tem 7 tipos (bípede, quadrúpede, hexápode, octópode,
+   ave, serpente, aquático) e presets de animação (andar, parado, correr…); Meshy cobre humanoide e quadrúpede. Mapa inicial:
+   pássaro → ave, touro/felino → quadrúpede, serpente → serpente, mística → bípede.
+   Sem clipes, o jogo anima por procedimento: respiração, quique, inclinação e ossos/partes nomeadas (cabeça, cauda em
+   corrente, membros).
+5. **Aprovação na Fábrica** e entrega ao jogo; enquanto isso o Companion aparece como corpo de partículas.
+
+Custo: geração de modelo + rig + 2–3 animações por Companion; pode ser coberto por uma pequena contribuição do jogador.
+
 ## Mudanças em relação ao projeto anterior
 
 - **Servidor autoritativo** no lugar do Core local com cristal criptografado: o GDD pede agentes que vivem com o jogador offline e um mundo compartilhado.
@@ -97,6 +134,8 @@ Prompt com o mundo de fantasia, regra explícita de pronomes ("mim" = a pessoa; 
 
 ## Operação
 
+- Grants: `studio_admins` também precisa de `select` para o `service_role` (migração `20261021001500`), senão a Fábrica
+  responde "Esta conta não é administradora".
 - Grants: este projeto Supabase não concede privilégios automáticos em tabelas novas; o `service_role` recebe grants
   explícitos (migração `20261020173000_mvp1_service_grants.sql`). Sem isso a função falha com 500.
 - Publicar a função: `npm run sync:rules && node scripts/bundle-refuge.mjs` gera `dist-fn/refuge/index.js` (um arquivo, só ASCII).

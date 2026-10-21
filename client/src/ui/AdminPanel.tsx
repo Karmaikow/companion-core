@@ -4,7 +4,7 @@
  * montado a partir do contrato de identidade e recebe a arte final.
  */
 import { useCallback, useEffect, useState } from 'react';
-import type { ArtPrompt, IdentityContractV1 } from '@rules';
+import { buildArtPrompt, type ArtPrompt, type IdentityContractV1 } from '@rules';
 import { supabase } from '../backend/online';
 
 interface Job {
@@ -24,6 +24,9 @@ async function call(action: string, extra: Record<string, unknown> = {}): Promis
   return data;
 }
 
+// O prompt é montado aqui, com as mesmas regras do servidor: ajustar o estilo não exige republicar a função.
+const withPrompt = (jobs: Job[]) => jobs.map((j) => ({ ...j, prompt: buildArtPrompt(j.contract) }));
+
 export function AdminPanel() {
   const [session, setSession] = useState<boolean | null>(null);
   const [email, setEmail] = useState('');
@@ -39,7 +42,7 @@ export function AdminPanel() {
 
   const load = useCallback(async () => {
     setBusy(true); setMsg(null);
-    try { setJobs((await call('admin.jobs')).jobs); } catch (e) { setMsg((e as Error).message); setJobs(null); } finally { setBusy(false); }
+    try { setJobs(withPrompt((await call('admin.jobs')).jobs)); } catch (e) { setMsg((e as Error).message); setJobs(null); } finally { setBusy(false); }
   }, []);
   useEffect(() => { if (session) void load(); }, [session, load]);
 
@@ -52,7 +55,7 @@ export function AdminPanel() {
 
   async function update(job: Job, status: string, artPath?: string) {
     setBusy(true); setMsg(null);
-    try { setJobs((await call('admin.update', { jobId: job.id, status, artPath })).jobs); } catch (e) { setMsg((e as Error).message); } finally { setBusy(false); }
+    try { setJobs(withPrompt((await call('admin.update', { jobId: job.id, status, artPath })).jobs)); } catch (e) { setMsg((e as Error).message); } finally { setBusy(false); }
   }
 
   async function upload(job: Job, file: File) {
