@@ -575,3 +575,53 @@ html:has(.admin), body:has(.admin), #root:has(.admin) { height: auto; min-height
   .sb-slot kbd { display: none; }
   .attack-btn { bottom: calc(132px + env(safe-area-inset-bottom)); }
 }
+
+/* Barras de HP, SP, Stamina e Vínculo */
+.vitals { display: grid; gap: 3px; width: 190px; }
+.vbar { display: grid; grid-template-columns: 28px 1fr 52px; align-items: center; gap: 6px; }
+.vbar > span { font: 700 0.6rem var(--sans); letter-spacing: 0.06em; color: var(--mist); }
+.vbar > small { font: 600 0.62rem var(--sans); color: var(--mist); text-align: right; font-variant-numeric: tabular-nums; }
+.vbar .bar { height: 7px; }
+.vbar .bar i { transition: width 0.18s linear; }
+.vbar.hp .bar i { background: linear-gradient(90deg, #e2445c, #ff8a8a); }
+.vbar.sp .bar i { background: linear-gradient(90deg, #3d7bff, #7fd0ff); }
+.vbar.st .bar i { background: linear-gradient(90deg, #d9a63a, #ffe17a); }
+.vbar.bond .bar i { background: linear-gradient(90deg, #8f6bff, #d58cff); transition: width 0.8s cubic-bezier(.2,.8,.2,1); }
+.vitals.down .vbar.hp .bar { animation: hp-down 0.6s ease-in-out infinite alternate; }
+@keyframes hp-down { to { box-shadow: 0 0 8px #ff5a6e; } }
+.vitals .vbar.hp { animation: hp-hit 0.35s ease-out; }
+@keyframes hp-hit { from { filter: brightness(1.8); } }
+.app.with-vitals .weather-chip { top: calc(152px + env(safe-area-inset-top)); }
+.sb-slot.nosp { filter: saturate(0.4) brightness(0.8); }
+.sb-slot.short { animation: sb-short 0.4s ease; }
+@keyframes sb-short { 25% { transform: translateX(-3px); border-color: #7fd0ff; } 75% { transform: translateX(3px); } }
+
+/* Botões de toque: pulo, defesa, sentar (só no celular/tablet) */
+.touch-moves { position: absolute; right: 100px; bottom: calc(150px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 8px; z-index: 3; }
+.touch-moves button { width: 50px; height: 50px; border-radius: 50%; border: 2px solid rgba(247, 226, 168, 0.7); background: rgba(20, 26, 46, 0.72); color: #f7e2a8; font-size: 1.2rem; display: grid; place-items: center; line-height: 1; touch-action: none; user-select: none; -webkit-user-select: none; }
+.touch-moves button small { font-size: 0.5rem; margin-top: -8px; color: var(--mist); }
+@media (max-width: 760px) { .touch-moves { right: 88px; bottom: calc(132px + env(safe-area-inset-bottom)); flex-direction: row; } .app.has-panel .touch-moves { display: none; } }
+/* PC (mouse): sem botões de toque — F ataca, Espaço pula, E defende, C senta */
+@media (hover: hover) and (pointer: fine) { .attack-btn, .touch-moves { display: none !important; } }
+
+/* Invocador: árvore de habilidades do monstro */
+.tree-row { flex-wrap: wrap; }
+.mtree { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-start; margin: 8px 0; padding: 10px; border-radius: 10px; background: color-mix(in srgb, var(--night-3, #1c2440) 70%, transparent); }
+.mtree-tier { display: flex; flex-direction: column; gap: 6px; min-width: 120px; padding-left: 10px; border-left: 2px solid rgba(240, 214, 150, 0.35); }
+.mtree-tier > b { font: 700 0.7rem var(--sans); color: var(--brass, #e6c178); letter-spacing: 0.05em; }
+.mtree-node { display: flex; flex-direction: column; padding: 6px 9px; border-radius: 8px; background: var(--night-2, #141a2e); border: 1px solid #33425f; font-size: 0.82rem; }
+.mtree-node i { font-style: normal; font-size: 0.66rem; color: var(--mist); }
+.mtree > small { flex-basis: 100%; }
+.dmg.hurt { color: #ff7b8a; font-size: 1.25rem; }
+.dmg.drop { color: #ffe8a8; font-family: var(--sans); font-size: 0.85rem; font-weight: 700; background: rgba(20, 26, 46, 0.75); padding: 2px 8px; border-radius: 99px; border: 1px solid rgba(240, 214, 150, 0.5); }
+.creature-tag .hpbar { display: block; width: 64px; height: 5px; margin: 3px auto 0; border-radius: 99px; background: rgba(10, 16, 32, 0.8); overflow: hidden; }
+.creature-tag .hpbar i { display: block; height: 100%; background: linear-gradient(90deg, #e2445c, #ff9a7a); transition: width 0.2s; }
+
+/* Administrador: animação por habilidade */
+.skill-anims .anim-map { list-style: none; margin: 6px 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.skill-anims .anim-map li { display: grid; grid-template-columns: 1fr minmax(140px, 1.2fr) auto; gap: 8px; align-items: center; }
+.skill-anims .anim-map li span { display: flex; flex-direction: column; }
+.skill-anims .anim-map li small { color: var(--mist); font-size: 0.7rem; }
+.skill-anims .anim-map select { min-width: 0; }
+.anim-preview { position: relative; height: 220px; border-radius: 10px; overflow: hidden; margin: 6px 0; }
+.anim-preview > small { position: absolute; left: 8px; bottom: 6px; color: #223; font-weight: 700; }

@@ -7,11 +7,17 @@ import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 import * as THREE from 'three';
-import { chunkSpawns, CHUNK, ARCHETYPES, type CompanionWorld, type CreatureDef, type Spawn } from '@rules';
+import { chunkSpawns, CHUNK, ARCHETYPES, creatureStatsAt, mitigate, rollDrops, type CompanionWorld, type CreatureDef, type Spawn } from '@rules';
 import { companionFocus, resolveCollisions } from './world';
 import { CreatureBody, type CreatureAct } from './Creature';
 import { AssetBoundary } from './Biome';
-import { targets } from './Combat';
+import { numQueue, skillInput, targets } from './Combat';
+import { gameVfx } from './vfx/engine';
+import { burst } from './vfx/recipes';
+import { hurtCompanion } from './vitals';
+
+const ESSENCE_STYLE: Record<string, string> = { fogo: 'chamas', agua: 'gotas', terra: 'pedras', vento: 'vento', luz: 'luz', sombra: 'sombra', gelo: 'gelo', raio: 'raios', natureza: 'folhas' };
+const RESPAWN = 45;
 
 export function WorldCreatures({ cw, creatures, center, night, high }: { cw: CompanionWorld; creatures: CreatureDef[]; center: [number, number]; night: boolean; high: boolean }) {
   const bySlug = useMemo(() => new Map(creatures.map((c) => [c.slug, c])), [creatures]);
@@ -39,16 +45,51 @@ function WorldCreature({ cw, def, spawn }: { cw: CompanionWorld; def: CreatureDe
   const [near, setNear] = useState(false);
   const st = useRef({ x: spawn.x, z: spawn.z, tx: spawn.x, tz: spawn.z, yaw: Math.random() * 6.28, wait: Math.random() * 3, act: 'idle' as CreatureAct, alert: false, near: false, ph: Math.random() * 10 });
   const R = Math.max(0.25, def.size * 0.35);
-  // pode ser acertada pelos ataques do Companion (ainda sem vida/luta: reage e mostra o número)
+  // vida no nível dela; os golpes do Companion descontam a defesa. Zerou: explode em névoa e volta depois de um tempo.
+  const stats = useMemo(() => creatureStatsAt(def, spawn.level), [def, spawn.level]);
+  const life = useRef({ hp: stats.vida, dead: 0, provoked: false, atk: 0.8, swing: -1 });
+  const [hpPct, setHpPct] = useState(1);
+  const [dead, setDead] = useState(false);
   const hurt = useRef(0);
   useEffect(() => {
     const id = 'creature:' + spawn.id;
-    targets.set(id, { x: spawn.x, z: spawn.z, r: Math.max(0.35, def.size * 0.45), hit: () => { hurt.current = 0.6; } });
+    targets.set(id, {
+      x: spawn.x, z: spawn.z, r: Math.max(0.35, def.size * 0.45),
+      hit: (damage) => {
+        const L = life.current;
+        if (L.dead > 0) return 0;
+        const dealt = mitigate(damage, stats.defesa);
+        L.hp -= dealt; L.provoked = true; hurt.current = 0.45;
+        setHpPct(Math.max(0, L.hp / stats.vida));
+        if (L.hp <= 0) {
+          const st2 = st.current, gy = cw.heightAt(st2.x, st2.z), at = new THREE.Vector3(st2.x, gy + def.size * 0.5, st2.z);
+          const style = def.essence ? ESSENCE_STYLE[def.essence] : 'impacto';
+          // explosão: estouro grande na cor dela + fumaça do estilo + um segundo estouro de névoa
+          burst(gameVfx, style, at, def.color, 1.3 + def.size * 0.4, gy);
+          gameVfx.after(0.12, () => burst(gameVfx, 'sombra', at.clone().setY(at.y + 0.2), def.color, 0.9, gy));
+          rollDrops(def, Math.random).forEach((d, i) => numQueue.push({ pos: at.clone().setY(at.y + 0.6 + i * 0.32), text: `+${d.qty} ${d.item}`, kind: 'drop' }));
+          L.dead = RESPAWN; setDead(true);
+          const tg = targets.get(id); if (tg) tg.r = -99; // fora do alcance enquanto não volta
+        }
+        return dealt;
+      },
+    });
     return () => { targets.delete(id); };
-  }, [spawn.id, spawn.x, spawn.z, def.size]);
+  }, [spawn.id, spawn.x, spawn.z, def, stats, cw]);
   useFrame((_, dtRaw) => {
     const s = st.current, grp = g.current; if (!grp) return;
     const dt = Math.min(dtRaw, 0.1);
+    const L = life.current;
+    if (L.dead > 0) {
+      L.dead -= dt;
+      if (L.dead <= 0) {
+        L.dead = 0; L.hp = stats.vida; L.provoked = false; s.x = spawn.x; s.z = spawn.z; s.tx = spawn.x; s.tz = spawn.z;
+        setHpPct(1); setDead(false);
+        const tg = targets.get('creature:' + spawn.id); if (tg) tg.r = Math.max(0.35, def.size * 0.45);
+        burst(gameVfx, 'luz', new THREE.Vector3(s.x, cw.heightAt(s.x, s.z) + 0.4, s.z), def.color, 0.6, cw.heightAt(s.x, s.z));
+      }
+      return;
+    }
     const fx = companionFocus.x, fz = companionFocus.z;
     const dC = Math.hypot(fx - s.x, fz - s.z), dHomeC = Math.hypot(fx - spawn.x, fz - spawn.z);
     let mode: 'wander' | 'chase' | 'flee' | 'face' = 'wander';
@@ -56,11 +97,30 @@ function WorldCreature({ cw, def, spawn }: { cw: CompanionWorld; def: CreatureDe
     if (def.temperament === 'territorial' && dHomeC < def.aggroRange * 0.8) mode = 'chase';
     if (def.temperament === 'medroso' && dC < def.aggroRange) mode = 'flee';
     if (def.temperament === 'passivo' && dC < 2.5) mode = 'face';
+    if (L.provoked && dC < def.aggroRange * 1.6 && def.temperament !== 'medroso') mode = 'chase'; // provocado: vem brigar
+    if (L.provoked && dC > def.aggroRange * 2.5) L.provoked = false;
     let speed = def.speed, want: CreatureAct = 'idle';
     if (mode === 'chase') {
       const stop = 1.4 + R;
       if (dC > stop) { s.tx = fx; s.tz = fz; speed = def.speed * 1.6; } else { s.tx = s.x; s.tz = s.z; }
       want = dC > stop ? 'run' : 'attack';
+      // golpe no Companion no ritmo da velocidade de ataque (só com corpo 3D; a defesa segurada corta 75%)
+      L.atk -= dt;
+      if (dC <= stop + 0.1 && L.atk <= 0 && skillInput.body) { L.atk = 1 / Math.max(0.1, stats.atkSpeed); L.swing = 0.28; s.yaw = Math.atan2(fx - s.x, fz - s.z); }
+      if (L.swing > 0) {
+        L.swing -= dt;
+        if (L.swing <= 0) {
+          L.swing = -1;
+          if (Math.hypot(companionFocus.x - s.x, companionFocus.z - s.z) <= stop + 0.7) {
+            const got = hurtCompanion(stats.poder);
+            if (got > 0) {
+              const cy = companionFocus.y;
+              numQueue.push({ pos: new THREE.Vector3(companionFocus.x, cy + 1.3, companionFocus.z), text: '-' + got, kind: 'hurt' });
+              burst(gameVfx, 'impacto', new THREE.Vector3(companionFocus.x, cy + 0.7, companionFocus.z), def.color, 0.4, cy);
+            }
+          }
+        }
+      }
     } else if (mode === 'flee') {
       const ax = s.x - fx, az = s.z - fz, d = Math.hypot(ax, az) || 1;
       s.tx = s.x + (ax / d) * 4; s.tz = s.z + (az / d) * 4; speed = def.speed * 1.8; want = 'run';
@@ -97,13 +157,14 @@ function WorldCreature({ cw, def, spawn }: { cw: CompanionWorld; def: CreatureDe
     if (nr !== s.near) { s.near = nr; setNear(nr); }
   });
   return (
-    <group ref={g} position={[spawn.x, cw.heightAt(spawn.x, spawn.z), spawn.z]}>
-      <CreatureBody def={def} act={act} />
-      {near && (
+    <group ref={g} position={[spawn.x, cw.heightAt(spawn.x, spawn.z), spawn.z]} visible={!dead}>
+      {!dead && <CreatureBody def={def} act={act} />}
+      {near && !dead && (
         <Html position={[0, def.size + 0.45, 0]} center style={{ pointerEvents: 'none' }} zIndexRange={[10, 0]}>
           <div className={'creature-tag' + (alert ? ' alert' : '')}>
             {alert && <b>!</b>}{def.name} <small>nv {spawn.level}{spawn.leader && def.archetype === 'ancestral' ? ' · chefe' : ''}</small>
             <i title={ARCHETYPES[def.archetype].hint} />
+            {hpPct < 1 && <span className="hpbar" aria-label={`vida ${Math.round(hpPct * 100)}%`}><i style={{ width: hpPct * 100 + '%' }} /></span>}
           </div>
         </Html>
       )}

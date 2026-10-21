@@ -12,6 +12,7 @@ import { Entry } from './ui/Entry';
 import { Creation } from './ui/Creation';
 import { SkillTreePanel } from './ui/SkillTreePanel';
 import { SkillBar } from './ui/SkillBar';
+import { VitalsBars, TouchMoves } from './ui/VitalsHud';
 import { useSkillSync } from './ui/skillState';
 import { pressAttack, releaseAttack } from './scene/Combat';
 import { ownsItem } from './ui/EquipmentPanel';
@@ -228,14 +229,14 @@ export function App() {
   const gear = useMemo(() => {
     const list = Object.values(equipped).map((slug) => items.find((i) => i.slug === slug)).filter((x): x is ItemDef => !!x);
     const weapon = list.find((i) => ITEM_TYPES[i.type].slot === 'weapon') ?? null;
-    return { items: list, weapon, species: d.form ?? null, color: visual.color, poder: equipmentBonus(equipped, items).poder ?? 0 };
-  }, [equipped, items, d.form, visual.color]);
+    return { items: list, weapon, species: d.form ?? null, color: visual.color, poder: equipmentBonus(equipped, items).poder ?? 0, modelKey: c?.id ?? null };
+  }, [equipped, items, d.form, visual.color, c?.id]);
   const bowEquipped = gear.weapon?.type === 'arco';
-  // teclado: F ou Espaço (segurar carrega o arco); ignorado enquanto digita
+  // teclado: F ataca (segurar carrega o arco); Espaço pula, E defende e C senta ficam no Companion; ignorado enquanto digita
   useEffect(() => {
     const typing = () => { const el = document.activeElement; return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA'); };
-    const down = (e: KeyboardEvent) => { if (typing() || e.repeat) return; if (e.key === 'f' || e.key === 'F' || e.key === ' ') { e.preventDefault(); pressAttack(); } };
-    const up = (e: KeyboardEvent) => { if (e.key === 'f' || e.key === 'F' || e.key === ' ') releaseAttack(); };
+    const down = (e: KeyboardEvent) => { if (typing() || e.repeat) return; if (e.key === 'f' || e.key === 'F') { e.preventDefault(); pressAttack(); } };
+    const up = (e: KeyboardEvent) => { if (e.key === 'f' || e.key === 'F') releaseAttack(); };
     window.addEventListener('keydown', down); window.addEventListener('keyup', up); window.addEventListener('blur', releaseAttack);
     return () => { window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); window.removeEventListener('blur', releaseAttack); };
   }, []);
@@ -244,7 +245,7 @@ export function App() {
   const Panel = tab ? panel[tab] : null;
 
   return (
-    <div className={'app' + (tab ? ' has-panel' : '') + (place === 'world' ? ' in-world' : '')}>
+    <div className={'app' + (tab ? ' has-panel' : '') + (place === 'world' ? ' in-world' : '') + (model ? ' with-vitals' : '')}>
       <div className="stage">
         <Suspense fallback={null}>
           {place === 'world' && model ? (
@@ -266,7 +267,7 @@ export function App() {
             <div>
               <h1>{d.name ?? 'Núcleo sem nome'}</h1>
               <p>{c.stage === 'awakened' ? 'Primeira forma' : 'Partículas'} · vínculo {c.bond.level}</p>
-              <div className="bar small"><i style={{ width: Math.round(c.bond.ratio * 100) + '%' }} /></div>
+              {model ? <VitalsBars bondRatio={c.bond.ratio} bondLevel={c.bond.level} /> : <div className="bar small"><i style={{ width: Math.round(c.bond.ratio * 100) + '%' }} /></div>}
             </div>
             {backend.kind === 'local' && <span className="mode" title="Progresso salvo apenas neste navegador; respostas sem IA">Offline · sem IA</span>}
             <button className="leave" title="Sair" aria-label="Sair" onClick={() => void leave()}>⎋</button>
@@ -288,6 +289,7 @@ export function App() {
             </div>
           )}
           {model && <SkillBar color={visual.glow} />}
+          {model && <TouchMoves />}
           {model && (
             <button className={'attack-btn' + (bowEquipped ? ' bow' : '')} aria-label={bowEquipped ? 'Segure para carregar o arco e solte para atirar' : 'Atacar'}
               onPointerDown={(e) => { e.preventDefault(); (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId); pressAttack(); }}

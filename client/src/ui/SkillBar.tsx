@@ -8,6 +8,7 @@ import { ELEMENTS, RANK_COOLDOWN, SHAPES, type SkillDef } from '@rules';
 import { useGame } from '../store';
 import { requestSkill, skillInput } from '../scene/Combat';
 import { BAR_SIZE, saveBar, useSkillData, useSkills } from './skillState';
+import { canAct, spendSp, useVitals } from '../scene/vitals';
 
 const ICON: Record<string, string> = { impacto: '💥', chamas: '🔥', gotas: '💧', folhas: '🍃', pedras: '🪨', gelo: '❄️', raios: '⚡', vento: '🌪️', luz: '✨', sombra: '🌑', faiscas: '🎆' };
 
@@ -25,6 +26,8 @@ export function SkillBar({ color }: { color: string }) {
   const [pick, setPick] = useState<number | null>(null);
   const [now, setNow] = useState(() => performance.now());
   const [flash, setFlash] = useState<number | null>(null);
+  const [short, setShort] = useState<number | null>(null);
+  const sp = useVitals((v) => v.sp);
   const toast = useGame((s) => s.toast);
   const hold = useRef<number | null>(null), longPress = useRef(false);
 
@@ -47,6 +50,8 @@ export function SkillBar({ color }: { color: string }) {
     const t = performance.now(), at = useSkills.getState().ready[u.skill.slug] ?? 0;
     if (at > t) return;
     if (!skillInput.body) { toast('As habilidades precisam do corpo 3D do Companion (a Fábrica cria o modelo).', 'warn'); return; }
+    if (!canAct()) return;
+    if (!spendSp(u.skill.energy)) { setShort(i); window.setTimeout(() => setShort((f) => (f === i ? null : f)), 500); return; }
     requestSkill({ skill: u.skill, level: u.level, color: colorOf(u.skill, color) });
     useSkills.getState().setReady(u.skill.slug, t + (cooldownOf(u.skill, u.level) + u.skill.windup) * 1000);
     setNow(t); setFlash(i); window.setTimeout(() => setFlash((f) => (f === i ? null : f)), 180);
@@ -99,8 +104,8 @@ export function SkillBar({ color }: { color: string }) {
         const total = u ? (cooldownOf(u.skill, u.level) + u.skill.windup) * 1000 : 1;
         const frac = Math.min(1, left / total);
         return (
-          <button key={i} className={'sb-slot' + (u ? '' : ' empty') + (left > 0 ? ' cd' : '') + (flash === i ? ' fire' : '') + (pick === i ? ' sel' : '')}
-            title={u ? `${u.skill.name} — ${u.skill.description}` : free.length ? 'Escolher habilidade' : 'Espaço livre'}
+          <button key={i} className={'sb-slot' + (u ? '' : ' empty') + (left > 0 ? ' cd' : '') + (flash === i ? ' fire' : '') + (pick === i ? ' sel' : '') + (short === i ? ' short' : '') + (u && u.skill.energy > sp ? ' nosp' : '')}
+            title={u ? `${u.skill.name} — ${u.skill.description} (SP ${u.skill.energy})` : free.length ? 'Escolher habilidade' : 'Espaço livre'}
             aria-label={u ? `${i + 1}: ${u.skill.name}${left > 0 ? `, recarregando ${Math.ceil(left / 1000)} s` : ''}` : `${i + 1}: vazio`}
             style={u ? { ['--sk' as string]: colorOf(u.skill, color) } : undefined}
             onClick={() => { if (longPress.current) { longPress.current = false; return; } cast(i); }}

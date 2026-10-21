@@ -7,7 +7,7 @@
 import { Suspense, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { ITEM_TYPES, SLOTS_EQ, type Bone, type ItemDef } from '@rules';
+import { ITEM_TYPES, SLOTS_EQ, gripFor, type Bone, type ItemDef } from '@rules';
 import { ItemModel } from './ItemModel';
 import { AssetBoundary } from './Biome';
 
@@ -69,6 +69,7 @@ function Attached({ item, bones, root, charge }: { item: ItemDef; bones: GearBon
   return <group ref={g}><AssetBoundary><Suspense fallback={null}><ItemModel item={item} charge={item.type === 'arco' ? charge : undefined} /></Suspense></AssetBoundary></group>;
 }
 
-export function EquipmentLayer({ items, bones, root, charge }: { items: ItemDef[]; bones: GearBones | null; root: React.RefObject<THREE.Group | null>; charge?: { current: number } }) {
-  return <>{items.filter((i) => boneFor(i) !== 'nenhum').map((i) => <Attached key={i.slug + JSON.stringify(i.grip)} item={i} bones={bones} root={root} charge={charge} />)}</>;
+/** `modelKey`: id do Companion — usa a pegada ajustada para aquele modelo no Arsenal, se houver. */
+export function EquipmentLayer({ items, bones, root, charge, modelKey }: { items: ItemDef[]; bones: GearBones | null; root: React.RefObject<THREE.Group | null>; charge?: { current: number }; modelKey?: string | null }) {
+  return <>{items.filter((i) => boneFor(i) !== 'nenhum').map((i) => { const it = { ...i, grip: gripFor(i, modelKey) }; return <Attached key={i.slug + JSON.stringify(it.grip)} item={it} bones={bones} root={root} charge={charge} />; })}</>;
 }

@@ -8,6 +8,7 @@ import { DEFAULT_ITEMS, ITEM_TYPES, RARITIES, ELEMENTS, SLOTS_EQ, DEFAULT_GRIP, 
 import { useCatalog, uploadWorldAsset, safeName } from './catalog';
 import { LookEditor } from './BiomeStudio';
 
+import { useCompanionModels } from './companionModels';
 const ItemPreview = lazy(() => import('../scene/ItemPreview').then((m) => ({ default: m.ItemPreview })));
 const ATTRS = ['vida', 'energia', 'poder', 'defesa', 'agilidade', 'sintonia'] as const;
 const ESS = Object.keys(ELEMENTS) as Element[];
@@ -23,6 +24,10 @@ export function ArsenalStudio() {
   const [newName, setNewName] = useState('');
   const [charge, setCharge] = useState(0);
   const [lookOpen, setLookOpen] = useState(false);
+  const models = useCompanionModels();
+  const [trainer, setTrainer] = useState('');
+  const trainerModel = models?.find((m) => m.companionId === trainer) ?? null;
+  const [swing, setSwing] = useState(true);
 
   const run = async (f: () => Promise<unknown>, ok: string) => { setBusy(true); setMsg(null); try { await f(); setMsg({ ok: true, text: ok }); } catch (e) { setMsg({ text: (e as Error).message }); } finally { setBusy(false); } };
   const pick = (slug: string) => {
@@ -44,7 +49,18 @@ export function ArsenalStudio() {
   const clean = useMemo(() => (draft ? sanitizeItem(draft) : null), [draft]);
   const bySlot = (slot: EquipSlot) => (cat.rows ?? []).filter((r) => ITEM_TYPES[r.data.type].slot === slot);
   const atk = clean && ITEM_TYPES[clean.type].weapon ? basicAttack(clean) : null;
-  const setGrip = (k: 'pos' | 'rot', i: number, v: number) => { const g = structuredClone(draft!.grip); g[k][i] = v; edit({ grip: g }); };
+  // pegada: com um modelo escolhido no campo de treino, edita a pegada só daquele modelo (o padrão fica para os outros)
+  const grip = draft ? (trainer && draft.gripByModel?.[trainer]) || draft.grip : DEFAULT_GRIP;
+  const ownGrip = !!(trainer && draft?.gripByModel?.[trainer]);
+  const putGrip = (g: ItemDef['grip']) => { if (!draft) return; if (trainer) edit({ gripByModel: { ...(draft.gripByModel ?? {}), [trainer]: g } }); else edit({ grip: g }); };
+  const setGrip = (k: 'pos' | 'rot', i: number, v: number) => { const g = structuredClone(grip); g[k][i] = v; putGrip(g); };
+  // .GLB já enviados para o mesmo tipo de arma (em outros itens): reaproveita sem enviar de novo
+  const library = useMemo(() => {
+    if (!draft) return [] as { url: string; path?: string; from: string }[];
+    const seen = new Set<string>(), out: { url: string; path?: string; from: string }[] = [];
+    for (const r of cat.rows ?? []) if (r.data.type === draft.type && r.data.model && !seen.has(r.data.model.url)) { seen.add(r.data.model.url); out.push({ ...r.data.model, from: r.name }); }
+    return out;
+  }, [cat.rows, draft?.type]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="biome-studio">
@@ -75,8 +91,15 @@ export function ArsenalStudio() {
       {!draft || !clean ? <section className="biome-empty"><p>Escolha um item ou crie um novo.</p></section> : (
         <section className="biome-editor">
           <div className="biome-preview">
-            <Suspense fallback={<div className="art-empty">Carregando prévia…</div>}><ItemPreview item={clean} charge={charge} /></Suspense>
-            {clean.type === 'arco' && <div className="preview-tools"><label>Carga do arco <input type="range" min={0} max={1} step={0.05} value={charge} onChange={(e) => setCharge(Number(e.target.value))} /></label></div>}
+            <Suspense fallback={<div className="art-empty">Carregando prévia…</div>}><ItemPreview item={clean} charge={charge} body={trainerModel ? { url: trainerModel.url, companionId: trainerModel.companionId, swing } : null} /></Suspense>
+            <div className="preview-tools">
+              <label>Campo de treino <select value={trainer} onChange={(e) => setTrainer(e.target.value)} aria-label="Modelo que segura o item">
+                <option value="">manequim</option>
+                {(models ?? []).map((m) => <option key={m.companionId} value={m.companionId}>{m.name}</option>)}
+              </select></label>
+              {trainerModel && ITEM_TYPES[clean.type].weapon && <label><input type="checkbox" checked={swing} onChange={(e) => setSwing(e.target.checked)} /> golpear em loop</label>}
+              {clean.type === 'arco' && <label>Carga do arco <input type="range" min={0} max={1} step={0.05} value={charge} onChange={(e) => setCharge(Number(e.target.value))} /></label>}
+            </div>
           </div>
           <div className="biome-form">
             <div className="row-3">
@@ -109,7 +132,13 @@ export function ArsenalStudio() {
                 </div>
               )}
               <div className="row">
-                <label className="upload"><input type="file" accept=".glb,model/gltf-binary" disabled={busy} onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void uploadModel(f); }} />{draft.model ? 'Trocar .GLB' : 'Usar um .GLB (Tripo, sem rig)'}</label>
+                <label className="upload"><input type="file" accept=".glb,model/gltf-binary" disabled={busy} onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void uploadModel(f); }} />{draft.model ? 'Trocar .GLB' : `Enviar .GLB de ${ITEM_TYPES[draft.type].label.toLowerCase()} (Tripo, sem rig)`}</label>
+                {library.filter((m) => m.url !== draft.model?.url).length > 0 && (
+                  <label>ou usar um já enviado <select value="" onChange={(e) => { const m = library.find((x) => x.url === e.target.value); if (m) edit({ model: { url: m.url, path: m.path } }); }}>
+                    <option value="">{ITEM_TYPES[draft.type].label}: {library.length} modelo{library.length > 1 ? 's' : ''}…</option>
+                    {library.filter((m) => m.url !== draft.model?.url).map((m) => <option key={m.url} value={m.url}>{m.url.split('/').pop()?.replace(/^\d+-/, '')} (de {m.from})</option>)}
+                  </select></label>
+                )}
                 {draft.model && <button className="link" onClick={() => edit({ model: undefined })}>voltar ao modelo gerado</button>}
                 {draft.model && <button className={'link' + (draft.look ? ' tinted' : '')} onClick={() => setLookOpen(!lookOpen)}>aparência</button>}
               </div>
@@ -117,14 +146,19 @@ export function ArsenalStudio() {
             </fieldset>
 
             <fieldset>
-              <legend>Pegada (ajuste na mão / no osso)</legend>
+              <legend>Pegada (ajuste na mão / no osso){trainerModel ? ` — ${trainerModel.name}` : ' — padrão'}</legend>
+              {trainerModel && <small className="hint">{ownGrip ? `Ajuste próprio de ${trainerModel.name}: vale só para este modelo.` : `${trainerModel.name} usa a pegada padrão. Mexa nos controles para criar um ajuste só dele.`}</small>}
               <div className="look-sliders">
-                {(['x', 'y', 'z'] as const).map((a, i) => <label key={'p' + a}>Posição {a}<input type="range" min={-0.3} max={0.3} step={0.01} value={draft.grip.pos[i]} onChange={(e) => setGrip('pos', i, Number(e.target.value))} /><small>{draft.grip.pos[i].toFixed(2)}</small></label>)}
-                {(['x', 'y', 'z'] as const).map((a, i) => <label key={'r' + a}>Giro {a}<input type="range" min={-3.14} max={3.14} step={0.05} value={draft.grip.rot[i]} onChange={(e) => setGrip('rot', i, Number(e.target.value))} /><small>{Math.round((draft.grip.rot[i] * 180) / Math.PI)}°</small></label>)}
-                <label>Tamanho<input type="range" min={0.3} max={2.5} step={0.05} value={draft.grip.scale} onChange={(e) => edit({ grip: { ...draft.grip, scale: Number(e.target.value) } })} /><small>{draft.grip.scale.toFixed(2)}×</small></label>
+                {(['x', 'y', 'z'] as const).map((a, i) => <label key={'p' + a}>Posição {a}<input type="range" min={-0.3} max={0.3} step={0.01} value={grip.pos[i]} onChange={(e) => setGrip('pos', i, Number(e.target.value))} /><small>{grip.pos[i].toFixed(2)}</small></label>)}
+                {(['x', 'y', 'z'] as const).map((a, i) => <label key={'r' + a}>Giro {a}<input type="range" min={-3.14} max={3.14} step={0.05} value={grip.rot[i]} onChange={(e) => setGrip('rot', i, Number(e.target.value))} /><small>{Math.round((grip.rot[i] * 180) / Math.PI)}°</small></label>)}
+                <label>Tamanho<input type="range" min={0.3} max={2.5} step={0.05} value={grip.scale} onChange={(e) => putGrip({ ...grip, scale: Number(e.target.value) })} /><small>{grip.scale.toFixed(2)}×</small></label>
               </div>
-              <button className="link" onClick={() => edit({ grip: DEFAULT_GRIP })}>zerar pegada</button>
-              <small className="hint">Como todo Companion usa o mesmo rig humanoide, a pegada vale para todos. Quando o primeiro humanoide com animações chegar, confira aqui segurando a arma.</small>
+              <div className="row">
+                <button className="link" onClick={() => putGrip(DEFAULT_GRIP)}>zerar pegada</button>
+                {ownGrip && <button className="link" onClick={() => { const m = { ...(draft.gripByModel ?? {}) }; delete m[trainer]; edit({ gripByModel: m }); }}>voltar à pegada padrão neste modelo</button>}
+                {trainerModel && !ownGrip && <button className="link" onClick={() => putGrip(structuredClone(draft.grip))}>criar ajuste só para {trainerModel.name}</button>}
+              </div>
+              <small className="hint">Escolha um Companion no campo de treino para ver a arma na mão dele, golpeando. Modelos de tamanhos diferentes podem ter a pegada ajustada um a um; salve o item para valer no jogo.{draft.gripByModel && Object.keys(draft.gripByModel).length ? ` Ajustes por modelo: ${Object.keys(draft.gripByModel).map((k) => models?.find((m) => m.companionId === k)?.name ?? k.slice(0, 6)).join(', ')}.` : ''}</small>
             </fieldset>
 
             <fieldset>

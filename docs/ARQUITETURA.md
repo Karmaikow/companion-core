@@ -288,6 +288,45 @@ Os efeitos deixaram de ser pontos com textura e passaram a usar um motor própri
 - **Pedido guardado:** o aperto fica guardado por 0,35 s, então o clique no fim do golpe anterior não se perde.
 - **Segurar F ou Espaço:** continua atacando no ritmo da arma.
 
+## Controles, barras, vida dos monstros e campos de treino (v1.13)
+
+- **Controles no PC:**
+  - O Companion corre por padrão; Shift faz andar. Vale para teclado e para clique no chão.
+  - Espaço pula: custa 15 de stamina e funciona andando.
+  - C senta e levanta. Mexer também levanta.
+  - Segurar E defende: escudo de luz na frente, anda devagar, corta 75% do dano e gasta 14 de stamina por segundo.
+  - F ataca. O botão de ataque só aparece em telas de toque; no celular também há botões de pular, defender e sentar.
+- **Barras** (`scene/vitals.ts` e `ui/VitalsHud.tsx`), sob o nome do Companion:
+  - **HP:** cai com os golpes das criaturas. Zerou, o Companion desmaia por 4 s e volta com metade.
+  - **SP:** gasto pela energia das habilidades da barra 1–9; volta 3 por segundo.
+  - **Stamina:** gasta pelo pulo, pelo golpe (6) e pela defesa; volta 28 por segundo depois de 0,7 s.
+  - **Vínculo:** % até o próximo nível.
+  - Os máximos vêm da tendência de atributos da classe, dos bônus da árvore e do vínculo.
+- **Monstros no mundo** (`WorldCreatures.tsx`):
+  - Vida no nível deles. O dano passa pela defesa (`mitigate`: 100 de defesa = metade).
+  - A barra de vida aparece sobre o nome depois do primeiro golpe. Provocados, vêm brigar (o passivo também).
+  - Zerou: explosão no estilo da essência mais uma nuvem de névoa, os itens sorteados aparecem flutuando e o monstro volta em 45 s.
+  - Agressivos e territoriais golpeiam o Companion no ritmo da velocidade de ataque.
+- **Invocador:**
+  - Campos de atributos: vida, ataque, defesa, agilidade, velocidade de movimento e velocidade de ataque (`stats.atkSpeed`).
+  - **Árvore de habilidades:** cada habilidade abre num nível e pode depender de outra (`level`, `after`; `creatureSkillsAt`, `pickCreatureSkill(c, r, nível)`).
+- **Animações:**
+  - `play()` apagava as outras animações pelo nome. "attack" e "attack:faca" são o mesmo clipe, então o próprio golpe se apagava (braços abertos) e às vezes a corrida também (deslizava parado). Agora compara o objeto da animação.
+  - A cauda acompanha o deslocamento do quadril (só o balanço fica na física) e tem peso; antes boiava ao correr.
+- **Administrador:**
+  - **Companions:**
+    - Cada pedido mostra "Habilidades e animações": o ataque básico e as habilidades da árvore daquele Companion.
+    - Para cada um, escolhe-se qualquer clipe do .GLB, com prévia 3D.
+    - Grava em `companion_skill_anims` (o ADM grava, o dono lê). O jogo toca o clipe escolhido (`clip:<nome>` vira uma animação própria, tocada uma vez).
+    - Corrigido: os dados dos Companions apareciam em todas as abas.
+  - **Forja:** "Campo de treino" escolhe o modelo de qualquer Companion enviado. Ele lança cada habilidade com a animação dele enquanto os números são editados.
+  - **Arsenal:**
+    - "Campo de treino" mostra o Companion escolhido segurando o item e golpeando em loop (corte, magia ou tiro com carga).
+    - A pegada pode ser ajustada só para aquele modelo (`gripByModel[id do Companion]`, `gripFor`); os outros usam a pegada padrão.
+    - No envio de .GLB dá para reaproveitar os modelos já enviados para o mesmo tipo de arma.
+  - Componente comum: `scene/TrainingModel.tsx`. Lista de modelos: `ui/companionModels.ts` (via `admin.jobs`).
+- **Lab:** `forge-lab.html?treino=/arquivo.glb` mostra os dois campos de treino com um modelo local.
+
 ## Escala e frente do modelo 3D (v1.12)
 
 - **Medida pelos ossos:** o tamanho do modelo é medido com os ossos aplicados (`Box3.setFromObject(model, true)`). Alguns rigs do Tripo trazem a malha "crua" em outra escala: a Mayuna humana media 2 m crua e 0,98 m de verdade, e ficava com metade do tamanho.

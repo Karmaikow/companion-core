@@ -3,9 +3,11 @@
  * da essência) e o acerto nos bonecos de treino com o dano esperado. Em loop, para ajustar números e ver na hora.
  * As peças (aviso, partículas, anel de impacto) servem depois para a batalha de verdade.
  */
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
+import { TrainingModel, type Cue } from './TrainingModel';
+import { AssetBoundary } from './Biome';
 import * as THREE from 'three';
 import { VfxStore } from './vfx/engine';
 import { VfxLayer } from './vfx/VfxLayer';
@@ -56,11 +58,16 @@ function hits(s: SkillDef, L: Layout, p: THREE.Vector3): boolean {
 
 const EFFECT = 0.9, REST = 0.9;
 
-function Scene({ skill, color, onHit }: { skill: SkillDef; color: string; onHit: (n: number) => void }) {
+/** Modelo de Companion no lugar do boneco de cápsula (campo de treino do Administrador) e a animação escolhida. */
+export interface TrainingBody { url: string; anim: string | null }
+
+function Scene({ skill, color, onHit, body }: { skill: SkillDef; color: string; onHit: (n: number) => void; body?: TrainingBody | null }) {
   const L = useMemo(() => layoutFor(skill), [skill]);
   const style = skill.vfx.style;
   const store = useMemo(() => new VfxStore(), []);
   const dashFx = useRef<Missile | null>(null);
+  const [cue, setCue] = useState<Cue | null>(null);
+  const cueAt = useRef(-1);
   const cycle = skill.windup + EFFECT + REST;
   const clock = useRef(0);
   const fired = useRef(false);
@@ -111,6 +118,13 @@ function Scene({ skill, color, onHit }: { skill: SkillDef; color: string; onHit:
     if (clock.current >= cycle && t < dt) { fired.current = false; }
     const s = skill;
     const w = s.windup, inTele = t < w, e = (t - w) / EFFECT; // e: 0..1 durante o efeito
+    // modelo de treino: a animação começa junto com o aviso (a preparação)
+    const cycleN = Math.floor(clock.current / cycle);
+    if (body && cycleN !== cueAt.current) {
+      cueAt.current = cycleN;
+      const kinds = [body.anim, s.anim === 'attack' && s.shape !== 'melee' ? 'cast' : s.anim, 'attack', 'cast'].filter((k): k is string => !!k);
+      setCue({ id: cycleN, kinds, speed: 1.4 });
+    }
     // aviso enchendo
     if (tele.current && fill.current) {
       tele.current.visible = fill.current.visible = inTele && w > 0.01;
@@ -162,9 +176,15 @@ function Scene({ skill, color, onHit }: { skill: SkillDef; color: string; onHit:
       </group>
       {/* conjurador */}
       <group ref={caster}>
-        <mesh position={[0, 0.5, 0]} castShadow><capsuleGeometry args={[0.32, 0.35, 6, 16]} /><meshLambertMaterial color={color} /></mesh>
-        <mesh position={[-0.12, 0.72, 0.27]}><sphereGeometry args={[0.06, 12, 12]} /><meshBasicMaterial color="#1b1830" /></mesh>
-        <mesh position={[0.12, 0.72, 0.27]}><sphereGeometry args={[0.06, 12, 12]} /><meshBasicMaterial color="#1b1830" /></mesh>
+        {body ? (
+          <AssetBoundary><Suspense fallback={null}><TrainingModel url={body.url} cue={cue} /></Suspense></AssetBoundary>
+        ) : (
+          <>
+            <mesh position={[0, 0.5, 0]} castShadow><capsuleGeometry args={[0.32, 0.35, 6, 16]} /><meshLambertMaterial color={color} /></mesh>
+            <mesh position={[-0.12, 0.72, 0.27]}><sphereGeometry args={[0.06, 12, 12]} /><meshBasicMaterial color="#1b1830" /></mesh>
+            <mesh position={[0.12, 0.72, 0.27]}><sphereGeometry args={[0.06, 12, 12]} /><meshBasicMaterial color="#1b1830" /></mesh>
+          </>
+        )}
         <mesh position={[0, 0.03, 0]} rotation={[-Math.PI / 2, 0, 0]}><circleGeometry args={[0.42, 24]} /><meshBasicMaterial color="#000" transparent opacity={0.18} depthWrite={false} /></mesh>
       </group>
       {/* bonecos de treino */}
@@ -181,7 +201,7 @@ function Scene({ skill, color, onHit }: { skill: SkillDef; color: string; onHit:
   );
 }
 
-export function SkillPreview({ skill, companionColor, defenderEssence }: { skill: SkillDef; companionColor: string; defenderEssence: Element | null }) {
+export function SkillPreview({ skill, companionColor, defenderEssence, body }: { skill: SkillDef; companionColor: string; defenderEssence: Element | null; body?: TrainingBody | null }) {
   const color = skillColor(skill, companionColor);
   const [last, setLast] = useState<{ n: number; id: number }>({ n: 0, id: 0 });
   const mult = affinity(skill.essence, defenderEssence);
@@ -193,7 +213,7 @@ export function SkillPreview({ skill, companionColor, defenderEssence }: { skill
         <color attach="background" args={['#bfe6ff']} />
         <hemisphereLight args={['#ffffff', '#5aa84c', 1.4]} />
         <directionalLight position={[5, 10, -4]} intensity={1.6} castShadow />
-        <Scene key={skill.slug + skill.shape + skill.windup + skill.range + skill.radius + skill.angle + skill.vfx.style} skill={skill} color={color} onHit={(n) => setLast((l) => ({ n, id: l.id + 1 }))} />
+        <Scene key={(body?.url ?? '') + skill.slug + skill.shape + skill.windup + skill.range + skill.radius + skill.angle + skill.vfx.style} skill={skill} color={color} body={body} onHit={(n) => setLast((l) => ({ n, id: l.id + 1 }))} />
       </Canvas>
       <div className="fx-hud">
         {skill.power > 0 && <span>dano esperado <b>{dmg}</b>{mult !== 1 && <em className={mult > 1 ? 'up' : 'down'}> ×{mult}</em>} (atk 60 × def 40)</span>}

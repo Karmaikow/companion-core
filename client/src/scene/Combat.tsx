@@ -20,6 +20,12 @@ export const combatInput = { holding: false, pressId: 0, releaseId: 0 };
 export function pressAttack() { if (combatInput.holding) return; combatInput.holding = true; combatInput.pressId++; }
 export function releaseAttack() { if (!combatInput.holding) return; combatInput.holding = false; combatInput.releaseId++; }
 
+/** Números flutuantes vindos de fora (dano no Companion, itens que caíram). */
+export const numQueue: { pos: THREE.Vector3; text: string; kind: 'hurt' | 'drop' | 'heal' }[] = [];
+
+/** Pulo, sentar e defesa (teclado: Espaço, C, segurar E; celular: botões). */
+export const moveInput = { jumpId: 0, sitId: 0, block: false };
+
 /** Mira pelo mouse: vale quando a última interação foi com mouse (no celular, a mira é automática). */
 export const aim = { mouse: false };
 if (typeof window !== 'undefined') window.addEventListener('pointermove', (e) => { aim.mouse = e.pointerType === 'mouse'; }, { passive: true });
@@ -41,17 +47,19 @@ export const skillInput = { id: 0, req: null as SkillCast | null, /** há um cor
 export function requestSkill(c: SkillCast) { skillInput.req = c; skillInput.id++; }
 
 /** Alvos que podem ser acertados (bonecos, criaturas). */
-export interface Target { x: number; z: number; r: number; hit: (damage: number) => void }
+/** `hit` devolve o dano que entrou (com a defesa), se o alvo tiver vida. */
+export interface Target { x: number; z: number; r: number; hit: (damage: number) => number | void }
 export const targets = new Map<string, Target>();
 
-function hitAt(x: number, z: number, radius: number, damage: number): boolean {
-  let any = false;
-  targets.forEach((t) => { if (Math.hypot(t.x - x, t.z - z) <= t.r + radius) { t.hit(damage); any = true; } });
-  return any;
+/** Acerta tudo no círculo; devolve o maior dano que entrou (-1 = ninguém). */
+function hitAt(x: number, z: number, radius: number, damage: number): number {
+  let best = -1;
+  targets.forEach((t) => { if (Math.hypot(t.x - x, t.z - z) <= t.r + radius) { const d = t.hit(damage); best = Math.max(best, typeof d === 'number' ? d : damage); } });
+  return best;
 }
 
 interface Live { id: number; ev: FxEvent; t: number; done: boolean; hit: boolean; at: THREE.Vector3; fx?: Missile }
-interface Num { id: number; pos: THREE.Vector3; text: string; gold: boolean | 'heal'; t: number }
+interface Num { id: number; pos: THREE.Vector3; text: string; gold: boolean | 'heal' | 'hurt' | 'drop'; t: number }
 let seq = 0;
 
 export function CombatFx({ world }: { world: WorldShape }) {
@@ -62,7 +70,7 @@ export function CombatFx({ world }: { world: WorldShape }) {
   const line = useRef<THREE.Mesh>(null);
   const tip = useRef<THREE.Mesh>(null);
   const charger = useMemo(() => new Charge(gameVfx), []);
-  const pop = (pos: THREE.Vector3, text: string, gold: boolean | 'heal') => setNums((n) => [...n.slice(-8), { id: ++seq, pos: pos.clone(), text, gold, t: performance.now() }]);
+  const pop = (pos: THREE.Vector3, text: string, gold: Num['gold']) => setNums((n) => [...n.slice(-8), { id: ++seq, pos: pos.clone(), text, gold, t: performance.now() }]);
 
   useFrame((s, dtRaw) => {
     const dt = Math.min(dtRaw, 0.05), t = s.clock.elapsedTime;
@@ -76,6 +84,7 @@ export function CombatFx({ world }: { world: WorldShape }) {
       else L.fx = ev.kind === 'magic' ? new Missile(gameVfx, ev.style ?? 'luz', ev.color, 0.55) : new Missile(gameVfx, ev.perfect ? 'luz' : 'faiscas', ev.color, ev.perfect ? 0.32 : 0.16);
       live.current.push(L); force((x) => x + 1);
     }
+    while (numQueue.length) { const n = numQueue.shift()!; pop(n.pos, n.text, n.kind); }
     // carga do arco: faíscas girando para a ponta da flecha, traço no chão até onde vai, anel que cresce
     const c = chargeState;
     const fw = new THREE.Vector3(Math.sin(c.yaw), 0, Math.cos(c.yaw));
@@ -116,8 +125,9 @@ export function CombatFx({ world }: { world: WorldShape }) {
         L.at.y = world.heightAt(L.at.x, L.at.z) + 0.6 + (ev.kind === 'arrow' ? Math.sin(u * Math.PI) * ev.range * 0.08 : 0.1);
         if (L.fx && !L.hit) L.fx.update(L.at, dt);
         const gy = world.heightAt(L.at.x, L.at.z);
-        if (!L.hit && hitAt(L.at.x, L.at.z, 0.35, ev.damage)) {
-          L.hit = true; pop(L.at, String(ev.damage), ev.kind === 'arrow' && ev.perfect); L.t = Math.max(L.t, ev.range / speed);
+        const dealt = L.hit ? -1 : hitAt(L.at.x, L.at.z, 0.35, ev.damage);
+        if (dealt >= 0) {
+          L.hit = true; pop(L.at, String(dealt), ev.kind === 'arrow' && ev.perfect); L.t = Math.max(L.t, ev.range / speed);
           L.fx?.end(); burst(gameVfx, ev.kind === 'magic' ? ev.style ?? 'luz' : 'faiscas', L.at.clone(), ev.color, ev.kind === 'arrow' && !ev.perfect ? 0.45 : 0.75, gy);
         }
         if (!L.hit && dist >= ev.range) { L.hit = true; L.fx?.end(); burst(gameVfx, ev.kind === 'magic' ? ev.style ?? 'luz' : 'impacto', L.at.clone(), ev.color, 0.35, gy); }
@@ -126,17 +136,18 @@ export function CombatFx({ world }: { world: WorldShape }) {
         if (!L.hit && L.t > 0.12) {
           L.hit = true;
           const f = new THREE.Vector3(Math.sin(ev.yaw), 0, Math.cos(ev.yaw)), p = ev.pos.clone().addScaledVector(f, ev.range * 0.7);
-          if (hitAt(p.x, p.z, ev.range * 0.55, ev.damage)) {
+          const dealt = hitAt(p.x, p.z, ev.range * 0.55, ev.damage);
+          if (dealt >= 0) {
             const gy = world.heightAt(p.x, p.z);
             burst(gameVfx, 'impacto', p.clone().setY(gy + 0.7), ev.color, ev.heavy ? 0.8 : 0.55, gy);
-            pop(p.setY(gy + 1), String(ev.damage), ev.heavy);
+            pop(p.setY(gy + 1), String(dealt), ev.heavy);
           }
         }
         if (L.t > 0.5) { L.done = true; changed = true; }
       }
     }
     if (changed) { live.current = live.current.filter((x) => !x.done); force((x) => x + 1); }
-    if (nums.length && performance.now() - nums[0].t > 1200) setNums((n) => n.slice(1));
+    if (nums.length && performance.now() - nums[0].t > 1400) setNums((n) => n.slice(1));
   });
 
   return (
@@ -148,7 +159,7 @@ export function CombatFx({ world }: { world: WorldShape }) {
       {live.current.map((L) => <FxView key={L.id} L={L} />)}
       {nums.map((n) => (
         <Html key={n.id} position={n.pos} center style={{ pointerEvents: 'none' }}>
-          <div className={'dmg' + (n.gold === 'heal' ? ' heal' : n.gold ? ' gold' : '')}>{n.text}</div>
+          <div className={'dmg' + (typeof n.gold === 'string' ? ' ' + n.gold : n.gold ? ' gold' : '')}>{n.text}</div>
         </Html>
       ))}
     </group>
@@ -171,7 +182,7 @@ function FxView({ L }: { L: Live }) {
 }
 
 /** Lança uma habilidade no mundo: aviso no chão, efeito do formato e do estilo, e o dano nos alvos dentro da área. */
-function runSkill(ev: Extract<FxEvent, { kind: 'skill' }>, world: WorldShape, pop: (p: THREE.Vector3, t: string, g: boolean | 'heal') => void) {
+function runSkill(ev: Extract<FxEvent, { kind: 'skill' }>, world: WorldShape, pop: (p: THREE.Vector3, t: string, g: boolean | 'heal' | 'hurt' | 'drop') => void) {
   const s = ev.skill, st = s.vfx.style, col = ev.color, yaw = ev.yaw, V = gameVfx;
   const fw = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw));
   const gy = (x: number, z: number) => world.heightAt(x, z);
@@ -191,7 +202,7 @@ function runSkill(ev: Extract<FxEvent, { kind: 'skill' }>, world: WorldShape, po
     }
   };
   const strike = (list: Target[], delay: number) => V.after(delay, () => {
-    for (const t of list) { if (ev.damage > 0) { t.hit(ev.damage); pop(at(t).setY(at(t).y + 0.4), String(ev.damage), false); } burst(V, st, at(t), col, 0.5, gy(t.x, t.z)); }
+    for (const t of list) { if (ev.damage > 0) { const d = t.hit(ev.damage); pop(at(t).setY(at(t).y + 0.4), String(typeof d === 'number' ? d : ev.damage), false); } burst(V, st, at(t), col, 0.5, gy(t.x, t.z)); }
   });
   const inside = () => { const l: Target[] = []; targets.forEach((t) => { if (inShape(t)) l.push(t); }); return l; };
   // aviso: onde vai cair (área, salto, aura)
@@ -212,7 +223,7 @@ function runSkill(ev: Extract<FxEvent, { kind: 'skill' }>, world: WorldShape, po
         const hit = best as Target | null, to = hit ? at(hit) : chest.clone().addScaledVector(fw, s.range);
         missile(V, { style: st, color: col, from: chest.clone().addScaledVector(fw, 0.4), to, duration: Math.max(0.15, chest.distanceTo(to) / 14), arc: 0.3, size: Math.max(0.55, s.radius * 1.3), onArrive: (p) => {
           burst(V, st, p, col, 0.85, gy(p.x, p.z));
-          if (hit && ev.damage > 0) { hit.hit(ev.damage); pop(p.clone().setY(p.y + 0.4), String(ev.damage), false); }
+          if (hit && ev.damage > 0) { const d = hit.hit(ev.damage); pop(p.clone().setY(p.y + 0.4), String(typeof d === 'number' ? d : ev.damage), false); }
         } });
         break;
       }

@@ -28,6 +28,8 @@ interface SkillState {
   /** quando cada habilidade volta (ms, performance.now) */
   ready: Record<string, number>;
   saving: boolean;
+  /** animação escolhida pelo ADM por habilidade ("__basic" = ataque básico): "clip:<nome>" | "kind:<tipo>" */
+  animMap: Record<string, string>;
   setCatalog: (c: SkillDef[]) => void;
   setAlloc: (a: Allocation) => void;
   setBar: (slots: (string | null)[], removed?: string[]) => void;
@@ -44,6 +46,7 @@ export const useSkills = create<SkillState>((set) => ({
   removed: [],
   ready: {},
   saving: false,
+  animMap: {},
   setCatalog: (catalog) => set({ catalog }),
   setAlloc: (alloc) => set({ alloc }),
   setBar: (bar, removed) => set((s) => ({ bar, removed: removed ?? s.removed })),
@@ -111,6 +114,16 @@ export function useSkillSync() {
     })();
     return () => { alive = false; };
   }, [c?.id, tree, backend?.kind, bond, points]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // animações escolhidas no Administrador para este Companion
+  useEffect(() => {
+    if (!c || backend?.kind !== 'online') { useSkills.setState({ animMap: {} }); return; }
+    let alive = true;
+    supabase().from('companion_skill_anims').select('anims').eq('companion_id', c.id).maybeSingle().then(({ data }) => {
+      if (alive) useSkills.setState({ animMap: (data?.anims ?? {}) as Record<string, string> });
+    }, () => {});
+    return () => { alive = false; };
+  }, [c?.id, backend?.kind]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // barra salva deste Companion
   useEffect(() => {

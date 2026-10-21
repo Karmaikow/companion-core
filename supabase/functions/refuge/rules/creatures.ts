@@ -29,7 +29,10 @@ export const TEMPERAMENTS: Record<Temperament, { label: string; hint: string }> 
 export const BATTLE_STYLES: Record<BattleStyle, string> = { 'corpo-a-corpo': 'Corpo a corpo', distancia: 'À distância', suporte: 'Suporte (cura/protege o grupo)', misto: 'Misto' };
 export const TIMES: Record<TimeOfDay, string> = { sempre: 'Dia e noite', dia: 'Só de dia', noite: 'Só à noite' };
 
-export interface CreatureStats { vida: number; poder: number; defesa: number; agilidade: number }
+/** vida, ataque (poder), defesa e agilidade no nível 1; velocidade de ataque em golpes por segundo. */
+export interface CreatureStats { vida: number; poder: number; defesa: number; agilidade: number; atkSpeed: number }
+/** Habilidade do monstro: frequência, nível em que abre e (opcional) a habilidade que precisa vir antes — a árvore. */
+export interface CreatureSkill { slug: string; weight: number; level: number; after?: string }
 export interface CreatureDef {
   slug: string;
   name: string;
@@ -44,7 +47,7 @@ export interface CreatureDef {
   size: number;                  // altura em metros
   speed: number;                 // m/s andando
   aggroRange: number;            // m — a que distância percebe o Companion
-  skills: { slug: string; weight: number }[]; // habilidades da Forja e a frequência relativa
+  skills: CreatureSkill[];       // habilidades da Forja: frequência, nível que abre e pré-requisito (árvore)
   biomes: { slug: string; weight: number }[]; // vazio = qualquer região do mundo
   time: TimeOfDay;
   group: [number, number];
@@ -85,9 +88,13 @@ export function sanitizeCreature(input: unknown): CreatureDef | null {
     temperament: c.temperament && c.temperament in TEMPERAMENTS ? c.temperament : 'passivo',
     style: c.style && c.style in BATTLE_STYLES ? c.style : 'corpo-a-corpo',
     level: pair(c.level, 1, 60, [1, 3]),
-    stats: { vida: Math.round(n(st.vida, 10, 5000, 120)), poder: Math.round(n(st.poder, 1, 500, 20)), defesa: Math.round(n(st.defesa, 0, 500, 15)), agilidade: Math.round(n(st.agilidade, 1, 100, 10)) },
+    stats: { vida: Math.round(n(st.vida, 10, 5000, 120)), poder: Math.round(n(st.poder, 1, 500, 20)), defesa: Math.round(n(st.defesa, 0, 500, 15)), agilidade: Math.round(n(st.agilidade, 1, 100, 10)), atkSpeed: Math.round(n(st.atkSpeed, 0.1, 4, 0.8) * 100) / 100 },
     size: n(c.size, 0.2, 12, 0.9), speed: n(c.speed, 0.2, 6, 1.2), aggroRange: n(c.aggroRange, 1, 30, 7),
-    skills: list(c.skills, 8, (s) => (typeof s.slug === 'string' && SLUG.test(s.slug) ? { slug: s.slug, weight: n(s.weight, 0, 10, 1) } : null)),
+    skills: (() => {
+      const l = list(c.skills, 12, (s) => (typeof s.slug === 'string' && SLUG.test(s.slug) ? { slug: s.slug, weight: n(s.weight, 0, 10, 1), level: Math.round(n(s.level, 1, 60, 1)), ...(typeof s.after === 'string' && SLUG.test(s.after) ? { after: s.after } : {}) } : null));
+      const slugs = new Set(l.map((x) => x.slug));
+      return l.map((x) => (x.after && (!slugs.has(x.after) || x.after === x.slug) ? { slug: x.slug, weight: x.weight, level: x.level } : x));
+    })(),
     biomes: list(c.biomes, 20, (b) => (typeof b.slug === 'string' && SLUG.test(b.slug) ? { slug: b.slug, weight: n(b.weight, 0, 10, 1) } : null)),
     time: c.time && c.time in TIMES ? c.time : 'sempre',
     group: pair(c.group, 1, 12, [1, 2]),
@@ -103,16 +110,30 @@ export function sanitizeCreature(input: unknown): CreatureDef | null {
 /** Atributos num nível (crescem ~8% por nível). */
 export function creatureStatsAt(c: CreatureDef, level: number): CreatureStats {
   const k = Math.pow(1.08, Math.max(0, level - 1));
-  return { vida: Math.round(c.stats.vida * k), poder: Math.round(c.stats.poder * k), defesa: Math.round(c.stats.defesa * k), agilidade: c.stats.agilidade };
+  return { vida: Math.round(c.stats.vida * k), poder: Math.round(c.stats.poder * k), defesa: Math.round(c.stats.defesa * k), agilidade: c.stats.agilidade, atkSpeed: c.stats.atkSpeed };
 }
 
-/** Próxima habilidade pela frequência (r em [0, 1) vem do PRNG da luta). */
-export function pickCreatureSkill(c: CreatureDef, r: number): string | null {
-  const total = c.skills.reduce((t, s) => t + s.weight, 0);
+/** Habilidades abertas num nível (a árvore: nível alcançado e a de antes também aberta). */
+export function creatureSkillsAt(c: CreatureDef, level: number): CreatureSkill[] {
+  const open = new Set<string>();
+  // várias passadas para resolver cadeias (a → b → c)
+  for (let pass = 0; pass < 4; pass++) for (const s of c.skills) if (s.level <= level && (!s.after || open.has(s.after))) open.add(s.slug);
+  return c.skills.filter((s) => open.has(s.slug));
+}
+
+/** Dano de um golpe depois da defesa (100 de defesa = metade). */
+export function mitigate(damage: number, defense: number): number {
+  return Math.max(1, Math.round(damage * 100 / (100 + Math.max(0, defense))));
+}
+
+/** Próxima habilidade pela frequência (r em [0, 1) vem do PRNG da luta), entre as abertas no nível. */
+export function pickCreatureSkill(c: CreatureDef, r: number, level = 60): string | null {
+  const pool = creatureSkillsAt(c, level);
+  const total = pool.reduce((t, s) => t + s.weight, 0);
   if (total <= 0) return null;
   let x = r * total;
-  for (const s of c.skills) { x -= s.weight; if (x < 0) return s.slug; }
-  return c.skills[c.skills.length - 1].slug;
+  for (const s of pool) { x -= s.weight; if (x < 0) return s.slug; }
+  return pool[pool.length - 1].slug;
 }
 
 /** Sorteio do que a criatura solta ao ser acalmada. */
@@ -159,7 +180,7 @@ export function chunkSpawns(seed: number, cx: number, cz: number, size: number, 
 
 /** Criaturas de reserva (sem modelo: corpo de névoa na cor delas) enquanto o Invocador está vazio. */
 export const DEFAULT_CREATURES: CreatureDef[] = [
-  sanitizeCreature({ slug: 'bruma-de-musgo', name: 'Bruma de Musgo', description: 'Uma bolinha de névoa verde que cochila entre as raízes. Só se defende.', essence: 'natureza', body: 'quadruped', archetype: 'guardia', temperament: 'passivo', style: 'corpo-a-corpo', level: [1, 3], stats: { vida: 140, poder: 14, defesa: 22, agilidade: 6 }, size: 0.7, speed: 0.8, aggroRange: 5, skills: [{ slug: 'golpe', weight: 3 }, { slug: 'raizes', weight: 1 }], biomes: [], time: 'sempre', group: [1, 2], rarity: 1, drops: [{ item: 'Musgo macio', chance: 0.8, min: 1, max: 3 }, { item: 'Semente brilhante', chance: 0.15, min: 1, max: 1 }, { item: 'Fragmento de Bruma', chance: 0.35, min: 1, max: 1 }], color: '#8fdc7a' })!,
-  sanitizeCreature({ slug: 'fagulha', name: 'Fagulha', description: 'Um vagalume de fogo nervoso que dispara brasas e foge se você chegar perto demais.', essence: 'fogo', body: 'avian', archetype: 'atiradora', temperament: 'medroso', style: 'distancia', level: [2, 4], stats: { vida: 80, poder: 22, defesa: 8, agilidade: 18 }, size: 0.5, speed: 1.8, aggroRange: 8, skills: [{ slug: 'faisca-de-essencia', weight: 3 }, { slug: 'brasas', weight: 1 }], biomes: [], time: 'noite', group: [2, 4], rarity: 0.7, drops: [{ item: 'Pó de brasa', chance: 0.6, min: 1, max: 2 }, { item: 'Fragmento de Bruma', chance: 0.35, min: 1, max: 1 }], color: '#ffa04a' })!,
-  sanitizeCreature({ slug: 'lobinho-de-geada', name: 'Lobinho de Geada', description: 'Filhote de névoa fria que anda em bando e corre para cima de quem entra no seu canto.', essence: 'gelo', body: 'quadruped', archetype: 'investidora', temperament: 'territorial', style: 'corpo-a-corpo', level: [3, 6], stats: { vida: 110, poder: 26, defesa: 12, agilidade: 16 }, size: 0.8, speed: 1.6, aggroRange: 9, skills: [{ slug: 'golpe', weight: 2 }, { slug: 'investida', weight: 1 }, { slug: 'rajada-fria', weight: 1 }], biomes: [], time: 'sempre', group: [2, 3], rarity: 0.5, drops: [{ item: 'Pelo gelado', chance: 0.7, min: 1, max: 2 }, { item: 'Cristal de geada', chance: 0.1, min: 1, max: 1 }, { item: 'Fragmento de Bruma', chance: 0.4, min: 1, max: 1 }], color: '#a8e4ff' })!,
+  sanitizeCreature({ slug: 'bruma-de-musgo', name: 'Bruma de Musgo', description: 'Uma bolinha de névoa verde que cochila entre as raízes. Só se defende.', essence: 'natureza', body: 'quadruped', archetype: 'guardia', temperament: 'passivo', style: 'corpo-a-corpo', level: [1, 3], stats: { vida: 140, poder: 14, defesa: 22, agilidade: 6, atkSpeed: 0.6 }, size: 0.7, speed: 0.8, aggroRange: 5, skills: [{ slug: 'golpe', weight: 3, level: 1 }, { slug: 'raizes', weight: 1, level: 2, after: 'golpe' }], biomes: [], time: 'sempre', group: [1, 2], rarity: 1, drops: [{ item: 'Musgo macio', chance: 0.8, min: 1, max: 3 }, { item: 'Semente brilhante', chance: 0.15, min: 1, max: 1 }, { item: 'Fragmento de Bruma', chance: 0.35, min: 1, max: 1 }], color: '#8fdc7a' })!,
+  sanitizeCreature({ slug: 'fagulha', name: 'Fagulha', description: 'Um vagalume de fogo nervoso que dispara brasas e foge se você chegar perto demais.', essence: 'fogo', body: 'avian', archetype: 'atiradora', temperament: 'medroso', style: 'distancia', level: [2, 4], stats: { vida: 80, poder: 22, defesa: 8, agilidade: 18, atkSpeed: 1 }, size: 0.5, speed: 1.8, aggroRange: 8, skills: [{ slug: 'faisca-de-essencia', weight: 3, level: 1 }, { slug: 'brasas', weight: 1, level: 3, after: 'faisca-de-essencia' }], biomes: [], time: 'noite', group: [2, 4], rarity: 0.7, drops: [{ item: 'Pó de brasa', chance: 0.6, min: 1, max: 2 }, { item: 'Fragmento de Bruma', chance: 0.35, min: 1, max: 1 }], color: '#ffa04a' })!,
+  sanitizeCreature({ slug: 'lobinho-de-geada', name: 'Lobinho de Geada', description: 'Filhote de névoa fria que anda em bando e corre para cima de quem entra no seu canto.', essence: 'gelo', body: 'quadruped', archetype: 'investidora', temperament: 'territorial', style: 'corpo-a-corpo', level: [3, 6], stats: { vida: 110, poder: 26, defesa: 12, agilidade: 16, atkSpeed: 0.9 }, size: 0.8, speed: 1.6, aggroRange: 9, skills: [{ slug: 'golpe', weight: 2, level: 1 }, { slug: 'investida', weight: 1, level: 4, after: 'golpe' }, { slug: 'rajada-fria', weight: 1, level: 5, after: 'investida' }], biomes: [], time: 'sempre', group: [2, 3], rarity: 0.5, drops: [{ item: 'Pelo gelado', chance: 0.7, min: 1, max: 2 }, { item: 'Cristal de geada', chance: 0.1, min: 1, max: 1 }, { item: 'Fragmento de Bruma', chance: 0.4, min: 1, max: 1 }], color: '#a8e4ff' })!,
 ];

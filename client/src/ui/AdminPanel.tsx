@@ -11,6 +11,7 @@ import { ForgeStudio } from './ForgeStudio';
 import { SummonerStudio } from './SummonerStudio';
 import { ArsenalStudio } from './ArsenalStudio';
 import { ServerStudio } from './ServerStudio';
+import { SkillAnimPicker } from './SkillAnimPicker';
 
 type View = 'companions' | 'biomas' | 'forja' | 'invocador' | 'arsenal' | 'servidor';
 const VIEWS: { key: View; label: string; hash: string; title: string; hint: string }[] = [
@@ -158,7 +159,7 @@ export function AdminPanel() {
       {session && view === 'invocador' && <SummonerStudio />}
       {session && view === 'arsenal' && <ArsenalStudio />}
       {session && view === 'servidor' && <ServerStudio />}
-      <div className="jobs" hidden={view !== 'companions'}>
+      {view === 'companions' && <div className="jobs">
         {shown.map((j) => (
           <article key={j.id} className={'job ' + j.status}>
             <header>
@@ -224,6 +225,7 @@ export function AdminPanel() {
                     + Animações .GLB (pode escolher várias)
                   </label>
                 </div>
+                <SkillAnimPicker companionId={j.companionId} contract={j.contract} modelUrl={j.model?.url} anims={j.animPaths} />
                 <RefugeBiomePicker companionId={j.companionId} />
                 <div className="row">
                   {j.status === 'queued' && <button className="ghost" disabled={busy} onClick={() => void update(j, 'generating')}>Marcar "gerando"</button>}
@@ -234,7 +236,7 @@ export function AdminPanel() {
             </div>
           </article>
         ))}
-      </div>
+      </div>}
     </div>
   );
 }

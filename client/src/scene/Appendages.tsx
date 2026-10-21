@@ -80,6 +80,7 @@ function Tail({ kind, palette, hips, root, heightAt }: { kind: TailKind; palette
   const tuft = useRef<THREE.Mesh>(null);
   const init = useRef(false);
   const a = useMemo(() => new THREE.Vector3(), []);
+  const lastA = useMemo(() => new THREE.Vector3(), []);
   const rest = useMemo(() => new THREE.Vector3(), []);
   useFrame((s, dtRaw) => {
     const r = root.current; if (!r) return;
@@ -88,20 +89,28 @@ function Tail({ kind, palette, hips, root, heightAt }: { kind: TailKind; palette
     r.getWorldQuaternion(tmpQ);
     const segLen = def.len / SEG;
     if (!init.current) {
-      init.current = true;
+      init.current = true; lastA.copy(a);
       for (let i = 0; i <= SEG; i++) { pts[i].copy(a).add(tmpV.set(0, -0.2 * i * segLen, -i * segLen).applyQuaternion(tmpQ)); prev[i].copy(pts[i]); }
     }
-    // física: verlet + mola para a pose de descanso (para trás, caída, ponta enrolando para cima)
+    // a cauda acompanha o corpo: o deslocamento do quadril é levado quase todo para a corrente (só o balanço fica na
+    // física). Antes, correndo, os pontos ficavam para trás e a cauda boiava esticada no ar.
+    if (init.current) {
+      const dx = a.x - lastA.x, dy = a.y - lastA.y, dz = a.z - lastA.z;
+      if (dx * dx + dy * dy + dz * dz < 4) for (let i = 1; i <= SEG; i++) { const k = 0.92 - (i / SEG) * 0.12; pts[i].x += dx * k; pts[i].y += dy * k; pts[i].z += dz * k; prev[i].x += dx * k; prev[i].y += dy * k; prev[i].z += dz * k; }
+    }
+    lastA.copy(a);
+    // física: verlet + mola para a pose de descanso (para trás, caída, ponta enrolando para cima) + peso
     pts[0].copy(a); prev[0].copy(a);
+    const pull = Math.min(0.5, def.stiff * dt * 1.4), grav = 3.5 * dt * dt;
     for (let i = 1; i <= SEG; i++) {
       const u = i / SEG, p = pts[i], q = prev[i];
-      const sway = Math.sin(t * 2.2 - u * 3) * 0.12 * u;
-      rest.set(sway, -0.32 * u + def.curl * u * u * 0.8, -u * def.len * 0.92).applyQuaternion(tmpQ).add(a);
-      const vx = (p.x - q.x) * 0.9, vy = (p.y - q.y) * 0.9, vz = (p.z - q.z) * 0.9;
+      const sway = Math.sin(t * 2.2 - u * 3) * 0.1 * u;
+      rest.set(sway, -0.38 * u + def.curl * u * u * 0.6, -u * def.len * 0.9).applyQuaternion(tmpQ).add(a);
+      const vx = (p.x - q.x) * 0.82, vy = (p.y - q.y) * 0.82, vz = (p.z - q.z) * 0.82;
       q.copy(p);
-      p.x += vx + (rest.x - p.x) * Math.min(0.5, def.stiff * dt * 1.2);
-      p.y += vy + (rest.y - p.y) * Math.min(0.5, def.stiff * dt * 1.2) - 0.4 * dt * dt;
-      p.z += vz + (rest.z - p.z) * Math.min(0.5, def.stiff * dt * 1.2);
+      p.x += vx + (rest.x - p.x) * pull;
+      p.y += vy + (rest.y - p.y) * pull - grav * u;
+      p.z += vz + (rest.z - p.z) * pull;
     }
     for (let k = 0; k < 3; k++) for (let i = 1; i <= SEG; i++) {
       const p = pts[i], o = pts[i - 1];

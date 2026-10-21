@@ -319,3 +319,27 @@ export class Charge {
     if (this.star) { this.star.life = this.star.age + 0.08; this.star = null; }
   }
 }
+
+/** Escudo da defesa: anel de luz em pé na frente do Companion, com brilho e faíscas leves enquanto segura. */
+export class Shield {
+  ring: Particle | null = null; glow: Particle | null = null; ground: Particle | null = null; acc = 0;
+  constructor(public s: VfxStore) {}
+  update(pos: V3, yaw: number, color: Col, dt: number) {
+    const s = this.s, f = v3(Math.sin(yaw), 0, Math.cos(yaw)), at = pos.clone().add(v3(0, 0.62, 0)).addScaledVector(f, 0.45);
+    if (!this.ring) {
+      this.ring = s.emit({ k: K.RING, pos: at, life: 1e9, size: 1.1, c1: color, alpha: 0.85 });
+      this.glow = s.emit({ k: K.GLOW, pos: at, life: 1e9, size: 1.2, c1: color, alpha: 0.35 });
+      this.ground = s.emit({ k: K.RING, flat: true, pos: pos.clone().setY(pos.y + 0.04), life: 1e9, size: 1.5, c1: color, alpha: 0.5 });
+    }
+    const pulse = 1 + Math.sin(s.time * 9) * 0.04;
+    for (const p of [this.ring, this.glow]) if (p) { p.x = at.x; p.y = at.y; p.z = at.z; p.age = 0.2 * p.life; }
+    this.ring!.size = 1.1 * pulse; this.glow!.size = 1.25 * pulse;
+    if (this.ground) { this.ground.x = pos.x; this.ground.y = pos.y + 0.04; this.ground.z = pos.z; this.ground.age = 0.3 * this.ground.life; }
+    this.acc += dt * 10;
+    while (this.acc >= 1) { this.acc -= 1; const a = R() * 6.28; s.emit({ k: K.STAR, pos: at.clone().add(v3(Math.cos(a) * 0.45, Math.sin(a) * 0.45, 0).applyAxisAngle(v3(0, 1, 0), yaw)), life: 0.35, size: 0.18, size1: 0.02, c1: color }); }
+  }
+  stop() {
+    for (const p of [this.ring, this.glow, this.ground]) if (p) p.life = p.age + 0.12;
+    this.ring = this.glow = this.ground = null;
+  }
+}

@@ -15,11 +15,15 @@ import { CLEAR_R, companionFocus, moveRequest, resolveCollisions, platformHeight
 import { SpeechBubble } from './SpeechBubble';
 import { Appendages, findAnchors, type AppendageSpec } from './Appendages';
 import { EquipmentLayer, findGearBones } from './Equipment';
-import { aim, combatInput, chargeState, fxQueue, skillInput, targets } from './Combat';
+import { aim, combatInput, chargeState, fxQueue, moveInput, skillInput, targets } from './Combat';
+import { canAct, spendStamina, tickVitals, vitals } from './vitals';
+import { useSkills } from '../ui/skillState';
+import { gameVfx } from './vfx/engine';
+import { Shield } from './vfx/recipes';
 import { basicAttack, bowShot, ELEMENTS, expectedDamage, RANK_POWER, type ItemDef, type SpeciesKey } from '@rules';
 
 /** O que o Companion carrega: itens visíveis, a arma (escolhe o ataque) e o que muda o dano. */
-export interface Gear { items: ItemDef[]; weapon: ItemDef | null; species: SpeciesKey | null; color: string; poder: number }
+export interface Gear { items: ItemDef[]; weapon: ItemDef | null; species: SpeciesKey | null; color: string; poder: number; /** id do Companion: pegada ajustada para este modelo */ modelKey?: string | null }
 
 const loader = new GLTFLoader();
 loader.setMeshoptDecoder(MeshoptDecoder);
@@ -177,6 +181,13 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
       actions.set(c2.kind, a);
       if (c2.kind === 'walk') stride = c2.stride * scale;
     }
+    // cada clipe também por nome ("clip:<nome>"), para as escolhas do Administrador; cópia do clipe = animação própria,
+    // tocada uma vez (não mexe no laço de quem usa o mesmo clipe como "andar" ou "correr")
+    for (const c2 of loaded.clips) {
+      const key = 'clip:' + c2.clip.name;
+      if (actions.has(key)) continue;
+      const a = mixer.clipAction(c2.clip.clone()); a.setLoop(THREE.LoopOnce, 1); actions.set(key, a);
+    }
     const walkSpeed = actions.has('walk') ? strideSpeed(stride, 1, 0.7) : 0.7;
     const run = loaded.clips.find((c2) => c2.kind === 'run');
     const runSpeed = run ? strideSpeed(run.stride * scale, 1, walkSpeed * 2) : walkSpeed * 1.8;
@@ -194,14 +205,22 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
   }, [actions, mul]);
 
   const start = roam.start ?? [1.6, 1.4];
-  const st = useRef({ target: new THREE.Vector3(start[0], 0, start[1]), wait: 2, act: '' as string, yaw: 0, burst: burstKey, once: 0, player: false, running: false, req: moveRequest.id, blocked: 0, lift: 0, stuck: false });
+  const st = useRef({ target: new THREE.Vector3(start[0], 0, start[1]), wait: 2, act: '' as string, yaw: 0, burst: burstKey, once: 0, player: false, running: false, req: moveRequest.id, blocked: 0, lift: 0, stuck: false, jumpT: -1, jumpId: moveInput.jumpId, sitId: moveInput.sitId, sitting: false, guarding: false });
   // WASD / setas: a pessoa conduz o Companion (relativo à câmera); Shift corre. Digitando no chat, as teclas são ignoradas.
   const keys = useRef(new Set<string>());
   useEffect(() => {
     const typing = () => { const el = document.activeElement; return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || (el as HTMLElement).isContentEditable); };
-    const down = (e: KeyboardEvent) => { if (typing()) return; const k = e.key.toLowerCase(); if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift'].includes(k)) { keys.current.add(k); if (k.startsWith('arrow')) e.preventDefault(); } };
-    const up = (e: KeyboardEvent) => keys.current.delete(e.key.toLowerCase());
-    const clear = () => keys.current.clear();
+    const down = (e: KeyboardEvent) => {
+      if (typing()) return;
+      const k = e.key.toLowerCase();
+      if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift'].includes(k)) { keys.current.add(k); if (k.startsWith('arrow')) e.preventDefault(); }
+      if (e.repeat) return;
+      if (k === ' ') { e.preventDefault(); moveInput.jumpId++; }
+      if (k === 'c') moveInput.sitId++;
+      if (k === 'e') moveInput.block = true;
+    };
+    const up = (e: KeyboardEvent) => { const k = e.key.toLowerCase(); keys.current.delete(k); if (k === 'e') moveInput.block = false; };
+    const clear = () => { keys.current.clear(); moveInput.block = false; };
     window.addEventListener('keydown', down); window.addEventListener('keyup', up); window.addEventListener('blur', clear);
     return () => { window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); window.removeEventListener('blur', clear); };
   }, []);
@@ -211,11 +230,18 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
     if (s.act === kind) return;
     const next = actions.get(kind);
     if (next) next.reset().setEffectiveWeight(1).fadeIn(fade).play();
-    // apaga todas as outras (sem animação de parado, o corpo volta à pose de descanso e respira)
-    actions.forEach((a, k) => { if (k !== kind && a.isRunning()) a.fadeOut(fade); });
+    // apaga todas as outras (sem animação de parado, o corpo volta à pose de descanso e respira).
+    // Compara a animação, não o nome: "attack" e "attack:faca" podem ser o mesmo clipe — apagar pelo nome apagava
+    // o próprio golpe (braços abertos) ou a corrida (deslizava parado).
+    actions.forEach((a) => { if (a !== next && a.isRunning()) a.fadeOut(fade); });
     s.act = kind;
   };
   useEffect(() => () => { mixer.stopAllAction(); }, [mixer]);
+  // testes no navegador (só no dev): estado das animações
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    (window as unknown as { __anim: unknown }).__anim = () => ({ act: st.current.act, once: st.current.once, running: st.current.running, list: [...actions.entries()].map(([k, a]) => [k, a.getClip().name, a.isRunning(), +a.getEffectiveWeight().toFixed(2), a.enabled, +a.timeScale.toFixed(2)]) });
+  }, [actions]);
 
   // ---- ataque: golpe/magia ao apertar; arco carrega enquanto segura e atira ao soltar
   const charge = useRef(0);
@@ -233,8 +259,16 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
     const h = aimRay.ray.ray.intersectPlane(aimRay.plane, aimRay.hit);
     return h && Math.hypot(h.x - at.x, h.z - at.z) > 0.15 ? h : null;
   };
+  // animação escolhida no Administrador: "clip:<nome>" ou "kind:<tipo>" (vale só se o modelo tiver)
+  const chosen = (key: string): string | null => {
+    const v = useSkills.getState().animMap[key];
+    if (!v) return null;
+    const k = v.startsWith('clip:') ? v : v.startsWith('kind:') ? v.slice(5) : null;
+    return k && actions.has(k) ? k : null;
+  };
   const camYaw = (state: { camera: THREE.Camera }) => { state.camera.getWorldDirection(fwd); return Math.atan2(fwd.x, fwd.z); };
-  useEffect(() => () => { chargeState.active = false; }, []);
+  const shield = useMemo(() => new Shield(gameVfx), []);
+  useEffect(() => () => { chargeState.active = false; vitals.blocking = false; shield.stop(); }, [shield]);
 
   useFrame((state, dt) => {
     const s = st.current, r = root.current, p = pose.current;
@@ -242,6 +276,29 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
     const t = state.clock.elapsedTime;
     const cs = cb.current;
     cs.cd -= dt;
+    tickVitals(Math.min(dt, 0.1));
+    // desmaiou (HP zerou): cai e fica até a vida voltar
+    if (vitals.down > 0) {
+      if (s.act !== 'faint' && s.act !== 'faint-rest') { play(actions.has('faint') ? 'faint' : 'idle', 0.15); s.act = 'faint'; }
+      const fa = actions.get('faint'); if (fa && fa.time > fa.getClip().duration * 0.9) fa.paused = true;
+      if (!fa) p.rotation.z = Math.min(Math.PI / 2.4, p.rotation.z + dt * 4);
+      vitals.blocking = false; shield.stop(); s.sitting = false; s.target.copy(r.position); s.once = 0;
+      chargeState.active = false; cs.charging = false;
+      mixer.update(dt);
+      return;
+    }
+    if (s.act === 'faint') { const fa = actions.get('faint'); if (fa) fa.paused = false; p.rotation.z = 0; s.act = ''; }
+    // sentar (C): fica sentado até mexer
+    if (moveInput.sitId !== s.sitId) { s.sitId = moveInput.sitId; s.sitting = !s.sitting; if (s.sitting) { s.target.copy(r.position); s.player = false; } }
+    // defesa (segurar E): escudo na frente, anda devagar, corta 75% do dano; gasta stamina
+    const guard = moveInput.block && vitals.st > 1 && !cs.charging;
+    vitals.blocking = guard;
+    if (guard) { s.sitting = false; shield.update(r.position, s.yaw, '#9fd8ff', dt); } else shield.stop();
+    // pulo (Espaço)
+    if (moveInput.jumpId !== s.jumpId) {
+      s.jumpId = moveInput.jumpId;
+      if (s.jumpT < 0 && !guard && s.once <= 0 && spendStamina(15)) { s.jumpT = 0; s.sitting = false; const ja = actions.get('jump'); if (ja) { play('jump', 0.08); ja.timeScale = Math.max(1, ja.getClip().duration / 0.62); s.act = 'jump'; } }
+    }
     // apertar guarda o pedido por um instante (não perde o clique feito no fim do golpe anterior);
     // segurar F/Espaço continua atacando no ritmo da arma
     if (combatInput.pressId !== cs.press) {
@@ -250,13 +307,14 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
       else cs.want = 0.35;
     }
     if (prof.ranged !== 'charged' && combatInput.holding) cs.want = Math.max(cs.want, 0.1);
-    const fire = cs.want > 0 && cs.cd <= 0 && !cs.charging && !cs.move;
+    const fire = cs.want > 0 && cs.cd <= 0 && !cs.charging && !cs.move && !guard && canAct() && spendStamina(6);
     cs.want -= Math.min(dt, 0.1);
     if (fire) {
+      s.sitting = false;
       cs.want = 0;
       cs.cd = 1 / prof.cadence;
       const wt = gear?.weapon?.type ?? '';
-      const kind = actions.has('attack:' + wt) ? 'attack:' + wt : actions.has(prof.anim) ? prof.anim : actions.has('attack') ? 'attack' : null;
+      const kind = (wt ? null : chosen('__basic')) ?? (actions.has('attack:' + wt) ? 'attack:' + wt : actions.has(prof.anim) ? prof.anim : actions.has('attack') ? 'attack' : null);
       if (kind) {
         // a animação acelera para caber no ritmo da arma, e o corpo fica preso só até o golpe sair
         const a = actions.get(kind)!, dur = a.getClip().duration, ts = Math.min(3, Math.max(1.3, dur * prof.cadence * 1.15));
@@ -328,7 +386,7 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
         const mouseTgt = mg ? (() => { const d = Math.min(sk.range, Math.hypot(mg.x - r.position.x, mg.z - r.position.z)); return r.position.clone().setY(0).addScaledVector(fv, d); })() : null;
         const tgt = mouseTgt ?? (aimed ? new THREE.Vector3(b!.x, 0, b!.z) : r.position.clone().setY(0).addScaledVector(fv, sk.shape === 'leap' ? sk.range : Math.min(sk.range, 3.5)));
         const travel = sk.shape === 'dash' ? 0.3 : sk.shape === 'leap' ? 0.45 : 0;
-        const kind = sk.anim === 'attack' && sk.shape !== 'melee' && actions.has('cast') ? 'cast' : actions.has(sk.anim) ? sk.anim : actions.has('attack') ? 'attack' : null;
+        const kind = chosen(sk.slug) ?? (sk.anim === 'attack' && sk.shape !== 'melee' && actions.has('cast') ? 'cast' : actions.has(sk.anim) ? sk.anim : actions.has('attack') ? 'attack' : null);
         if (kind) { const a = actions.get(kind)!, ts = 1.5; play(kind, 0.06); a.timeScale = ts; s.act = ''; s.once = Math.max(sk.windup + travel + 0.15, Math.min(0.9, (a.getClip().duration / ts) * 0.8)); } else { s.once = sk.windup + travel + 0.3; cs.lunge = 0.35; }
         s.target.copy(r.position); s.player = false; s.wait = Math.max(s.wait, 1.6);
         const rank = 1 + RANK_POWER * (q.level - 1);
@@ -360,7 +418,7 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
       s.target.set(moveRequest.point.x, 0, moveRequest.point.z);
       const rr = Math.hypot(s.target.x, s.target.z);
       if (rr > roam.limit) s.target.multiplyScalar(roam.limit / rr);
-      s.wait = 10; s.running = false;
+      s.wait = 10; s.running = !keys.current.has('shift'); s.sitting = false;
     }
     // controle pelo teclado
     const k = keys.current;
@@ -373,26 +431,28 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
       s.target.set(r.position.x + (dx / n) * 0.8, 0, r.position.z + (dz / n) * 0.8);
       const rr = Math.hypot(s.target.x, s.target.z);
       if (rr > roam.limit) s.target.multiplyScalar(roam.limit / rr);
-      s.player = true; s.running = k.has('shift'); s.wait = 12; // passeio sozinho só depois de um tempo parado
+      s.player = true; s.running = !k.has('shift'); s.wait = 12; s.sitting = false; // passeio sozinho só depois de um tempo parado
     } else if (s.player) { s.player = false; s.running = false; s.target.copy(r.position); }
 
     const to = new THREE.Vector3(s.target.x - r.position.x, 0, s.target.z - r.position.z);
     const d = to.length();
     if (d > 0.08) {
       to.normalize();
-      const step = Math.min(d, (s.running ? runSpeed : walkSpeed) * dt);
+      const step = Math.min(d, (guard ? walkSpeed * 0.4 : s.running ? runSpeed : walkSpeed) * dt);
       const before = { x: r.position.x, z: r.position.z }, next = { x: r.position.x + to.x * step, z: r.position.z + to.z * step };
       // colisão: desliza em volta de pedras, troncos e da fogueira; se ficar travado contra algo, desiste do destino
       if (resolveCollisions(next) && Math.hypot(next.x - before.x, next.z - before.z) < step * 0.25) { s.blocked += dt; if (s.blocked > 0.6 && !s.player) { s.target.set(next.x, 0, next.z); s.blocked = 0; s.stuck = true; } } else s.blocked = 0;
       r.position.x = next.x; r.position.z = next.z;
       const want = Math.atan2(to.x, to.z); let dy = want - s.yaw; while (dy > Math.PI) dy -= 2 * Math.PI; while (dy < -Math.PI) dy += 2 * Math.PI;
       s.yaw += dy * Math.min(1, dt * (s.player ? 9 : 5));
-      play(s.running && actions.has('run') ? 'run' : actions.has('walk') ? 'walk' : 'idle');
+      if (s.jumpT >= 0 && actions.has('jump')) { /* o pulo segue tocando */ } else play(guard && actions.has('block') ? 'block' : s.running && actions.has('run') ? 'run' : actions.has('walk') ? 'walk' : 'idle');
     } else {
       s.wait -= dt;
       const night = gameTime(Date.now()).phase === 'madrugada';
       // falando (balão aberto): gesticula, se tiver a animação
-      play(night && actions.has('sleep') ? 'sleep' : speech && actions.has('talk') ? 'talk' : 'idle');
+      if (s.jumpT >= 0 && actions.has('jump')) { /* pulando parado */ }
+      else play(guard && actions.has('block') ? 'block' : s.sitting && actions.has('sit') ? 'sit' : night && actions.has('sleep') ? 'sleep' : speech && actions.has('talk') ? 'talk' : 'idle');
+      if (s.sitting || guard) s.wait = Math.max(s.wait, 1);
       const goal = roam.goal?.current;
       if (goal && !s.player && s.wait > 0.4) s.wait = 0.4; // explorando: pausa curta entre os trechos
       if (s.wait <= 0 && !(night && actions.has('sleep'))) {
@@ -413,7 +473,13 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
     }
     // sobe em plataformas baixas (o altar) com suavidade
     s.lift += (platformHeight(r.position.x, r.position.z) - s.lift) * Math.min(1, dt * 10);
-    r.position.y = world.heightAt(r.position.x, r.position.z) + s.lift;
+    let hop = 0;
+    if (s.jumpT >= 0) {
+      s.jumpT += dt; const k2 = s.jumpT / 0.62;
+      if (k2 >= 1) { s.jumpT = -1; if (s.act === 'jump') s.act = ''; } else hop = 4 * 0.75 * k2 * (1 - k2);
+      if (!actions.has('jump')) p.rotation.x = -Math.sin(Math.min(1, k2) * Math.PI) * 0.25;
+    }
+    r.position.y = world.heightAt(r.position.x, r.position.z) + s.lift + hop;
     r.rotation.y = s.yaw;
     companionFocus.set(r.position.x, r.position.y, r.position.z);
     // sem animação de andar: um quique leve por procedimento; parada, respira
@@ -427,7 +493,7 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
   return (
     <>
     {appendages && (appendages.tail || appendages.wings) && <Appendages spec={appendages} anchors={anchors} root={root} heightAt={world.heightAt} />}
-    {gear && gear.items.length > 0 && <EquipmentLayer items={gear.items} bones={gearBones} root={root} charge={charge} />}
+    {gear && gear.items.length > 0 && <EquipmentLayer items={gear.items} bones={gearBones} root={root} charge={charge} modelKey={gear.modelKey} />}
     <group ref={root} position={[start[0], 0, start[1]]}>
       <group ref={pose} scale={scale}>
         <primitive object={model} />

@@ -10,6 +10,7 @@ import {
 } from '@rules';
 import { useCatalog } from './catalog';
 
+import { animKey, useAnimMap, useCompanionModels } from './companionModels';
 const SkillPreview = lazy(() => import('../scene/SkillFx').then((m) => ({ default: m.SkillPreview })));
 const ESS = Object.keys(ELEMENTS) as Element[];
 
@@ -23,6 +24,10 @@ export function ForgeStudio() {
   const [msg, setMsg] = useState<{ text: string; ok?: boolean } | null>(null);
   const [filter, setFilter] = useState<Element | 'todas' | 'neutras'>('todas');
   const [newName, setNewName] = useState('');
+  const models = useCompanionModels();
+  const [trainer, setTrainer] = useState('');
+  const trainerModel = models?.find((m) => m.companionId === trainer) ?? null;
+  const trainerAnims = useAnimMap(trainer || null);
   const [compColor, setCompColor] = useState('#9fc9ff');
   const [defEss, setDefEss] = useState<Element | ''>('');
   const [kitEss, setKitEss] = useState<Element>('fogo');
@@ -134,9 +139,13 @@ export function ForgeStudio() {
         <section className="biome-editor">
           <div className="biome-preview">
             <Suspense fallback={<div className="art-empty">Carregando prévia…</div>}>
-              <SkillPreview skill={clean} companionColor={compColor} defenderEssence={defEss || null} />
+              <SkillPreview skill={clean} companionColor={compColor} defenderEssence={defEss || null} body={trainerModel ? { url: trainerModel.url, anim: animKey(trainerAnims[clean.slug]) } : null} />
             </Suspense>
             <div className="preview-tools">
+              <label>Campo de treino <select value={trainer} onChange={(e) => setTrainer(e.target.value)} aria-label="Quem testa a habilidade">
+                <option value="">boneco padrão</option>
+                {(models ?? []).map((m) => <option key={m.companionId} value={m.companionId}>{m.name}</option>)}
+              </select></label>
               <label>Cor do Companion <input type="color" value={compColor} onChange={(e) => setCompColor(e.target.value)} /></label>
               <label>Boneco de <select value={defEss} onChange={(e) => setDefEss(e.target.value as Element | '')}><option value="">sem essência</option>{ESS.map((e) => <option key={e} value={e}>{ELEMENTS[e].label}</option>)}</select></label>
             </div>

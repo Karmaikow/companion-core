@@ -88,10 +88,15 @@ export interface ItemDef {
   model?: { url: string; path?: string };    // .GLB (no lugar do gerado)
   look?: ModelLook;
   grip: { pos: [number, number, number]; rot: [number, number, number]; scale: number }; // ajuste fino na mão/osso
+  /** pegada ajustada para um modelo de Companion específico (id do Companion → pegada); vale no lugar de `grip` */
+  gripByModel?: Record<string, ItemDef['grip']>;
   starter: boolean;                           // dado a todos (só para eventos; o normal é false)
   obtain: string;                             // observação livre (de onde vêm os ingredientes, evento...)
   recipe: { ingredients: { item: string; qty: number }[]; minBond: number; seconds: number };
 }
+
+/** Pegada do item para um modelo (o ajuste daquele Companion, ou a pegada padrão). */
+export const gripFor = (item: ItemDef, modelKey?: string | null): ItemDef['grip'] => (modelKey && item.gripByModel?.[modelKey]) || item.grip;
 
 /** Só a classe Taurina forja. */
 export const FORGE_CLASS: SpeciesKey = 'touro';
@@ -242,6 +247,11 @@ export function sanitizeItem(input: unknown): ItemDef | null {
     model: s.model && typeof s.model.url === 'string' && /^(https:\/\/|\/)/.test(s.model.url) ? { url: s.model.url, path: typeof s.model.path === 'string' ? s.model.path : undefined } : undefined,
     look: sanitizeLook(s.look),
     grip: { pos: v3(g.pos, -0.5, 0.5), rot: v3(g.rot, -Math.PI, Math.PI), scale: n(g.scale, 0.2, 3, 1) },
+    ...(() => {
+      const src = (s.gripByModel ?? {}) as Record<string, Partial<ItemDef['grip']>>, out: Record<string, ItemDef['grip']> = {};
+      for (const [k, gg] of Object.entries(src).slice(0, 60)) if (/^[0-9a-f-]{8,40}$/i.test(k) && gg && typeof gg === 'object') out[k] = { pos: v3(gg.pos, -0.5, 0.5), rot: v3(gg.rot, -Math.PI, Math.PI), scale: n(gg.scale, 0.2, 3, 1) };
+      return Object.keys(out).length ? { gripByModel: out } : {};
+    })(),
     starter: s.starter === true,
     obtain: typeof s.obtain === 'string' ? s.obtain.slice(0, 80) : '',
     recipe: {
