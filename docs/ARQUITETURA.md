@@ -165,4 +165,4 @@ Prompt com o mundo de fantasia, regra explícita de pronomes ("mim" = a pessoa; 
 3. E-mail: o SMTP padrão do Supabase envia poucos e-mails por hora; para lançar, configurar SMTP próprio.
 4. Opcional: `ANTHROPIC_API_KEY` (modelo melhor para conversa e extração) — hoje usa `GROQ_API_KEY`.
 5. Captcha no login anônimo antes de abrir ao público.
-7. Direção de arte: kit do primeiro bioma (10–15 chunks, ~40 props) e portar a Clareira (toon, vento, contorno) para o jogo.
+6. Direção de arte: kit do primeiro bioma (10–15 chunks, ~40 props) e portar a Clareira (toon, vento, contorno) para o jogo.
