@@ -20,6 +20,11 @@ export const combatInput = { holding: false, pressId: 0, releaseId: 0 };
 export function pressAttack() { if (combatInput.holding) return; combatInput.holding = true; combatInput.pressId++; }
 export function releaseAttack() { if (!combatInput.holding) return; combatInput.holding = false; combatInput.releaseId++; }
 
+/** Mira pelo mouse: vale quando a última interação foi com mouse (no celular, a mira é automática). */
+export const aim = { mouse: false };
+if (typeof window !== 'undefined') window.addEventListener('pointermove', (e) => { aim.mouse = e.pointerType === 'mouse'; }, { passive: true });
+if (typeof window !== 'undefined') window.addEventListener('pointerdown', (e) => { aim.mouse = e.pointerType === 'mouse'; }, { passive: true });
+
 /** Carga do arco agora (para o efeito e para a corda). */
 export const chargeState = { active: false, charge: 0, perfect: false, pos: new THREE.Vector3(), yaw: 0, range: 0, color: '#ffd56b' };
 
@@ -63,7 +68,9 @@ export function CombatFx({ world }: { world: WorldShape }) {
     const dt = Math.min(dtRaw, 0.05), t = s.clock.elapsedTime;
     // novos eventos
     while (fxQueue.length) {
-      const ev = fxQueue.shift()!, L: Live = { id: ++seq, ev, t: 0, done: false, hit: false, at: ev.pos.clone() };
+      const ev = fxQueue.shift()!;
+      if (import.meta.env.DEV) devLog.push({ kind: ev.kind, yaw: ev.yaw, x: ev.pos.x, z: ev.pos.z, t: performance.now() });
+      const L: Live = { id: ++seq, ev, t: 0, done: false, hit: false, at: ev.pos.clone() };
       if (ev.kind === 'skill') { runSkill(ev, world, pop); continue; }
       if (ev.kind === 'slash') slash(gameVfx, ev.pos.clone().setY(world.heightAt(ev.pos.x, ev.pos.z) + 0.65), ev.yaw, ev.range, ev.color, ev.heavy);
       else L.fx = ev.kind === 'magic' ? new Missile(gameVfx, ev.style ?? 'luz', ev.color, 0.55) : new Missile(gameVfx, ev.perfect ? 'luz' : 'faiscas', ev.color, ev.perfect ? 0.32 : 0.16);
@@ -222,5 +229,6 @@ function runSkill(ev: Extract<FxEvent, { kind: 'skill' }>, world: WorldShape, po
   });
 }
 
+const devLog: { kind: string; yaw: number; x: number; z: number; t: number }[] = [];
 // testes no navegador (só no dev)
-if (import.meta.env.DEV && typeof window !== 'undefined') (window as unknown as { __combat: unknown }).__combat = { combatInput, chargeState, targets, fxQueue, vfx: gameVfx, skillInput, requestSkill };
+if (import.meta.env.DEV && typeof window !== 'undefined') (window as unknown as { __combat: unknown }).__combat = { combatInput, chargeState, targets, fxQueue, vfx: gameVfx, skillInput, requestSkill, aim, devLog };

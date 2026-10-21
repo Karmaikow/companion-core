@@ -281,6 +281,13 @@ Os efeitos deixaram de ser pontos com textura e passaram a usar um motor própri
   - Dano: `expectedDamage` × (1 + 15% por nível). A cura aparece em verde.
 - **Ainda não tem:** gasto de energia e efeitos de status. Vêm com a batalha.
 
+## Mira pelo mouse e ritmo do ataque (v1.12)
+
+- **Mira no PC:** quando a última interação foi com o mouse (`aim.mouse`, em Combat.tsx), o golpe, a magia, o arco e as habilidades miram no ponto do chão sob o cursor. Área e salto caem nesse ponto, até o alcance. No celular, continua a mira automática no alvo mais perto.
+- **Animação do golpe:** acelera para caber no ritmo da arma (`timeScale` = duração × cadência × 1,15, entre 1,3 e 3). O corpo fica preso só até o golpe sair, no máximo 0,75 s.
+- **Pedido guardado:** o aperto fica guardado por 0,35 s, então o clique no fim do golpe anterior não se perde.
+- **Segurar F ou Espaço:** continua atacando no ritmo da arma.
+
 ## Escala e frente do modelo 3D (v1.12)
 
 - **Medida pelos ossos:** o tamanho do modelo é medido com os ossos aplicados (`Box3.setFromObject(model, true)`). Alguns rigs do Tripo trazem a malha "crua" em outra escala: a Mayuna humana media 2 m crua e 0,98 m de verdade, e ficava com metade do tamanho.

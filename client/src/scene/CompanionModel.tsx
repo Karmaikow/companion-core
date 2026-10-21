@@ -15,7 +15,7 @@ import { CLEAR_R, companionFocus, moveRequest, resolveCollisions, platformHeight
 import { SpeechBubble } from './SpeechBubble';
 import { Appendages, findAnchors, type AppendageSpec } from './Appendages';
 import { EquipmentLayer, findGearBones } from './Equipment';
-import { combatInput, chargeState, fxQueue, skillInput, targets } from './Combat';
+import { aim, combatInput, chargeState, fxQueue, skillInput, targets } from './Combat';
 import { basicAttack, bowShot, ELEMENTS, expectedDamage, RANK_POWER, type ItemDef, type SpeciesKey } from '@rules';
 
 /** O que o Companion carrega: itens visíveis, a arma (escolhe o ataque) e o que muda o dano. */
@@ -219,12 +219,20 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
 
   // ---- ataque: golpe/magia ao apertar; arco carrega enquanto segura e atira ao soltar
   const charge = useRef(0);
-  const cb = useRef({ press: combatInput.pressId, release: combatInput.releaseId, charging: false, held: 0, cd: 0, lunge: 0, skill: skillInput.id, move: null as null | { from: THREE.Vector3; to: THREE.Vector3; t: number; dur: number; arc: number } });
+  const cb = useRef({ press: combatInput.pressId, release: combatInput.releaseId, charging: false, held: 0, cd: 0, lunge: 0, want: 0, skill: skillInput.id, move: null as null | { from: THREE.Vector3; to: THREE.Vector3; t: number; dur: number; arc: number } });
   useEffect(() => { skillInput.body = true; return () => { skillInput.body = false; }; }, []);
   const prof = useMemo(() => basicAttack(gear?.weapon ?? null, gear?.species), [gear?.weapon, gear?.species]);
   const ESSENCE_FX: Record<string, string> = { fogo: 'chamas', agua: 'gotas', terra: 'pedras', vento: 'vento', luz: 'luz', sombra: 'sombra', gelo: 'gelo', raio: 'raios', natureza: 'folhas' };
   const fxColor = gear?.weapon?.essence ? ELEMENTS[gear.weapon.essence].glow : gear?.color ?? '#ffd56b';
   const damageOf = (mul = 1) => Math.max(1, Math.round(20 * prof.power * (1 + (gear?.poder ?? 0) / 100) * mul));
+  // mira do mouse (PC): o ponto do chão sob o cursor, na altura do Companion
+  const aimRay = useMemo(() => ({ ray: new THREE.Raycaster(), plane: new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), hit: new THREE.Vector3() }), []);
+  const mouseGround = (state: { camera: THREE.Camera; pointer: THREE.Vector2 }, at: THREE.Vector3) => {
+    if (!aim.mouse) return null;
+    aimRay.ray.setFromCamera(state.pointer, state.camera); aimRay.plane.constant = -at.y;
+    const h = aimRay.ray.ray.intersectPlane(aimRay.plane, aimRay.hit);
+    return h && Math.hypot(h.x - at.x, h.z - at.z) > 0.15 ? h : null;
+  };
   const camYaw = (state: { camera: THREE.Camera }) => { state.camera.getWorldDirection(fwd); return Math.atan2(fwd.x, fwd.z); };
   useEffect(() => () => { chargeState.active = false; }, []);
 
@@ -234,23 +242,38 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
     const t = state.clock.elapsedTime;
     const cs = cb.current;
     cs.cd -= dt;
+    // apertar guarda o pedido por um instante (não perde o clique feito no fim do golpe anterior);
+    // segurar F/Espaço continua atacando no ritmo da arma
     if (combatInput.pressId !== cs.press) {
       cs.press = combatInput.pressId;
       if (prof.ranged === 'charged') { cs.charging = true; cs.held = 0; }
-      else if (cs.cd <= 0) {
-        cs.cd = 1 / prof.cadence;
-        const wt = gear?.weapon?.type ?? '';
-        const kind = actions.has('attack:' + wt) ? 'attack:' + wt : actions.has(prof.anim) ? prof.anim : actions.has('attack') ? 'attack' : null;
-        if (kind) { play(kind, 0.08); s.act = ''; s.once = Math.min(1.2, actions.get(kind)!.getClip().duration * 0.85); } else { s.once = 0.35; cs.lunge = 0.35; }
-        s.target.copy(r.position);
-        // vira para o alvo mais perto à frente (ajuda no celular)
+      else cs.want = 0.35;
+    }
+    if (prof.ranged !== 'charged' && combatInput.holding) cs.want = Math.max(cs.want, 0.1);
+    const fire = cs.want > 0 && cs.cd <= 0 && !cs.charging && !cs.move;
+    cs.want -= Math.min(dt, 0.1);
+    if (fire) {
+      cs.want = 0;
+      cs.cd = 1 / prof.cadence;
+      const wt = gear?.weapon?.type ?? '';
+      const kind = actions.has('attack:' + wt) ? 'attack:' + wt : actions.has(prof.anim) ? prof.anim : actions.has('attack') ? 'attack' : null;
+      if (kind) {
+        // a animação acelera para caber no ritmo da arma, e o corpo fica preso só até o golpe sair
+        const a = actions.get(kind)!, dur = a.getClip().duration, ts = Math.min(3, Math.max(1.3, dur * prof.cadence * 1.15));
+        play(kind, 0.06); a.timeScale = ts; s.act = ''; s.once = Math.min(0.75, (dur / ts) * 0.8);
+      } else { s.once = 0.3; cs.lunge = 0.3; }
+      s.target.copy(r.position);
+      const m = mouseGround(state, r.position);
+      if (m) { s.yaw = Math.atan2(m.x - r.position.x, m.z - r.position.z); r.rotation.y = s.yaw; }
+      else {
+        // celular: vira para o alvo mais perto
         let bestD = prof.range + 1.5;
         targets.forEach((tg) => { const dx = tg.x - r.position.x, dz = tg.z - r.position.z, dd = Math.hypot(dx, dz); if (dd < bestD && dd > 0.3) { bestD = dd; s.yaw = Math.atan2(dx, dz); r.rotation.y = s.yaw; } });
-        const pos = r.position.clone();
-        fxQueue.push(prof.ranged === 'magic'
-          ? { kind: 'magic', pos: pos.setY(0), yaw: s.yaw, range: prof.range, damage: damageOf(), color: fxColor, style: gear?.weapon?.essence ? ESSENCE_FX[gear.weapon.essence] : 'luz' }
-          : { kind: 'slash', pos, yaw: s.yaw, range: prof.range, damage: damageOf(), color: fxColor, heavy: prof.power > 1.2 });
       }
+      const pos = r.position.clone();
+      fxQueue.push(prof.ranged === 'magic'
+        ? { kind: 'magic', pos: pos.setY(0), yaw: s.yaw, range: prof.range, damage: damageOf(), color: fxColor, style: gear?.weapon?.essence ? ESSENCE_FX[gear.weapon.essence] : 'luz' }
+        : { kind: 'slash', pos, yaw: s.yaw, range: prof.range, damage: damageOf(), color: fxColor, heavy: prof.power > 1.2 });
     }
     if (cs.charging) {
       cs.held += dt;
@@ -258,11 +281,13 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
       charge.current = shot.charge;
       // mira para onde a câmera olha (arraste a tela para mirar), com uma ajudinha: um alvo perto dessa direção e
       // dentro do alcance puxa a mira para ele
-      let want = camYaw(state), best = 0.85;
+      const mg = mouseGround(state, r.position);
+      let want = mg ? Math.atan2(mg.x - r.position.x, mg.z - r.position.z) : camYaw(state), best = mg ? 0.2 : 0.85;
+      const base = want;
       targets.forEach((tg) => {
         const dx = tg.x - r.position.x, dz = tg.z - r.position.z, dist = Math.hypot(dx, dz);
         if (dist > shot.range + 1.5 || dist < 0.5) return;
-        let da = Math.atan2(dx, dz) - camYaw(state); while (da > Math.PI) da -= 2 * Math.PI; while (da < -Math.PI) da += 2 * Math.PI;
+        let da = Math.atan2(dx, dz) - base; while (da > Math.PI) da -= 2 * Math.PI; while (da < -Math.PI) da += 2 * Math.PI;
         if (Math.abs(da) < best) { best = Math.abs(da); want = Math.atan2(dx, dz); }
       }); let dy = want - s.yaw; while (dy > Math.PI) dy -= 2 * Math.PI; while (dy < -Math.PI) dy += 2 * Math.PI; s.yaw += dy * Math.min(1, dt * 10);
       Object.assign(chargeState, { active: true, charge: shot.charge, perfect: shot.perfect, yaw: s.yaw, range: shot.range, color: fxColor });
@@ -294,13 +319,17 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
         let best: { x: number; z: number } | null = null, bd = Math.max(sk.range, sk.radius) + 1.5;
         targets.forEach((tg) => { const dd = Math.hypot(tg.x - r.position.x, tg.z - r.position.z); if (dd < bd && dd > 0.3) { bd = dd; best = tg; } });
         const b = best as { x: number; z: number } | null;
-        if (b && sk.shape !== 'aura') { s.yaw = Math.atan2(b.x - r.position.x, b.z - r.position.z); r.rotation.y = s.yaw; }
+        const mg = mouseGround(state, r.position);
+        if (mg && sk.shape !== 'aura') { s.yaw = Math.atan2(mg.x - r.position.x, mg.z - r.position.z); r.rotation.y = s.yaw; }
+        else if (b && sk.shape !== 'aura') { s.yaw = Math.atan2(b.x - r.position.x, b.z - r.position.z); r.rotation.y = s.yaw; }
         const fv = new THREE.Vector3(Math.sin(s.yaw), 0, Math.cos(s.yaw));
         const aimed = (sk.shape === 'circle' || sk.shape === 'leap') && b && bd <= sk.range + 0.5;
-        const tgt = aimed ? new THREE.Vector3(b!.x, 0, b!.z) : r.position.clone().setY(0).addScaledVector(fv, sk.shape === 'leap' ? sk.range : Math.min(sk.range, 3.5));
+        // no PC, área e salto caem onde o mouse aponta (até o alcance)
+        const mouseTgt = mg ? (() => { const d = Math.min(sk.range, Math.hypot(mg.x - r.position.x, mg.z - r.position.z)); return r.position.clone().setY(0).addScaledVector(fv, d); })() : null;
+        const tgt = mouseTgt ?? (aimed ? new THREE.Vector3(b!.x, 0, b!.z) : r.position.clone().setY(0).addScaledVector(fv, sk.shape === 'leap' ? sk.range : Math.min(sk.range, 3.5)));
         const travel = sk.shape === 'dash' ? 0.3 : sk.shape === 'leap' ? 0.45 : 0;
         const kind = sk.anim === 'attack' && sk.shape !== 'melee' && actions.has('cast') ? 'cast' : actions.has(sk.anim) ? sk.anim : actions.has('attack') ? 'attack' : null;
-        if (kind) { play(kind, 0.08); s.act = ''; s.once = Math.max(sk.windup + travel + 0.2, Math.min(1.2, actions.get(kind)!.getClip().duration * 0.85)); } else { s.once = sk.windup + travel + 0.3; cs.lunge = 0.35; }
+        if (kind) { const a = actions.get(kind)!, ts = 1.5; play(kind, 0.06); a.timeScale = ts; s.act = ''; s.once = Math.max(sk.windup + travel + 0.15, Math.min(0.9, (a.getClip().duration / ts) * 0.8)); } else { s.once = sk.windup + travel + 0.3; cs.lunge = 0.35; }
         s.target.copy(r.position); s.player = false; s.wait = Math.max(s.wait, 1.6);
         const rank = 1 + RANK_POWER * (q.level - 1);
         const atk = 60 * (1 + (gear?.poder ?? 0) / 100);
