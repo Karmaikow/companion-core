@@ -19,6 +19,7 @@ import { Shockwave } from './pieces';
 import { makeWorld, companionFocus, colliders, type WorldShape } from './world';
 import { Terrain, Cliffs, GrassBlades, BiomeVegetation, Sky, Motes, CameraRig, WindClock, ClickMarker } from './Biome';
 import { SpeechBubble } from './SpeechBubble';
+import type { AppendageSpec } from './Appendages';
 
 export interface RefugeProps {
   color: string;
@@ -39,6 +40,8 @@ export interface RefugeProps {
   /** Bioma do Refúgio (vem do Estúdio quando publicado; senão, o de fábrica). */
   biome?: BiomeConfig;
   quality: 'high' | 'low';
+  /** cauda e asas da classe (desenhadas por código) */
+  appendages?: AppendageSpec | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -144,7 +147,7 @@ export function Refuge(props: RefugeProps) {
       <Motes world={world} night={night} amount={0.4 + f.walls * 0.6} />
       <Shockwave burstKey={props.burstKey ?? 0} color={props.glow} />
       {props.model && !modelFailed ? (
-        <Suspense fallback={null}><CompanionModel files={props.model} world={world} burstKey={props.burstKey ?? 0} speech={props.speech ?? null} onFail={onFail} /></Suspense>
+        <Suspense fallback={null}><CompanionModel files={props.model} world={world} burstKey={props.burstKey ?? 0} speech={props.speech ?? null} onFail={onFail} appendages={props.appendages} /></Suspense>
       ) : (
         <>
           {/* sem modelo aprovado: o núcleo (ou o corpo de partículas) no altar; a imagem de referência vai para o retrato */}

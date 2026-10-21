@@ -13,6 +13,7 @@ import { animKind, strideSpeed, gameTime, type AnimKind } from '@rules';
 import type { CompanionModelFiles } from '../backend/types';
 import { CLEAR_R, companionFocus, moveRequest, resolveCollisions, platformHeight, type WorldShape } from './world';
 import { SpeechBubble } from './SpeechBubble';
+import { Appendages, findAnchors, type AppendageSpec } from './Appendages';
 
 const loader = new GLTFLoader();
 loader.setMeshoptDecoder(MeshoptDecoder);
@@ -93,7 +94,7 @@ const REFUGE_ROAM: Roam = {
   wander: () => { const a = Math.random() * Math.PI * 2, rr = 2.3 + Math.random() * (CLEAR_R - 4); return [Math.cos(a) * rr, Math.sin(a) * rr]; },
 };
 
-export function CompanionModel({ files, world, burstKey, speech, onFail, roam = REFUGE_ROAM }: { files: CompanionModelFiles; world: WorldShape; burstKey: number; speech: string | null; onFail: () => void; roam?: Roam }) {
+export function CompanionModel({ files, world, burstKey, speech, onFail, roam = REFUGE_ROAM, appendages }: { files: CompanionModelFiles; world: WorldShape; burstKey: number; speech: string | null; onFail: () => void; roam?: Roam; /** cauda e asas da classe, desenhadas por código */ appendages?: AppendageSpec | null }) {
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   useEffect(() => {
     let alive = true;
@@ -112,13 +113,13 @@ export function CompanionModel({ files, world, burstKey, speech, onFail, roam = 
     return () => { alive = false; };
   }, [files, onFail]);
   if (!loaded) return null;
-  return <Walker loaded={loaded} world={world} burstKey={burstKey} speech={speech} roam={roam} />;
+  return <Walker loaded={loaded} world={world} burstKey={burstKey} speech={speech} roam={roam} appendages={appendages ?? null} />;
 }
 
-function Walker({ loaded, world, burstKey, speech, roam }: { loaded: Loaded; world: WorldShape; burstKey: number; speech: string | null; roam: Roam }) {
+function Walker({ loaded, world, burstKey, speech, roam, appendages }: { loaded: Loaded; world: WorldShape; burstKey: number; speech: string | null; roam: Roam; appendages: AppendageSpec | null }) {
   const root = useRef<THREE.Group>(null);
   const pose = useRef<THREE.Group>(null);
-  const { model, scale, mixer, actions, walkSpeed, runSpeed } = useMemo(() => {
+  const { model, scale, mixer, actions, walkSpeed, runSpeed, anchors } = useMemo(() => {
     // cópia com esqueleto próprio: o React pode repetir este cálculo, e o original não pode ser movido entre grupos
     const model = cloneSkinned(loaded.gltf.scene);
     sanitizeSkins(model);
@@ -151,7 +152,7 @@ function Walker({ loaded, world, burstKey, speech, roam }: { loaded: Loaded; wor
     const walkSpeed = actions.has('walk') ? strideSpeed(stride, 1, 0.7) : 0.7;
     const run = loaded.clips.find((c2) => c2.kind === 'run');
     const runSpeed = run ? strideSpeed(run.stride * scale, 1, walkSpeed * 2) : walkSpeed * 1.8;
-    return { model: orient, scale, mixer, actions, walkSpeed, runSpeed };
+    return { model: orient, scale, mixer, actions, walkSpeed, runSpeed, anchors: findAnchors(model) };
   }, [loaded]);
 
   const start = roam.start ?? [1.6, 1.4];
@@ -256,6 +257,8 @@ function Walker({ loaded, world, burstKey, speech, roam }: { loaded: Loaded; wor
   });
 
   return (
+    <>
+    {appendages && (appendages.tail || appendages.wings) && <Appendages spec={appendages} anchors={anchors} root={root} heightAt={world.heightAt} />}
     <group ref={root} position={[start[0], 0, start[1]]}>
       <group ref={pose} scale={scale}>
         <primitive object={model} />
@@ -266,5 +269,6 @@ function Walker({ loaded, world, burstKey, speech, roam }: { loaded: Loaded; wor
         <meshBasicMaterial color="#000" transparent opacity={0.18} depthWrite={false} />
       </mesh>
     </group>
+    </>
   );
 }

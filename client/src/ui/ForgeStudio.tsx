@@ -5,8 +5,8 @@
  */
 import { lazy, Suspense, useMemo, useState } from 'react';
 import {
-  DEFAULT_SKILLS, ELEMENTS, SLOTS, SHAPES, STATUSES, VFX_STYLES, BODIES, ANIM_KINDS, sanitizeSkill, kitFor, biomeSlug,
-  type SkillDef, type SkillSlot, type SkillShape, type StatusKey, type VfxStyle, type Element, type BodyPlan,
+  DEFAULT_SKILLS, ELEMENTS, SLOTS, SHAPES, STATUSES, VFX_STYLES, BODIES, ANIM_KINDS, CLASS_LABELS, SPECIES, sanitizeSkill, kitFor, biomeSlug,
+  type SkillDef, type SkillSlot, type SkillShape, type StatusKey, type VfxStyle, type Element, type BodyPlan, type SpeciesKey,
 } from '@rules';
 import { useCatalog } from './catalog';
 
@@ -26,7 +26,7 @@ export function ForgeStudio() {
   const [compColor, setCompColor] = useState('#9fc9ff');
   const [defEss, setDefEss] = useState<Element | ''>('');
   const [kitEss, setKitEss] = useState<Element>('fogo');
-  const [kitBody, setKitBody] = useState<BodyPlan>('quadruped');
+  const [kitClass, setKitClass] = useState<SpeciesKey>('serpente');
   const [kitBond, setKitBond] = useState(5);
 
   const run = async (f: () => Promise<unknown>, ok: string) => {
@@ -47,20 +47,38 @@ export function ForgeStudio() {
     setSel(slug); setDraft(base); setStatus('draft'); setDirty(true); setNewName('');
   }
 
+  // catálogo novo (Companions humanoides por classe): habilidades que faltam e classes que as antigas não tinham
+  const pendingDefaults = useMemo(() => DEFAULT_SKILLS.filter((d) => {
+    const r = cat.rows?.find((x) => x.slug === d.slug);
+    return !r || (!r.data.classes.length && d.classes.length);
+  }), [cat.rows]);
+  const missingDefaults = pendingDefaults.length;
+  async function syncDefaults() {
+    for (const d of pendingDefaults) {
+      const r = cat.rows?.find((x) => x.slug === d.slug);
+      await cat.save(r ? { ...r.data, classes: d.classes, description: r.data.description || d.description } : d, r?.status ?? 'published');
+    }
+  }
+
   const rows = (cat.rows ?? []).filter((r) => filter === 'todas' || (filter === 'neutras' ? !r.data.essence : r.data.essence === filter));
   const published = useMemo(() => (cat.rows ?? []).filter((r) => r.status === 'published').map((r) => (r.slug === draft?.slug ? draft : r.data)), [cat.rows, draft]);
-  const kit = useMemo(() => kitFor(published.length ? published : DEFAULT_SKILLS, { essence: kitEss, body: kitBody, bond: kitBond }), [published, kitEss, kitBody, kitBond]);
+  const kit = useMemo(() => kitFor(published.length ? published : DEFAULT_SKILLS, { essence: kitEss, body: 'biped', bond: kitBond, species: kitClass }), [published, kitEss, kitClass, kitBond]);
   const clean = useMemo(() => (draft ? sanitizeSkill(draft) : null), [draft]);
 
   return (
     <div className="biome-studio">
       <aside className="biome-list">
         <h2>Forja de Batalha</h2>
-        <small className="hint">Habilidades genéricas: cada uma serve a uma essência (ou todas) e a corpos escolhidos (ou todos). A animação é sempre um clipe que todo rig tem; o que muda é a forma e o efeito.</small>
+        <small className="hint">Habilidades genéricas: cada uma serve a uma essência (ou todas) e a classes de Companion e corpos de monstro escolhidos (ou todos). Companions são humanoides: a animação é sempre um clipe de humanoide; o que muda é a forma e o efeito.</small>
         {cat.error && <p className="msg err">{cat.error}</p>}
         {cat.rows && !cat.rows.length && (
           <button className="primary" disabled={busy} onClick={() => void run(() => cat.saveMany(DEFAULT_SKILLS, 'published'), `${DEFAULT_SKILLS.length} habilidades carregadas e publicadas.`)}>
             Carregar o catálogo inicial ({DEFAULT_SKILLS.length} habilidades)
+          </button>
+        )}
+        {cat.rows && cat.rows.length > 0 && missingDefaults > 0 && (
+          <button className="ghost" disabled={busy} onClick={() => void run(syncDefaults, 'Catálogo atualizado: classes de Companion e habilidades novas.')}>
+            Atualizar com o catálogo novo ({missingDefaults} mudança{missingDefaults > 1 ? 's' : ''}: classes humanoides)
           </button>
         )}
         <select value={filter} onChange={(e) => setFilter(e.target.value as typeof filter)} aria-label="Filtrar por essência">
@@ -79,7 +97,7 @@ export function ForgeStudio() {
                   <li key={r.slug}>
                     <button className={sel === r.slug ? 'on' : ''} onClick={() => pick(r.slug)}>
                       <strong><i className="look-dot" style={{ background: r.data.essence ? ELEMENTS[r.data.essence].glow : compColor }} />{r.name}</strong>
-                      <small>{SHAPES[r.data.shape]} · {r.data.bodies.length ? r.data.bodies.map((b) => BODIES[b]).join(', ') : 'todos os corpos'}{r.status === 'draft' ? ' · rascunho' : ''}</small>
+                      <small>{SHAPES[r.data.shape]} · {r.data.classes.length || r.data.bodies.length ? [...r.data.classes.map((k) => CLASS_LABELS[k]), ...(r.data.bodies.length ? ['monstros: ' + r.data.bodies.map((b) => BODIES[b]).join(', ')] : [])].join(' · ') : 'todos'}{r.status === 'draft' ? ' · rascunho' : ''}</small>
                     </button>
                   </li>
                 ))}
@@ -96,7 +114,7 @@ export function ForgeStudio() {
           <legend>Kit de exemplo</legend>
           <div className="chips">
             <select value={kitEss} onChange={(e) => setKitEss(e.target.value as Element)} aria-label="Essência">{ESS.map((e) => <option key={e} value={e}>{ELEMENTS[e].label}</option>)}</select>
-            <select value={kitBody} onChange={(e) => setKitBody(e.target.value as BodyPlan)} aria-label="Corpo">{(Object.keys(BODIES) as BodyPlan[]).map((b) => <option key={b} value={b}>{BODIES[b]}</option>)}</select>
+            <select value={kitClass} onChange={(e) => setKitClass(e.target.value as SpeciesKey)} aria-label="Classe">{(Object.keys(CLASS_LABELS) as SpeciesKey[]).map((k) => <option key={k} value={k}>{CLASS_LABELS[k]}</option>)}</select>
             <label>vínculo <input type="number" min={1} max={20} value={kitBond} onChange={(e) => setKitBond(Number(e.target.value))} style={{ width: 52 }} /></label>
           </div>
           <ul className="kit-list">
@@ -138,13 +156,20 @@ export function ForgeStudio() {
                 <label>Essência<select value={draft.essence ?? ''} onChange={(e) => edit({ essence: (e.target.value || null) as Element | null })}><option value="">Neutra (qualquer; cor do Companion)</option>{ESS.map((e) => <option key={e} value={e}>{ELEMENTS[e].label}</option>)}</select></label>
                 <label>Abre no vínculo<input type="number" min={1} max={20} value={draft.unlockBond} onChange={(e) => edit({ unlockBond: Number(e.target.value) })} /></label>
               </div>
+              <div className="chips" role="group" aria-label="Classes">
+                <span className="hint">Classes de Companion:</span>
+                {(Object.keys(CLASS_LABELS) as SpeciesKey[]).map((k) => {
+                  const on = draft.classes.includes(k);
+                  return <button key={k} type="button" className={'chip' + (on ? ' on' : '')} aria-pressed={on} title={SPECIES[k].lineage} onClick={() => edit({ classes: on ? draft.classes.filter((x) => x !== k) : [...draft.classes, k] })}>{CLASS_LABELS[k]}</button>;
+                })}
+              </div>
               <div className="chips" role="group" aria-label="Corpos">
-                <span className="hint">Corpos:</span>
+                <span className="hint">Corpos de monstro:</span>
                 {(Object.keys(BODIES) as BodyPlan[]).map((b) => {
                   const on = draft.bodies.includes(b);
                   return <button key={b} type="button" className={'chip' + (on ? ' on' : '')} aria-pressed={on} onClick={() => edit({ bodies: on ? draft.bodies.filter((x) => x !== b) : [...draft.bodies, b] })}>{BODIES[b]}</button>;
                 })}
-                {!draft.bodies.length && <small className="hint">nenhum marcado = todos</small>}
+                {!draft.bodies.length && !draft.classes.length && <small className="hint">nada marcado = todos os Companions e monstros</small>}
               </div>
             </fieldset>
 

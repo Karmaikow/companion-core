@@ -8,6 +8,7 @@
 import type { Element } from '../identity.ts';
 import type { BodyPlan } from '../art.ts';
 import type { AnimKind } from '../anim.ts';
+import type { SpeciesKey } from '../species.ts';
 
 export type SkillSlot = 'basic' | 'essence' | 'form' | 'supreme';
 export type SkillShape = 'melee' | 'cone' | 'line' | 'circle' | 'projectile' | 'aura' | 'dash' | 'leap';
@@ -20,7 +21,8 @@ export interface SkillDef {
   description: string;
   slot: SkillSlot;
   essence: Element | null;       // null = neutra (usa a cor do Companion)
-  bodies: BodyPlan[];            // vazio = todos os corpos
+  classes: SpeciesKey[];         // classes de Companion (humanoides) que podem usar; vazio + bodies vazio = todos
+  bodies: BodyPlan[];            // corpos de criatura que podem usar (monstros); vazio = todos
   shape: SkillShape;
   range: number;                 // m — alcance (golpe, linha, projétil, investida, salto)
   radius: number;                // m — raio da área (círculo, aura, ponto de queda) ou largura da linha
@@ -54,7 +56,7 @@ export const STATUSES: Record<StatusKey, { label: string; effect: string; good: 
 export const VFX_STYLES: Record<VfxStyle, string> = {
   impacto: 'Impacto', chamas: 'Chamas', gotas: 'Água', folhas: 'Folhas', pedras: 'Pedras', gelo: 'Gelo', raios: 'Raios', vento: 'Vento', luz: 'Luz', sombra: 'Sombra', faiscas: 'Faíscas',
 };
-export const BODIES: Record<BodyPlan, string> = { quadruped: 'Quadrúpede', biped: 'Bípede', avian: 'Ave', serpentine: 'Serpente', aquatic: 'Aquático' };
+export const BODIES: Record<BodyPlan, string> = { quadruped: 'Quadrúpede', biped: 'Bípede/humanoide', avian: 'Ave', serpentine: 'Serpente', aquatic: 'Aquático' };
 export const SKILL_ANIMS: AnimKind[] = ['attack', 'jump', 'run', 'happy', 'special'];
 
 // ---------------------------------------------------------------------------
@@ -86,19 +88,20 @@ export function expectedDamage(skill: Pick<SkillDef, 'power'>, atk: number, def:
 // ---------------------------------------------------------------------------
 
 const S = (slug: string, name: string, slot: SkillSlot, essence: Element | null, shape: SkillShape, o: Partial<SkillDef> & { description: string }): SkillDef => ({
-  slug, name, slot, essence, shape, bodies: [], range: 1.6, radius: 1.2, angle: 60, power: 0, heal: 0, energy: 0, cooldown: 1, windup: 0.3,
+  slug, name, slot, essence, shape, classes: [], bodies: [], range: 1.6, radius: 1.2, angle: 60, power: 0, heal: 0, energy: 0, cooldown: 1, windup: 0.3,
   status: null, anim: 'attack', vfx: { style: 'impacto', color: essence ? 'essence' : 'companion', ground: false }, unlockBond: 1, ...o,
 });
 
 export const DEFAULT_SKILLS: SkillDef[] = [
   // golpes básicos (todos têm um)
   S('golpe', 'Golpe', 'basic', null, 'melee', { description: 'Garra, cabeçada, bicada ou cauda — o golpe que o corpo tiver.', power: 40, cooldown: 0.9, windup: 0.15, range: 1.6 }),
-  S('faisca-de-essencia', 'Faísca de Essência', 'basic', null, 'projectile', { description: 'Um pingo de energia na cor do Companion, de longe.', power: 30, cooldown: 1.1, windup: 0.2, range: 7, radius: 0.4, vfx: { style: 'faiscas', color: 'companion', ground: false }, bodies: ['avian', 'serpentine', 'aquatic'] }),
+  S('faisca-de-essencia', 'Faísca de Essência', 'basic', null, 'projectile', { description: 'Um pingo de energia na cor do Companion, de longe.', power: 30, cooldown: 1.1, windup: 0.2, range: 7, radius: 0.4, vfx: { style: 'faiscas', color: 'companion', ground: false }, classes: ['passaro', 'mistica'], bodies: ['avian', 'serpentine', 'aquatic'] }),
   // forma (uma por corpo)
-  S('investida', 'Investida', 'form', null, 'dash', { description: 'Corre em linha reta e atropela quem estiver no caminho.', bodies: ['quadruped'], power: 70, energy: 25, cooldown: 6, windup: 0.5, range: 6, radius: 0.9, status: { key: 'atordoado', chance: 0.3, seconds: 1 }, anim: 'run', unlockBond: 5 }),
-  S('rasante', 'Rasante', 'form', null, 'dash', { description: 'Mergulho rápido em voo baixo, atravessando os inimigos.', bodies: ['avian'], power: 60, energy: 25, cooldown: 5, windup: 0.4, range: 7, radius: 0.8, anim: 'jump', vfx: { style: 'vento', color: 'companion', ground: false }, unlockBond: 5 }),
-  S('bote', 'Bote', 'form', null, 'leap', { description: 'Se encolhe e salta no alvo, deixando-o lento.', bodies: ['serpentine'], power: 65, energy: 25, cooldown: 5, windup: 0.5, range: 4.5, radius: 1, status: { key: 'lento', chance: 0.6, seconds: 3 }, anim: 'jump', unlockBond: 5 }),
-  S('guarda', 'Guarda', 'form', null, 'aura', { description: 'Firma os pés e se protege; aliados perto também.', bodies: ['biped'], energy: 20, cooldown: 8, windup: 0.2, radius: 2.5, status: { key: 'protegido', chance: 1, seconds: 4 }, anim: 'happy', vfx: { style: 'luz', color: 'companion', ground: true }, unlockBond: 5 }),
+  S('investida', 'Investida', 'form', null, 'dash', { description: 'Abaixa os chifres e corre em linha reta, atropelando quem estiver no caminho.', classes: ['touro'], bodies: ['quadruped'], power: 70, energy: 25, cooldown: 6, windup: 0.5, range: 6, radius: 0.9, status: { key: 'atordoado', chance: 0.3, seconds: 1 }, anim: 'run', unlockBond: 5 }),
+  S('rasante', 'Rasante', 'form', null, 'dash', { description: 'Abre as asas num mergulho rápido e baixo, atravessando os inimigos.', classes: ['passaro'], bodies: ['avian'], power: 60, energy: 25, cooldown: 5, windup: 0.4, range: 7, radius: 0.8, anim: 'jump', vfx: { style: 'vento', color: 'companion', ground: false }, unlockBond: 5 }),
+  S('bote', 'Bote', 'form', null, 'leap', { description: 'Se encolhe e salta no alvo como um bicho, deixando-o lento.', classes: ['felino'], bodies: ['serpentine', 'quadruped'], power: 65, energy: 25, cooldown: 5, windup: 0.5, range: 4.5, radius: 1, status: { key: 'lento', chance: 0.6, seconds: 3 }, anim: 'jump', unlockBond: 5 }),
+  S('guarda', 'Guarda', 'form', null, 'aura', { description: 'Um escudo de luz feérica que protege ela e os aliados perto.', classes: ['mistica'], bodies: ['biped'], energy: 20, cooldown: 8, windup: 0.2, radius: 2.5, status: { key: 'protegido', chance: 1, seconds: 4 }, anim: 'happy', vfx: { style: 'luz', color: 'companion', ground: true }, unlockBond: 5 }),
+  S('chicote-de-cauda', 'Chicote de Cauda', 'form', null, 'aura', { description: 'Gira e varre tudo em volta com a cauda de escamas; pode atordoar.', classes: ['serpente'], bodies: ['serpentine'], power: 60, energy: 25, cooldown: 5, windup: 0.35, radius: 2.2, status: { key: 'atordoado', chance: 0.35, seconds: 1 }, anim: 'attack', vfx: { style: 'impacto', color: 'companion', ground: true }, unlockBond: 5 }),
   S('onda', 'Onda', 'form', null, 'aura', { description: 'Agita a água (ou o ar) em volta e empurra todos para longe.', bodies: ['aquatic'], power: 45, energy: 25, cooldown: 6, windup: 0.4, radius: 3, anim: 'attack', vfx: { style: 'gotas', color: 'companion', ground: true }, unlockBond: 5 }),
   // essência (duas por essência)
   S('sopro-de-chamas', 'Sopro de Chamas', 'essence', 'fogo', 'cone', { description: 'Um leque de fogo à frente.', power: 55, energy: 20, cooldown: 4, windup: 0.4, range: 4, angle: 60, status: { key: 'queimando', chance: 0.5, seconds: 3 }, vfx: { style: 'chamas', color: 'essence', ground: false } }),
@@ -140,6 +143,7 @@ export function sanitizeSkill(input: unknown): SkillDef | null {
     description: typeof s.description === 'string' ? s.description.slice(0, 200) : '',
     slot: s.slot && s.slot in SLOTS ? s.slot : 'essence',
     essence: s.essence && ELEMENT_KEYS.includes(s.essence) ? s.essence : null,
+    classes: Array.isArray(s.classes) ? s.classes.filter((k): k is SpeciesKey => typeof k === 'string' && k in CLASS_LABELS) : [],
     bodies: Array.isArray(s.bodies) ? s.bodies.filter((b): b is BodyPlan => typeof b === 'string' && b in BODIES) : [],
     shape: s.shape && s.shape in SHAPES ? s.shape : 'melee',
     range: n(s.range, 0.5, 15, 1.6), radius: n(s.radius, 0.2, 8, 1.2), angle: n(s.angle, 15, 180, 60),
@@ -153,9 +157,15 @@ export function sanitizeSkill(input: unknown): SkillDef | null {
 }
 
 /** Serve para este Companion? (essência igual ou neutra; corpo na lista ou lista vazia) */
-export function skillFits(s: SkillDef, essence: Element | null, body: BodyPlan): boolean {
-  return (s.essence === null || s.essence === essence) && (!s.bodies.length || s.bodies.includes(body));
+export function skillFits(s: SkillDef, essence: Element | null, body: BodyPlan, species?: SpeciesKey | null): boolean {
+  if (s.essence !== null && s.essence !== essence) return false;
+  if (!s.classes.length && !s.bodies.length) return true;
+  // Companion (humanoide): vale a classe; criatura: vale o corpo
+  return species ? s.classes.includes(species) : s.bodies.includes(body);
 }
+
+/** Rótulos das classes (para o painel; a definição completa fica em species.ts). */
+export const CLASS_LABELS: Record<SpeciesKey, string> = { serpente: 'Dracônica', passaro: 'Alada', felino: 'Feral', touro: 'Taurina', mistica: 'Feérica' };
 
 export interface Kit { basic: SkillDef | null; essence: SkillDef[]; form: SkillDef | null; supreme: SkillDef | null; locked: SkillDef[] }
 
@@ -163,8 +173,9 @@ export interface Kit { basic: SkillDef | null; essence: SkillDef[]; form: SkillD
  * Kit de um Companion a partir do catálogo: um golpe básico (o específico do corpo vence o genérico), até duas de
  * essência, a de forma e a suprema. O que ainda não abriu pelo vínculo vai para `locked`.
  */
-export function kitFor(catalog: SkillDef[], c: { essence: Element | null; body: BodyPlan; bond: number }): Kit {
-  const fit = catalog.filter((s) => skillFits(s, c.essence, c.body)).sort((a, b) => b.bodies.length - a.bodies.length || (b.essence ? 1 : 0) - (a.essence ? 1 : 0) || a.slug.localeCompare(b.slug));
+export function kitFor(catalog: SkillDef[], c: { essence: Element | null; body: BodyPlan; bond: number; species?: SpeciesKey | null }): Kit {
+  const restricted = (s: SkillDef) => (c.species ? s.classes.length : s.bodies.length);
+  const fit = catalog.filter((s) => skillFits(s, c.essence, c.body, c.species)).sort((a, b) => restricted(b) - restricted(a) || (b.essence ? 1 : 0) - (a.essence ? 1 : 0) || a.slug.localeCompare(b.slug));
   const open = (s: SkillDef) => s.unlockBond <= c.bond;
   const kit: Kit = { basic: null, essence: [], form: null, supreme: null, locked: [] };
   for (const s of fit) {

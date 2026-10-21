@@ -17,3 +17,5 @@ export * from './worldgen.ts';
 export * from './look.ts';
 export * from './combat/skills.ts';
 export * from './creatures.ts';
+export * from './species.ts';
+export * from './combat/tree.ts';

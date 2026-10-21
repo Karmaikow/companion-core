@@ -10,6 +10,7 @@ import { ToneMappingMode } from 'postprocessing';
 import * as THREE from 'three';
 import { gameTime, CHUNK, WORLD_R, WORLD_ROLE, layerRole, type CompanionWorld, type WorldSite, type BiomePalette, type CreatureDef } from '@rules';
 import { WorldCreatures } from './WorldCreatures';
+import type { AppendageSpec } from './Appendages';
 import type { CompanionModelFiles } from '../backend/types';
 import { CompanionModel, type Roam } from './CompanionModel';
 import { companionFocus, moveRequest, colliders, smooth, type WorldShape } from './world';
@@ -21,6 +22,7 @@ export interface WorldSceneProps {
   /** criaturas do Invocador (publicadas; sem elas, as de reserva) */
   creatures: CreatureDef[];
   model: CompanionModelFiles;
+  appendages?: AppendageSpec | null;
   speech: string | null;
   burstKey: number;
   color: string;
@@ -265,7 +267,7 @@ export function WorldScene(props: WorldSceneProps) {
       <Waystones cw={cw} discovered={props.discovered} center={center} />
       <WorldCreatures cw={cw} creatures={props.creatures} center={center} night={daylight < 0.35} high={high} />
       <Suspense fallback={null}>
-        <CompanionModel files={props.model} world={shape} burstKey={props.burstKey} speech={props.speech} onFail={props.onHome} roam={roam} />
+        <CompanionModel files={props.model} world={shape} burstKey={props.burstKey} speech={props.speech} onFail={props.onHome} roam={roam} appendages={props.appendages} />
       </Suspense>
       <WorldLogic cw={cw} discovered={props.discovered} explore={props.explore} goal={goal} onCenter={setCenter} onRegion={(s) => { setRegion(s); props.onRegion(s); }} onDiscover={props.onDiscover} onHome={props.onHome} />
       <EffectComposer multisampling={0} enableNormalPass={false}>

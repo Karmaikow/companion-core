@@ -2,35 +2,36 @@ import { normalize, clampText } from './text.ts';
 
 // ---------------------------------------------------------------------------
 // Catálogos (GDD 11 — formas e vocações; 5.1 — descobertas)
+// As famílias agora são Classes/Espécies humanoides (ver species.ts); as chaves antigas continuam.
 // ---------------------------------------------------------------------------
 
 export type FormFamily = 'passaro' | 'touro' | 'felino' | 'serpente' | 'mistica';
 
 export const FORM_FAMILIES: Record<FormFamily, { label: string; vocation: string; aliases: string[] }> = {
   passaro: {
-    label: 'Pássaro',
+    label: 'Alada',
     vocation: 'Mobilidade e vento',
-    aliases: ['passaro', 'ave', 'aguia', 'coruja', 'falcao', 'corvo', 'fenix', 'beija flor', 'gaviao', 'arara', 'pena', 'asas', 'grifo'],
+    aliases: ['alada', 'alado', 'harpia', 'passaro', 'ave', 'aguia', 'coruja', 'falcao', 'corvo', 'fenix', 'beija flor', 'gaviao', 'arara', 'pena', 'asas', 'grifo'],
   },
   touro: {
-    label: 'Touro',
+    label: 'Taurina',
     vocation: 'Força e resistência',
-    aliases: ['touro', 'boi', 'bufalo', 'minotauro', 'rinoceronte', 'urso', 'javali', 'carneiro', 'chifre', 'cervo', 'alce'],
+    aliases: ['taurina', 'taurino', 'touro', 'boi', 'bufalo', 'minotauro', 'rinoceronte', 'urso', 'javali', 'carneiro', 'chifre', 'cervo', 'alce'],
   },
   felino: {
-    label: 'Felino',
+    label: 'Feral',
     vocation: 'Agilidade e precisão',
-    aliases: ['felino', 'gato', 'gata', 'leao', 'tigre', 'onca', 'pantera', 'lince', 'raposa', 'lobo', 'loba', 'kitsune', 'coelho', 'cachorro', 'cachorrinho', 'cao', 'cadela', 'filhote'],
+    aliases: ['feral', 'nekomimi', 'kemonomimi', 'felino', 'gato', 'gata', 'leao', 'tigre', 'onca', 'pantera', 'lince', 'raposa', 'lobo', 'loba', 'kitsune', 'coelho', 'cachorro', 'cachorrinho', 'cao', 'cadela', 'filhote'],
   },
   serpente: {
-    label: 'Serpente',
+    label: 'Dracônica',
     vocation: 'Controle',
-    aliases: ['serpente', 'cobra', 'naga', 'dragao', 'lagarto', 'enguia', 'basilisco', 'escamas', 'hidra', 'salamandra'],
+    aliases: ['draconica', 'draconico', 'serpente', 'cobra', 'naga', 'dragao', 'lagarto', 'enguia', 'basilisco', 'escamas', 'hidra', 'salamandra'],
   },
   mistica: {
-    label: 'Mística',
+    label: 'Feérica',
     vocation: 'Magia',
-    aliases: ['mistica', 'mistico', 'fada', 'espirito', 'anjo', 'elfo', 'elemental', 'estrela', 'unicornio', 'sereia', 'slime', 'golem'],
+    aliases: ['feerica', 'feerico', 'mistica', 'mistico', 'fada', 'espirito', 'anjo', 'elfo', 'elemental', 'estrela', 'unicornio', 'sereia', 'slime', 'golem'],
   },
 };
 

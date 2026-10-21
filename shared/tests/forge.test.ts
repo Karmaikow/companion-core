@@ -6,21 +6,25 @@ describe('Forja de Batalha', () => {
     expect(new Set(DEFAULT_SKILLS.map((s) => s.slug)).size).toBe(DEFAULT_SKILLS.length);
     for (const s of DEFAULT_SKILLS) expect(sanitizeSkill(s)).toEqual(s);
   });
-  it('todo Companion (qualquer essência e corpo) recebe um kit completo no vínculo 8', () => {
+  it('todo Companion (qualquer essência e classe) recebe um kit completo no vínculo 8', () => {
     for (const essence of ['fogo', 'agua', 'terra', 'vento', 'luz', 'sombra', 'gelo', 'raio', 'natureza'] as const)
-      for (const body of ['quadruped', 'biped', 'avian', 'serpentine', 'aquatic'] as const) {
-        const k = kitFor(DEFAULT_SKILLS, { essence, body, bond: 8 });
+      for (const species of ['serpente', 'passaro', 'felino', 'touro', 'mistica'] as const) {
+        const k = kitFor(DEFAULT_SKILLS, { essence, body: 'biped', bond: 8, species });
         expect(k.basic).toBeTruthy(); expect(k.essence.length).toBe(2); expect(k.form).toBeTruthy(); expect(k.supreme).toBeTruthy();
         expect(k.essence.every((s) => s.essence === essence)).toBe(true);
       }
   });
   it('o vínculo abre os espaços aos poucos', () => {
-    const k1 = kitFor(DEFAULT_SKILLS, { essence: 'fogo', body: 'quadruped', bond: 1 });
+    const k1 = kitFor(DEFAULT_SKILLS, { essence: 'fogo', body: 'biped', bond: 1, species: 'touro' });
     expect(k1.essence.map((s) => s.slug)).toEqual(['sopro-de-chamas']);
     expect(k1.form).toBeNull(); expect(k1.supreme).toBeNull();
     expect(k1.locked.map((s) => s.slug)).toContain('investida');
-    expect(kitFor(DEFAULT_SKILLS, { essence: 'fogo', body: 'quadruped', bond: 5 }).form?.slug).toBe('investida');
-    expect(kitFor(DEFAULT_SKILLS, { essence: null, body: 'avian', bond: 1 }).basic?.slug).toBe('faisca-de-essencia');
+    expect(kitFor(DEFAULT_SKILLS, { essence: 'fogo', body: 'biped', bond: 5, species: 'touro' }).form?.slug).toBe('investida');
+    expect(kitFor(DEFAULT_SKILLS, { essence: 'agua', body: 'biped', bond: 5, species: 'serpente' }).form?.slug).toBe('chicote-de-cauda');
+    expect(kitFor(DEFAULT_SKILLS, { essence: null, body: 'biped', bond: 1, species: 'passaro' }).basic?.slug).toBe('faisca-de-essencia');
+    expect(kitFor(DEFAULT_SKILLS, { essence: null, body: 'biped', bond: 1, species: 'touro' }).basic?.slug).toBe('golpe');
+    // monstros continuam pelo corpo
+    expect(kitFor(DEFAULT_SKILLS, { essence: null, body: 'quadruped', bond: 5 }).form?.slug).toBe('bote');
   });
   it('afinidades: anel das sete e luz/sombra', () => {
     expect(affinity('agua', 'fogo')).toBe(1.25); expect(affinity('fogo', 'agua')).toBe(0.8);
@@ -59,5 +63,34 @@ describe('Invocador de Monstros', () => {
   it('aparência: original some, predefinições valem', () => {
     expect(sanitizeLook(LOOK_PRESETS[0].look)).toBeUndefined();
     expect(sanitizeLook({ hue: 999, tint: 'x' })!.hue).toBe(180);
+  });
+});
+
+describe('Árvore de habilidades', () => {
+  it('monta três galhos com os nós certos para a Mayuna (dracônica de água)', async () => {
+    const { buildSkillTree, canSpend, validateAllocation, treeEffects, skillPoints } = await import('../rules/index.ts');
+    const t = buildSkillTree(DEFAULT_SKILLS, { essence: 'agua', species: 'serpente' });
+    const by = (id: string) => t.nodes.find((n) => n.id === id)!;
+    expect(by('e1').skill).toBe('jato-dagua'); expect(by('e4').skill).toBe('bolha');
+    expect(by('c2').skill).toBe('chicote-de-cauda'); expect(by('v5').skill).toBe('ressonancia');
+    expect(skillPoints(5)).toBe(5);
+    expect(canSpend(t, {}, 'e2', 5, 5)).toContain('Precisa');
+    expect(canSpend(t, {}, 'e4', 1, 5)).toContain('vínculo');
+    expect(canSpend(t, { e1: 1, e2: 2, c1: 2 }, 'c2', 5, 5)).toBe('Sem pontos livres.');
+    expect(canSpend(t, {}, 'e1', 1, 1)).toBeNull();
+    const v = validateAllocation(t, { e1: 1, e2: 9, e4: 1, v5: 1, c1: 1 }, 5, 5);
+    expect(v).toEqual({ e1: 1, e2: 3, c1: 1 });
+    const fx = treeEffects(t, { e1: 1, e2: 2, c1: 3 });
+    expect(fx.skills.get('jato-dagua')).toBe(3);
+    expect(fx.bonus.defesa).toBe(12);
+  });
+  it('toda essência × classe tem árvore com 5 fileiras em cada galho', async () => {
+    const { buildSkillTree } = await import('../rules/index.ts');
+    for (const essence of ['fogo', 'agua', 'terra', 'vento', 'luz', 'sombra', 'gelo', 'raio', 'natureza'] as const)
+      for (const species of ['serpente', 'passaro', 'felino', 'touro', 'mistica'] as const) {
+        const t = buildSkillTree(DEFAULT_SKILLS, { essence, species });
+        for (const b of ['essencia', 'classe', 'vinculo'] as const) expect(new Set(t.nodes.filter((n) => n.branch === b).map((n) => n.tier)).size).toBe(5);
+        for (const n of t.nodes) for (const r of n.requires) expect(t.nodes.some((x) => x.id === r)).toBe(true);
+      }
   });
 });

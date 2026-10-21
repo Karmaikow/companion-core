@@ -108,14 +108,25 @@ describe('forma no modo offline', () => {
     expect(a.prompt).toContain('raposa com asas');
     expect(a.prompt).toContain('#64834b');
     expect(a.summaryPt).toContain('Natureza');
-    expect(a.body).toBe('quadruped'); // raposa tem quatro patas
+    // todo Companion é humanoide; cauda e asas saem do modelo 3D
+    expect(a.body).toBe('biped');
+    expect(a.sheet.body).toBe('humanoide');
+    expect(a.sheet.species.label).toBe('Feral');
+    expect(a.sheet.appendages).toMatchObject({ tail: 'fluffy', wings: 'feather' }); // "raposa com asas"
+    expect(a.prompt).toContain('humanoid');
+    expect(a.prompt).toContain('fluffy animal tail');
+    expect(a.modelPrompt).toContain('no tail and no wings');
+    expect(a.modelNegative).toContain('tail, wings');
     const d = buildArtPrompt({ ...c, species: { ...c.species, family: 'serpente', description: 'Um dragão de Luz parece bom' } });
-    expect(d.body).toBe('quadruped');
-    expect(d.prompt).toContain('four-legged');
-    expect(d.prompt).toContain('straight front view');
+    expect(d.sheet.species.label).toBe('Dracônica');
+    expect(d.sheet.appendages).toMatchObject({ tail: 'scaly', wings: null });
+    expect(d.modelPrompt).toContain('straight front view');
+    expect(d.modelPrompt).toContain('A-pose');
     expect(d.views).toContain('left side view');
-    expect(buildArtPrompt({ ...c, species: { ...c.species, family: 'mistica', description: 'uma fada de cristal' } }).body).toBe('biped');
-    expect(buildArtPrompt({ ...c, species: { ...c.species, family: 'passaro', description: 'uma coruja' } }).body).toBe('avian');
+    expect(d.views).not.toContain('scaly dragon tail with');
+    const f = buildArtPrompt({ ...c, species: { ...c.species, family: 'mistica', description: 'uma fada de cristal' } });
+    expect(f.sheet.appendages.wings).toBe('fairy');
+    expect(buildArtPrompt({ ...c, species: { ...c.species, family: 'serpente', description: 'dragão com asas' } }).sheet.appendages.wings).toBe('dragon');
   });
 });
 import { offlineTurn as _ot } from '../rules/index.ts';

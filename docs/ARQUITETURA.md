@@ -160,6 +160,45 @@ Painel do ADM → **Invocador de Monstros** (`/#/admin/invocador`, tabela `creat
   chifrinhos, faísca, pedrinha, redemoinho).
 - Lab sem login (dev): `client/forge-lab.html` (`?slimes` mostra os rostos e enfeites) com o Vite em `--port 5199` (prévias de habilidades e criaturas).
 
+## Companions humanoides: Classes/Espécies (v1.9)
+
+Decisão (21/10): **todo Companion é humanoide**. Um rig só (o humanoide do Tripo/Mixamo) e todas as animações prontas
+de humanoide servem para todos. Rig de ave e de quadrúpede, que davam muito trabalho, ficam para os monstros (e para um
+futuro sistema de pets).
+
+- As famílias descobertas na conversa viram **Classes** (`shared/rules/species.ts`), mantendo as chaves antigas nos
+  contratos: serpente → **Dracônica**, passaro → **Alada**, felino → **Feral**, touro → **Taurina**, mistica → **Feérica**.
+  Cada uma tem traços que vão no modelo (chifres, orelhas, escamas, penas no cabelo, orelhas pontudas), duas essências
+  afins (+10%), habilidade de forma (Chicote de Cauda, Rasante, Bote, Investida, Guarda) e tendências de atributo.
+- **Cauda e asas não vão no modelo 3D**: o jogo desenha e anima por código (`client/src/scene/Appendages.tsx`),
+  presas ao osso do quadril/peito. Cauda = corrente com física de mola (balança, arrasta, enrola a ponta, não atravessa
+  o chão): escamosa com barbatana (dracônica), peluda (feral), fina com tufo (taurina), de penas, de luz. Asas de pena,
+  de dragão ou de fada batem devagar paradas e mais rápido andando. A descrição do jogador ajusta ("dragão com asas"
+  ganha asas de dragão; "sem cauda" tira). Lab: `client/forge-lab.html?cauda`. Teste no jogo: `?cauda=scaly&asas=dragon`.
+- **Ficha do personagem** (`characterSheet`): o JSON que a Fábrica mostra — humanoide, classe, traços, cauda/asas.
+  Dois prompts: **referência do modelo 3D** (A-pose, roupa justa, sem cauda e sem asas; a folha de vistas sai dela) e
+  **arte do retrato** (com cauda e asas). O prompt do modelo não descreve a cauda/asas nem para negar: geradores de
+  imagem tendem a desenhar o que é citado.
+- Forja: habilidades têm **classes** (Companions) e **corpos** (monstros). Botão "Atualizar com o catálogo novo" põe as
+  classes nas habilidades já publicadas e cria o Chicote de Cauda.
+
+**Atributos (rascunho, a evoluir com a batalha):** Vida, Energia, Poder, Defesa, Agilidade, Sintonia. As classes já
+anotam tendências (ex.: Dracônica +Sintonia +Defesa −Agilidade; Taurina +Vida +Defesa −Agilidade) e a árvore dá bônus em
+%; os números base vêm quando a simulação de luta existir.
+
+## Pontos e árvore de habilidades (v1.9)
+
+Aba **Habilidades** no jogo (`client/src/ui/SkillTreePanel.tsx`; regras em `shared/rules/combat/tree.ts`).
+- **Pontos:** 1 por nível de vínculo (o nível de combate vai somar). Redistribuir é de graça.
+- **Árvore** montada do catálogo publicado na Forja, da essência e da classe: três galhos (Essência, Classe, Vínculo),
+  5 fileiras cada (vínculo 1, 2, 3, 5, 8). Nós de habilidade (abrem), de melhoria (até 3 níveis: +15% de efeito e
+  –8% de recarga por nível) e passivas (% em atributos). No fim: segunda habilidade da essência, "Linhagem" (afinidade da
+  classe de +10% para +20%) e a Sintonia suprema.
+- `canSpend` explica por que um ponto não entra; `validateAllocation` refaz a distribuição na ordem das fileiras (ao
+  carregar e, no futuro, no servidor antes da luta); `treeEffects` dá habilidades com nível e bônus.
+- Guardado em `companion_skill_alloc` (dono grava; ainda sem validação no servidor — entra com `battle.resolve`);
+  offline, no navegador. A árvore abre quando a forma (classe) é descoberta.
+
 ## Companion 3D e animações (v1.4)
 
 - A Fábrica recebe o **modelo .GLB** e **várias animações .GLB** do mesmo rig (o Tripo exporta uma por arquivo). O tipo vem

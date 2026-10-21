@@ -168,14 +168,21 @@ export function AdminPanel() {
             </div>
             <div className="job-body">
               <div className="prompt">
-                <label>Prompt de criação <button className="link" onClick={() => void navigator.clipboard?.writeText(j.prompt.prompt)}>copiar</button></label>
-                <textarea readOnly value={j.prompt.prompt} rows={7} />
-                <label>Folha de vistas (frente, esquerda, direita, verso → multivista do Tripo) <button className="link" onClick={() => void navigator.clipboard?.writeText(j.prompt.views)}>copiar</button></label>
-                <textarea readOnly value={j.prompt.views} rows={5} />
-                <small>Evitar na folha: {j.prompt.viewsNegative}</small>
-                <label>Evitar <button className="link" onClick={() => void navigator.clipboard?.writeText(j.prompt.negative)}>copiar</button></label>
+                <div className="class-line">
+                  <b>{j.prompt.sheet.species.label}</b> · humanoide · {j.prompt.sheet.species.features}
+                  <small>{j.prompt.sheet.appendages.note}</small>
+                </div>
+                <label>1. Referência para o modelo 3D (Tripo, rig humanoide) <button className="link" onClick={() => void navigator.clipboard?.writeText(j.prompt.modelPrompt)}>copiar</button></label>
+                <textarea readOnly value={j.prompt.modelPrompt} rows={6} />
+                <small>Evitar: {j.prompt.modelNegative}</small>
+                <label>Folha de vistas da referência (frente, esquerda, direita, verso → multivista do Tripo) <button className="link" onClick={() => void navigator.clipboard?.writeText(j.prompt.views)}>copiar</button></label>
+                <textarea readOnly value={j.prompt.views} rows={4} />
+                <label>2. Arte do retrato (com {j.prompt.sheet.appendages.tail || j.prompt.sheet.appendages.wings ? 'cauda/asas' : 'todos os traços'}; não vai para o Tripo) <button className="link" onClick={() => void navigator.clipboard?.writeText(j.prompt.prompt)}>copiar</button></label>
+                <textarea readOnly value={j.prompt.prompt} rows={5} />
+                <label>Evitar no retrato <button className="link" onClick={() => void navigator.clipboard?.writeText(j.prompt.negative)}>copiar</button></label>
                 <textarea readOnly value={j.prompt.negative} rows={2} />
-                <small>Formato: {j.prompt.size} · Rig no Tripo: <b>{j.prompt.body}</b> ({j.prompt.bodyPt})</small>
+                <small>Formato: {j.prompt.size} · Rig no Tripo: <b>humanoide</b> (o mesmo para todos; animações prontas de humanoide servem)</small>
+                <details open><summary>Ficha do personagem (JSON)</summary><pre>{JSON.stringify(j.prompt.sheet, null, 2)}</pre><button className="link" onClick={() => void navigator.clipboard?.writeText(JSON.stringify(j.prompt.sheet, null, 2))}>copiar ficha</button></details>
                 <details><summary>Contrato de identidade (JSON)</summary><pre>{JSON.stringify(j.contract, null, 2)}</pre></details>
               </div>
               <div className="art">

@@ -1,5 +1,5 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { ELEMENTS, derivePalette, refugeFeatures, animKind, sanitizeBiome, sanitizeCreature, makeCompanionWorld, WORLD_SEED, REFUGE_BIOME, WORLD_FALLBACK_BIOMES, DEFAULT_CREATURES, type BiomeConfig, type CreatureDef, type WorldSite } from '@rules';
+import { ELEMENTS, derivePalette, refugeFeatures, animKind, sanitizeBiome, sanitizeCreature, makeCompanionWorld, characterSheet, WORLD_SEED, REFUGE_BIOME, WORLD_FALLBACK_BIOMES, DEFAULT_CREATURES, type BiomeConfig, type CreatureDef, type WorldSite } from '@rules';
 import { Refuge } from './scene/Refuge';
 import { WorldScene } from './scene/World';
 import { WorldMap } from './ui/WorldMap';
@@ -10,6 +10,7 @@ import { ChatPanel, MemoriesPanel, DiaryPanel, QuestsPanel, InventoryPanel, Reci
 import { Celebration, AwakenCall } from './ui/Celebration';
 import { Entry } from './ui/Entry';
 import { Creation } from './ui/Creation';
+import { SkillTreePanel } from './ui/SkillTreePanel';
 import { supabase } from './backend/online';
 
 const TABS: { key: Tab; label: string }[] = [
@@ -19,6 +20,7 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'quests', label: 'Quests' },
   { key: 'inventory', label: 'Inventário' },
   { key: 'recipes', label: 'Receitas' },
+  { key: 'skills', label: 'Habilidades' },
   { key: 'bond', label: 'Vínculo' },
 ];
 
@@ -162,7 +164,19 @@ export function App() {
   const goWorld = () => { setPlace('world'); setExplore(false); };
   const goHome = () => { setPlace('refuge'); setExplore(false); toast('De volta ao Refúgio.', 'soft'); };
 
-  const panel = { chat: ChatPanel, memories: MemoriesPanel, diary: DiaryPanel, quests: QuestsPanel, inventory: InventoryPanel, recipes: RecipesPanel, bond: BondPanel };
+  // cauda e asas da classe (o modelo 3D vem sem elas). Teste: ?cauda=scaly|fluffy|tuft|feather|wisp&asas=feather|dragon|fairy
+  const appendages = useMemo(() => {
+    const q = new URLSearchParams(location.search);
+    const contract = c?.identityContract;
+    const sheet = contract ? characterSheet(contract) : null;
+    const tail = (q.get('cauda') ?? sheet?.appendages.tail ?? null) as never;
+    const wings = (q.get('asas') ?? sheet?.appendages.wings ?? null) as never;
+    if (!tail && !wings) return null;
+    const pal = contract?.palette ?? { primary: visual.color, secondary: visual.color, accent: '#9e6bc7', glow: visual.glow };
+    return { tail, wings, palette: { primary: pal.primary, secondary: pal.secondary, accent: pal.accent, glow: pal.glow } };
+  }, [c?.identityContract, visual.color, visual.glow]);
+
+  const panel = { chat: ChatPanel, memories: MemoriesPanel, diary: DiaryPanel, quests: QuestsPanel, inventory: InventoryPanel, recipes: RecipesPanel, skills: SkillTreePanel, bond: BondPanel };
   const Panel = tab ? panel[tab] : null;
 
   return (
@@ -170,8 +184,8 @@ export function App() {
       <div className="stage">
         <Suspense fallback={null}>
           {place === 'world' && model ? (
-            <WorldScene world={companionWorld} creatures={creatures} model={model} speech={bubble} burstKey={burst} color={visual.color} quality={quality()} discovered={discovered} explore={explore} onRegion={enterRegion} onDiscover={discover} onHome={goHome} />
-          ) : <Refuge color={visual.color} glow={visual.glow} element={d.element} energy={energy} pulseKey={pulse} burstKey={burst} features={passage && !features.window ? { ...features, window: true } : features} contract={c?.stage === 'awakened' ? c.identityContract : null} speech={bubble} model={model} seed={seed} biome={biome} quality={quality()} />}
+            <WorldScene world={companionWorld} creatures={creatures} model={model} appendages={appendages} speech={bubble} burstKey={burst} color={visual.color} quality={quality()} discovered={discovered} explore={explore} onRegion={enterRegion} onDiscover={discover} onHome={goHome} />
+          ) : <Refuge color={visual.color} glow={visual.glow} element={d.element} energy={energy} pulseKey={pulse} burstKey={burst} features={passage && !features.window ? { ...features, window: true } : features} contract={c?.stage === 'awakened' ? c.identityContract : null} speech={bubble} model={model} seed={seed} biome={biome} quality={quality()} appendages={appendages} />}
         </Suspense>
       </div>
 
