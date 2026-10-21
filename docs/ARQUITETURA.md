@@ -4,7 +4,7 @@
 
 | Camada | Escolha | Por quê |
 |---|---|---|
-| Cliente | **Three.js + React Three Fiber + TypeScript (Vite)** | HD-2D = sprites 2D em cena 3D com luz, bloom e tilt-shift. Roda leve no navegador e no celular (o GDD exige PC, web e mobile); empacota para lojas com Capacitor. |
+| Cliente | **Three.js + React Three Fiber + TypeScript (Vite)** | Cenário e personagens 3D em visual anime (ver "Direção de arte"). Roda leve no navegador e no celular (o GDD exige PC, web e mobile); empacota para lojas com Capacitor. |
 | UI | React (DOM) sobre o canvas | Chat, diário, memórias e inventário são interfaces de texto — DOM é mais acessível e barato que UI dentro do canvas. |
 | Regras | `shared/rules` — TypeScript puro, sem dependências | Mesmo código no cliente (modo local), na Edge Function e no futuro servidor de simulação. Testado com Vitest. |
 | Back-end MVP 1 | **Supabase** (Postgres + RLS + Edge Functions + Auth) | Persistência, eventos imutáveis, proveniência de memórias; clientes só leem, toda escrita passa pela função `refuge`. |
@@ -12,7 +12,7 @@
 | Hospedagem do cliente | Vercel | Estático; sem lógica de jogo. |
 | MVP 2+ (mundo vivo) | Servidor de simulação persistente (Colyseus ou SpacetimeDB) em Fly.io/Railway | Vercel/Edge Functions não mantêm loop contínuo. O servidor roda o tick determinístico (navegação, dano, coleta) e chama a IA só para planejamento e reflexão (GDD 10). |
 
-Alternativas avaliadas: **Godot 4** (ótimo editor, mas export web pesado, só renderizador Compatibility e desempenho fraco em navegador mobile); **Phaser** (2D puro, não entrega profundidade HD-2D); **Unity** (WebGL pesado no mobile).
+Alternativas avaliadas: **Godot 4** (ótimo editor, mas export web pesado, só renderizador Compatibility e desempenho fraco em navegador mobile); **Phaser** (2D puro, não entrega a profundidade 3D); **Unity** (WebGL pesado no mobile); **Unreal 5** (sem export web).
 
 ## Direção de arte (v1.3)
 
@@ -35,6 +35,21 @@ fogo e cristais com brilho suave.
 - Tufo para espalhar: idealmente 100–400 triângulos (os tufos atuais têm ~4 mil e limitam a densidade).
 - Companion: até ~8 mil triângulos e textura de 1024 px no celular (a Mayuna do Tripo tem ~38 mil e 2048 px; usar a opção
   de baixa contagem de polígonos do gerador ou decimar no pipeline).
+
+**Mundo procedural por seed** (`shared/rules/worldgen`, PRNG semeado, nunca `Math.random`)
+- Voronoi → biomas; Simplex → alturas e variação de cor; BSP + MST → rotas conectadas.
+- WFC no nível de **chunks** pré-montados no Blender (bordas compatíveis), não peça a peça.
+- Poisson Disc espalha props e vegetação dentro do chunk. Geração por chunks com bordas fixas para o mundo crescer.
+
+**Assets (.GLB)**
+- Escala em metros, Y para cima, pivô na base do objeto, normais corretas.
+- Props: até ~3 mil triângulos; chunks: até ~20 mil; texturas 512–1024 px (atlas quando possível).
+- Compressão no pipeline: `gltf-transform` (meshopt + KTX2).
+- Cenário e props sem animação; criaturas com rig do gerador ou partes nomeadas (`body`, `head`, `wing_l`, `tail`...).
+
+**Câmera e orçamento mobile**
+- Perspectiva, FOV 30–40°, inclinação ~45–55°, afastada; o jogador gira a câmera.
+- 2–4 luzes pontuais dinâmicas; sombra só da luz principal; níveis de qualidade (no baixo, sem sombra e sem bloom).
 
 ## Criação do personagem (pipeline v1.3)
 
@@ -150,3 +165,4 @@ Prompt com o mundo de fantasia, regra explícita de pronomes ("mim" = a pessoa; 
 3. E-mail: o SMTP padrão do Supabase envia poucos e-mails por hora; para lançar, configurar SMTP próprio.
 4. Opcional: `ANTHROPIC_API_KEY` (modelo melhor para conversa e extração) — hoje usa `GROQ_API_KEY`.
 5. Captcha no login anônimo antes de abrir ao público.
+7. Direção de arte: kit do primeiro bioma (10–15 chunks, ~40 props) e portar a Clareira (toon, vento, contorno) para o jogo.
