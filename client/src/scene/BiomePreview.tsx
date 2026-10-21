@@ -2,11 +2,12 @@
 import { useMemo } from 'react';
 import { Canvas } from '@react-three/fiber';
 import * as THREE from 'three';
-import { sanitizeBiome, type BiomeConfig } from '@rules';
+import { sanitizeBiome, type BiomeConfig, type WeatherKind } from '@rules';
+import { WeatherFx } from './Weather';
 import { makeWorld } from './world';
 import { Terrain, Cliffs, GrassBlades, BiomeVegetation, Sky, Motes, CameraRig, WindClock, Ambient } from './Biome';
 
-export function BiomePreview({ biome, daylight, seed, open }: { biome: BiomeConfig; daylight: number; seed: number; open: boolean }) {
+export function BiomePreview({ biome, daylight, seed, open, weather }: { biome: BiomeConfig; daylight: number; seed: number; open: boolean; weather?: { kind: WeatherKind; intensity: number } }) {
   const world = useMemo(() => makeWorld(seed, open), [seed, open]);
   const b = useMemo(() => sanitizeBiome(biome), [biome]);
   return (
@@ -19,6 +20,7 @@ export function BiomePreview({ biome, daylight, seed, open }: { biome: BiomeConf
       <GrassBlades world={world} count={Math.round(2200 * b.settings.grassBlades)} palette={b.palette} />
       <BiomeVegetation biome={b} world={world} quality="high" />
       {b.settings.ambient === 'fireflies' || b.settings.ambient === 'none' ? <Motes world={world} night={1 - daylight} amount={b.settings.ambient === 'none' ? 0.3 : 0.8} /> : <Ambient kind={b.settings.ambient} world={world} />}
+      {weather && <WeatherFx kind={weather.kind} intensity={weather.intensity} world={world} />}
     </Canvas>
   );
 }

@@ -8,6 +8,8 @@ import { DEFAULT_SKILLS, DEFAULT_CREATURES } from '@rules';
 import { SkillPreview } from './src/scene/SkillFx';
 import { CreaturePreview } from './src/scene/CreaturePreview';
 import { AppendageLab } from './src/scene/AppendageLab';
+import { ItemPreview } from './src/scene/ItemPreview';
+import { DEFAULT_ITEMS } from '@rules';
 const q = new URLSearchParams(location.search);
 const skills = (q.get('s') ?? 'sopro-de-chamas,brasas,jato-dagua,investida,tremor,lanca-de-gelo').split(',').map((s) => DEFAULT_SKILLS.find((k) => k.slug === s)).filter(Boolean);
 const look = { hue: -25, sat: 1.25, light: 0.8, contrast: 1.2, tint: '#ff6a2a', tintAmount: 0.45, glow: 0.25 };
@@ -18,9 +20,10 @@ const slimes = q.has('slimes') ? [
 const pal = { primary: '#64834b', secondary: '#9fd07a', accent: '#9e6bc7', glow: '#3fb6ff' };
 const apps = q.has('cauda') ? [['scaly', null, false], ['scaly', 'dragon', true], ['fluffy', null, true], ['tuft', null, false], [null, 'feather', true], ['wisp', 'fairy', false]].map(([tail, wings, walk], i) =>
   h('div', { key: 'ap' + i, style: { position: 'relative', width: 400, height: 300 } }, h(AppendageLab, { spec: { tail, wings, palette: pal }, walk }), h('b', { style: { position: 'absolute', left: 8, bottom: 6, color: '#222' } }, [tail, wings, walk ? 'andando' : 'parado'].filter(Boolean).join(' · ')))) : [];
-const cells = [...apps, ...slimes,
-  ...(q.has('slimes') || q.has('cauda') ? [] : skills).map((s) => h('div', { key: s.slug, style: { position: 'relative', width: 400, height: 300 } }, h(SkillPreview, { skill: s, companionColor: '#9fc9ff', defenderEssence: 'natureza' }), h('b', { style: { position: 'absolute', left: 8, bottom: 6, color: '#fff' } }, s.name))),
-  ...(q.has('slimes') || q.has('cauda') ? [] : DEFAULT_CREATURES).map((c) => h('div', { key: c.slug, style: { position: 'relative', width: 400, height: 300 } }, h(CreaturePreview, { def: c, act: 'walk' }), h('b', { style: { position: 'absolute', left: 8, bottom: 6, color: '#222' } }, c.name))),
+const itens = q.has('itens') ? DEFAULT_ITEMS.slice(Number(q.get('itens') || 0), Number(q.get('itens') || 0) + 9).map((it) => h('div', { key: it.slug, style: { position: 'relative', width: 400, height: 300 } }, h(ItemPreview, { item: it, charge: it.type === 'arco' ? 0.8 : 0 }), h('b', { style: { position: 'absolute', left: 8, bottom: 6, color: '#222' } }, it.name))) : [];
+const cells = [...itens, ...apps, ...slimes,
+  ...(q.has('slimes') || q.has('cauda') || q.has('itens') ? [] : skills).map((s) => h('div', { key: s.slug, style: { position: 'relative', width: 400, height: 300 } }, h(SkillPreview, { skill: s, companionColor: '#9fc9ff', defenderEssence: 'natureza' }), h('b', { style: { position: 'absolute', left: 8, bottom: 6, color: '#fff' } }, s.name))),
+  ...(q.has('slimes') || q.has('cauda') || q.has('itens') ? [] : DEFAULT_CREATURES).map((c) => h('div', { key: c.slug, style: { position: 'relative', width: 400, height: 300 } }, h(CreaturePreview, { def: c, act: 'walk' }), h('b', { style: { position: 'absolute', left: 8, bottom: 6, color: '#222' } }, c.name))),
   q.get('glb') && h('div', { key: 'glb', style: { position: 'relative', width: 400, height: 300 } }, h(CreaturePreview, { def: { ...DEFAULT_CREATURES[2], slug: 'glb', look, model: { url: q.get('glb'), anims: [{ url: q.get('glb'), kind: 'walk', name: 'andando' }] } }, act: 'walk' })),
 ];
 createRoot(document.getElementById('root')).render(h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(3, 400px)', gap: 6, padding: 6 } }, cells));

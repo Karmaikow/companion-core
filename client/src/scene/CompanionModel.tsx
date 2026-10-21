@@ -9,11 +9,17 @@ import * as THREE from 'three';
 import { GLTFLoader, type GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
-import { animKind, strideSpeed, gameTime, type AnimKind } from '@rules';
+import { animKind, attackVariant, strideSpeed, gameTime, type AnimKind } from '@rules';
 import type { CompanionModelFiles } from '../backend/types';
 import { CLEAR_R, companionFocus, moveRequest, resolveCollisions, platformHeight, type WorldShape } from './world';
 import { SpeechBubble } from './SpeechBubble';
 import { Appendages, findAnchors, type AppendageSpec } from './Appendages';
+import { EquipmentLayer, findGearBones } from './Equipment';
+import { combatInput, chargeState, fxQueue, targets } from './Combat';
+import { basicAttack, bowShot, ELEMENTS, type ItemDef, type SpeciesKey } from '@rules';
+
+/** O que o Companion carrega: itens visíveis, a arma (escolhe o ataque) e o que muda o dano. */
+export interface Gear { items: ItemDef[]; weapon: ItemDef | null; species: SpeciesKey | null; color: string; poder: number }
 
 const loader = new GLTFLoader();
 loader.setMeshoptDecoder(MeshoptDecoder);
@@ -82,7 +88,7 @@ export function facingYaw(root: THREE.Object3D): number {
 /** Pedido: o Companion andava devagar demais; o passo natural da animação vezes 2. */
 const SPEED_BOOST = 2;
 
-const ONCE = new Set(['happy', 'jump', 'attack', 'hurt', 'eat']);
+const ONCE = new Set(['happy', 'jump', 'attack', 'hurt', 'eat', 'cast', 'shoot', 'dodge', 'wave', 'pickup', 'getup']);
 
 /** Onde o Companion pode andar. No Refúgio: a clareira em volta do altar. No mundo aberto: longe, com passeios perto de onde está. */
 export interface Roam {
@@ -97,7 +103,7 @@ const REFUGE_ROAM: Roam = {
   wander: () => { const a = Math.random() * Math.PI * 2, rr = 2.3 + Math.random() * (CLEAR_R - 4); return [Math.cos(a) * rr, Math.sin(a) * rr]; },
 };
 
-export function CompanionModel({ files, world, burstKey, speech, onFail, roam = REFUGE_ROAM, appendages, speed = 1 }: { /** velocidade da classe (1 = padrão) */ speed?: number; files: CompanionModelFiles; world: WorldShape; burstKey: number; speech: string | null; onFail: () => void; roam?: Roam; /** cauda e asas da classe, desenhadas por código */ appendages?: AppendageSpec | null }) {
+export function CompanionModel({ files, world, burstKey, speech, onFail, roam = REFUGE_ROAM, appendages, speed = 1, gear }: { /** armas e equipamentos */ gear?: Gear | null; /** velocidade da classe (1 = padrão) */ speed?: number; files: CompanionModelFiles; world: WorldShape; burstKey: number; speech: string | null; onFail: () => void; roam?: Roam; /** cauda e asas da classe, desenhadas por código */ appendages?: AppendageSpec | null }) {
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   useEffect(() => {
     let alive = true;
@@ -105,24 +111,26 @@ export function CompanionModel({ files, world, burstKey, speech, onFail, roam = 
       const gltf = await load(files.url);
       const clips: Loaded['clips'] = [];
       const add = (list: THREE.AnimationClip[], kindHint: string | null, name: string) =>
-        list.forEach((clip) => clips.push({ clip, kind: kindHint ?? animKind(name, clip.name) ?? 'special', stride: inPlace(clip) / Math.max(0.01, clip.duration) }));
-      add(gltf.animations, animKind(files.url.split('?')[0]), 'corpo');
+        // "special" vindo do servidor (tipo que a função ainda não conhece): tenta pelo nome do arquivo/clipe
+        list.forEach((clip) => clips.push({ clip, kind: (kindHint && kindHint !== 'special' ? kindHint : null) ?? animKind(name, clip.name) ?? 'special', stride: inPlace(clip) / Math.max(0.01, clip.duration) }));
+      // várias animações num arquivo só: o tipo vem do nome de cada clipe; uma só: do nome do arquivo
+      add(gltf.animations, gltf.animations.length > 1 ? null : animKind(files.url.split('?')[0]), 'corpo');
       for (const a of files.anims) {
         if (a.url === files.url) continue;
-        try { const g = await load(a.url); add(g.animations, a.kind, a.name); } catch { /* animação que falhou só fica de fora */ }
+        try { const g = await load(a.url); add(g.animations, g.animations.length > 1 ? null : a.kind, a.name); } catch { /* animação que falhou só fica de fora */ }
       }
       if (alive) setLoaded({ gltf, clips });
     })().catch(() => alive && onFail());
     return () => { alive = false; };
   }, [files, onFail]);
   if (!loaded) return null;
-  return <Walker loaded={loaded} world={world} burstKey={burstKey} speech={speech} roam={roam} appendages={appendages ?? null} speed={speed} />;
+  return <Walker loaded={loaded} world={world} burstKey={burstKey} speech={speech} roam={roam} appendages={appendages ?? null} speed={speed} gear={gear ?? null} />;
 }
 
-function Walker({ loaded, world, burstKey, speech, roam, appendages, speed }: { loaded: Loaded; world: WorldShape; burstKey: number; speech: string | null; roam: Roam; appendages: AppendageSpec | null; speed: number }) {
+function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear }: { loaded: Loaded; world: WorldShape; burstKey: number; speech: string | null; roam: Roam; appendages: AppendageSpec | null; speed: number; gear: Gear | null }) {
   const root = useRef<THREE.Group>(null);
   const pose = useRef<THREE.Group>(null);
-  const { model, scale, mixer, actions, walkSpeed: natWalk, runSpeed: natRun, anchors } = useMemo(() => {
+  const { model, scale, mixer, actions, walkSpeed: natWalk, runSpeed: natRun, anchors, gearBones } = useMemo(() => {
     // cópia com esqueleto próprio: o React pode repetir este cálculo, e o original não pode ser movido entre grupos
     const model = cloneSkinned(loaded.gltf.scene);
     sanitizeSkins(model);
@@ -146,6 +154,9 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed }: { 
       return true;
     });
     for (const c2 of clips) {
+      // golpe próprio de cada arma ("sword slash" → attack:espada); o primeiro golpe também vale como "attack"
+      const variant = c2.kind === 'attack' ? attackVariant(c2.clip.name) : null;
+      if (variant && !actions.has('attack:' + variant)) { const av = mixer.clipAction(c2.clip); av.setLoop(THREE.LoopOnce, 1); actions.set('attack:' + variant, av); }
       if (actions.has(c2.kind)) continue;
       const a = mixer.clipAction(c2.clip);
       if (ONCE.has(c2.kind)) { a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = false; }
@@ -155,7 +166,7 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed }: { 
     const walkSpeed = actions.has('walk') ? strideSpeed(stride, 1, 0.7) : 0.7;
     const run = loaded.clips.find((c2) => c2.kind === 'run');
     const runSpeed = run ? strideSpeed(run.stride * scale, 1, walkSpeed * 2) : walkSpeed * 1.8;
-    return { model: orient, scale, mixer, actions, walkSpeed, runSpeed, anchors: findAnchors(model) };
+    return { model: orient, scale, mixer, actions, walkSpeed, runSpeed, anchors: findAnchors(model), gearBones: findGearBones(model) };
   }, [loaded]);
 
   // Velocidade: o dobro do passo natural da animação × a velocidade da classe. A animação acelera junto
@@ -192,10 +203,73 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed }: { 
   };
   useEffect(() => () => { mixer.stopAllAction(); }, [mixer]);
 
+  // ---- ataque: golpe/magia ao apertar; arco carrega enquanto segura e atira ao soltar
+  const charge = useRef(0);
+  const cb = useRef({ press: combatInput.pressId, release: combatInput.releaseId, charging: false, held: 0, cd: 0, lunge: 0 });
+  const prof = useMemo(() => basicAttack(gear?.weapon ?? null, gear?.species), [gear?.weapon, gear?.species]);
+  const fxColor = gear?.weapon?.essence ? ELEMENTS[gear.weapon.essence].glow : gear?.color ?? '#ffd56b';
+  const damageOf = (mul = 1) => Math.max(1, Math.round(20 * prof.power * (1 + (gear?.poder ?? 0) / 100) * mul));
+  const camYaw = (state: { camera: THREE.Camera }) => { state.camera.getWorldDirection(fwd); return Math.atan2(fwd.x, fwd.z); };
+  useEffect(() => () => { chargeState.active = false; }, []);
+
   useFrame((state, dt) => {
     const s = st.current, r = root.current, p = pose.current;
     if (!r || !p) return;
     const t = state.clock.elapsedTime;
+    const cs = cb.current;
+    cs.cd -= dt;
+    if (combatInput.pressId !== cs.press) {
+      cs.press = combatInput.pressId;
+      if (prof.ranged === 'charged') { cs.charging = true; cs.held = 0; }
+      else if (cs.cd <= 0) {
+        cs.cd = 1 / prof.cadence;
+        const wt = gear?.weapon?.type ?? '';
+        const kind = actions.has('attack:' + wt) ? 'attack:' + wt : actions.has(prof.anim) ? prof.anim : actions.has('attack') ? 'attack' : null;
+        if (kind) { play(kind, 0.08); s.act = ''; s.once = Math.min(1.2, actions.get(kind)!.getClip().duration * 0.85); } else { s.once = 0.35; cs.lunge = 0.35; }
+        s.target.copy(r.position);
+        // vira para o alvo mais perto à frente (ajuda no celular)
+        let bestD = prof.range + 1.5;
+        targets.forEach((tg) => { const dx = tg.x - r.position.x, dz = tg.z - r.position.z, dd = Math.hypot(dx, dz); if (dd < bestD && dd > 0.3) { bestD = dd; s.yaw = Math.atan2(dx, dz); r.rotation.y = s.yaw; } });
+        const pos = r.position.clone();
+        fxQueue.push(prof.ranged === 'magic'
+          ? { kind: 'magic', pos: pos.setY(0), yaw: s.yaw, range: prof.range, damage: damageOf(), color: fxColor }
+          : { kind: 'slash', pos, yaw: s.yaw, range: prof.range, damage: damageOf(), color: fxColor, heavy: prof.power > 1.2 });
+      }
+    }
+    if (cs.charging) {
+      cs.held += dt;
+      const shot = bowShot(cs.held, prof.range, prof.power);
+      charge.current = shot.charge;
+      // mira para onde a câmera olha (arraste a tela para mirar), com uma ajudinha: um alvo perto dessa direção e
+      // dentro do alcance puxa a mira para ele
+      let want = camYaw(state), best = 0.85;
+      targets.forEach((tg) => {
+        const dx = tg.x - r.position.x, dz = tg.z - r.position.z, dist = Math.hypot(dx, dz);
+        if (dist > shot.range + 1.5 || dist < 0.5) return;
+        let da = Math.atan2(dx, dz) - camYaw(state); while (da > Math.PI) da -= 2 * Math.PI; while (da < -Math.PI) da += 2 * Math.PI;
+        if (Math.abs(da) < best) { best = Math.abs(da); want = Math.atan2(dx, dz); }
+      }); let dy = want - s.yaw; while (dy > Math.PI) dy -= 2 * Math.PI; while (dy < -Math.PI) dy += 2 * Math.PI; s.yaw += dy * Math.min(1, dt * 10);
+      Object.assign(chargeState, { active: true, charge: shot.charge, perfect: shot.perfect, yaw: s.yaw, range: shot.range, color: fxColor });
+      chargeState.pos.copy(r.position);
+      s.target.copy(r.position); s.player = false;
+      const a = actions.get('shoot');
+      if (a) { if (s.act !== 'shoot') { play('shoot', 0.1); } if (a.time > a.getClip().duration * 0.45) a.timeScale = 0; }
+      else play('idle');
+      r.rotation.y = s.yaw;
+      mixer.update(dt);
+    }
+    if (combatInput.releaseId !== cs.release) {
+      cs.release = combatInput.releaseId;
+      if (cs.charging) {
+        const shot = bowShot(cs.held, prof.range, prof.power);
+        cs.charging = false; charge.current = 0; chargeState.active = false;
+        const a = actions.get('shoot'); if (a) a.timeScale = 1;
+        fxQueue.push({ kind: 'arrow', pos: r.position.clone(), yaw: s.yaw, range: shot.range, speed: shot.speed, damage: damageOf(shot.power), color: shot.perfect ? '#ffe68a' : fxColor, perfect: shot.perfect });
+        s.once = 0.35; s.act = '';
+      }
+    }
+    if (cs.charging) return;
+    if (cs.lunge > 0) { cs.lunge -= dt; const k = Math.max(0, cs.lunge) / 0.35; p.position.z = Math.sin(k * Math.PI) * 0.18; p.rotation.x = Math.sin(k * Math.PI) * 0.25; } else { p.position.z = 0; p.rotation.x = 0; }
     // conquista: comemora (se tiver a animação) e para um pouco
     if (s.burst !== burstKey) { s.burst = burstKey; if (actions.has('happy')) { play('happy', 0.15); s.once = actions.get('happy')!.getClip().duration; } s.wait = 2.5; s.target.copy(r.position); }
     if (s.once > 0) { s.once -= dt; mixer.update(dt); return; }
@@ -237,7 +311,8 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed }: { 
     } else {
       s.wait -= dt;
       const night = gameTime(Date.now()).phase === 'madrugada';
-      play(night && actions.has('sleep') ? 'sleep' : 'idle');
+      // falando (balão aberto): gesticula, se tiver a animação
+      play(night && actions.has('sleep') ? 'sleep' : speech && actions.has('talk') ? 'talk' : 'idle');
       const goal = roam.goal?.current;
       if (goal && !s.player && s.wait > 0.4) s.wait = 0.4; // explorando: pausa curta entre os trechos
       if (s.wait <= 0 && !(night && actions.has('sleep'))) {
@@ -272,6 +347,7 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed }: { 
   return (
     <>
     {appendages && (appendages.tail || appendages.wings) && <Appendages spec={appendages} anchors={anchors} root={root} heightAt={world.heightAt} />}
+    {gear && gear.items.length > 0 && <EquipmentLayer items={gear.items} bones={gearBones} root={root} charge={charge} />}
     <group ref={root} position={[start[0], 0, start[1]]}>
       <group ref={pose} scale={scale}>
         <primitive object={model} />

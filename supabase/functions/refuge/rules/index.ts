@@ -19,3 +19,5 @@ export * from './combat/skills.ts';
 export * from './creatures.ts';
 export * from './species.ts';
 export * from './combat/tree.ts';
+export * from './equipment.ts';
+export * from './weather.ts';

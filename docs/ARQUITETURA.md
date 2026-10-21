@@ -202,6 +202,49 @@ Aba **Habilidades** no jogo (`client/src/ui/SkillTreePanel.tsx`; regras em `shar
 - Guardado em `companion_skill_alloc` (dono grava; ainda sem validação no servidor — entra com `battle.resolve`);
   offline, no navegador. A árvore abre quando a forma (classe) é descoberta.
 
+## Armas, equipamentos e a Forja (v1.10)
+
+- Regras em `shared/rules/equipment.ts`. Só peças rígidas presas a ossos do rig humanoide (mão direita/esquerda,
+  cabeça, peito): espada, faca, maça, lança, cajado, varinha, arco, escudo, grimório, orbe, chapéu, tiara, laço, coroa,
+  mochila, aljava, amuleto, anel. Roupa fica de fora (o corpo é uma peça só).
+- Atributos leves (% × raridade: comum 1, incomum 1,5, rara 2,2, lendária 3,2). O tipo da arma escolhe a animação e o
+  golpe básico (`basicAttack`: alcance, cadência, dano, duas mãos); armas afins da classe dão +5%.
+- **Arco com tiro carregado** (`bowShot`): segurar carrega em 1,6 s (curva suave); alcance 30% → 100%, dano 0,5× → 2×,
+  flecha mais rápida; carga ≥ 95% = "perfeita" (+0,25× e flecha dourada). Efeito: faíscas girando para a flecha, traço
+  no chão até onde vai, anel que cresce, corda que estica; ao soltar, flecha em arco com rastro. Mira pela câmera com
+  ajuda para o alvo mais perto.
+- **Obtenção (decisão de 21/10):** itens são super raros e só nascem na **Forja**, e só a classe **Taurina** forja
+  (`canForge`, `forgeCheck`), com receita (ingredientes = drops dos monstros, ex.: Fragmento de Bruma, Pelo gelado) e
+  vínculo mínimo. Por enquanto ninguém tem ingredientes (a coleta chega com a batalha); `?arsenal` libera tudo para teste.
+- Modelos gerados por código (`ItemModel.tsx`) ou .GLB; presos por `Equipment.tsx` (posição do osso; orientação do corpo
+  + o quanto o osso girou desde o descanso). O rig Mixamo do Tripo (`mixamorig:RightHand`, `Head`, `Spine2`) é encontrado
+  pelo nome. Pegada (posição/giro/tamanho) ajustável no Arsenal; vale para todos (mesmo rig).
+- Ataque: botão redondo (ou F/Espaço; segurar no arco). Golpes, magia e flechas acertam alvos registrados (boneco de
+  treino no Refúgio, criaturas no mundo — reagem e mostram o número; ainda sem vida/luta).
+- Tabelas `items` (catálogo, RLS de ADM) e `companion_equipment` (dono grava). Painel: **Arsenal**.
+
+## Animações num arquivo só (v1.10)
+
+O Tripo exporta várias animações num .GLB com o modelo (deixe "Animação no Lugar" desligado: o jogo trava a posição e
+mede o passo). O tipo vem do nome de cada clipe (`animKind`, palavras em pt e en; palavras longas valem mesmo grudadas,
+como "cruzadasblocking"). Golpes por arma (`attackVariant`: "sword slash" → espada, "dagger stab" → faca) e o jogo usa o
+da arma equipada. Tipos novos: magia, arco/tiro, esquiva, defender, levantando, sentado, pegando do chão, acenando,
+conversando. A Mayuna humana (17 animações, rig Mixamo, 18 mil triângulos) foi de 8,6 MB para 1,6 MB com
+`gltf-transform optimize --texture-compress webp --texture-size 1024 --compress meshopt`.
+
+## Clima (v1.10)
+
+`shared/rules/weather.ts`: limpo, sol forte, chuva, tempestade, névoa, neve, areia. Automático por janelas de tempo
+(sorteio pelo peso global × peso do bioma; mesma região, mesmo clima para todos) ou fixo pelo ADM
+(`game_config.values.weather`). Cena: `Weather.tsx` (partículas em volta do Companion, névoa e céu puxados para o clima,
+relâmpago) + `WeatherOverlay` (tinta de tela). Transição suave. Teste: `?clima=chuva`.
+
+## O Administrador (v1.10)
+
+O painel passou a se chamar **O Administrador**: Companions (Fábrica), Biomas, Forja de Batalha, Invocador de Monstros,
+Arsenal e **Servidor** — XP (multiplicador sobre os valores base, limites, curva de níveis com prévia) e clima. O
+servidor lê `game_config.values` a cada mensagem: muda na hora.
+
 ## Companion 3D e animações (v1.4)
 
 - A Fábrica recebe o **modelo .GLB** e **várias animações .GLB** do mesmo rig (o Tripo exporta uma por arquivo). O tipo vem

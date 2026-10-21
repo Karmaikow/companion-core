@@ -4,7 +4,7 @@ import { supabase } from '../backend/online';
 
 export interface CatalogRow<T> { slug: string; name: string; data: T; status: 'draft' | 'published'; updated_at?: string }
 
-export function useCatalog<T extends { slug: string; name: string }>(table: 'skills' | 'creatures', clean: (x: unknown) => T | null) {
+export function useCatalog<T extends { slug: string; name: string }>(table: 'skills' | 'creatures' | 'items', clean: (x: unknown) => T | null) {
   const [rows, setRows] = useState<CatalogRow<T>[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const load = useCallback(async () => {

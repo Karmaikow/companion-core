@@ -1,5 +1,5 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { ELEMENTS, derivePalette, refugeFeatures, animKind, sanitizeBiome, sanitizeCreature, makeCompanionWorld, characterSheet, speciesSpeed, WORLD_SEED, REFUGE_BIOME, WORLD_FALLBACK_BIOMES, DEFAULT_CREATURES, type BiomeConfig, type CreatureDef, type WorldSite } from '@rules';
+import { ELEMENTS, derivePalette, refugeFeatures, animKind, sanitizeBiome, sanitizeCreature, makeCompanionWorld, characterSheet, speciesSpeed, sanitizeItem, validateEquipped, equipmentBonus, ITEM_TYPES, sanitizeWeather, weatherAt, WEATHERS, DEFAULT_WEATHER, DEFAULT_BIOME_WEATHER, type ItemDef, type WeatherConfig, WORLD_SEED, REFUGE_BIOME, WORLD_FALLBACK_BIOMES, DEFAULT_CREATURES, type BiomeConfig, type CreatureDef, type WorldSite } from '@rules';
 import { Refuge } from './scene/Refuge';
 import { WorldScene } from './scene/World';
 import { WorldMap } from './ui/WorldMap';
@@ -11,6 +11,9 @@ import { Celebration, AwakenCall } from './ui/Celebration';
 import { Entry } from './ui/Entry';
 import { Creation } from './ui/Creation';
 import { SkillTreePanel } from './ui/SkillTreePanel';
+import { pressAttack, releaseAttack } from './scene/Combat';
+import { ownsItem } from './ui/EquipmentPanel';
+import { WeatherOverlay } from './ui/WeatherOverlay';
 import { supabase } from './backend/online';
 
 const TABS: { key: Tab; label: string }[] = [
@@ -156,7 +159,26 @@ export function App() {
     });
     useGame.getState().celebrate({ kind: 'quest', eyebrow: 'Lugar descoberto', title: s.name, subtitle: companionWorld.biomes[s.biome].name });
   };
+  // ---- clima: config do ADM (game_config.values.weather) × peso do bioma onde o Companion está
+  const [weatherCfg, setWeatherCfg] = useState<WeatherConfig>(DEFAULT_WEATHER);
+  const [regionBiome, setRegionBiome] = useState<string | null>(null);
+  const [clock, setClock] = useState(() => Date.now());
+  useEffect(() => {
+    const load = () => supabase().from('game_config').select('values').eq('id', 1).maybeSingle().then(({ data }) => { const w = (data?.values as { weather?: unknown } | null)?.weather; if (w) setWeatherCfg(sanitizeWeather(w)); }, () => {});
+    load();
+    const t = setInterval(() => { setClock(Date.now()); load(); }, 30_000);
+    return () => clearInterval(t);
+  }, []);
+  const weather = useMemo(() => {
+    const test = new URLSearchParams(location.search).get('clima');
+    if (test && test in WEATHERS) return { kind: test as keyof typeof WEATHERS, intensity: 0.9 };
+    const here = place === 'world' ? companionWorld.biomes.find((b) => b.slug === regionBiome) : biome;
+    const w = weatherAt(weatherCfg, clock, (place === 'world' ? 'mundo:' : 'refugio:') + (here?.slug ?? 'refugio'), here?.settings.weather ?? DEFAULT_BIOME_WEATHER);
+    return { kind: w.kind, intensity: w.intensity };
+  }, [weatherCfg, clock, place, regionBiome, companionWorld, biome]);
+
   const enterRegion = (s: WorldSite) => {
+    setRegionBiome(companionWorld.biomes[s.biome].slug);
     const label = s.home ? 'Portal do Refúgio' : companionWorld.biomes[s.biome].name;
     setRegionName(label);
   };
@@ -177,6 +199,43 @@ export function App() {
     return { tail, wings, palette: { primary: pal.primary, secondary: pal.secondary, accent: pal.accent, glow: pal.glow } };
   }, [c?.identityContract, visual.color, visual.glow]);
 
+  // ---- armas e equipamentos: arsenal publicado (ou o inicial) + o que está equipado
+  const items = useGame((s) => s.items);
+  const equipped = useGame((s) => s.equipped);
+  useEffect(() => {
+    supabase().from('items').select('slug,name,data').eq('status', 'published').then(({ data }) => {
+      const list = (data ?? []).map((r) => sanitizeItem({ ...(r.data as object), slug: r.slug, name: r.name })).filter((x): x is ItemDef => !!x);
+      if (list.length) useGame.getState().setItems(list);
+    }, () => {});
+  }, []);
+  useEffect(() => {
+    if (!c?.id) return;
+    let alive = true;
+    (async () => {
+      let raw = {};
+      try {
+        if (backend?.kind === 'online') raw = (await supabase().from('companion_equipment').select('equipped').eq('companion_id', c.id).maybeSingle()).data?.equipped ?? {};
+        else raw = JSON.parse(localStorage.getItem('companion-core:equipped:' + c.id) ?? '{}');
+      } catch { /* vazio */ }
+      if (alive) useGame.getState().setEquipped(validateEquipped(raw, useGame.getState().items, ownsItem));
+    })();
+    return () => { alive = false; };
+  }, [c?.id, backend?.kind, items]);
+  const gear = useMemo(() => {
+    const list = Object.values(equipped).map((slug) => items.find((i) => i.slug === slug)).filter((x): x is ItemDef => !!x);
+    const weapon = list.find((i) => ITEM_TYPES[i.type].slot === 'weapon') ?? null;
+    return { items: list, weapon, species: d.form ?? null, color: visual.color, poder: equipmentBonus(equipped, items).poder ?? 0 };
+  }, [equipped, items, d.form, visual.color]);
+  const bowEquipped = gear.weapon?.type === 'arco';
+  // teclado: F ou Espaço (segurar carrega o arco); ignorado enquanto digita
+  useEffect(() => {
+    const typing = () => { const el = document.activeElement; return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA'); };
+    const down = (e: KeyboardEvent) => { if (typing() || e.repeat) return; if (e.key === 'f' || e.key === 'F' || e.key === ' ') { e.preventDefault(); pressAttack(); } };
+    const up = (e: KeyboardEvent) => { if (e.key === 'f' || e.key === 'F' || e.key === ' ') releaseAttack(); };
+    window.addEventListener('keydown', down); window.addEventListener('keyup', up); window.addEventListener('blur', releaseAttack);
+    return () => { window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); window.removeEventListener('blur', releaseAttack); };
+  }, []);
+
   const panel = { chat: ChatPanel, memories: MemoriesPanel, diary: DiaryPanel, quests: QuestsPanel, inventory: InventoryPanel, recipes: RecipesPanel, skills: SkillTreePanel, bond: BondPanel };
   const Panel = tab ? panel[tab] : null;
 
@@ -185,11 +244,13 @@ export function App() {
       <div className="stage">
         <Suspense fallback={null}>
           {place === 'world' && model ? (
-            <WorldScene world={companionWorld} creatures={creatures} model={model} appendages={appendages} speed={speciesSpeed(d.form)} speech={bubble} burstKey={burst} color={visual.color} quality={quality()} discovered={discovered} explore={explore} onRegion={enterRegion} onDiscover={discover} onHome={goHome} />
-          ) : <Refuge color={visual.color} glow={visual.glow} element={d.element} energy={energy} pulseKey={pulse} burstKey={burst} features={passage && !features.window ? { ...features, window: true } : features} contract={c?.stage === 'awakened' ? c.identityContract : null} speech={bubble} model={model} seed={seed} biome={biome} quality={quality()} appendages={appendages} speed={speciesSpeed(d.form)} />}
+            <WorldScene world={companionWorld} creatures={creatures} model={model} appendages={appendages} speed={speciesSpeed(d.form)} gear={gear} weather={weather} speech={bubble} burstKey={burst} color={visual.color} quality={quality()} discovered={discovered} explore={explore} onRegion={enterRegion} onDiscover={discover} onHome={goHome} />
+          ) : <Refuge color={visual.color} glow={visual.glow} element={d.element} energy={energy} pulseKey={pulse} burstKey={burst} features={passage && !features.window ? { ...features, window: true } : features} contract={c?.stage === 'awakened' ? c.identityContract : null} speech={bubble} model={model} seed={seed} biome={biome} quality={quality()} appendages={appendages} speed={speciesSpeed(d.form)} gear={gear} weather={weather} />}
         </Suspense>
       </div>
 
+      <WeatherOverlay />
+      {backend && c && weather.kind !== 'limpo' && <div className="weather-chip" title={WEATHERS[weather.kind].hint}>{WEATHERS[weather.kind].icon} {WEATHERS[weather.kind].label}</div>}
       {!backend && <Entry />}
 
       {backend && c && (
@@ -221,6 +282,14 @@ export function App() {
                 </>
               )}
             </div>
+          )}
+          {model && (
+            <button className={'attack-btn' + (bowEquipped ? ' bow' : '')} aria-label={bowEquipped ? 'Segure para carregar o arco e solte para atirar' : 'Atacar'}
+              onPointerDown={(e) => { e.preventDefault(); (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId); pressAttack(); }}
+              onPointerUp={() => releaseAttack()} onPointerCancel={() => releaseAttack()} onContextMenu={(e) => e.preventDefault()}>
+              <span aria-hidden>{bowEquipped ? '🏹' : gear.weapon && ITEM_TYPES[gear.weapon.type].weapon?.ranged === 'magic' ? '✦' : '⚔'}</span>
+              <small>{bowEquipped ? 'segure' : 'F'}</small>
+            </button>
           )}
           {place === 'world' && <WorldMap world={companionWorld} discovered={discovered} />}
           {place === 'world' && regionName && <div className="region-banner" key={regionName}>{regionName}</div>}

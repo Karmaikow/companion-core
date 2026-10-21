@@ -1,3 +1,4 @@
+import { EquipmentPanel } from './EquipmentPanel';
 import { useEffect, useRef, useState } from 'react';
 import { QUESTS, QUEST_REWARDS, FORM_FAMILIES, ELEMENTS, SECRETS, SECRET_BY_KEY, type SecretKey } from '@rules';
 import { ItemIcon } from './itemIcons';
@@ -175,6 +176,8 @@ export function InventoryPanel() {
   const rare = inv.filter((i) => i.meta.rare);
   return (
     <div className="inventory-wrap">
+      <EquipmentPanel />
+      <h3 className="rare-title">Descobertas</h3>
       <div className="inventory">
         {slots.map((r) => {
           const it = inv.find((i) => i.item_key === r.item);

@@ -3,7 +3,7 @@
  * (determinístico); o jeito de andar segue o temperamento: passivo passeia, medroso foge, territorial defende o seu
  * canto e agressivo vem desafiar o Companion (um "!" e a animação de ataque — a batalha entra numa próxima fatia).
  */
-import { Suspense, useMemo, useRef, useState } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 import * as THREE from 'three';
@@ -11,6 +11,7 @@ import { chunkSpawns, CHUNK, ARCHETYPES, type CompanionWorld, type CreatureDef, 
 import { companionFocus, resolveCollisions } from './world';
 import { CreatureBody, type CreatureAct } from './Creature';
 import { AssetBoundary } from './Biome';
+import { targets } from './Combat';
 
 export function WorldCreatures({ cw, creatures, center, night, high }: { cw: CompanionWorld; creatures: CreatureDef[]; center: [number, number]; night: boolean; high: boolean }) {
   const bySlug = useMemo(() => new Map(creatures.map((c) => [c.slug, c])), [creatures]);
@@ -38,6 +39,13 @@ function WorldCreature({ cw, def, spawn }: { cw: CompanionWorld; def: CreatureDe
   const [near, setNear] = useState(false);
   const st = useRef({ x: spawn.x, z: spawn.z, tx: spawn.x, tz: spawn.z, yaw: Math.random() * 6.28, wait: Math.random() * 3, act: 'idle' as CreatureAct, alert: false, near: false, ph: Math.random() * 10 });
   const R = Math.max(0.25, def.size * 0.35);
+  // pode ser acertada pelos ataques do Companion (ainda sem vida/luta: reage e mostra o número)
+  const hurt = useRef(0);
+  useEffect(() => {
+    const id = 'creature:' + spawn.id;
+    targets.set(id, { x: spawn.x, z: spawn.z, r: Math.max(0.35, def.size * 0.45), hit: () => { hurt.current = 0.6; } });
+    return () => { targets.delete(id); };
+  }, [spawn.id, spawn.x, spawn.z, def.size]);
   useFrame((_, dtRaw) => {
     const s = st.current, grp = g.current; if (!grp) return;
     const dt = Math.min(dtRaw, 0.1);
@@ -80,6 +88,8 @@ function WorldCreature({ cw, def, spawn }: { cw: CompanionWorld; def: CreatureDe
     if (dC < R + 0.5 && dC > 1e-3) { s.x = fx + ((s.x - fx) / dC) * (R + 0.5); s.z = fz + ((s.z - fz) / dC) * (R + 0.5); }
     grp.position.set(s.x, cw.heightAt(s.x, s.z), s.z);
     grp.rotation.y = s.yaw;
+    const tg = targets.get('creature:' + spawn.id); if (tg) { tg.x = s.x; tg.z = s.z; }
+    if (hurt.current > 0) { hurt.current -= dt; want = 'hurt'; }
     if (want !== s.act) { s.act = want; setAct(want); }
     const al = mode === 'chase';
     if (al !== s.alert) { s.alert = al; setAlert(al); }

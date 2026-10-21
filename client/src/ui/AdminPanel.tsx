@@ -1,5 +1,5 @@
 /**
- * Fábrica de Companions — painel do ADM (abre em /#/admin).
+ * O Administrador — painel do ADM (abre em /#/admin): Fábrica de Companions, Biomas, Forja, Invocador, Arsenal, Servidor.
  * Lista os pedidos de arte gerados no despertar, mostra o prompt de criação
  * montado a partir do contrato de identidade e recebe a arte final.
  */
@@ -9,13 +9,17 @@ import { supabase } from '../backend/online';
 import { BiomeStudio } from './BiomeStudio';
 import { ForgeStudio } from './ForgeStudio';
 import { SummonerStudio } from './SummonerStudio';
+import { ArsenalStudio } from './ArsenalStudio';
+import { ServerStudio } from './ServerStudio';
 
-type View = 'companions' | 'biomas' | 'forja' | 'invocador';
+type View = 'companions' | 'biomas' | 'forja' | 'invocador' | 'arsenal' | 'servidor';
 const VIEWS: { key: View; label: string; hash: string; title: string; hint: string }[] = [
   { key: 'companions', label: 'Companions', hash: '#/admin', title: 'Fábrica de Companions', hint: 'Pedidos de arte gerados quando um Companion desperta. O jogador nunca vê este painel.' },
   { key: 'biomas', label: 'Biomas', hash: '#/admin/biomas', title: 'Estúdio de Biomas', hint: 'Refúgios e regiões do Companion World: cores, modelos e a aparência de cada modelo, com prévia 3D.' },
   { key: 'forja', label: 'Forja de Batalha', hash: '#/admin/forja', title: 'Forja de Batalha', hint: 'Habilidades genéricas que qualquer Companion daquela essência e corpo pode usar.' },
   { key: 'invocador', label: 'Invocador de Monstros', hash: '#/admin/invocador', title: 'Invocador de Monstros', hint: 'O catálogo de criaturas: corpo, jeito de lutar, onde aparecem e o que soltam.' },
+  { key: 'arsenal', label: 'Arsenal', hash: '#/admin/arsenal', title: 'Arsenal', hint: 'Armas e equipamentos: modelo, atributos, raridade, pegada na mão e a receita da Forja (só Taurinas forjam).' },
+  { key: 'servidor', label: 'Servidor', hash: '#/admin/servidor', title: 'Servidor', hint: 'XP de vínculo e clima — vale na hora para todos os jogadores.' },
 ];
 
 interface Job {
@@ -122,8 +126,8 @@ export function AdminPanel() {
     <div className="admin">
       <header className="admin-head">
         <div>
-          <h1>{V.title}</h1>
-          <p>{V.hint}</p>
+          <h1>O Administrador</h1>
+          <p><b>{V.title}</b> · {V.hint}</p>
           {session && (
             <nav className="admin-tabs" aria-label="Seções">
               {VIEWS.map((v) => <button key={v.key} className={view === v.key ? 'on' : ''} onClick={() => { setView(v.key); history.replaceState(null, '', v.hash); }}>{v.label}</button>)}
@@ -152,6 +156,8 @@ export function AdminPanel() {
       {session && view === 'biomas' && <BiomeStudio />}
       {session && view === 'forja' && <ForgeStudio />}
       {session && view === 'invocador' && <SummonerStudio />}
+      {session && view === 'arsenal' && <ArsenalStudio />}
+      {session && view === 'servidor' && <ServerStudio />}
       <div className="jobs" hidden={view !== 'companions'}>
         {shown.map((j) => (
           <article key={j.id} className={'job ' + j.status}>

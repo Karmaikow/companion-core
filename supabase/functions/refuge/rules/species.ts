@@ -33,6 +33,8 @@ export interface SpeciesDef {
   formSkill: string;          // habilidade de forma (Forja)
   /** velocidade de movimento (1 = padrão): algumas classes andam mais rápido, outras mais devagar */
   speed: number;
+  /** habilidade de ofício da classe (a Taurina forja armas e equipamentos) */
+  craft?: { key: 'forja'; label: string; hint: string };
 }
 
 export const SPECIES: Record<SpeciesKey, SpeciesDef> = {
@@ -63,6 +65,7 @@ export const SPECIES: Record<SpeciesKey, SpeciesDef> = {
     features: 'curved bull horns, small cow-like ears, sturdy build, chunky boots and bracers',
     featuresPt: 'chifres curvos, orelhas bovinas, porte robusto',
     tail: 'tuft', wings: null, formSkill: 'investida', speed: 0.88,
+    craft: { key: 'forja', label: 'Forja', hint: 'Só Taurinas forjam armas e equipamentos, com receitas e ingredientes específicos.' },
   },
   mistica: {
     key: 'mistica', label: 'Feérica', lineage: 'Fadas, elfos e espíritos da luz e da sombra', vocation: 'Magia',

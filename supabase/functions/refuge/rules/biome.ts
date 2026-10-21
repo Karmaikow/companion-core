@@ -5,6 +5,7 @@
  */
 
 import { sanitizeLook, type ModelLook } from './look.ts';
+import { DEFAULT_BIOME_WEATHER, sanitizeWeights, type WeatherKind } from './weather.ts';
 
 export type BiomeAssetRole = 'tree' | 'rock' | 'grass' | 'plant' | 'landmark' | 'prop';
 export type BiomeZone = 'inside' | 'edge' | 'outside' | 'anywhere';
@@ -50,6 +51,8 @@ export interface BiomeConfig {
     ambient: BiomeAmbient;
     /** névoa da região no mundo: 1 = normal, 2 = densa */
     fog: number;
+    /** chance de cada clima aqui (0 = nunca); multiplica o peso global do ADM */
+    weather: Record<WeatherKind, number>;
     /** relevo da região no mundo aberto: 0 = plano, 1 = colinas, 2 = morros */
     hills: number;
   };
@@ -88,7 +91,7 @@ export const REFUGE_BIOME: BiomeConfig = {
   name: 'Clareira do Refúgio',
   description: 'Clareira escondida cercada de pedras lavanda e árvores; onde o Companion nasce.',
   palette: DEFAULT_PALETTE,
-  settings: { kind: 'refuge', grassBlades: 1, cliffs: true, world: false, ambient: 'fireflies', fog: 1, hills: 0.6 },
+  settings: { kind: 'refuge', grassBlades: 1, cliffs: true, world: false, ambient: 'fireflies', fog: 1, hills: 0.6, weather: { ...DEFAULT_BIOME_WEATHER } },
   assets: [
     A('arvore', 'Árvore', 'tree', { height: [3.0, 4.4], count: 14 }),
     A('arvore_dois', 'Árvore dois', 'tree', { height: [2.6, 3.8], count: 12 }),
@@ -142,6 +145,7 @@ export function sanitizeBiome(input: unknown): BiomeConfig {
         kind, world: kind === 'world', grassBlades: clampN(st.grassBlades, 0, 2, 1), cliffs: st.cliffs !== false,
         ambient: (st.ambient && st.ambient in BIOME_AMBIENTS ? st.ambient : kind === 'refuge' ? 'fireflies' : 'none') as BiomeAmbient,
         fog: clampN(st.fog, 1, 2, 1), hills: clampN(st.hills, 0, 2, 1),
+        weather: sanitizeWeights(st.weather, DEFAULT_BIOME_WEATHER),
       };
     })(),
     assets,
@@ -152,16 +156,16 @@ export function sanitizeBiome(input: unknown): BiomeConfig {
  * Regiões de reserva do Companion World: variações do Refúgio com os mesmos modelos, para o mundo já ter cara de
  * lugares diferentes enquanto o Estúdio ainda tem poucos biomas publicados.
  */
-const variant = (slug: string, name: string, description: string, palette: Partial<BiomePalette>, hills: number, tweak: (a: BiomeAsset) => BiomeAsset | null, ambient: BiomeAmbient = 'none'): BiomeConfig => ({
-  slug, name, description, palette: { ...DEFAULT_PALETTE, ...palette }, settings: { kind: 'world', grassBlades: 1, cliffs: false, world: true, ambient, fog: 1, hills },
+const variant = (slug: string, name: string, description: string, palette: Partial<BiomePalette>, hills: number, tweak: (a: BiomeAsset) => BiomeAsset | null, ambient: BiomeAmbient = 'none', weather: Partial<Record<WeatherKind, number>> = {}): BiomeConfig => ({
+  slug, name, description, palette: { ...DEFAULT_PALETTE, ...palette }, settings: { kind: 'world', grassBlades: 1, cliffs: false, world: true, ambient, fog: 1, hills, weather: { ...DEFAULT_BIOME_WEATHER, ...weather } },
   assets: REFUGE_BIOME.assets.map(tweak).filter((a): a is BiomeAsset => !!a),
 });
 export const WORLD_FALLBACK_BIOMES: BiomeConfig[] = [
   { ...REFUGE_BIOME, slug: 'prados', name: 'Prados do Refúgio', settings: { ...REFUGE_BIOME.settings, kind: 'world', world: true, cliffs: false } },
   variant('bosque-ambar', 'Bosque Âmbar', 'Folhas cor de mel e chão de terra quente.', { grassLight: '#c9c25a', grassDark: '#93a046', dirt: '#e0a56a', dirtDark: '#b97a4a', rockSide: '#c7a98f', rockTop: '#c9c25a', rockBottom: '#8d6f5c', sky: '#ffe2b8', fog: '#ffe9cc' }, 1,
-    (a) => (a.role === 'tree' ? { ...a, count: Math.round(a.count * 1.8), look: { hue: -55, sat: 1.15, light: 1.05, contrast: 1.05, tint: '#ffb35a', tintAmount: 0.25, glow: 0 } } : a), 'leaves'),
+    (a) => (a.role === 'tree' ? { ...a, count: Math.round(a.count * 1.8), look: { hue: -55, sat: 1.15, light: 1.05, contrast: 1.05, tint: '#ffb35a', tintAmount: 0.25, glow: 0 } } : a), 'leaves', { chuva: 2 }),
   variant('colinas-lavanda', 'Colinas Lavanda', 'Morros de grama azulada e pedras grandes.', { grassLight: '#9fd0b0', grassDark: '#6a9f9a', dirt: '#cdb8e0', dirtDark: '#a58fc0', rockSide: '#c6b6ea', rockTop: '#9fd0b0', rockBottom: '#8576b0', sky: '#d6dcff', fog: '#e2e4ff' }, 1.8,
-    (a) => (a.role === 'tree' ? { ...a, count: Math.round(a.count * 0.4) } : a.role === 'rock' ? { ...a, count: a.count * 2, look: { hue: 120, sat: 1.2, light: 1.05, contrast: 1, tint: '#c58cff', tintAmount: 0.35, glow: 0.35 } } : a), 'spores'),
+    (a) => (a.role === 'tree' ? { ...a, count: Math.round(a.count * 0.4) } : a.role === 'rock' ? { ...a, count: a.count * 2, look: { hue: 120, sat: 1.2, light: 1.05, contrast: 1, tint: '#c58cff', tintAmount: 0.35, glow: 0.35 } } : a), 'spores', { nevoa: 3, chuva: 0.5 }),
 ];
 
 /** "Floresta Sussurrante" -> "floresta-sussurrante" */

@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { DEFAULT_ITEMS, type Equipped, type ItemDef } from '@rules';
 import { QUESTS, QUEST_REWARDS, SECRET_BY_KEY, SECRET_XP, SECRET_BOOST_TURNS, ELEMENTS, type QuestKey, type SecretKey } from '@rules';
 import type { Backend, Snapshot } from './backend/types';
 
@@ -22,6 +23,11 @@ interface State {
   toasts: Toast[];
   celebrations: Celebration[];
   awakenCall: boolean;
+  /** Arsenal publicado (ou o inicial) e o que está equipado. Teste: ?arsenal dá todos os itens e materiais. */
+  items: ItemDef[];
+  equipped: Equipped;
+  setItems(items: ItemDef[]): void;
+  setEquipped(e: Equipped): void;
   setBackend(b: Backend | null): void;
   setTab(t: Tab | null): void;
   run(fn: (b: Backend) => Promise<Snapshot>): Promise<void>;
@@ -47,6 +53,10 @@ export const useGame = create<State>((set, get) => ({
   toasts: [],
   celebrations: [],
   awakenCall: false,
+  items: DEFAULT_ITEMS,
+  equipped: {},
+  setItems: (items) => set({ items }),
+  setEquipped: (equipped) => set({ equipped }),
   setBackend: (backend) => set({ backend, snap: null, error: null, lastReply: null, celebrations: [], awakenCall: false }),
   setTab: (tab) => set({ tab }),
   toast: (text, tone = 'soft') => {

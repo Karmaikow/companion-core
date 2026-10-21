@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import './styles.css';
 
-// O painel do ADM (Fábrica de Companions) fica fora do jogo: /#/admin
+// O painel do ADM (O Administrador) fica fora do jogo: /#/admin
 const AdminPanel = lazy(() => import('./ui/AdminPanel').then((m) => ({ default: m.AdminPanel })));
 const isAdminRoute = () => location.hash.startsWith('#/admin');
 

@@ -11,6 +11,10 @@ import * as THREE from 'three';
 import { gameTime, CHUNK, WORLD_R, WORLD_ROLE, layerRole, type CompanionWorld, type WorldSite, type BiomePalette, type CreatureDef } from '@rules';
 import { WorldCreatures } from './WorldCreatures';
 import type { AppendageSpec } from './Appendages';
+import type { Gear } from './CompanionModel';
+import { WeatherFx } from './Weather';
+import type { WeatherKind } from '@rules';
+import { CombatFx } from './Combat';
 import type { CompanionModelFiles } from '../backend/types';
 import { CompanionModel, type Roam } from './CompanionModel';
 import { companionFocus, moveRequest, colliders, smooth, type WorldShape } from './world';
@@ -24,6 +28,8 @@ export interface WorldSceneProps {
   model: CompanionModelFiles;
   appendages?: AppendageSpec | null;
   speed?: number;
+  gear?: Gear | null;
+  weather?: { kind: WeatherKind; intensity: number };
   speech: string | null;
   burstKey: number;
   color: string;
@@ -259,6 +265,7 @@ export function WorldScene(props: WorldSceneProps) {
     >
       <Sky daylight={daylight} palette={cw.biomes[region.biome].palette} follow fogFar={((TR - 0.4) * CHUNK) / Math.max(1, cw.biomes[region.biome].settings.fog)} />
       <Ambient kind={cw.biomes[region.biome].settings.ambient} world={shape} />
+      {props.weather && <WeatherFx kind={props.weather.kind} intensity={props.weather.intensity} world={shape} />}
       <WindClock />
       <CameraRig ground={cw.heightAt} />
       {chunks.map(([x, z]) => <TerrainChunk key={x + ',' + z} cw={cw} pals={pals} cx={x} cz={z} walkable />)}
@@ -268,7 +275,8 @@ export function WorldScene(props: WorldSceneProps) {
       <Waystones cw={cw} discovered={props.discovered} center={center} />
       <WorldCreatures cw={cw} creatures={props.creatures} center={center} night={daylight < 0.35} high={high} />
       <Suspense fallback={null}>
-        <CompanionModel files={props.model} world={shape} burstKey={props.burstKey} speech={props.speech} onFail={props.onHome} roam={roam} appendages={props.appendages} speed={props.speed} />
+        <CompanionModel files={props.model} world={shape} burstKey={props.burstKey} speech={props.speech} onFail={props.onHome} roam={roam} appendages={props.appendages} speed={props.speed} gear={props.gear} />
+      <CombatFx world={shape} />
       </Suspense>
       <WorldLogic cw={cw} discovered={props.discovered} explore={props.explore} goal={goal} onCenter={setCenter} onRegion={(s) => { setRegion(s); props.onRegion(s); }} onDiscover={props.onDiscover} onHome={props.onHome} />
       <EffectComposer multisampling={0} enableNormalPass={false}>

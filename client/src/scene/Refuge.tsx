@@ -20,6 +20,10 @@ import { makeWorld, companionFocus, colliders, type WorldShape } from './world';
 import { Terrain, Cliffs, GrassBlades, BiomeVegetation, Sky, Motes, CameraRig, WindClock, ClickMarker } from './Biome';
 import { SpeechBubble } from './SpeechBubble';
 import type { AppendageSpec } from './Appendages';
+import type { Gear } from './CompanionModel';
+import { WeatherFx } from './Weather';
+import type { WeatherKind } from '@rules';
+import { CombatFx, targets } from './Combat';
 
 export interface RefugeProps {
   color: string;
@@ -44,6 +48,10 @@ export interface RefugeProps {
   appendages?: AppendageSpec | null;
   /** velocidade da classe (1 = padrão) */
   speed?: number;
+  /** armas e equipamentos */
+  gear?: Gear | null;
+  /** clima agora */
+  weather?: { kind: WeatherKind; intensity: number };
 }
 
 // ---------------------------------------------------------------------------
@@ -105,6 +113,34 @@ function Campfire({ world, night }: { world: WorldShape; night: number }) {
   );
 }
 
+/** Boneco de treino perto da borda: alvo para testar golpes, magia e o arco carregado. */
+function TrainingDummy({ world }: { world: WorldShape }) {
+  const x = -5.2, z = 3.4;
+  const g = useRef<THREE.Group>(null);
+  const hit = useRef(0);
+  useEffect(() => {
+    targets.set('dummy', { x, z, r: 0.45, hit: () => { hit.current = 0.5; } });
+    colliders.set('dummy', [{ x, z, r: 0.35 }]);
+    return () => { targets.delete('dummy'); colliders.delete('dummy'); };
+  }, []);
+  useFrame((_, dt) => {
+    if (!g.current) return;
+    hit.current = Math.max(0, hit.current - dt);
+    g.current.rotation.z = Math.sin(hit.current * 30) * hit.current * 0.5;
+  });
+  return (
+    <group position={[x, world.heightAt(x, z), z]}>
+      <group ref={g}>
+        <mesh position={[0, 0.55, 0]} castShadow><cylinderGeometry args={[0.26, 0.3, 1.1, 14]} /><meshLambertMaterial color="#c9a274" /></mesh>
+        <mesh position={[0, 1.22, 0]} castShadow><sphereGeometry args={[0.2, 14, 14]} /><meshLambertMaterial color="#e2c497" /></mesh>
+        <mesh position={[0, 0.72, 0]} rotation={[0, 0, Math.PI / 2]}><cylinderGeometry args={[0.05, 0.05, 1.0, 8]} /><meshLambertMaterial color="#8a6a4a" /></mesh>
+        <mesh position={[0, 0.55, 0.27]} rotation={[Math.PI / 2, 0, 0]}><ringGeometry args={[0.08, 0.13, 20]} /><meshBasicMaterial color="#e05a5a" side={THREE.DoubleSide} /></mesh>
+      </group>
+      <mesh position={[0, -0.05, 0]}><cylinderGeometry args={[0.08, 0.1, 0.2, 8]} /><meshLambertMaterial color="#8a6a4a" /></mesh>
+    </group>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Céu, partículas mágicas e câmera
 // ---------------------------------------------------------------------------
@@ -146,10 +182,12 @@ export function Refuge(props: RefugeProps) {
       <Altar runeColor={props.color} />
       {/* a clareira fica limpa: só a base do altar e a fogueira (as outras peças voltam quando o mundo pedir) */}
       <Campfire world={world} night={night} />
+      {props.model && !modelFailed && <><TrainingDummy world={world} /><CombatFx world={world} /></>}
       <Motes world={world} night={night} amount={0.4 + f.walls * 0.6} />
+      {props.weather && <WeatherFx kind={props.weather.kind} intensity={props.weather.intensity} world={world} />}
       <Shockwave burstKey={props.burstKey ?? 0} color={props.glow} />
       {props.model && !modelFailed ? (
-        <Suspense fallback={null}><CompanionModel files={props.model} world={world} burstKey={props.burstKey ?? 0} speech={props.speech ?? null} onFail={onFail} appendages={props.appendages} speed={props.speed} /></Suspense>
+        <Suspense fallback={null}><CompanionModel files={props.model} world={world} burstKey={props.burstKey ?? 0} speech={props.speech ?? null} onFail={onFail} appendages={props.appendages} speed={props.speed} gear={props.gear} /></Suspense>
       ) : (
         <>
           {/* sem modelo aprovado: o núcleo (ou o corpo de partículas) no altar; a imagem de referência vai para o retrato */}
