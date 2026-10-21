@@ -7,7 +7,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 import * as THREE from 'three';
-import { softDot } from './textures';
+import { VfxStore } from './vfx/engine';
+import { VfxLayer } from './vfx/VfxLayer';
+import { area, aura, beam, burst, cone, missile, slash, Missile } from './vfx/recipes';
 import { ELEMENTS, STATUSES, expectedDamage, affinity, type SkillDef, type Element } from '@rules';
 
 const TELE = '#c9b8ff';
@@ -52,39 +54,19 @@ function hits(s: SkillDef, L: Layout, p: THREE.Vector3): boolean {
   }
 }
 
-// gravidade e jeito de cada estilo
-const STYLE: Record<string, { g: number; speed: number; size: number; swirl: number; jitter: number; second: string }> = {
-  impacto: { g: 2, speed: 3, size: 0.12, swirl: 0, jitter: 0, second: '#ffffff' },
-  chamas: { g: -3, speed: 2.2, size: 0.17, swirl: 0.4, jitter: 0.2, second: '#fff1a0' },
-  gotas: { g: 9, speed: 3.6, size: 0.12, swirl: 0, jitter: 0, second: '#e6f7ff' },
-  folhas: { g: 1.2, speed: 2.4, size: 0.15, swirl: 2, jitter: 0, second: '#d8ff9a' },
-  pedras: { g: 12, speed: 4, size: 0.2, swirl: 0, jitter: 0, second: '#8a7a6a' },
-  gelo: { g: 3, speed: 3, size: 0.13, swirl: 0.3, jitter: 0, second: '#ffffff' },
-  raios: { g: 0, speed: 5, size: 0.1, swirl: 0, jitter: 3, second: '#ffffff' },
-  vento: { g: -0.5, speed: 3.5, size: 0.11, swirl: 4, jitter: 0, second: '#ffffff' },
-  luz: { g: -1, speed: 2.5, size: 0.14, swirl: 0.6, jitter: 0, second: '#fffbe0' },
-  sombra: { g: -1.2, speed: 1.8, size: 0.18, swirl: 1, jitter: 0, second: '#2a1840' },
-  faiscas: { g: 4, speed: 4.5, size: 0.09, swirl: 0, jitter: 1, second: '#ffffff' },
-};
-
-const N = 160;
-
-
 const EFFECT = 0.9, REST = 0.9;
 
 function Scene({ skill, color, onHit }: { skill: SkillDef; color: string; onHit: (n: number) => void }) {
   const L = useMemo(() => layoutFor(skill), [skill]);
-  const st = STYLE[skill.vfx.style] ?? STYLE.impacto;
-  const col = useMemo(() => new THREE.Color(color), [color]);
+  const style = skill.vfx.style;
+  const store = useMemo(() => new VfxStore(), []);
+  const dashFx = useRef<Missile | null>(null);
   const cycle = skill.windup + EFFECT + REST;
   const clock = useRef(0);
   const fired = useRef(false);
   const caster = useRef<THREE.Group>(null);
   const tele = useRef<THREE.Mesh>(null);
   const fill = useRef<THREE.Mesh>(null);
-  const ring = useRef<THREE.Mesh>(null);
-  const beam = useRef<THREE.Mesh>(null);
-  const orb = useRef<THREE.Mesh>(null);
   const flash = useRef<(THREE.Mesh | null)[]>([]);
   const hitT = useRef<number[]>([0, 0, 0]);
 
@@ -100,33 +82,26 @@ function Scene({ skill, color, onHit }: { skill: SkillDef; color: string; onHit:
   }, [skill, L]);
   useEffect(() => () => geo.dispose(), [geo]);
 
-  // partículas
-  const parts = useMemo(() => {
-    const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(N * 3), 3));
-    g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(N * 3), 3));
-    return { g, p: new Float32Array(N * 3), v: new Float32Array(N * 3), life: new Float32Array(N) };
-  }, []);
-  useEffect(() => () => parts.g.dispose(), [parts]);
-
-  const emit = () => {
-    const s = skill, { p, v, life } = parts, c2 = new THREE.Color(st.second), cc = new THREE.Color();
-    const colAttr = parts.g.attributes.color as THREE.BufferAttribute;
-    for (let i = 0; i < N; i++) {
-      let x = 0, y = 0.6, z = 0, vx = 0, vy = 0, vz = 0;
-      const r = Math.random, sp = st.speed * (0.6 + r() * 0.8);
-      switch (s.shape) {
-        case 'melee': { const a = (r() - 0.5) * 2.2; x = Math.sin(a) * s.range * 0.8; z = Math.cos(a) * s.range * 0.8; vx = Math.sin(a) * sp * 0.4; vz = Math.cos(a) * sp * 0.4; vy = r() * 2; break; }
-        case 'cone': { const a = ((r() - 0.5) * s.angle * Math.PI) / 180; const k = sp * (s.range / 2.2); vx = Math.sin(a) * k; vz = Math.cos(a) * k; vy = (r() - 0.3) * 1.2; z = 0.4; break; }
-        case 'line': case 'dash': case 'projectile': { z = r() * (s.shape === 'projectile' ? 0.3 : s.range); x = (r() - 0.5) * s.radius * 2; if (s.shape === 'projectile') { x = L.dummies[0].x + (r() - 0.5) * 0.3; z = L.dummies[0].z; } vy = r() * sp * 0.6; vx = (r() - 0.5) * sp * 0.5; vz = (r() - 0.5) * sp * 0.5; y = 0.3 + r() * 0.6; break; }
-        case 'circle': case 'leap': { const a = r() * Math.PI * 2, d = Math.sqrt(r()) * s.radius; x = L.target.x + Math.cos(a) * d; z = L.target.z + Math.sin(a) * d; const falls = ['chamas', 'pedras', 'raios', 'gelo', 'gotas'].includes(s.vfx.style) && s.shape === 'circle'; y = falls ? 3 + r() * 2 : 0.1; vy = falls ? -sp * 1.4 : sp * (0.6 + r()); vx = Math.cos(a) * sp * 0.3; vz = Math.sin(a) * sp * 0.3; break; }
-        case 'aura': { const a = r() * Math.PI * 2; x = Math.cos(a) * 0.4; z = Math.sin(a) * 0.4; y = 0.2 + r() * 0.8; vx = Math.cos(a) * sp * (s.radius / 2); vz = Math.sin(a) * sp * (s.radius / 2); vy = r() * 1.5; break; }
+  // efeitos: cada forma dispara a sua receita no fim do aviso
+  const fire = (hitIdx: number[]) => {
+    const s = skill, o = new THREE.Vector3(0, 0.6, 0), chest = (d: THREE.Vector3) => new THREE.Vector3(d.x, 0.7, d.z);
+    const hitFx = (delay: number) => hitIdx.forEach((i) => store.after(delay, () => burst(store, style, chest(L.dummies[i]), color, 0.55, 0)));
+    switch (s.shape) {
+      case 'melee': slash(store, o, 0, s.range, color, s.power >= 40); hitFx(0.07); break;
+      case 'cone': cone(store, style, o, 0, s.angle, s.range, color); hitFx(0.2); break;
+      case 'line': beam(store, style, o, new THREE.Vector3(0, 0.6, s.range), s.radius, color); hitFx(0.05); break;
+      case 'dash': dashFx.current = new Missile(store, style, color, 0.7); hitFx(0.2); break;
+      case 'projectile': missile(store, { style, color, from: new THREE.Vector3(0, 0.7, 0.4), to: chest(L.dummies[0]), duration: 0.36, arc: 0.35, size: Math.max(0.65, s.radius * 1.4), onArrive: (at) => burst(store, style, at, color, 0.9, 0) }); break;
+      case 'circle': {
+        const falls = ['chamas', 'pedras', 'raios', 'gelo', 'gotas'].includes(style);
+        const land = () => area(store, style, L.target, s.radius, color, 0);
+        if (falls) missile(store, { style, color, from: new THREE.Vector3(L.target.x - 1.2, 6, L.target.z - 0.8), to: new THREE.Vector3(L.target.x, 0.3, L.target.z), duration: 0.3, size: 0.8, onArrive: land });
+        else land();
+        break;
       }
-      p.set([x, y, z], i * 3); v.set([vx, vy, vz], i * 3); life[i] = 0.5 + r() * 0.5;
-      cc.copy(col).lerp(c2, r() * 0.6);
-      colAttr.setXYZ(i, cc.r, cc.g, cc.b);
+      case 'leap': store.after(EFFECT * 0.5, () => area(store, style, L.target, s.radius, color, 0)); break;
+      case 'aura': aura(store, style, new THREE.Vector3(), s.radius, color, 0); break;
     }
-    colAttr.needsUpdate = true;
   };
 
   useFrame((_, dtRaw) => {
@@ -144,10 +119,11 @@ function Scene({ skill, color, onHit }: { skill: SkillDef; color: string; onHit:
     }
     // disparo
     if (!inTele && !fired.current) {
-      fired.current = true; emit();
-      let n = 0;
-      L.dummies.forEach((d, i) => { if (hits(s, L, d)) { hitT.current[i] = 0.001; n++; } });
-      onHit(n);
+      fired.current = true;
+      const idx: number[] = [];
+      L.dummies.forEach((d, i) => { if (hits(s, L, d)) { hitT.current[i] = 0.001; idx.push(i); } });
+      fire(idx);
+      onHit(idx.length);
     }
     const active = !inTele && e <= 1;
     // conjurador: investida e salto o movem
@@ -158,36 +134,11 @@ function Scene({ skill, color, onHit }: { skill: SkillDef; color: string; onHit:
       if (active && s.shape === 'leap') { const k = Math.min(1, e * 2); c.position.z = k * L.target.z; c.position.y = Math.sin(k * Math.PI) * 1.6; }
       if (!inTele && e > 1 && (s.shape === 'dash' || s.shape === 'leap')) { const back = Math.min(1, (e - 1) * (EFFECT / REST) * 1.5); c.position.z = (1 - back) * (s.shape === 'dash' ? s.range : L.target.z); }
     }
-    // projétil
-    if (orb.current) {
-      orb.current.visible = active && s.shape === 'projectile' && e < 0.4;
-      const k = Math.min(1, e / 0.4); orb.current.position.set(L.dummies[0].x * k, 0.6, 0.5 + (L.dummies[0].z - 0.5) * k);
+    // investida: rastro do estilo seguindo o conjurador
+    if (dashFx.current && caster.current) {
+      if (active && e < 0.5) dashFx.current.update(caster.current.position.clone().setY(0.55), dt);
+      else { dashFx.current.end(); dashFx.current = null; }
     }
-    // feixe de linha
-    if (beam.current) { beam.current.visible = active && s.shape === 'line' && e < 0.5; (beam.current.material as THREE.MeshBasicMaterial).opacity = 0.8 * (1 - e * 2); }
-    // anel de impacto
-    if (ring.current) {
-      const show = active && ['circle', 'aura', 'leap', 'melee', 'projectile'].includes(s.shape);
-      ring.current.visible = show;
-      const base = s.shape === 'aura' ? new THREE.Vector3() : s.shape === 'melee' ? new THREE.Vector3(0, 0, s.range * 0.7) : s.shape === 'projectile' ? L.dummies[0] : L.target;
-      ring.current.position.set(base.x, 0.05, base.z);
-      const R = s.shape === 'melee' || s.shape === 'projectile' ? 0.9 : s.radius;
-      ring.current.scale.setScalar(0.2 + e * R);
-      (ring.current.material as THREE.MeshBasicMaterial).opacity = Math.max(0, 1 - e);
-    }
-    // partículas
-    const { p, v, life } = parts, pos = parts.g.attributes.position as THREE.BufferAttribute;
-    for (let i = 0; i < N; i++) {
-      if (!fired.current || e > 1.4 || inTele) { pos.setXYZ(i, 0, -50, 0); continue; }
-      const k = i * 3;
-      v[k + 1] -= st.g * dt;
-      if (st.swirl) { const vx = v[k], vz = v[k + 2], a = st.swirl * dt; v[k] = vx * Math.cos(a) - vz * Math.sin(a); v[k + 2] = vx * Math.sin(a) + vz * Math.cos(a); }
-      p[k] += v[k] * dt + (st.jitter ? (Math.random() - 0.5) * st.jitter * dt : 0); p[k + 1] += v[k + 1] * dt; p[k + 2] += v[k + 2] * dt;
-      if (p[k + 1] < 0.03) { p[k + 1] = 0.03; v[k + 1] *= -0.3; v[k] *= 0.7; v[k + 2] *= 0.7; }
-      const alive = e < life[i] * 1.4;
-      pos.setXYZ(i, p[k], alive ? p[k + 1] : -50, p[k + 2]);
-    }
-    pos.needsUpdate = true;
     // bonecos piscam ao serem acertados
     hitT.current.forEach((h, i) => {
       const m = flash.current[i]; if (!m) return;
@@ -224,12 +175,7 @@ function Scene({ skill, color, onHit }: { skill: SkillDef; color: string; onHit:
           <mesh position={[0, 0.7, 0]} rotation={[0, 0, Math.PI / 2]}><cylinderGeometry args={[0.05, 0.05, 1.1, 8]} /><meshLambertMaterial color="#8a6a4a" /></mesh>
         </group>
       ))}
-      <mesh ref={orb}><sphereGeometry args={[Math.max(0.15, skill.radius * 0.6), 16, 16]} /><meshBasicMaterial color={color} toneMapped={false} /></mesh>
-      <mesh ref={beam} position={[0, 0.6, skill.range / 2]}><boxGeometry args={[skill.radius * 1.4, 0.35, skill.range]} /><meshBasicMaterial color={color} transparent blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} /></mesh>
-      <mesh ref={ring} rotation={[-Math.PI / 2, 0, 0]}><ringGeometry args={[0.85, 1, 48]} /><meshBasicMaterial color={color} transparent depthWrite={false} toneMapped={false} side={THREE.DoubleSide} /></mesh>
-      <points geometry={parts.g} frustumCulled={false}>
-        <pointsMaterial map={softDot()} size={st.size * 4} vertexColors transparent alphaTest={0.02} depthWrite={false} />
-      </points>
+      <VfxLayer store={store} />
       <Html position={[L.dummies[0].x, 1.9, L.dummies[0].z]} center style={{ pointerEvents: 'none' }}><span className="fx-label">boneco · def 40</span></Html>
     </group>
   );

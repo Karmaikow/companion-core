@@ -245,6 +245,26 @@ O painel passou a se chamar **O Administrador**: Companions (Fábrica), Biomas, 
 Arsenal e **Servidor** — XP (multiplicador sobre os valores base, limites, curva de níveis com prévia) e clima. O
 servidor lê `game_config.values` a cada mensagem: muda na hora.
 
+## Efeitos das habilidades (v1.11)
+
+Os efeitos deixaram de ser pontos com textura e passaram a usar um motor próprio em `client/src/scene/vfx/`, com visual cartoon:
+
+- **engine.ts**: `VfxStore` (partículas, fitas, `after`, `every`) por cena. O jogo usa `gameVfx`; a prévia da Forja cria a
+  sua.
+- **VfxLayer.tsx** desenha a cena:
+  - Cada partícula é um quadrado instanciado com a forma desenhada no shader: brilho, fumaça em camadas (duas cores, contorno, se desfaz por ruído), faísca esticada pela velocidade, estrela, onda de choque, explosão estrelada, cristal, folha, gota e orbe.
+  - Duas malhas: uma normal (formas sólidas) e uma aditiva (brilho e ondas, sem teste de profundidade para não serem cortadas pelo chão).
+  - As fitas (rastros, raios e cortes) são tiras viradas para a câmera, com núcleo branco.
+- **recipes.ts** monta os efeitos em camadas:
+  - `burst`: clarão, estrela, ondas no ar e no chão, faíscas e os detritos do estilo.
+  - `Missile`/`missile`: orbe, auréola, rastro e partículas pelo caminho.
+  - Também `area`, `cone`, `beam`, `slash` (meia-lua que varre), `aura`, `bolt` e `Charge` (carga do arco).
+  - Cada um dos 11 estilos tem sua paleta e seus detritos: fumaça de fogo que vira fumaça cinza, cristais de gelo, pedras, folhas, gotas, raios recortados, estrelas de luz, fumaça de sombra.
+- **Onde é usado:**
+  - Prévia da Forja (cada forma dispara a sua receita).
+  - Combate no Refúgio e no mundo: corte, magia com o estilo da essência da arma, flecha com rastro, acerto e carga.
+- **Lab:** `forge-lab.html?vfx=missil|area|cone|corte|aura|feixe&so=chamas,gelo`, com `&congela=0.15` para parar num instante exato (útil para capturas).
+
 ## Companion 3D e animações (v1.4)
 
 - A Fábrica recebe o **modelo .GLB** e **várias animações .GLB** do mesmo rig (o Tripo exporta uma por arquivo). O tipo vem
