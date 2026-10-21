@@ -16,8 +16,9 @@ import { ParticleCore } from './ParticleCore';
 import { FirstForm } from './FirstForm';
 import { CompanionModel } from './CompanionModel';
 import { runeTexture } from './textures';
-import { Grow, Crystals, Nest, Cauldron, ElementFeature, Shockwave, Plant, Lantern } from './pieces';
-import { makeWorld, mulberry32, smooth, angDiff, withWind, windTime, CLEAR_R, RIM_R, type WorldShape } from './world';
+import { Shockwave } from './pieces';
+import { makeWorld, mulberry32, smooth, angDiff, withWind, windTime, companionFocus, CLEAR_R, RIM_R, type WorldShape } from './world';
+import { SpeechBubble } from './SpeechBubble';
 
 export interface RefugeProps {
   color: string;
@@ -29,8 +30,8 @@ export interface RefugeProps {
   burstKey?: number;
   features?: RefugeFeatures;
   contract: IdentityContractV1 | null;
-  /** Arte aprovada na Fábrica (imagem de referência). */
-  artUrl?: string;
+  /** Última fala do Companion: aparece num balão sobre a cabeça. */
+  speech?: string | null;
   /** Modelo 3D aprovado na Fábrica, com as animações. */
   model?: CompanionModelFiles;
   /** Seed da clareira (cada Companion tem a sua). */
@@ -329,33 +330,6 @@ function Campfire({ world, night }: { world: WorldShape; night: number }) {
   );
 }
 
-/** Recanto de leitura: um púlpito de pedra com um livro aberto que brilha e uma pilha de livros (ao ar livre, no lugar da estante). */
-function ReadingNook({ seed, glow }: { seed: number; glow: string }) {
-  const r = mulberry32(seed);
-  const books = Array.from({ length: 4 }, (_, i) => ({ y: 0.06 + i * 0.09, rot: (r() - 0.5) * 0.5, c: `hsl(${Math.floor(r() * 360)}, 45%, ${42 + r() * 15}%)` }));
-  return (
-    <group>
-      <mesh position={[0, 0.45, 0]} castShadow><cylinderGeometry args={[0.16, 0.26, 0.9, 6]} /><meshLambertMaterial color="#c4b8da" flatShading /></mesh>
-      <mesh position={[0, 0.93, 0]} rotation={[-0.35, 0, 0]} castShadow><boxGeometry args={[0.62, 0.06, 0.44]} /><meshLambertMaterial color="#b3a8d2" flatShading /></mesh>
-      {[-1, 1].map((sx) => <mesh key={sx} position={[sx * 0.14, 0.99, 0.02]} rotation={[-0.35, 0, sx * 0.12]}><boxGeometry args={[0.26, 0.02, 0.34]} /><meshLambertMaterial color="#f6eedc" emissive={glow} emissiveIntensity={0.25} /></mesh>)}
-      {books.map((b, i) => <mesh key={i} position={[0.55, b.y, 0.15]} rotation={[0, b.rot, 0]} castShadow><boxGeometry args={[0.34, 0.08, 0.24]} /><meshLambertMaterial color={b.c} /></mesh>)}
-      <pointLight position={[0, 1.25, 0.1]} color={glow} intensity={0.8} distance={3} />
-    </group>
-  );
-}
-
-const LANTERN_SPOTS = [0.5, 2.1, 3.7, 5.3].map((a) => [Math.cos(a) * 3.1, Math.sin(a) * 3.1] as [number, number]);
-function LanternPost({ world, at, seed }: { world: WorldShape; at: [number, number]; seed: number }) {
-  const y = world.heightAt(at[0], at[1]);
-  return (
-    <group position={[at[0], y, at[1]]}>
-      <mesh position={[0, 0.8, 0]} castShadow><cylinderGeometry args={[0.04, 0.06, 1.6, 6]} /><meshLambertMaterial color="#6b4630" /></mesh>
-      <mesh position={[0.18, 1.55, 0]} rotation={[0, 0, Math.PI / 2]}><cylinderGeometry args={[0.025, 0.025, 0.36, 5]} /><meshLambertMaterial color="#6b4630" /></mesh>
-      <Lantern position={[0.34, 1.38, 0]} seed={seed} />
-    </group>
-  );
-}
-
 // ---------------------------------------------------------------------------
 // Céu, partículas mágicas e câmera
 // ---------------------------------------------------------------------------
@@ -422,25 +396,27 @@ function CameraRig() {
     return () => { el.removeEventListener('pointerdown', down); window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); el.removeEventListener('wheel', wheel); };
   }, [gl]);
   const want = useMemo(() => new THREE.Vector3(), []);
+  const look = useMemo(() => new THREE.Vector3(), []);
   useFrame((s) => {
     const k = st.current, t = s.clock.elapsedTime;
     const dist = (portrait ? 21 : 15) + k.dist, polar = 0.92, az = k.az + Math.sin(t * 0.05) * 0.08;
-    want.set(Math.sin(polar) * Math.sin(az) * dist, Math.cos(polar) * dist + 0.8, Math.sin(polar) * Math.cos(az) * dist);
+    look.lerp(companionFocus, 0.05);
+    want.set(look.x + Math.sin(polar) * Math.sin(az) * dist, look.y + Math.cos(polar) * dist + 0.8, look.z + Math.sin(polar) * Math.cos(az) * dist);
     camera.position.lerp(want, 0.06);
-    camera.lookAt(0, portrait ? 0.2 : 0.9, 0);
+    camera.lookAt(look.x, look.y + (portrait ? 0.2 : 0.9), look.z);
   });
   return null;
 }
+
+/** Sem corpo andando, a câmera volta para o altar. */
+function FocusAltar() { useFrame(() => { companionFocus.lerp(ZERO, 0.1); }); return null; }
+const ZERO = new THREE.Vector3();
 
 function WindClock() { useFrame((s) => { windTime.value = s.clock.elapsedTime; }); return null; }
 
 // ---------------------------------------------------------------------------
 
 const BARE: RefugeFeatures = { lanterns: 0, crystals: false, shelves: 0, element: null, nest: false, window: false, plants: 0, cauldron: false, walls: 0.25 };
-const SHELVES: { p: [number, number]; r: number; seed: number }[] = [{ p: [-1.2, -6.4], r: 0.2, seed: 21 }, { p: [5.6, -4.2], r: -0.95, seed: 8 }];
-const PLANTS: { p: [number, number]; s: number; seed: number }[] = [
-  { p: [2.4, -5.4], s: 1.6, seed: 5 }, { p: [-1.6, -4.9], s: 1.3, seed: 1 }, { p: [5.4, -1.5], s: 1.8, seed: 13 }, { p: [-5.6, 0.3], s: 1.4, seed: 9 }, { p: [3.2, 2.6], s: 1, seed: 17 },
-];
 
 export function Refuge(props: RefugeProps) {
   const high = props.quality === 'high';
@@ -451,7 +427,6 @@ export function Refuge(props: RefugeProps) {
   const night = 1 - daylight;
   const [modelFailed, setModelFailed] = useState(false);
   const onFail = useMemo(() => () => setModelFailed(true), []);
-  const at = (x: number, z: number): [number, number, number] => [x, world.heightAt(x, z), z];
   return (
     <Canvas
       shadows={high}
@@ -468,22 +443,21 @@ export function Refuge(props: RefugeProps) {
       <GrassBlades world={world} count={high ? 2200 : 900} />
       <Suspense fallback={null}><Vegetation world={world} quality={props.quality} /></Suspense>
       <Altar runeColor={props.color} />
-      {f.crystals && <Grow><Crystals color={props.color} /></Grow>}
-      {f.lanterns > 0 && <Grow position={[0, 0, 0]}><Campfire world={world} night={night} /></Grow>}
-      {LANTERN_SPOTS.slice(0, f.lanterns).map((p, i) => <Grow key={i}><LanternPost world={world} at={p} seed={i + 1} /></Grow>)}
-      {SHELVES.slice(0, f.shelves).map((b) => <Grow key={b.seed} position={at(b.p[0], b.p[1])} rotation={b.r}><ReadingNook seed={b.seed} glow={props.glow} /></Grow>)}
-      {PLANTS.slice(0, f.plants).map((pl) => <Grow key={pl.seed} position={at(pl.p[0], pl.p[1])} scale={pl.s}><Plant position={[0, 0, 0]} seed={pl.seed} /></Grow>)}
-      {f.element && <Grow key={f.element}><ElementFeature element={f.element} /></Grow>}
-      {f.nest && <Grow><Nest /></Grow>}
-      {f.cauldron && <Grow><Cauldron /></Grow>}
+      {/* a clareira fica limpa: só a base do altar e a fogueira (as outras peças voltam quando o mundo pedir) */}
+      <Campfire world={world} night={night} />
       <Motes world={world} night={night} amount={0.4 + f.walls * 0.6} />
       <Shockwave burstKey={props.burstKey ?? 0} color={props.glow} />
       {props.model && !modelFailed ? (
-        <Suspense fallback={null}><CompanionModel files={props.model} world={world} burstKey={props.burstKey ?? 0} onFail={onFail} /></Suspense>
-      ) : props.contract ? (
-        <FirstForm contract={props.contract} pulseKey={props.pulseKey} artUrl={props.artUrl} />
+        <Suspense fallback={null}><CompanionModel files={props.model} world={world} burstKey={props.burstKey ?? 0} speech={props.speech ?? null} onFail={onFail} /></Suspense>
       ) : (
-        <ParticleCore color={props.color} glow={props.glow} element={props.element} energy={props.energy} pulseKey={props.pulseKey} count={high ? 1600 : 800} />
+        <>
+          {/* sem modelo aprovado: o núcleo (ou o corpo de partículas) no altar; a imagem de referência vai para o retrato */}
+          {props.contract
+            ? <FirstForm contract={props.contract} pulseKey={props.pulseKey} />
+            : <ParticleCore color={props.color} glow={props.glow} element={props.element} energy={props.energy} pulseKey={props.pulseKey} count={high ? 1600 : 800} />}
+          <SpeechBubble text={props.speech ?? null} position={[0, 2.5, 0]} />
+          <FocusAltar />
+        </>
       )}
       <EffectComposer multisampling={0} enableNormalPass={false}>
         <Bloom mipmapBlur intensity={0.55 + night * 0.45} luminanceThreshold={0.78 - night * 0.12} luminanceSmoothing={0.2} />

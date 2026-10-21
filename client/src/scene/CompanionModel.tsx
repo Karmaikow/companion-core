@@ -11,7 +11,8 @@ import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.j
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { animKind, strideSpeed, gameTime, type AnimKind } from '@rules';
 import type { CompanionModelFiles } from '../backend/types';
-import { CLEAR_R, type WorldShape } from './world';
+import { CLEAR_R, companionFocus, type WorldShape } from './world';
+import { SpeechBubble } from './SpeechBubble';
 
 const loader = new GLTFLoader();
 loader.setMeshoptDecoder(MeshoptDecoder);
@@ -79,7 +80,7 @@ function facingYaw(root: THREE.Object3D): number {
 
 const ONCE = new Set(['happy', 'jump', 'attack', 'hurt', 'eat']);
 
-export function CompanionModel({ files, world, burstKey, onFail }: { files: CompanionModelFiles; world: WorldShape; burstKey: number; onFail: () => void }) {
+export function CompanionModel({ files, world, burstKey, speech, onFail }: { files: CompanionModelFiles; world: WorldShape; burstKey: number; speech: string | null; onFail: () => void }) {
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   useEffect(() => {
     let alive = true;
@@ -98,13 +99,13 @@ export function CompanionModel({ files, world, burstKey, onFail }: { files: Comp
     return () => { alive = false; };
   }, [files, onFail]);
   if (!loaded) return null;
-  return <Walker loaded={loaded} world={world} burstKey={burstKey} />;
+  return <Walker loaded={loaded} world={world} burstKey={burstKey} speech={speech} />;
 }
 
-function Walker({ loaded, world, burstKey }: { loaded: Loaded; world: WorldShape; burstKey: number }) {
+function Walker({ loaded, world, burstKey, speech }: { loaded: Loaded; world: WorldShape; burstKey: number; speech: string | null }) {
   const root = useRef<THREE.Group>(null);
   const pose = useRef<THREE.Group>(null);
-  const { model, scale, mixer, actions, walkSpeed } = useMemo(() => {
+  const { model, scale, mixer, actions, walkSpeed, runSpeed } = useMemo(() => {
     // cópia com esqueleto próprio: o React pode repetir este cálculo, e o original não pode ser movido entre grupos
     const model = cloneSkinned(loaded.gltf.scene);
     sanitizeSkins(model);
@@ -124,10 +125,23 @@ function Walker({ loaded, world, burstKey }: { loaded: Loaded; world: WorldShape
       if (c2.kind === 'walk') stride = c2.stride * scale;
     }
     const walkSpeed = actions.has('walk') ? strideSpeed(stride, 1, 0.7) : 0.7;
-    return { model: orient, scale, mixer, actions, walkSpeed };
+    const run = loaded.clips.find((c2) => c2.kind === 'run');
+    const runSpeed = run ? strideSpeed(run.stride * scale, 1, walkSpeed * 2) : walkSpeed * 1.8;
+    return { model: orient, scale, mixer, actions, walkSpeed, runSpeed };
   }, [loaded]);
 
-  const st = useRef({ target: new THREE.Vector3(1.6, 0, 1.4), wait: 2, act: '' as string, yaw: 0, burst: burstKey, once: 0 });
+  const st = useRef({ target: new THREE.Vector3(1.6, 0, 1.4), wait: 2, act: '' as string, yaw: 0, burst: burstKey, once: 0, player: false, running: false });
+  // WASD / setas: a pessoa conduz o Companion (relativo à câmera); Shift corre. Digitando no chat, as teclas são ignoradas.
+  const keys = useRef(new Set<string>());
+  useEffect(() => {
+    const typing = () => { const el = document.activeElement; return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || (el as HTMLElement).isContentEditable); };
+    const down = (e: KeyboardEvent) => { if (typing()) return; const k = e.key.toLowerCase(); if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift'].includes(k)) { keys.current.add(k); if (k.startsWith('arrow')) e.preventDefault(); } };
+    const up = (e: KeyboardEvent) => keys.current.delete(e.key.toLowerCase());
+    const clear = () => keys.current.clear();
+    window.addEventListener('keydown', down); window.addEventListener('keyup', up); window.addEventListener('blur', clear);
+    return () => { window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); window.removeEventListener('blur', clear); };
+  }, []);
+  const fwd = useMemo(() => new THREE.Vector3(), []);
   const play = (kind: string, fade = 0.3) => {
     const s = st.current;
     if (s.act === kind) return;
@@ -146,15 +160,29 @@ function Walker({ loaded, world, burstKey }: { loaded: Loaded; world: WorldShape
     if (s.burst !== burstKey) { s.burst = burstKey; if (actions.has('happy')) { play('happy', 0.15); s.once = actions.get('happy')!.getClip().duration; } s.wait = 2.5; s.target.copy(r.position); }
     if (s.once > 0) { s.once -= dt; mixer.update(dt); return; }
 
+    // controle pelo teclado
+    const k = keys.current;
+    const ix = (k.has('d') || k.has('arrowright') ? 1 : 0) - (k.has('a') || k.has('arrowleft') ? 1 : 0);
+    const iz = (k.has('w') || k.has('arrowup') ? 1 : 0) - (k.has('s') || k.has('arrowdown') ? 1 : 0);
+    if (ix || iz) {
+      state.camera.getWorldDirection(fwd); fwd.y = 0; fwd.normalize();
+      const rx = -fwd.z, rz = fwd.x; // direita da câmera no chão
+      const dx = fwd.x * iz + rx * ix, dz = fwd.z * iz + rz * ix, n = Math.hypot(dx, dz) || 1;
+      s.target.set(r.position.x + (dx / n) * 0.8, 0, r.position.z + (dz / n) * 0.8);
+      const rr = Math.hypot(s.target.x, s.target.z);
+      if (rr > CLEAR_R - 0.4) s.target.multiplyScalar((CLEAR_R - 0.4) / rr);
+      s.player = true; s.running = k.has('shift'); s.wait = 12; // passeio sozinho só depois de um tempo parado
+    } else if (s.player) { s.player = false; s.running = false; s.target.copy(r.position); }
+
     const to = new THREE.Vector3(s.target.x - r.position.x, 0, s.target.z - r.position.z);
     const d = to.length();
     if (d > 0.08) {
       to.normalize();
-      const step = Math.min(d, walkSpeed * dt);
+      const step = Math.min(d, (s.running ? runSpeed : walkSpeed) * dt);
       r.position.x += to.x * step; r.position.z += to.z * step;
       const want = Math.atan2(to.x, to.z); let dy = want - s.yaw; while (dy > Math.PI) dy -= 2 * Math.PI; while (dy < -Math.PI) dy += 2 * Math.PI;
-      s.yaw += dy * Math.min(1, dt * 5);
-      play(actions.has('walk') ? 'walk' : 'idle');
+      s.yaw += dy * Math.min(1, dt * (s.player ? 9 : 5));
+      play(s.running && actions.has('run') ? 'run' : actions.has('walk') ? 'walk' : 'idle');
     } else {
       s.wait -= dt;
       const night = gameTime(Date.now()).phase === 'madrugada';
@@ -168,6 +196,7 @@ function Walker({ loaded, world, burstKey }: { loaded: Loaded; world: WorldShape
     }
     r.position.y = world.heightAt(r.position.x, r.position.z);
     r.rotation.y = s.yaw;
+    companionFocus.set(r.position.x, r.position.y, r.position.z);
     // sem animação de andar: um quique leve por procedimento; parada, respira
     const moving = d > 0.08;
     p.position.y = moving && !actions.has('walk') ? Math.abs(Math.sin(t * 9)) * 0.06 : 0;
@@ -181,6 +210,7 @@ function Walker({ loaded, world, burstKey }: { loaded: Loaded; world: WorldShape
       <group ref={pose} scale={scale}>
         <primitive object={model} />
       </group>
+      <SpeechBubble text={speech} position={[0, 1.45, 0]} />
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
         <circleGeometry args={[0.45, 24]} />
         <meshBasicMaterial color="#000" transparent opacity={0.18} depthWrite={false} />

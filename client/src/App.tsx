@@ -94,7 +94,7 @@ export function App() {
     <div className="app">
       <div className="stage">
         <Suspense fallback={null}>
-          <Refuge color={visual.color} glow={visual.glow} element={d.element} energy={energy} pulseKey={pulse} burstKey={burst} features={features} contract={c?.stage === 'awakened' ? c.identityContract : null} artUrl={snap?.visualJob?.artUrl} model={testModel ?? snap?.visualJob?.model} seed={seed} quality={quality()} />
+          <Refuge color={visual.color} glow={visual.glow} element={d.element} energy={energy} pulseKey={pulse} burstKey={burst} features={features} contract={c?.stage === 'awakened' ? c.identityContract : null} speech={bubble} model={testModel ?? snap?.visualJob?.model} seed={seed} quality={quality()} />
         </Suspense>
       </div>
 
@@ -103,7 +103,9 @@ export function App() {
       {backend && c && (
         <>
           <header className="nameplate">
-            <div className="portrait" style={{ background: `radial-gradient(circle at 50% 45%, #fff 0 12%, ${visual.color} 40%, transparent 72%)` }} />
+            {snap?.visualJob?.artUrl
+              ? <div className="portrait art" style={{ backgroundImage: `url("${snap.visualJob.artUrl}")` }} role="img" aria-label={`Retrato de ${d.name ?? 'Companion'}`} />
+              : <div className="portrait" style={{ background: `radial-gradient(circle at 50% 45%, #fff 0 12%, ${visual.color} 40%, transparent 72%)` }} />}
             <div>
               <h1>{d.name ?? 'Núcleo sem nome'}</h1>
               <p>{c.stage === 'awakened' ? 'Primeira forma' : 'Partículas'} · vínculo {c.bond.level}</p>
@@ -113,8 +115,9 @@ export function App() {
             <button className="leave" title="Sair" aria-label="Sair" onClick={() => void leave()}>⎋</button>
           </header>
 
-          {bubble && !tab && <div className="bubble" role="status">{bubble}</div>}
-          {bubble && tab && tab !== 'chat' && <div className="bubble" role="status">{bubble}</div>}
+          {(testModel ?? snap?.visualJob?.model) && !tab && <div className="key-hint">WASD ou setas para andar · Shift corre · arraste para girar a câmera</div>}
+          {/* a fala aparece num balão sobre a cabeça do Companion (na cena); aqui só para leitores de tela */}
+          {bubble && <div className="sr-only" role="status">{bubble}</div>}
 
           <nav className="rail" aria-label="Refúgio">
             {TABS.map((t) => (

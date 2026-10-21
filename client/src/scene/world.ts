@@ -73,3 +73,6 @@ export function withWind<T extends THREE.Material>(m: T, opts: { height: number;
   m.customProgramCacheKey = () => 'wind';
   return m;
 }
+
+/** Onde está o Companion (a câmera segue). Quem anda escreve aqui; sem corpo, fica no altar. */
+export const companionFocus = new THREE.Vector3();

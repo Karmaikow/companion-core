@@ -329,3 +329,28 @@ html:has(.admin), body:has(.admin), #root:has(.admin) { height: auto; min-height
 .anim-list li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 6px; align-items: center; font-size: .85rem; }
 .anim-list li span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .anim-list select { font: inherit; padding: 2px 4px; }
+
+/* retrato com a imagem de referência aprovada na Fábrica */
+.portrait.art { background-size: cover !important; background-position: center 30% !important; background-repeat: no-repeat; border-color: var(--brass); }
+
+/* conversa sem janela: só os balões sobre a cena */
+.panel.panel-chat { background: transparent; border: 0; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
+.panel.panel-chat > header { border-bottom: 0; justify-content: flex-end; padding-bottom: 0; }
+.panel.panel-chat > header h2 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.panel.panel-chat .close { background: var(--panel); border: 1px solid var(--brass-dim); border-radius: 99px; width: 32px; height: 32px; }
+.panel-chat .chat-list { mask-image: linear-gradient(to bottom, transparent 0, #000 56px); -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 56px); padding-top: 40px; }
+.panel-chat .line { box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35); }
+.panel-chat .line.me { background: color-mix(in srgb, var(--night-3) 92%, transparent); border: 1px solid #3a4c74; }
+.panel-chat .line.them { background: color-mix(in srgb, #14211f 90%, transparent); }
+.panel-chat .line.system { background: color-mix(in srgb, var(--night) 70%, transparent); border-radius: 99px; padding: 3px 12px; }
+.panel-chat .empty { background: color-mix(in srgb, var(--night) 75%, transparent); border-radius: 12px; padding: 8px 12px; }
+.panel-chat .chat-input { border-top: 0; }
+.panel-chat .chat-input input { background: color-mix(in srgb, #0a1020 88%, transparent); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35); }
+
+/* balão de fala sobre a cabeça do Companion (drei <Html>) */
+.speech { position: relative; transform: translate(-50%, -100%); width: max-content; max-width: min(300px, 70vw); padding: 10px 14px; border-radius: 16px; background: #fffaf0; color: #2a2238; font-family: var(--serif); font-size: 1rem; line-height: 1.35; text-align: center; box-shadow: 0 8px 24px rgba(20, 16, 40, 0.35); pointer-events: none; animation: speech-in 0.3s ease-out; }
+.speech::after { content: ""; position: absolute; left: 50%; bottom: -8px; transform: translateX(-50%); border: 8px solid transparent; border-top-color: #fffaf0; border-bottom: 0; }
+@keyframes speech-in { from { opacity: 0; transform: translate(-50%, calc(-100% + 8px)); } }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.key-hint { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); font-size: 0.8rem; color: var(--mist); background: color-mix(in srgb, var(--night) 70%, transparent); padding: 4px 12px; border-radius: 99px; pointer-events: none; }
+@media (max-width: 720px) { .key-hint { display: none; } }

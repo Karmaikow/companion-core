@@ -63,6 +63,13 @@ Dia e noite seguem o relógio do jogo (noite azul-lavanda). Materiais originais 
 - Árvores altas entre a câmera e o centro somem. Câmera gira arrastando, roda/pinça aproxima.
 - Teste rápido de modelo: `/?modelo=corpo.glb,andando.glb` (arquivos servidos pelo próprio site).
 
+**v1.5:** a clareira ficou limpa: só a base do altar (círculo de runas) e a fogueira. A imagem de referência aprovada vai
+para o retrato da placa de nome (não substitui o núcleo). Conversa sem janela, só os balões; a fala aparece num balão sobre a
+cabeça do Companion (drei `<Html>`). Com modelo 3D: WASD/setas conduzem o Companion pela clareira (Shift corre, se houver
+animação "correndo"), a câmera segue e o passeio sozinho volta depois de um tempo parado.
+Envio de .GLB na Fábrica: o navegador não dá tipo ao arquivo; o cliente reembala como `model/gltf-binary` (o bucket recusa
+`application/octet-stream`).
+
 ## Companion 3D e animações (v1.4)
 
 - A Fábrica recebe o **modelo .GLB** e **várias animações .GLB** do mesmo rig (o Tripo exporta uma por arquivo). O tipo vem
