@@ -1,5 +1,5 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { ELEMENTS, derivePalette, refugeFeatures, animKind } from '@rules';
+import { ELEMENTS, derivePalette, refugeFeatures, animKind, sanitizeBiome, type BiomeConfig } from '@rules';
 import { Refuge } from './scene/Refuge';
 import { stableSeed } from './scene/world';
 import { useGame, type Tab } from './store';
@@ -81,6 +81,19 @@ export function App() {
   );
 
   const seed = useMemo(() => stableSeed(c?.id ?? 'refugio'), [c?.id]);
+  // Bioma do Refúgio: o "refugio" publicado no Estúdio de Biomas; sem ele (ou offline), o de fábrica.
+  const [biome, setBiome] = useState<BiomeConfig | undefined>();
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const { data } = await supabase().from('biomes').select('slug,name,description,palette,settings,assets,status').eq('slug', 'refugio').eq('status', 'published').maybeSingle();
+        if (alive && data) setBiome(sanitizeBiome(data));
+      } catch { /* sem rede: fica o de fábrica */ }
+    })();
+    return () => { alive = false; };
+  }, []);
+
   // Teste: ?modelo=corpo.glb,andando.glb mostra um modelo 3D no Refúgio sem passar pela Fábrica (o 1º arquivo é o corpo).
   const testModel = useMemo(() => {
     const list = new URLSearchParams(location.search).get('modelo')?.split(',').map((u) => u.trim()).filter(Boolean);
@@ -94,7 +107,7 @@ export function App() {
     <div className="app">
       <div className="stage">
         <Suspense fallback={null}>
-          <Refuge color={visual.color} glow={visual.glow} element={d.element} energy={energy} pulseKey={pulse} burstKey={burst} features={features} contract={c?.stage === 'awakened' ? c.identityContract : null} speech={bubble} model={testModel ?? snap?.visualJob?.model} seed={seed} quality={quality()} />
+          <Refuge color={visual.color} glow={visual.glow} element={d.element} energy={energy} pulseKey={pulse} burstKey={burst} features={features} contract={c?.stage === 'awakened' ? c.identityContract : null} speech={bubble} model={testModel ?? snap?.visualJob?.model} seed={seed} biome={biome} quality={quality()} />
         </Suspense>
       </div>
 

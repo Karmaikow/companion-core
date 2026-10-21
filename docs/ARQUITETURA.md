@@ -70,6 +70,21 @@ animação "correndo"), a câmera segue e o passeio sozinho volta depois de um t
 Envio de .GLB na Fábrica: o navegador não dá tipo ao arquivo; o cliente reembala como `model/gltf-binary` (o bucket recusa
 `application/octet-stream`).
 
+## Estúdio de Biomas (v1.6)
+
+Painel do ADM → aba **Biomas** (`/#/admin/biomas`). Cada bioma (tabela `biomes`, RLS: todos leem os publicados, só
+administradores escrevem) tem paleta (grama, terra, pedra, céu e névoa de dia e de noite), densidade da grama leve,
+muralha de pedras e a lista de modelos .GLB (papel: árvore, pedra, grama, planta, marco, objeto; zona: dentro, borda,
+fora, em todo lugar; altura mín–máx; quantidade; vento). Os .GLB vão para o bucket público `world-assets`
+(`biomes/<slug>/...`). A prévia 3D usa o mesmo código do jogo (`client/src/scene/Biome.tsx`). O bioma **refugio**
+publicado vira o cenário do Refúgio (`App` busca ao abrir; sem ele, `REFUGE_BIOME` de fábrica). Regras e normalização
+em `shared/rules/biome.ts` (`sanitizeBiome`). Os demais biomas entram no jogo quando o mundo abrir (MVP 2).
+
+**Colisão (v1.6):** círculos no chão (`colliders` em `world.ts`): muralha, pedras, troncos, marcos, objetos e a fogueira
+bloqueiam; grama, plantas e o que tem menos de ~45 cm não. O altar é plataforma (o Companion sobe). Destino bloqueado:
+desiste depois de ~0,6 s encostado. Clique/toque no chão para andar até lá; WASD/setas continuam valendo.
+"Parado" que na verdade anda (o Tripo às vezes exporta o rig do corpo já com a animação de andar) é descartado.
+
 ## Companion 3D e animações (v1.4)
 
 - A Fábrica recebe o **modelo .GLB** e **várias animações .GLB** do mesmo rig (o Tripo exporta uma por arquivo). O tipo vem

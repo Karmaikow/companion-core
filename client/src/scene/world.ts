@@ -76,3 +76,40 @@ export function withWind<T extends THREE.Material>(m: T, opts: { height: number;
 
 /** Onde está o Companion (a câmera segue). Quem anda escreve aqui; sem corpo, fica no altar. */
 export const companionFocus = new THREE.Vector3();
+
+/** Pedido de "anda até aqui" (clique/toque no chão). O id muda a cada clique. */
+export const moveRequest = { id: 0, point: new THREE.Vector3() };
+
+/**
+ * Colisão simples no chão (círculos): cada camada do cenário registra os seus obstáculos.
+ * O Companion é um círculo de raio BODY_R que desliza em volta deles. Coisas baixas (grama, plantas, objetos
+ * com menos de ~45 cm) não entram aqui: dá para passar por cima. Plataformas (o altar) levantam o Companion.
+ */
+export interface Circle { x: number; z: number; r: number }
+export const colliders = new Map<string, Circle[]>();
+export const platforms: { x: number; z: number; r: number; top: number }[] = [{ x: 0, z: 0, r: 2.0, top: 0.19 }];
+export const BODY_R = 0.32;
+
+/** Empurra (x, z) para fora dos obstáculos; devolve true se encostou em algum. */
+export function resolveCollisions(p: { x: number; z: number }): boolean {
+  let hit = false;
+  for (let pass = 0; pass < 2; pass++) {
+    colliders.forEach((list) => {
+      for (const c of list) {
+        const dx = p.x - c.x, dz = p.z - c.z, d = Math.hypot(dx, dz), min = c.r + BODY_R;
+        if (d >= min) continue;
+        hit = true;
+        if (d < 1e-4) { p.x += min; continue; }
+        p.x = c.x + (dx / d) * min; p.z = c.z + (dz / d) * min;
+      }
+    });
+  }
+  return hit;
+}
+
+/** Altura extra de plataformas em que dá para subir (o altar). */
+export function platformHeight(x: number, z: number): number {
+  let h = 0;
+  for (const pl of platforms) if (Math.hypot(x - pl.x, z - pl.z) < pl.r) h = Math.max(h, pl.top);
+  return h;
+}

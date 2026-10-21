@@ -12,3 +12,4 @@ export * from './secrets.ts';
 export * from './refuge.ts';
 export * from './art.ts';
 export * from './anim.ts';
+export * from './biome.ts';

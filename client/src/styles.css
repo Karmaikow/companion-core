@@ -354,3 +354,37 @@ html:has(.admin), body:has(.admin), #root:has(.admin) { height: auto; min-height
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .key-hint { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); font-size: 0.8rem; color: var(--mist); background: color-mix(in srgb, var(--night) 70%, transparent); padding: 4px 12px; border-radius: 99px; pointer-events: none; }
 @media (max-width: 720px) { .key-hint { display: none; } }
+
+/* Estúdio de Biomas */
+.admin-tabs { display: flex; gap: 6px; margin-top: 10px; }
+.admin-tabs button { background: transparent; color: var(--mist); border: 1px solid #33425f; border-radius: 99px; padding: 6px 14px; }
+.admin-tabs button.on { color: #1d1408; background: linear-gradient(#e2bf78, #b58f4c); border-color: transparent; font-weight: 700; }
+.biome-studio { display: grid; grid-template-columns: minmax(220px, 260px) minmax(0, 1fr); gap: 18px; align-items: start; }
+.biome-list { display: grid; gap: 10px; }
+.biome-list h2 { margin: 0; font-family: var(--serif); color: var(--brass); }
+.biome-list ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.biome-list li button { width: 100%; text-align: left; display: grid; gap: 2px; padding: 10px 12px; border-radius: 10px; background: var(--panel); border: 1px solid #2c3b5c; color: inherit; }
+.biome-list li button.on { border-color: var(--brass); box-shadow: 0 0 0 1px var(--brass) inset; }
+.biome-list small { color: var(--mist); }
+.biome-new { display: flex; gap: 6px; }
+.biome-new input { flex: 1; min-width: 0; }
+.biome-empty { padding: 24px; border: 1px dashed #33425f; border-radius: 12px; color: var(--mist); }
+.biome-editor { display: grid; gap: 14px; min-width: 0; }
+.biome-preview { position: relative; height: min(52vh, 460px); border-radius: 14px; overflow: hidden; border: 1px solid var(--brass-dim); background: #0a1020; }
+.biome-preview .art-empty { height: 100%; display: grid; place-items: center; }
+.preview-tools { position: absolute; left: 10px; bottom: 10px; display: flex; gap: 14px; align-items: center; background: color-mix(in srgb, var(--night) 75%, transparent); padding: 6px 12px; border-radius: 99px; font-size: 0.85rem; }
+.biome-form { display: grid; gap: 12px; min-width: 0; }
+.biome-form label { display: grid; gap: 4px; font-size: 0.85rem; color: var(--mist); }
+.biome-form input:not([type=checkbox]):not([type=range]):not([type=color]), .biome-form textarea, .biome-form select { background: #0a1020; color: inherit; border: 1px solid #2c3b5c; border-radius: 8px; padding: 6px 8px; font: inherit; min-width: 0; }
+.biome-form fieldset { border: 1px solid #2c3b5c; border-radius: 12px; padding: 10px 12px; display: grid; gap: 8px; min-width: 0; }
+.biome-form legend { color: var(--brass); padding: 0 6px; }
+.row-2 { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: end; }
+.swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
+.biome-form label.swatch { display: flex; align-items: center; gap: 8px; color: inherit; }
+.swatch input[type=color] { width: 34px; height: 26px; padding: 0; border: 1px solid #33425f; border-radius: 6px; background: none; }
+.asset-table { display: grid; gap: 6px; }
+.asset-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 8px; border-radius: 10px; background: color-mix(in srgb, var(--night) 60%, transparent); }
+.asset-row .asset-name { flex: 1 1 160px; }
+.biome-form .asset-row label { display: flex; align-items: center; gap: 4px; }
+.asset-row input[type=number] { width: 64px; }
+@media (max-width: 860px) { .biome-studio { grid-template-columns: 1fr; } }

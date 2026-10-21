@@ -135,3 +135,24 @@ describe('animações', () => {
     expect(strideSpeed(0, 1)).toBe(0.8);
   });
 });
+
+describe('biomas', () => {
+  it('normaliza a configuração vinda do banco', async () => {
+    const { sanitizeBiome, REFUGE_BIOME, biomeSlug } = await import('../rules/index.ts');
+    const b = sanitizeBiome({ slug: 'floresta', name: '  Floresta ', palette: { sky: '#ABCDEF', fog: 'azul' }, assets: [
+      { url: 'https://x.supabase.co/a.glb', role: 'tree', height: [5, 2], count: 9999 },
+      { url: 'javascript:alert(1)', role: 'tree' },
+      { url: '/assets/refuge/pedra.glb', role: 'nada' },
+    ] });
+    expect(b.name).toBe('Floresta');
+    expect(b.palette.sky).toBe('#abcdef');
+    expect(b.palette.fog).toBe(REFUGE_BIOME.palette.fog);
+    expect(b.assets).toHaveLength(2);
+    expect(b.assets[0].height).toEqual([2, 5]);
+    expect(b.assets[0].count).toBe(600);
+    expect(b.assets[0].zone).toBe('outside');
+    expect(b.assets[1].role).toBe('prop');
+    expect(sanitizeBiome(REFUGE_BIOME).assets).toHaveLength(REFUGE_BIOME.assets.length);
+    expect(biomeSlug('Floresta Sussurrante!')).toBe('floresta-sussurrante');
+  });
+});

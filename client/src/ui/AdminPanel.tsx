@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { buildArtPrompt, animKind, ANIM_KINDS, type ArtPrompt, type IdentityContractV1 } from '@rules';
 import { supabase } from '../backend/online';
+import { BiomeStudio } from './BiomeStudio';
 
 interface Job {
   id: string; companionId: string; status: string; createdAt: string; updatedAt: string; contractVersion: number;
@@ -36,6 +37,7 @@ export function AdminPanel() {
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [filter, setFilter] = useState<'open' | 'all'>('open');
+  const [view, setView] = useState<'companions' | 'biomas'>(() => (location.hash.includes('biomas') ? 'biomas' : 'companions'));
 
   useEffect(() => {
     supabase().auth.getSession().then(({ data }) => setSession(!!data.session && !data.session.user.is_anonymous));
@@ -109,12 +111,18 @@ export function AdminPanel() {
     <div className="admin">
       <header className="admin-head">
         <div>
-          <h1>Fábrica de Companions</h1>
-          <p>Pedidos de arte gerados quando um Companion desperta. O jogador nunca vê este painel.</p>
+          <h1>{view === 'biomas' ? 'Estúdio de Biomas' : 'Fábrica de Companions'}</h1>
+          <p>{view === 'biomas' ? 'Cores e modelos de cada bioma, com prévia 3D. O bioma "refugio" publicado vira o Refúgio do jogo.' : 'Pedidos de arte gerados quando um Companion desperta. O jogador nunca vê este painel.'}</p>
+          {session && (
+            <nav className="admin-tabs" aria-label="Seções">
+              <button className={view === 'companions' ? 'on' : ''} onClick={() => { setView('companions'); history.replaceState(null, '', '#/admin'); }}>Companions</button>
+              <button className={view === 'biomas' ? 'on' : ''} onClick={() => { setView('biomas'); history.replaceState(null, '', '#/admin/biomas'); }}>Biomas</button>
+            </nav>
+          )}
         </div>
         <div className="admin-actions">
-          {session && <select value={filter} onChange={(e) => setFilter(e.target.value as 'open' | 'all')} aria-label="Filtro"><option value="open">Pendentes</option><option value="all">Todos</option></select>}
-          {session && <button className="ghost" disabled={busy} onClick={() => void load()}>Atualizar</button>}
+          {session && view === 'companions' && <select value={filter} onChange={(e) => setFilter(e.target.value as 'open' | 'all')} aria-label="Filtro"><option value="open">Pendentes</option><option value="all">Todos</option></select>}
+          {session && view === 'companions' && <button className="ghost" disabled={busy} onClick={() => void load()}>Atualizar</button>}
           <a className="link" href="#/">Voltar ao jogo</a>
         </div>
       </header>
@@ -131,7 +139,8 @@ export function AdminPanel() {
       {msg && <p className="msg err">{msg}</p>}
       {jobs && !shown.length && <p className="empty">Nenhum pedido {filter === 'open' ? 'pendente' : ''}. Eles aparecem aqui quando um Companion desperta.</p>}
 
-      <div className="jobs">
+      {session && view === 'biomas' && <BiomeStudio />}
+      <div className="jobs" hidden={view === 'biomas'}>
         {shown.map((j) => (
           <article key={j.id} className={'job ' + j.status}>
             <header>

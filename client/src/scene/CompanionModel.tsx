@@ -11,7 +11,7 @@ import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.j
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { animKind, strideSpeed, gameTime, type AnimKind } from '@rules';
 import type { CompanionModelFiles } from '../backend/types';
-import { CLEAR_R, companionFocus, type WorldShape } from './world';
+import { CLEAR_R, companionFocus, moveRequest, resolveCollisions, platformHeight, type WorldShape } from './world';
 import { SpeechBubble } from './SpeechBubble';
 
 const loader = new GLTFLoader();
@@ -117,7 +117,18 @@ function Walker({ loaded, world, burstKey, speech }: { loaded: Loaded; world: Wo
     const mixer = new THREE.AnimationMixer(model);
     const actions = new Map<string, THREE.AnimationAction>();
     let stride = 0;
-    for (const c2 of loaded.clips) {
+    // "Parado" que na verdade anda: o Tripo às vezes exporta o rig do corpo já com a animação de andar.
+    // Se o clipe de parado desloca o corpo ou é igual ao de andar, ele não serve como parado (fica a respiração procedural).
+    const sig = (c: THREE.AnimationClip) => c.duration.toFixed(3) + ':' + c.tracks.length + ':' + c.tracks.slice(0, 3).map((t) => Array.from(t.values.slice(0, 8)).map((v) => v.toFixed(3)).join(',')).join('|');
+    const walkClip = loaded.clips.find((c2) => c2.kind === 'walk');
+    const clips = loaded.clips.filter((c2) => {
+      if (c2.kind !== 'idle') return true;
+      const moves = c2.stride * scale > 0.12;
+      const sameAsWalk = !!walkClip && sig(walkClip.clip) === sig(c2.clip);
+      if (moves || sameAsWalk) { console.warn('[Companion] o clipe "parado" parece de andar; usando respiração no lugar'); return false; }
+      return true;
+    });
+    for (const c2 of clips) {
       if (actions.has(c2.kind)) continue;
       const a = mixer.clipAction(c2.clip);
       if (ONCE.has(c2.kind)) { a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = false; }
@@ -130,7 +141,7 @@ function Walker({ loaded, world, burstKey, speech }: { loaded: Loaded; world: Wo
     return { model: orient, scale, mixer, actions, walkSpeed, runSpeed };
   }, [loaded]);
 
-  const st = useRef({ target: new THREE.Vector3(1.6, 0, 1.4), wait: 2, act: '' as string, yaw: 0, burst: burstKey, once: 0, player: false, running: false });
+  const st = useRef({ target: new THREE.Vector3(1.6, 0, 1.4), wait: 2, act: '' as string, yaw: 0, burst: burstKey, once: 0, player: false, running: false, req: moveRequest.id, blocked: 0, lift: 0 });
   // WASD / setas: a pessoa conduz o Companion (relativo à câmera); Shift corre. Digitando no chat, as teclas são ignoradas.
   const keys = useRef(new Set<string>());
   useEffect(() => {
@@ -145,9 +156,10 @@ function Walker({ loaded, world, burstKey, speech }: { loaded: Loaded; world: Wo
   const play = (kind: string, fade = 0.3) => {
     const s = st.current;
     if (s.act === kind) return;
-    const next = actions.get(kind), prev = actions.get(s.act);
+    const next = actions.get(kind);
     if (next) next.reset().setEffectiveWeight(1).fadeIn(fade).play();
-    if (prev) prev.fadeOut(fade);
+    // apaga todas as outras (sem animação de parado, o corpo volta à pose de descanso e respira)
+    actions.forEach((a, k) => { if (k !== kind && a.isRunning()) a.fadeOut(fade); });
     s.act = kind;
   };
   useEffect(() => () => { mixer.stopAllAction(); }, [mixer]);
@@ -160,6 +172,14 @@ function Walker({ loaded, world, burstKey, speech }: { loaded: Loaded; world: Wo
     if (s.burst !== burstKey) { s.burst = burstKey; if (actions.has('happy')) { play('happy', 0.15); s.once = actions.get('happy')!.getClip().duration; } s.wait = 2.5; s.target.copy(r.position); }
     if (s.once > 0) { s.once -= dt; mixer.update(dt); return; }
 
+    // clique no chão: anda até lá
+    if (s.req !== moveRequest.id) {
+      s.req = moveRequest.id;
+      s.target.set(moveRequest.point.x, 0, moveRequest.point.z);
+      const rr = Math.hypot(s.target.x, s.target.z);
+      if (rr > CLEAR_R - 0.4) s.target.multiplyScalar((CLEAR_R - 0.4) / rr);
+      s.wait = 10; s.running = false;
+    }
     // controle pelo teclado
     const k = keys.current;
     const ix = (k.has('d') || k.has('arrowright') ? 1 : 0) - (k.has('a') || k.has('arrowleft') ? 1 : 0);
@@ -179,7 +199,10 @@ function Walker({ loaded, world, burstKey, speech }: { loaded: Loaded; world: Wo
     if (d > 0.08) {
       to.normalize();
       const step = Math.min(d, (s.running ? runSpeed : walkSpeed) * dt);
-      r.position.x += to.x * step; r.position.z += to.z * step;
+      const before = { x: r.position.x, z: r.position.z }, next = { x: r.position.x + to.x * step, z: r.position.z + to.z * step };
+      // colisão: desliza em volta de pedras, troncos e da fogueira; se ficar travado contra algo, desiste do destino
+      if (resolveCollisions(next) && Math.hypot(next.x - before.x, next.z - before.z) < step * 0.25) { s.blocked += dt; if (s.blocked > 0.6 && !s.player) { s.target.set(next.x, 0, next.z); s.blocked = 0; } } else s.blocked = 0;
+      r.position.x = next.x; r.position.z = next.z;
       const want = Math.atan2(to.x, to.z); let dy = want - s.yaw; while (dy > Math.PI) dy -= 2 * Math.PI; while (dy < -Math.PI) dy += 2 * Math.PI;
       s.yaw += dy * Math.min(1, dt * (s.player ? 9 : 5));
       play(s.running && actions.has('run') ? 'run' : actions.has('walk') ? 'walk' : 'idle');
@@ -194,7 +217,9 @@ function Walker({ loaded, world, burstKey, speech }: { loaded: Loaded; world: Wo
         s.wait = 3 + Math.random() * 6;
       }
     }
-    r.position.y = world.heightAt(r.position.x, r.position.z);
+    // sobe em plataformas baixas (o altar) com suavidade
+    s.lift += (platformHeight(r.position.x, r.position.z) - s.lift) * Math.min(1, dt * 10);
+    r.position.y = world.heightAt(r.position.x, r.position.z) + s.lift;
     r.rotation.y = s.yaw;
     companionFocus.set(r.position.x, r.position.y, r.position.z);
     // sem animação de andar: um quique leve por procedimento; parada, respira
