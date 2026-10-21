@@ -26,7 +26,7 @@ const TRAIT_EN: [string, string][] = [
 ];
 
 export type BodyPlan = 'quadruped' | 'biped' | 'avian' | 'serpentine' | 'aquatic';
-export interface ArtPrompt { summaryPt: string; prompt: string; negative: string; size: string; body: BodyPlan; bodyPt: string; views: string }
+export interface ArtPrompt { summaryPt: string; prompt: string; negative: string; size: string; body: BodyPlan; bodyPt: string; views: string; viewsNegative: string }
 
 const BODY: Record<BodyPlan, { pt: string; en: string; pose: string }> = {
   quadruped: { pt: 'quadrúpede', en: 'four-legged creature standing on all four legs', pose: 'all four legs visible and slightly apart, tail extended straight back' },
@@ -69,5 +69,5 @@ export function buildArtPrompt(c: IdentityContractV1): ArtPrompt {
     .replace(/Single character, straight front view[^;]*;/, `Four views of the same single character side by side, evenly spaced, same scale and same height, aligned on one ground line: front view, left side view, right side view, back view. Orthographic, head facing the same direction as the body in every view, neutral pose for 3D rigging: ${b.pose};`)
     .replace('plain light grey background, fully visible', 'plain light grey background, every view fully visible and not touching the others');
   const summaryPt = `${c.identity.name} · corpo ${b.pt} · ${fam.label.toLowerCase()} (${c.species.description}) · ${c.element.label} · ${c.personality.traits.join(', ')} · sonho: ${c.aspiration}`;
-  return { summaryPt, prompt, negative, size: '1024x1024, fundo cinza-claro liso (referência para o modelo 3D)', body, bodyPt: b.pt, views };
+  return { summaryPt, prompt, negative, size: '1024x1024, fundo cinza-claro liso (referência para o modelo 3D)', body, bodyPt: b.pt, views, viewsNegative: negative.replace('multiple characters, ', 'different characters, inconsistent design between views, ') };
 }

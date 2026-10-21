@@ -117,6 +117,7 @@ export function AdminPanel() {
                 <textarea readOnly value={j.prompt.prompt} rows={7} />
                 <label>Folha de vistas (frente, esquerda, direita, verso → multivista do Tripo) <button className="link" onClick={() => void navigator.clipboard?.writeText(j.prompt.views)}>copiar</button></label>
                 <textarea readOnly value={j.prompt.views} rows={5} />
+                <small>Evitar na folha: {j.prompt.viewsNegative}</small>
                 <label>Evitar <button className="link" onClick={() => void navigator.clipboard?.writeText(j.prompt.negative)}>copiar</button></label>
                 <textarea readOnly value={j.prompt.negative} rows={2} />
                 <small>Formato: {j.prompt.size} · Rig no Tripo: <b>{j.prompt.body}</b> ({j.prompt.bodyPt})</small>
