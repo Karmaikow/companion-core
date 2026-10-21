@@ -117,7 +117,7 @@ export function AdminPanel() {
                 <textarea readOnly value={j.prompt.prompt} rows={7} />
                 <label>Evitar <button className="link" onClick={() => void navigator.clipboard?.writeText(j.prompt.negative)}>copiar</button></label>
                 <textarea readOnly value={j.prompt.negative} rows={2} />
-                <small>Formato: {j.prompt.size}</small>
+                <small>Formato: {j.prompt.size} · Rig no Tripo: <b>{j.prompt.body}</b> ({j.prompt.bodyPt})</small>
                 <details><summary>Contrato de identidade (JSON)</summary><pre>{JSON.stringify(j.contract, null, 2)}</pre></details>
               </div>
               <div className="art">

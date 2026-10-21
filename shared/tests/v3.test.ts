@@ -108,6 +108,12 @@ describe('forma no modo offline', () => {
     expect(a.prompt).toContain('raposa com asas');
     expect(a.prompt).toContain('#64834b');
     expect(a.summaryPt).toContain('Natureza');
+    expect(a.body).toBe('quadruped'); // raposa tem quatro patas
+    const d = buildArtPrompt({ ...c, species: { ...c.species, family: 'serpente', description: 'Um dragão de Luz parece bom' } });
+    expect(d.body).toBe('quadruped');
+    expect(d.prompt).toContain('four-legged');
+    expect(buildArtPrompt({ ...c, species: { ...c.species, family: 'mistica', description: 'uma fada de cristal' } }).body).toBe('biped');
+    expect(buildArtPrompt({ ...c, species: { ...c.species, family: 'passaro', description: 'uma coruja' } }).body).toBe('avian');
   });
 });
 import { offlineTurn as _ot } from '../rules/index.ts';
