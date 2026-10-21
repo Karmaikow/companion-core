@@ -1,5 +1,5 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { ELEMENTS, derivePalette, refugeFeatures, animKind, sanitizeBiome, makeCompanionWorld, WORLD_SEED, REFUGE_BIOME, WORLD_FALLBACK_BIOMES, type BiomeConfig, type WorldSite } from '@rules';
+import { ELEMENTS, derivePalette, refugeFeatures, animKind, sanitizeBiome, sanitizeCreature, makeCompanionWorld, WORLD_SEED, REFUGE_BIOME, WORLD_FALLBACK_BIOMES, DEFAULT_CREATURES, type BiomeConfig, type CreatureDef, type WorldSite } from '@rules';
 import { Refuge } from './scene/Refuge';
 import { WorldScene } from './scene/World';
 import { WorldMap } from './ui/WorldMap';
@@ -97,7 +97,7 @@ export function App() {
         if (!alive || !data) return;
         const all = data.map(sanitizeBiome);
         setBiome(all.find((b) => b.slug === own) ?? all.find((b) => b.slug === 'refugio'));
-        setWorldBiomes(all.filter((b) => b.settings.world));
+        setWorldBiomes(all.filter((b) => b.settings.world || b.slug === 'refugio')); // o refugio é a região do portal
       } catch { /* sem rede: fica o de fábrica */ }
     })();
     return () => { alive = false; };
@@ -126,6 +126,20 @@ export function App() {
     if (list.length < 3) WORLD_FALLBACK_BIOMES.slice(1).forEach(add);
     return makeCompanionWorld(WORLD_SEED, list);
   }, [worldBiomes]);
+  // criaturas do Invocador (publicadas); sem nenhuma, as de reserva
+  const [creatures, setCreatures] = useState<CreatureDef[]>(DEFAULT_CREATURES);
+  useEffect(() => {
+    if (place !== 'world') return;
+    let alive = true;
+    (async () => {
+      try {
+        const { data } = await supabase().from('creatures').select('slug,name,data').eq('status', 'published');
+        const list = (data ?? []).map((r) => sanitizeCreature({ ...(r.data as object), slug: r.slug, name: r.name })).filter((x): x is CreatureDef => !!x);
+        if (alive && list.length) setCreatures(list);
+      } catch { /* sem rede: as de reserva */ }
+    })();
+    return () => { alive = false; };
+  }, [place]);
   const discKey = 'companion-core:world-found:' + (c?.id ?? 'teste');
   const [discovered, setDiscovered] = useState<Set<string>>(new Set());
   useEffect(() => {
@@ -156,7 +170,7 @@ export function App() {
       <div className="stage">
         <Suspense fallback={null}>
           {place === 'world' && model ? (
-            <WorldScene world={companionWorld} model={model} speech={bubble} burstKey={burst} color={visual.color} quality={quality()} discovered={discovered} explore={explore} onRegion={enterRegion} onDiscover={discover} onHome={goHome} />
+            <WorldScene world={companionWorld} creatures={creatures} model={model} speech={bubble} burstKey={burst} color={visual.color} quality={quality()} discovered={discovered} explore={explore} onRegion={enterRegion} onDiscover={discover} onHome={goHome} />
           ) : <Refuge color={visual.color} glow={visual.glow} element={d.element} energy={energy} pulseKey={pulse} burstKey={burst} features={passage && !features.window ? { ...features, window: true } : features} contract={c?.stage === 'awakened' ? c.identityContract : null} speech={bubble} model={model} seed={seed} biome={biome} quality={quality()} />}
         </Suspense>
       </div>

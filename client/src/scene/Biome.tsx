@@ -6,7 +6,8 @@ import { Component, Suspense, useEffect, useLayoutEffect, useMemo, useRef, type 
 import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
-import { BIOME_ROLES, type BiomeAsset, type BiomeConfig, type BiomePalette, type BiomeZone } from '@rules';
+import { BIOME_ROLES, type ModelLook, type BiomeAsset, type BiomeConfig, type BiomePalette, type BiomeZone } from '@rules';
+import { lookUniforms, setLook, withLook } from './look';
 import { mulberry32, smooth, angDiff, withWind, windTime, companionFocus, moveRequest, colliders, CLEAR_R, RIM_R, type WorldShape } from './world';
 
 const C = (h: string) => new THREE.Color(h);
@@ -171,9 +172,10 @@ function bakeGeometry(src: THREE.BufferGeometry, m: THREE.Matrix4) {
  * Um .GLB espalhado em várias cópias numa malha instanciada (uma por parte do modelo).
  * `height` é a altura desejada em metros: os modelos do Tripo chegam com ~1 m.
  */
-export function GlbInstances({ url, spots, world, height, wind = 0, shadows = false, hideNearCamera = false, solid = 0, layer, capacity }: { /** reserva de cópias (o mundo aberto troca os pontos sem recriar a malha) */ capacity?: number; url: string; spots: Spot[]; world: WorldShape; height: [number, number]; wind?: number; shadows?: boolean; hideNearCamera?: boolean; /** fração do pé do modelo que bloqueia (0 = passa por cima/através) */ solid?: number; layer?: string }) {
+export function GlbInstances({ url, spots, world, height, wind = 0, shadows = false, hideNearCamera = false, solid = 0, layer, capacity, look }: { /** cor/luz/brilho deste bioma */ look?: ModelLook; /** reserva de cópias (o mundo aberto troca os pontos sem recriar a malha) */ capacity?: number; url: string; spots: Spot[]; world: WorldShape; height: [number, number]; wind?: number; shadows?: boolean; hideNearCamera?: boolean; /** fração do pé do modelo que bloqueia (0 = passa por cima/através) */ solid?: number; layer?: string }) {
   const { scene } = useGLTF(url);
-  const { parts, foot } = useMemo(() => {
+  const { parts, foot, lu } = useMemo(() => {
+    const lu = lookUniforms();
     scene.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(scene), c = box.getCenter(new THREE.Vector3()), size = box.getSize(new THREE.Vector3());
     const norm = new THREE.Matrix4().makeScale(1 / size.y, 1 / size.y, 1 / size.y).multiply(new THREE.Matrix4().makeTranslation(-c.x, -box.min.y, -c.z));
@@ -183,10 +185,12 @@ export function GlbInstances({ url, spots, world, height, wind = 0, shadows = fa
       if (!mesh.isMesh) return;
       const mat = (mesh.material as THREE.Material).clone();
       if (wind) withWind(mat, { height: 1, strength: wind, amp: 0.9 });
+      withLook(mat, lu);
       out.push({ geo: bakeGeometry(mesh.geometry, norm.clone().multiply(mesh.matrixWorld)), mat });
     });
-    return { parts: out, foot: Math.max(size.x, size.z) / size.y / 2 };
+    return { parts: out, foot: Math.max(size.x, size.z) / size.y / 2, lu };
   }, [scene, wind]);
+  useEffect(() => setLook(lu, look), [lu, look]);
   useEffect(() => () => parts.forEach((p) => { p.geo.dispose(); p.mat.dispose(); }), [parts]);
   const refs = useRef<(THREE.InstancedMesh | null)[]>([]);
   const hidden = useRef<boolean[]>([]);
@@ -241,7 +245,7 @@ function AssetLayer({ asset, world, quality, salt }: { asset: BiomeAsset; world:
   const tall = asset.height[1] > 2;
   // tronco de árvore bloqueia (não a copa); pedras, marcos e objetos bloqueiam pelo pé; grama e plantas não
   const solid = asset.role === 'tree' ? 0.18 : asset.role === 'rock' || asset.role === 'landmark' || asset.role === 'prop' ? 0.42 : 0;
-  return <GlbInstances url={asset.url} spots={spots} world={world} height={asset.height} wind={asset.wind} shadows={high && (asset.role !== 'grass')} hideNearCamera={tall} solid={solid} layer={'asset:' + salt + ':' + asset.id} />;
+  return <GlbInstances look={asset.look} url={asset.url} spots={spots} world={world} height={asset.height} wind={asset.wind} shadows={high && (asset.role !== 'grass')} hideNearCamera={tall} solid={solid} layer={'asset:' + salt + ':' + asset.id} />;
 }
 
 /** Todos os modelos do bioma espalhados pela clareira (cada um carrega sozinho; um arquivo com defeito não derruba os outros). */
@@ -372,5 +376,52 @@ export function ClickMarker({ world }: { world: WorldShape }) {
       <ringGeometry args={[0.3, 0.4, 32]} />
       <meshBasicMaterial color="#ffe08a" transparent depthWrite={false} toneMapped={false} />
     </mesh>
+  );
+}
+
+/** Partículas no ar do bioma (vaga-lumes, brasas, neve, folhas, pétalas, esporos), sempre em volta do Companion. */
+const AMBIENT: Record<string, { color: string; size: number; add: boolean; vy: number; sway: number; blink: boolean; n: number }> = {
+  fireflies: { color: '#e4ff8a', size: 0.11, add: true, vy: 0.05, sway: 0.8, blink: true, n: 120 },
+  embers: { color: '#ff8a3a', size: 0.09, add: true, vy: 0.9, sway: 0.5, blink: true, n: 220 },
+  snow: { color: '#ffffff', size: 0.1, add: false, vy: -0.9, sway: 0.4, blink: false, n: 420 },
+  leaves: { color: '#e8a24a', size: 0.16, add: false, vy: -0.6, sway: 1.2, blink: false, n: 110 },
+  petals: { color: '#ffc4dc', size: 0.13, add: false, vy: -0.45, sway: 1.1, blink: false, n: 140 },
+  spores: { color: '#9ff0ff', size: 0.08, add: true, vy: 0.25, sway: 0.6, blink: true, n: 200 },
+};
+
+export function Ambient({ kind, world }: { kind: string; world: WorldShape }) {
+  const def = AMBIENT[kind];
+  const ref = useRef<THREE.Points>(null);
+  const data = useMemo(() => {
+    if (!def) return null;
+    const r = mulberry32(kind.length * 97 + 3), W = 34, H = 9;
+    const seeds = Array.from({ length: def.n }, () => ({ x: (r() - 0.5) * W, y: r() * H, z: (r() - 0.5) * W, ph: r() * 6.28, sp: 0.6 + r() * 0.8 }));
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(def.n * 3), 3));
+    g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(def.n * 3).fill(1), 3));
+    return { seeds, g, W, H };
+  }, [def, kind]);
+  useEffect(() => () => data?.g.dispose(), [data]);
+  useFrame((s) => {
+    if (!def || !data) return;
+    const t = s.clock.elapsedTime, p = data.g.attributes.position as THREE.BufferAttribute, c = data.g.attributes.color as THREE.BufferAttribute;
+    const fx = companionFocus.x, fz = companionFocus.z, { W, H } = data;
+    data.seeds.forEach((q, i) => {
+      // posição relativa ao Companion, dando a volta na caixa (as partículas nunca acabam)
+      const wrap = (v: number, size: number) => ((((v + size / 2) % size) + size) % size) - size / 2;
+      const x = fx + wrap(q.x + Math.sin(t * 0.4 * q.sp + q.ph) * def.sway - fx, W);
+      const z = fz + wrap(q.z + Math.cos(t * 0.33 * q.sp + q.ph) * def.sway - fz, W);
+      const y = ((q.y + t * def.vy * q.sp) % H + H) % H;
+      p.setXYZ(i, x, world.heightAt(x, z) + 0.2 + y, z);
+      const k = def.blink ? 0.35 + 0.65 * Math.max(0, Math.sin(t * 2 * q.sp + q.ph)) : 1;
+      c.setXYZ(i, k, k, k);
+    });
+    p.needsUpdate = true; c.needsUpdate = true;
+  });
+  if (!def || !data) return null;
+  return (
+    <points ref={ref} geometry={data.g} frustumCulled={false}>
+      <pointsMaterial size={def.size} color={def.color} vertexColors transparent opacity={0.9} depthWrite={false} blending={def.add ? THREE.AdditiveBlending : THREE.NormalBlending} toneMapped={!def.add} />
+    </points>
   );
 }

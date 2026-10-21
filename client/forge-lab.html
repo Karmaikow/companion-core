@@ -1,0 +1,19 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="./src/styles.css"></head><body style="margin:0;background:#1a1528;overflow:auto">
+<div id="root" style="position:static;height:auto"></div>
+<script type="module">
+// Lab da Forja e do Invocador (só no dev): prévias de habilidades e criaturas sem login. node scripts/forge-lab.mjs
+import { createElement as h } from 'react';
+import { createRoot } from 'react-dom/client';
+import { DEFAULT_SKILLS, DEFAULT_CREATURES } from '@rules';
+import { SkillPreview } from './src/scene/SkillFx';
+import { CreaturePreview } from './src/scene/CreaturePreview';
+const q = new URLSearchParams(location.search);
+const skills = (q.get('s') ?? 'sopro-de-chamas,brasas,jato-dagua,investida,tremor,lanca-de-gelo').split(',').map((s) => DEFAULT_SKILLS.find((k) => k.slug === s)).filter(Boolean);
+const look = { hue: -25, sat: 1.25, light: 0.8, contrast: 1.2, tint: '#ff6a2a', tintAmount: 0.45, glow: 0.25 };
+const cells = [
+  ...skills.map((s) => h('div', { key: s.slug, style: { position: 'relative', width: 400, height: 300 } }, h(SkillPreview, { skill: s, companionColor: '#9fc9ff', defenderEssence: 'natureza' }), h('b', { style: { position: 'absolute', left: 8, bottom: 6, color: '#fff' } }, s.name))),
+  ...DEFAULT_CREATURES.map((c) => h('div', { key: c.slug, style: { position: 'relative', width: 400, height: 300 } }, h(CreaturePreview, { def: c, act: 'walk' }), h('b', { style: { position: 'absolute', left: 8, bottom: 6, color: '#222' } }, c.name))),
+  q.get('glb') && h('div', { key: 'glb', style: { position: 'relative', width: 400, height: 300 } }, h(CreaturePreview, { def: { ...DEFAULT_CREATURES[2], slug: 'glb', look, model: { url: q.get('glb'), anims: [{ url: q.get('glb'), kind: 'walk', name: 'andando' }] } }, act: 'walk' })),
+];
+createRoot(document.getElementById('root')).render(h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(3, 400px)', gap: 6, padding: 6 } }, cells));
+</script></body></html>

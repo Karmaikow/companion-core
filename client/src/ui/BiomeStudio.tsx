@@ -4,8 +4,8 @@
  */
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  BIOME_ROLES, BIOME_ZONES, DEFAULT_PALETTE, REFUGE_BIOME, biomeSlug, sanitizeBiome,
-  type BiomeAsset, type BiomeAssetRole, type BiomeConfig, type BiomePalette, type BiomeZone,
+  BIOME_ROLES, BIOME_ZONES, BIOME_AMBIENTS, DEFAULT_PALETTE, REFUGE_BIOME, LOOK_PRESETS, LOOK_ORIGINAL, biomeSlug, sanitizeBiome,
+  type BiomeAmbient, type BiomeKind, type ModelLook, type BiomeAsset, type BiomeAssetRole, type BiomeConfig, type BiomePalette, type BiomeZone,
 } from '@rules';
 import { supabase } from '../backend/online';
 
@@ -40,6 +40,8 @@ export function BiomeStudio() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ text: string; ok?: boolean } | null>(null);
   const [newName, setNewName] = useState('');
+  const [newKind, setNewKind] = useState<BiomeKind>('world');
+  const [lookOpen, setLookOpen] = useState<string | null>(null);
   const [daylight, setDaylight] = useState(1);
   const [open, setOpen] = useState(true);
 
@@ -66,7 +68,9 @@ export function BiomeStudio() {
     if (!name) { setMsg({ text: 'Dê um nome ao bioma.' }); return; }
     const slug = fromRefuge ? 'refugio' : biomeSlug(name);
     if (rows?.some((r) => r.slug === slug)) { setMsg({ text: `Já existe um bioma "${slug}".` }); return; }
-    const base = fromRefuge ? REFUGE_BIOME : { ...REFUGE_BIOME, slug, name, description: '', assets: [] };
+    const kind: BiomeKind = fromRefuge ? 'refuge' : newKind;
+    // região nova começa com os modelos do Refúgio (dá para trocar a aparência deles ou tirar)
+    const base = fromRefuge ? REFUGE_BIOME : { ...REFUGE_BIOME, slug, name, description: '', assets: kind === 'world' ? REFUGE_BIOME.assets : [], settings: { ...REFUGE_BIOME.settings, kind, world: kind === 'world', cliffs: kind === 'refuge', ambient: (kind === 'world' ? 'none' : 'fireflies') as BiomeAmbient, hills: 1 } };
     setBusy(true);
     const { error } = await supabase().from('biomes').insert({ slug, name, description: base.description, palette: base.palette, settings: base.settings, assets: base.assets, status: 'draft' });
     setBusy(false);
@@ -122,22 +126,31 @@ export function BiomeStudio() {
   return (
     <div className="biome-studio">
       <aside className="biome-list">
-        <h2>Biomas</h2>
         {!rows && <p className="msg">Carregando…</p>}
-        {rows && !rows.length && <p className="empty">Nenhum bioma ainda.</p>}
-        <ul>
-          {rows?.map((r) => (
-            <li key={r.slug}>
-              <button className={sel === r.slug ? 'on' : ''} onClick={() => pick(r.slug)}>
-                <strong>{r.name}</strong>
-                <small>{r.slug} · {r.status === 'published' ? 'publicado' : 'rascunho'} · {r.assets.length} modelo(s)</small>
-              </button>
-            </li>
-          ))}
-        </ul>
+        {([['refuge', 'Refúgios', 'O cenário em volta do altar. "refugio" é o padrão de todos; os outros a Fábrica dá a um Companion.'], ['world', 'Regiões do mundo', 'Pedaços do Companion World: cada uma vira várias regiões do mapa.']] as const).map(([kind, title, hint]) => (
+          <div key={kind} className="biome-group">
+            <h2>{title}</h2>
+            <small className="hint">{hint}</small>
+            <ul>
+              {rows?.filter((r) => r.settings.kind === kind).map((r) => (
+                <li key={r.slug}>
+                  <button className={sel === r.slug ? 'on' : ''} onClick={() => pick(r.slug)}>
+                    <strong>{r.name}</strong>
+                    <small>{r.slug} · {r.status === 'published' ? 'publicado' : 'rascunho'} · {r.assets.length} modelo(s)</small>
+                  </button>
+                </li>
+              ))}
+            </ul>
+            {rows && !rows.some((r) => r.settings.kind === kind) && <p className="empty">Nenhum ainda.</p>}
+          </div>
+        ))}
         {rows && !rows.some((r) => r.slug === 'refugio') && <button className="ghost" disabled={busy} onClick={() => void create(true)}>Criar o bioma do Refúgio (a partir do atual)</button>}
         <form className="biome-new" onSubmit={(e) => { e.preventDefault(); void create(false); }}>
-          <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Nome do novo bioma" maxLength={60} aria-label="Nome do novo bioma" />
+          <select value={newKind} onChange={(e) => setNewKind(e.target.value as BiomeKind)} aria-label="Tipo do novo bioma">
+            <option value="world">Região do mundo</option>
+            <option value="refuge">Refúgio</option>
+          </select>
+          <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder={newKind === 'world' ? 'Ex.: Planície Vulcânica' : 'Ex.: Refúgio da Mayuna'} maxLength={60} aria-label="Nome do novo bioma" />
           <button className="primary" disabled={busy || !newName.trim()}>Criar</button>
         </form>
       </aside>
@@ -148,23 +161,29 @@ export function BiomeStudio() {
         <section className="biome-editor">
           <div className="biome-preview">
             <Suspense fallback={<div className="art-empty">Carregando prévia…</div>}>
-              {preview && <BiomePreview biome={preview} daylight={daylight} seed={7} open={open} />}
+              {preview && <BiomePreview biome={preview} daylight={daylight} seed={7} open={open || preview.settings.kind === 'world'} />}
             </Suspense>
             <div className="preview-tools">
               <label>Hora <input type="range" min={0} max={1} step={0.05} value={daylight} onChange={(e) => setDaylight(Number(e.target.value))} aria-label="Dia e noite" /></label>
-              <label><input type="checkbox" checked={open} onChange={(e) => setOpen(e.target.checked)} /> passagem aberta</label>
+              {draft.settings.kind === 'refuge' && <label><input type="checkbox" checked={open} onChange={(e) => setOpen(e.target.checked)} /> passagem aberta</label>}
             </div>
           </div>
 
           <div className="biome-form">
-            <div className="row-2">
+            <div className="row-3">
               <label>Nome<input value={draft.name} onChange={(e) => edit({ name: e.target.value })} maxLength={60} /></label>
+              <label>Tipo
+                <select value={draft.settings.kind} onChange={(e) => { const kind = e.target.value as BiomeKind; edit({ settings: { ...draft.settings, kind, world: kind === 'world', cliffs: kind === 'refuge' ? draft.settings.cliffs : false } }); }}>
+                  <option value="refuge">Refúgio</option>
+                  <option value="world">Região do mundo</option>
+                </select>
+              </label>
               <label>Status<span className={'pill ' + draft.status}>{draft.status === 'published' ? 'Publicado' : 'Rascunho'}</span></label>
             </div>
             <label>Descrição<textarea rows={2} value={draft.description} onChange={(e) => edit({ description: e.target.value })} maxLength={300} /></label>
 
             <fieldset>
-              <legend>Cores</legend>
+              <legend>Cores do chão e do céu</legend>
               <div className="swatches">
                 {PALETTE_LABELS.map(([k, label]) => (
                   <label key={k} className="swatch"><input type="color" value={draft.palette[k]} onChange={(e) => edit({ palette: { ...draft.palette, [k]: e.target.value } })} />{label}</label>
@@ -176,9 +195,19 @@ export function BiomeStudio() {
             <fieldset>
               <legend>Chão</legend>
               <label>Grama leve (preenchimento) <input type="range" min={0} max={2} step={0.1} value={draft.settings.grassBlades} onChange={(e) => edit({ settings: { ...draft.settings, grassBlades: Number(e.target.value) } })} /> <small>{Math.round(draft.settings.grassBlades * 100)}%</small></label>
-              <label><input type="checkbox" checked={draft.settings.cliffs} onChange={(e) => edit({ settings: { ...draft.settings, cliffs: e.target.checked } })} /> Muralha de pedras em volta (só no Refúgio)</label>
-              <label><input type="checkbox" checked={draft.settings.world} onChange={(e) => edit({ settings: { ...draft.settings, world: e.target.checked } })} /> Aparece como região do Companion World <small>(desligue para um Refúgio feito só para um Companion)</small></label>
-              <label>Relevo no mundo <input type="range" min={0} max={2} step={0.1} value={draft.settings.hills} onChange={(e) => edit({ settings: { ...draft.settings, hills: Number(e.target.value) } })} /> <small>{draft.settings.hills < 0.4 ? 'plano' : draft.settings.hills < 1.3 ? 'colinas' : 'morros'}</small></label>
+              {draft.settings.kind === 'refuge' ? (
+                <label><input type="checkbox" checked={draft.settings.cliffs} onChange={(e) => edit({ settings: { ...draft.settings, cliffs: e.target.checked } })} /> Muralha de pedras em volta</label>
+              ) : (
+                <>
+                  <label>Relevo <input type="range" min={0} max={2} step={0.1} value={draft.settings.hills} onChange={(e) => edit({ settings: { ...draft.settings, hills: Number(e.target.value) } })} /> <small>{draft.settings.hills < 0.4 ? 'plano' : draft.settings.hills < 1.3 ? 'colinas' : 'morros'}</small></label>
+                  <label>Névoa <input type="range" min={1} max={2} step={0.1} value={Math.max(1, draft.settings.fog)} onChange={(e) => edit({ settings: { ...draft.settings, fog: Number(e.target.value) } })} /> <small>{draft.settings.fog < 1.3 ? 'normal' : draft.settings.fog < 1.7 ? 'nebuloso' : 'densa'}</small></label>
+                </>
+              )}
+              <label>No ar
+                <select value={draft.settings.ambient} onChange={(e) => edit({ settings: { ...draft.settings, ambient: e.target.value as BiomeAmbient } })}>
+                  {Object.entries(BIOME_AMBIENTS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                </select>
+              </label>
             </fieldset>
 
             <fieldset>
@@ -197,7 +226,11 @@ export function BiomeStudio() {
                     <label title="Altura em metros (mín–máx)">Altura <input type="number" step={0.1} min={0.05} max={30} value={a.height[0]} onChange={(e) => editAsset(a.id, { height: [Number(e.target.value), a.height[1]] })} />–<input type="number" step={0.1} min={0.05} max={30} value={a.height[1]} onChange={(e) => editAsset(a.id, { height: [a.height[0], Number(e.target.value)] })} /> m</label>
                     <label title="Quantas cópias (no celular cai pela metade)">Qtd <input type="number" min={0} max={600} value={a.count} onChange={(e) => editAsset(a.id, { count: Number(e.target.value) })} /></label>
                     <label title="0 = parado, 0,35 = árvore, 1 = grama">Vento <input type="range" min={0} max={1.5} step={0.05} value={a.wind} onChange={(e) => editAsset(a.id, { wind: Number(e.target.value) })} /></label>
+                    <button className={'link' + (a.look ? ' tinted' : '')} onClick={() => setLookOpen(lookOpen === a.id ? null : a.id)} aria-expanded={lookOpen === a.id}>
+                      <i className="look-dot" style={{ background: a.look ? a.look.tint : 'transparent' }} />aparência
+                    </button>
                     <button className="link" onClick={() => edit({ assets: draft.assets.filter((x) => x.id !== a.id) })}>tirar</button>
+                    {lookOpen === a.id && <LookEditor look={a.look} onChange={(look) => editAsset(a.id, { look })} />}
                   </div>
                 ))}
               </div>
@@ -218,6 +251,36 @@ export function BiomeStudio() {
           </div>
         </section>
       )}
+    </div>
+  );
+}
+
+/** Controles de aparência de um modelo: predefinições + ajuste fino. A prévia muda na hora. */
+export function LookEditor({ look, onChange }: { look?: ModelLook; onChange: (l: ModelLook | undefined) => void }) {
+  const l = look ?? LOOK_ORIGINAL;
+  const set = (patch: Partial<ModelLook>) => onChange({ ...l, ...patch });
+  const R = (k: 'hue' | 'sat' | 'light' | 'contrast' | 'tintAmount' | 'glow', label: string, min: number, max: number, step: number, fmt: (v: number) => string) => (
+    <label key={k}>{label}<input type="range" min={min} max={max} step={step} value={l[k]} onChange={(e) => set({ [k]: Number(e.target.value) })} /><small>{fmt(l[k])}</small></label>
+  );
+  const pct = (v: number) => Math.round(v * 100) + '%';
+  return (
+    <div className="look-editor">
+      <div className="look-presets">
+        {LOOK_PRESETS.map((p) => (
+          <button key={p.key} type="button" className="chip" onClick={() => onChange(p.key === 'original' ? undefined : { ...p.look })} title={p.label}>
+            <i style={{ background: p.key === 'original' ? 'linear-gradient(135deg,#8fcf60,#b3a8d2)' : p.look.tint }} />{p.label}
+          </button>
+        ))}
+      </div>
+      <div className="look-sliders">
+        {R('hue', 'Matiz', -180, 180, 1, (v) => (v > 0 ? '+' : '') + v + '°')}
+        {R('sat', 'Saturação', 0, 2, 0.05, pct)}
+        {R('light', 'Luz', 0.3, 2, 0.05, pct)}
+        {R('contrast', 'Contraste', 0.5, 1.6, 0.05, pct)}
+        <label>Tinta<input type="color" value={l.tint} onChange={(e) => set({ tint: e.target.value, tintAmount: l.tintAmount || 0.35 })} /><small>{l.tint}</small></label>
+        {R('tintAmount', 'Força da tinta', 0, 1, 0.05, pct)}
+        {R('glow', 'Brilho próprio', 0, 2, 0.05, pct)}
+      </div>
     </div>
   );
 }

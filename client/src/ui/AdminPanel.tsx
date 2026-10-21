@@ -7,6 +7,16 @@ import { useCallback, useEffect, useState } from 'react';
 import { buildArtPrompt, animKind, ANIM_KINDS, type ArtPrompt, type IdentityContractV1 } from '@rules';
 import { supabase } from '../backend/online';
 import { BiomeStudio } from './BiomeStudio';
+import { ForgeStudio } from './ForgeStudio';
+import { SummonerStudio } from './SummonerStudio';
+
+type View = 'companions' | 'biomas' | 'forja' | 'invocador';
+const VIEWS: { key: View; label: string; hash: string; title: string; hint: string }[] = [
+  { key: 'companions', label: 'Companions', hash: '#/admin', title: 'Fábrica de Companions', hint: 'Pedidos de arte gerados quando um Companion desperta. O jogador nunca vê este painel.' },
+  { key: 'biomas', label: 'Biomas', hash: '#/admin/biomas', title: 'Estúdio de Biomas', hint: 'Refúgios e regiões do Companion World: cores, modelos e a aparência de cada modelo, com prévia 3D.' },
+  { key: 'forja', label: 'Forja de Batalha', hash: '#/admin/forja', title: 'Forja de Batalha', hint: 'Habilidades genéricas que qualquer Companion daquela essência e corpo pode usar.' },
+  { key: 'invocador', label: 'Invocador de Monstros', hash: '#/admin/invocador', title: 'Invocador de Monstros', hint: 'O catálogo de criaturas: corpo, jeito de lutar, onde aparecem e o que soltam.' },
+];
 
 interface Job {
   id: string; companionId: string; status: string; createdAt: string; updatedAt: string; contractVersion: number;
@@ -37,7 +47,8 @@ export function AdminPanel() {
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [filter, setFilter] = useState<'open' | 'all'>('open');
-  const [view, setView] = useState<'companions' | 'biomas'>(() => (location.hash.includes('biomas') ? 'biomas' : 'companions'));
+  const [view, setView] = useState<View>(() => VIEWS.find((v) => v.key !== 'companions' && location.hash.includes(v.hash.split('/').pop()!))?.key ?? 'companions');
+  const V = VIEWS.find((v) => v.key === view)!;
 
   useEffect(() => {
     supabase().auth.getSession().then(({ data }) => setSession(!!data.session && !data.session.user.is_anonymous));
@@ -111,12 +122,11 @@ export function AdminPanel() {
     <div className="admin">
       <header className="admin-head">
         <div>
-          <h1>{view === 'biomas' ? 'Estúdio de Biomas' : 'Fábrica de Companions'}</h1>
-          <p>{view === 'biomas' ? 'Cores e modelos de cada bioma, com prévia 3D. O bioma "refugio" publicado vira o Refúgio do jogo.' : 'Pedidos de arte gerados quando um Companion desperta. O jogador nunca vê este painel.'}</p>
+          <h1>{V.title}</h1>
+          <p>{V.hint}</p>
           {session && (
             <nav className="admin-tabs" aria-label="Seções">
-              <button className={view === 'companions' ? 'on' : ''} onClick={() => { setView('companions'); history.replaceState(null, '', '#/admin'); }}>Companions</button>
-              <button className={view === 'biomas' ? 'on' : ''} onClick={() => { setView('biomas'); history.replaceState(null, '', '#/admin/biomas'); }}>Biomas</button>
+              {VIEWS.map((v) => <button key={v.key} className={view === v.key ? 'on' : ''} onClick={() => { setView(v.key); history.replaceState(null, '', v.hash); }}>{v.label}</button>)}
             </nav>
           )}
         </div>
@@ -137,10 +147,12 @@ export function AdminPanel() {
       )}
 
       {msg && <p className="msg err">{msg}</p>}
-      {jobs && !shown.length && <p className="empty">Nenhum pedido {filter === 'open' ? 'pendente' : ''}. Eles aparecem aqui quando um Companion desperta.</p>}
+      {view === 'companions' && jobs && !shown.length && <p className="empty">Nenhum pedido {filter === 'open' ? 'pendente' : ''}. Eles aparecem aqui quando um Companion desperta.</p>}
 
       {session && view === 'biomas' && <BiomeStudio />}
-      <div className="jobs" hidden={view === 'biomas'}>
+      {session && view === 'forja' && <ForgeStudio />}
+      {session && view === 'invocador' && <SummonerStudio />}
+      <div className="jobs" hidden={view !== 'companions'}>
         {shown.map((j) => (
           <article key={j.id} className={'job ' + j.status}>
             <header>

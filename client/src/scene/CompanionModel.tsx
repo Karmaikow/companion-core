@@ -21,7 +21,7 @@ const load = (url: string) => new Promise<GLTF>((ok, bad) => loader.load(url, ok
 interface Loaded { gltf: GLTF; clips: { clip: THREE.AnimationClip; kind: AnimKind | string; stride: number }[] }
 
 /** Tira o deslocamento horizontal da raiz (quem move é o jogo) e devolve quanto ela andava por ciclo. */
-function inPlace(clip: THREE.AnimationClip): number {
+export function inPlace(clip: THREE.AnimationClip): number {
   let best: THREE.KeyframeTrack | null = null, dist = 0;
   for (const t of clip.tracks) {
     if (!t.name.endsWith('.position') || t.values.length < 6) continue;
@@ -37,7 +37,7 @@ function inPlace(clip: THREE.AnimationClip): number {
 }
 
 /** Rig com índice de osso inexistente derrubaria a renderização: esse vínculo vira peso zero no osso 0. */
-function sanitizeSkins(root: THREE.Object3D) {
+export function sanitizeSkins(root: THREE.Object3D) {
   root.traverse((o) => {
     const m = o as THREE.SkinnedMesh;
     if (!m.isSkinnedMesh) return;
@@ -54,7 +54,7 @@ function sanitizeSkins(root: THREE.Object3D) {
 }
 
 /** Caixa do modelo pela geometria em pose de descanso (sem consultar ossos — mais robusto com rigs gerados). */
-function restBox(root: THREE.Object3D) {
+export function restBox(root: THREE.Object3D) {
   root.updateMatrixWorld(true);
   const box = new THREE.Box3(), tmp = new THREE.Box3();
   root.traverse((o) => {
@@ -67,7 +67,7 @@ function restBox(root: THREE.Object3D) {
 }
 
 /** Para onde o modelo olha: pelo osso/objeto da cabeça; sem cabeça, pelo comprimento do corpo. O jogo anda com a frente em +Z. */
-function facingYaw(root: THREE.Object3D): number {
+export function facingYaw(root: THREE.Object3D): number {
   const box = restBox(root), c = box.getCenter(new THREE.Vector3()), size = box.getSize(new THREE.Vector3());
   let head: THREE.Object3D | null = null;
   root.traverse((o) => { if (!head && o.name && /head|cabe[cç]a/i.test(o.name)) head = o; });

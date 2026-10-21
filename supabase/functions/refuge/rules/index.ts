@@ -14,3 +14,6 @@ export * from './art.ts';
 export * from './anim.ts';
 export * from './biome.ts';
 export * from './worldgen.ts';
+export * from './look.ts';
+export * from './combat/skills.ts';
+export * from './creatures.ts';

@@ -112,6 +112,48 @@ o mesmo gerador). Botão **Companion World** no topo do Refúgio quando o Compan
 "Refúgio deste Companion": padrão (`refugio`) ou qualquer bioma do Estúdio — de preferência um com "Aparece no mundo"
 desligado, feito só para ele. O jogo usa: o próprio → o `refugio` publicado → o de fábrica.
 
+## Refúgios × Regiões do mundo, aparência dos modelos (v1.8)
+
+- Cada bioma tem um **tipo** (`settings.kind`): **Refúgio** (cenário em volta do altar: o `refugio` é o padrão de todos;
+  os outros a Fábrica dá a um Companion) ou **Região do mundo** (vira várias regiões do Companion World). O Estúdio lista
+  os dois grupos separados. Biomas antigos: `refugio` e os que tinham "aparece no mundo" desligado viram Refúgio.
+- Regiões têm **Relevo**, **Névoa** (normal → densa) e **No ar** (vaga-lumes, brasas, neve, folhas, pétalas, esporos —
+  `Ambient` em `Biome.tsx`, sempre em volta do Companion). Região nova já começa com os modelos do Refúgio.
+- **Aparência por modelo** (`shared/rules/look.ts`, shader em `client/src/scene/look.ts`): matiz, saturação, luz,
+  contraste, tinta e brilho próprio, sem editar o .GLB. Predefinições: Vulcânico, Cinzas, Gelo, Outono, Encantado,
+  Sombrio, Deserto, Cristal. Fica em uniforms: mexer nos controles não recompila; encadeia com o vento. Vale para os
+  modelos dos biomas e para as criaturas do Invocador. As regiões de reserva já usam (Bosque Âmbar com árvores de outono,
+  Colinas Lavanda com pedras encantadas).
+
+## Forja de Batalha (v1.8)
+
+Painel do ADM → **Forja de Batalha** (`/#/admin/forja`, tabela `skills`). Segue `claude/batalha-v1.md`.
+- Habilidades **genéricas** (`shared/rules/combat/skills.ts`): cada uma pede uma essência (ou nenhuma = neutra, na cor do
+  Companion) e corpos (ou todos). Forma (golpe, cone, linha, área no alvo, projétil, aura, investida, salto), alcance,
+  raio/abertura, dano, cura, energia, recarga, aviso no chão, estado aplicado (encharcado, queimando, enraizado, lento,
+  ofuscado, sombreado, atordoado, protegido, acelerado), animação (só clipes que todo rig tem) e efeito visual.
+- Catálogo inicial com 26: golpe básico, 5 de forma (Investida, Rasante, Bote, Guarda, Onda), 2 por essência e a
+  Suprema (Ressonância). Botão "Carregar o catálogo inicial" publica tudo de uma vez.
+- `kitFor(catálogo, {essência, corpo, vínculo})` monta o kit: básico, até 2 de essência, forma, suprema; o resto fica em
+  "abre depois". Testado: qualquer essência × qualquer corpo recebe kit completo no vínculo 8.
+- `affinity` (anel das sete + luz/sombra, ×1,25 / ×0,8) e `expectedDamage` (dano × atk/(atk+def)).
+- Prévia (`client/src/scene/SkillFx.tsx`): aviso lavanda enchendo, efeito por estilo, bonecos de treino piscando, dano
+  esperado contra um boneco com essência à escolha. "Kit de exemplo" mostra o kit por essência, corpo e vínculo.
+
+## Invocador de Monstros (v1.8)
+
+Painel do ADM → **Invocador de Monstros** (`/#/admin/invocador`, tabela `creatures`, arquivos em
+`world-assets/creatures/<slug>/`). As criaturas são as Brumas do design de batalha (acalmadas, não mortas).
+- `shared/rules/creatures.ts`: corpo (.GLB + animações, imagem/sprite ou corpo de névoa na cor dela), aparência,
+  essência, tipo de corpo, arquétipo, temperamento, estilo, níveis, atributos (crescem 8%/nível), altura, velocidade,
+  percepção, habilidades da Forja com **peso** (frequência; `pickCreatureSkill`), regiões com peso, horário, grupo,
+  raridade e **drops** (`rollDrops`). "Sugerir pela essência e corpo" usa o `kitFor`.
+- `chunkSpawns`: aparições determinísticas por chunk (~1 grupo a cada 9 chunks, longe das trilhas, portal e marcos).
+- No Companion World (`WorldCreatures.tsx`) elas já andam conforme o temperamento: passivo passeia e olha, medroso
+  foge, territorial defende o canto, agressivo vem até o Companion (com "!" e animação de ataque). Sem luta ainda.
+  Sem criaturas publicadas, entram 3 de reserva (Bruma de Musgo, Fagulha — só à noite, Lobinho de Geada).
+- Lab sem login (dev): `client/forge-lab.html` com o Vite em `--port 5199` (prévias de habilidades e criaturas).
+
 ## Companion 3D e animações (v1.4)
 
 - A Fábrica recebe o **modelo .GLB** e **várias animações .GLB** do mesmo rig (o Tripo exporta uma por arquivo). O tipo vem

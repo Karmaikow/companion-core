@@ -4,7 +4,7 @@ import { Canvas } from '@react-three/fiber';
 import * as THREE from 'three';
 import { sanitizeBiome, type BiomeConfig } from '@rules';
 import { makeWorld } from './world';
-import { Terrain, Cliffs, GrassBlades, BiomeVegetation, Sky, Motes, CameraRig, WindClock } from './Biome';
+import { Terrain, Cliffs, GrassBlades, BiomeVegetation, Sky, Motes, CameraRig, WindClock, Ambient } from './Biome';
 
 export function BiomePreview({ biome, daylight, seed, open }: { biome: BiomeConfig; daylight: number; seed: number; open: boolean }) {
   const world = useMemo(() => makeWorld(seed, open), [seed, open]);
@@ -18,7 +18,7 @@ export function BiomePreview({ biome, daylight, seed, open }: { biome: BiomeConf
       {b.settings.cliffs && <Cliffs world={world} quality="high" palette={b.palette} />}
       <GrassBlades world={world} count={Math.round(2200 * b.settings.grassBlades)} palette={b.palette} />
       <BiomeVegetation biome={b} world={world} quality="high" />
-      <Motes world={world} night={1 - daylight} amount={0.8} />
+      {b.settings.ambient === 'fireflies' || b.settings.ambient === 'none' ? <Motes world={world} night={1 - daylight} amount={b.settings.ambient === 'none' ? 0.3 : 0.8} /> : <Ambient kind={b.settings.ambient} world={world} />}
     </Canvas>
   );
 }

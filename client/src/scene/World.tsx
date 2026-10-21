@@ -8,15 +8,18 @@ import { Canvas, useFrame, type ThreeEvent } from '@react-three/fiber';
 import { EffectComposer, Bloom, Vignette, ToneMapping, SMAA } from '@react-three/postprocessing';
 import { ToneMappingMode } from 'postprocessing';
 import * as THREE from 'three';
-import { gameTime, CHUNK, WORLD_R, WORLD_ROLE, layerRole, type CompanionWorld, type WorldSite, type BiomePalette } from '@rules';
+import { gameTime, CHUNK, WORLD_R, WORLD_ROLE, layerRole, type CompanionWorld, type WorldSite, type BiomePalette, type CreatureDef } from '@rules';
+import { WorldCreatures } from './WorldCreatures';
 import type { CompanionModelFiles } from '../backend/types';
 import { CompanionModel, type Roam } from './CompanionModel';
 import { companionFocus, moveRequest, colliders, smooth, type WorldShape } from './world';
-import { GrassBlades, GlbInstances, AssetBoundary, Sky, CameraRig, WindClock, ClickMarker, type Spot } from './Biome';
+import { GrassBlades, GlbInstances, AssetBoundary, Sky, CameraRig, WindClock, ClickMarker, Ambient, type Spot } from './Biome';
 import { runeTexture } from './textures';
 
 export interface WorldSceneProps {
   world: CompanionWorld;
+  /** criaturas do Invocador (publicadas; sem elas, as de reserva) */
+  creatures: CreatureDef[];
   model: CompanionModelFiles;
   speech: string | null;
   burstKey: number;
@@ -120,7 +123,7 @@ function Vegetation({ cw, shape, center, high }: { cw: CompanionWorld; shape: Wo
         return (
           <AssetBoundary key={key}>
             <Suspense fallback={null}>
-              <GlbInstances url={a.url} spots={spots} world={shape} height={a.height} wind={a.wind} shadows={high && a.role !== 'grass'} hideNearCamera={a.height[1] > 2} solid={solid} layer={'w:' + key} capacity={cap} />
+              <GlbInstances look={a.look} url={a.url} spots={spots} world={shape} height={a.height} wind={a.wind} shadows={high && a.role !== 'grass'} hideNearCamera={a.height[1] > 2} solid={solid} layer={'w:' + key} capacity={cap} />
             </Suspense>
           </AssetBoundary>
         );
@@ -251,7 +254,8 @@ export function WorldScene(props: WorldSceneProps) {
       gl={{ antialias: false, powerPreference: 'high-performance' }}
       onCreated={({ gl }) => { gl.toneMapping = THREE.NoToneMapping; }}
     >
-      <Sky daylight={daylight} palette={cw.biomes[region.biome].palette} follow fogFar={(TR - 0.4) * CHUNK} />
+      <Sky daylight={daylight} palette={cw.biomes[region.biome].palette} follow fogFar={((TR - 0.4) * CHUNK) / Math.max(1, cw.biomes[region.biome].settings.fog)} />
+      <Ambient kind={cw.biomes[region.biome].settings.ambient} world={shape} />
       <WindClock />
       <CameraRig ground={cw.heightAt} />
       {chunks.map(([x, z]) => <TerrainChunk key={x + ',' + z} cw={cw} pals={pals} cx={x} cz={z} walkable />)}
@@ -259,6 +263,7 @@ export function WorldScene(props: WorldSceneProps) {
       <Vegetation cw={cw} shape={shape} center={center} high={high} />
       <Portal color={props.color} />
       <Waystones cw={cw} discovered={props.discovered} center={center} />
+      <WorldCreatures cw={cw} creatures={props.creatures} center={center} night={daylight < 0.35} high={high} />
       <Suspense fallback={null}>
         <CompanionModel files={props.model} world={shape} burstKey={props.burstKey} speech={props.speech} onFail={props.onHome} roam={roam} />
       </Suspense>

@@ -113,3 +113,8 @@ export function platformHeight(x: number, z: number): number {
   for (const pl of platforms) if (Math.hypot(x - pl.x, z - pl.z) < pl.r) h = Math.max(h, pl.top);
   return h;
 }
+
+// testes no navegador (só no dev): window.__cc.go(x, z) manda o Companion andar até um ponto
+if (import.meta.env.DEV && typeof window !== 'undefined') {
+  (window as unknown as { __cc: unknown }).__cc = { go: (x: number, z: number) => { moveRequest.point.set(x, 0, z); moveRequest.id++; }, focus: companionFocus };
+}

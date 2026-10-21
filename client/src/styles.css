@@ -411,3 +411,50 @@ html:has(.admin), body:has(.admin), #root:has(.admin) { height: auto; min-height
   .app.has-panel .world-map { right: 14px; }
 }
 @media (prefers-reduced-motion: reduce) { .region-banner { animation: none; } }
+
+/* Estúdio: grupos, aparência dos modelos (também usados na Forja e no Invocador) */
+.biome-group { display: grid; gap: 6px; }
+.biome-group + .biome-group { margin-top: 8px; }
+.biome-list .hint { color: var(--mist); font-size: 0.78rem; line-height: 1.35; }
+.biome-new select { background: #0a1020; color: inherit; border: 1px solid #2c3b5c; border-radius: 8px; padding: 6px; }
+.row-3 { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 12px; align-items: end; }
+.look-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; border: 1px solid #5b6a8c; vertical-align: -1px; }
+.link.tinted { color: var(--brass); }
+.look-editor { flex: 1 1 100%; display: grid; gap: 8px; padding: 10px; border-radius: 10px; border: 1px solid #33425f; background: #0a1020; }
+.look-presets { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 99px; border: 1px solid #33425f; background: var(--night-2); color: var(--parchment); font-size: 0.82rem; }
+.chip.on { border-color: var(--brass); box-shadow: inset 0 0 0 1px var(--brass); }
+.chip i { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+.look-sliders { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 6px 14px; }
+.biome-form .look-sliders label { display: grid; grid-template-columns: 90px minmax(0, 1fr) 46px; align-items: center; gap: 6px; }
+.look-sliders small { text-align: right; color: var(--mist); }
+.look-sliders input[type=color] { width: 100%; height: 22px; padding: 0; border: 1px solid #33425f; border-radius: 6px; background: none; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.grid-form { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px 12px; }
+.list-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 6px 8px; border-radius: 10px; background: color-mix(in srgb, var(--night) 60%, transparent); }
+.list-row input[type=number] { width: 70px; }
+.list-row .grow { flex: 1 1 140px; }
+.biome-form .list-row label { display: flex; align-items: center; gap: 4px; }
+.stat-bars { display: grid; gap: 4px; font-size: 0.8rem; color: var(--mist); }
+.stat-bars div { display: grid; grid-template-columns: 70px 1fr 34px; gap: 6px; align-items: center; }
+.stat-bars b { height: 6px; border-radius: 99px; background: linear-gradient(90deg, var(--brass), #f3d48d); display: block; }
+.thumb { width: 100%; max-height: 180px; object-fit: contain; border-radius: 10px; background: #0a1020; border: 1px solid #2c3b5c; }
+.creature-tag { white-space: nowrap; font-size: 12px; color: #fffaf0; background: rgba(27, 24, 48, 0.62); padding: 2px 8px; border-radius: 99px; transform: translateY(-4px); }
+.creature-tag small { opacity: 0.8; }
+.creature-tag b { color: #ffd56b; margin-right: 4px; }
+.creature-tag.alert { background: rgba(120, 40, 60, 0.75); }
+.creature-tag i { display: none; }
+.skill-preview { position: absolute; inset: 0; }
+.fx-hud { position: absolute; right: 10px; top: 10px; display: grid; gap: 4px; justify-items: end; font-size: 0.8rem; }
+.fx-hud span { background: color-mix(in srgb, var(--night) 75%, transparent); padding: 3px 10px; border-radius: 99px; }
+.fx-hud em.up { color: #9fe870; font-style: normal; } .fx-hud em.down { color: #ff9a8a; font-style: normal; }
+.fx-hits { animation: banner 1.2s ease-out; }
+.fx-label { font-size: 11px; color: #3a2a1a; background: rgba(255, 255, 255, 0.7); padding: 1px 6px; border-radius: 99px; white-space: nowrap; }
+.kit-box { border: 1px solid #2c3b5c; border-radius: 12px; padding: 8px 10px; display: grid; gap: 8px; }
+.kit-box legend { color: var(--brass); padding: 0 6px; }
+.kit-box select, .kit-box input { background: #0a1020; color: inherit; border: 1px solid #2c3b5c; border-radius: 8px; padding: 4px; }
+.kit-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 0.85rem; }
+.kit-list span { display: inline-block; min-width: 72px; color: var(--mist); font-size: 0.78rem; }
+.kit-list .locked { color: var(--mist); }
+.biome-list h3 { margin: 6px 0 2px; font-size: 0.85rem; color: var(--parchment); font-family: var(--serif); }
+.biome-list > select { background: #0a1020; color: inherit; border: 1px solid #2c3b5c; border-radius: 8px; padding: 6px; }
