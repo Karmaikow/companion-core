@@ -112,6 +112,8 @@ describe('forma no modo offline', () => {
     const d = buildArtPrompt({ ...c, species: { ...c.species, family: 'serpente', description: 'Um dragão de Luz parece bom' } });
     expect(d.body).toBe('quadruped');
     expect(d.prompt).toContain('four-legged');
+    expect(d.prompt).toContain('straight front view');
+    expect(d.views).toContain('left side view');
     expect(buildArtPrompt({ ...c, species: { ...c.species, family: 'mistica', description: 'uma fada de cristal' } }).body).toBe('biped');
     expect(buildArtPrompt({ ...c, species: { ...c.species, family: 'passaro', description: 'uma coruja' } }).body).toBe('avian');
   });

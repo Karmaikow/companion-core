@@ -26,7 +26,7 @@ const TRAIT_EN: [string, string][] = [
 ];
 
 export type BodyPlan = 'quadruped' | 'biped' | 'avian' | 'serpentine' | 'aquatic';
-export interface ArtPrompt { summaryPt: string; prompt: string; negative: string; size: string; body: BodyPlan; bodyPt: string }
+export interface ArtPrompt { summaryPt: string; prompt: string; negative: string; size: string; body: BodyPlan; bodyPt: string; views: string }
 
 const BODY: Record<BodyPlan, { pt: string; en: string; pose: string }> = {
   quadruped: { pt: 'quadrúpede', en: 'four-legged creature standing on all four legs', pose: 'all four legs visible and slightly apart, tail extended straight back' },
@@ -61,9 +61,13 @@ export function buildArtPrompt(c: IdentityContractV1): ArtPrompt {
     `Elemental affinity: ${ELEMENT_EN[c.element.key] ?? c.element.label}, shown as small accents, not overwhelming.`,
     `Color palette: primary ${p.primary} (at least 40% of the body), secondary ${p.secondary}, accent ${p.accent}, glow ${p.glow}. Small glowing diamond mark on the forehead in ${p.glow}.`,
     'Style: cozy fantasy anime, soft cel shading, clean simple shapes, stylized 3D figure look.',
-    `Single character, front three-quarter view, neutral pose for 3D rigging: ${b.pose}; nothing overlapping the body. Elemental effects stay attached to the body (no floating particles). Even soft lighting, no cast shadows, plain light grey background, fully visible, no text.`,
+    `Single character, straight front view (orthographic, facing the camera), head facing forward in line with the body, symmetrical, neutral pose for 3D rigging: ${b.pose}; nothing overlapping the body. Elemental effects stay attached to the body (no floating particles). Even soft lighting, no cast shadows, plain light grey background, fully visible, no text.`,
   ].join(' ');
-  const negative = 'text, letters, watermark, logo, signature, multiple characters, cropped, busy background, dramatic lighting, strong shadows, floating particles, detached droplets, sparkles in the air, realistic photo, horror, gore, weapons, existing franchise characters';
+  const negative = 'text, letters, watermark, logo, signature, multiple characters, cropped, busy background, dramatic lighting, strong shadows, floating particles, detached droplets, sparkles in the air, realistic photo, horror, gore, weapons, existing franchise characters, three-quarter view, turned head, head looking sideways, perspective distortion';
+  // Folha de vistas para o multivista do Tripo (Frente, Esquerda, Direita, Verso): mesma criatura, mesma pose, alinhada.
+  const views = prompt.replace(/^Full-body character concept of/, 'Character turnaround reference sheet of')
+    .replace(/Single character, straight front view[^;]*;/, `Four views of the same single character side by side, evenly spaced, same scale and same height, aligned on one ground line: front view, left side view, right side view, back view. Orthographic, head facing the same direction as the body in every view, neutral pose for 3D rigging: ${b.pose};`)
+    .replace('plain light grey background, fully visible', 'plain light grey background, every view fully visible and not touching the others');
   const summaryPt = `${c.identity.name} · corpo ${b.pt} · ${fam.label.toLowerCase()} (${c.species.description}) · ${c.element.label} · ${c.personality.traits.join(', ')} · sonho: ${c.aspiration}`;
-  return { summaryPt, prompt, negative, size: '1024x1024, fundo cinza-claro liso (referência para o modelo 3D)', body, bodyPt: b.pt };
+  return { summaryPt, prompt, negative, size: '1024x1024, fundo cinza-claro liso (referência para o modelo 3D)', body, bodyPt: b.pt, views };
 }
