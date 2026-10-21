@@ -101,7 +101,7 @@ export function SummonerStudio() {
             <li key={r.slug}>
               <button className={sel === r.slug ? 'on' : ''} onClick={() => pick(r.slug)}>
                 <strong><i className="look-dot" style={{ background: r.data.color }} />{r.name}</strong>
-                <small>{ARCHETYPES[r.data.archetype].label} · {TEMPERAMENTS[r.data.temperament].label} · nv {r.data.level[0]}–{r.data.level[1]}{r.data.model ? ' · 3D' : r.data.art ? ' · imagem' : ' · névoa'}{r.status === 'draft' ? ' · rascunho' : ''}</small>
+                <small>{ARCHETYPES[r.data.archetype].label} · {TEMPERAMENTS[r.data.temperament].label} · nv {r.data.level[0]}–{r.data.level[1]}{r.data.model ? ' · 3D' : r.data.art ? ' · imagem' : ' · slime'}{r.status === 'draft' ? ' · rascunho' : ''}</small>
               </button>
             </li>
           ))}
@@ -113,7 +113,7 @@ export function SummonerStudio() {
       </aside>
 
       {!draft || !clean ? (
-        <section className="biome-empty"><p>Escolha uma criatura ou invoque uma nova. Sem modelo nem imagem, ela aparece como um corpo de névoa na cor escolhida.</p></section>
+        <section className="biome-empty"><p>Escolha uma criatura ou invoque uma nova. Sem modelo nem imagem, ela aparece como um slime de gelatina na cor escolhida (o rosto muda com o temperamento e o enfeite no topo com a essência).</p></section>
       ) : (
         <section className="biome-editor">
           <div className="biome-preview">

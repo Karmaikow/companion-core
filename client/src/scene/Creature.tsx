@@ -1,6 +1,6 @@
 /**
  * Corpo de uma criatura do Invocador: o modelo .GLB (com animações e aparência própria), a imagem (sprite que sempre
- * olha para a câmera) ou, sem nenhum dos dois, um "corpo de névoa" na cor dela. O mesmo componente serve para a
+ * olha para a câmera) ou, sem nenhum dos dois, um slime de gelatina na cor dela. O mesmo componente serve para a
  * prévia no painel e para as criaturas andando no Companion World.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -12,7 +12,7 @@ import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js
 import { animKind, type CreatureDef } from '@rules';
 import { inPlace, sanitizeSkins, restBox, facingYaw } from './CompanionModel';
 import { lookUniforms, setLook, withLook } from './look';
-import { softDot } from './textures';
+import { SlimeBody } from './Slime';
 
 const loader = new GLTFLoader();
 loader.setMeshoptDecoder(MeshoptDecoder);
@@ -105,40 +105,7 @@ function SpriteBody({ def, act }: { def: CreatureDef; act: CreatureAct }) {
   return <sprite ref={ref}><spriteMaterial map={tex} transparent alphaTest={0.3} /></sprite>;
 }
 
-/** Sem modelo nem imagem: uma bolinha de névoa com olhos, na cor da criatura. */
+/** Sem modelo nem imagem: um slime de gelatina na cor da criatura (ver Slime.tsx). */
 function MistBody({ def, act }: { def: CreatureDef; act: CreatureAct }) {
-  const body = useRef<THREE.Group>(null);
-  const puffs = useRef<THREE.Points>(null);
-  const s = def.size;
-  const geo = useMemo(() => {
-    const g = new THREE.BufferGeometry(), N = 24, p = new Float32Array(N * 3);
-    for (let i = 0; i < N; i++) { const a = (i / N) * Math.PI * 2; p.set([Math.cos(a) * 0.55, 0.1 + (i % 3) * 0.15, Math.sin(a) * 0.55], i * 3); }
-    g.setAttribute('position', new THREE.BufferAttribute(p, 3));
-    return g;
-  }, []);
-  useEffect(() => () => geo.dispose(), [geo]);
-  useFrame((st) => {
-    const t = st.clock.elapsedTime, b = body.current; if (!b) return;
-    const moving = act === 'walk' || act === 'run';
-    const hop = moving ? Math.abs(Math.sin(t * (act === 'run' ? 13 : 8))) : 0;
-    b.position.y = hop * 0.22 * s;
-    const sq = act === 'attack' ? Math.max(0, Math.sin(t * 9)) * 0.25 : hop * 0.12 + Math.sin(t * 2.2) * 0.03;
-    b.scale.set(1 + sq * 0.6, 1 - sq, 1 + sq * 0.6);
-    if (puffs.current) puffs.current.rotation.y = t * 0.6;
-  });
-  const col = def.color;
-  return (
-    <group scale={s}>
-      <group ref={body}>
-        <mesh position={[0, 0.42, 0]} castShadow><sphereGeometry args={[0.42, 24, 18]} /><meshLambertMaterial color={col} emissive={col} emissiveIntensity={0.25} transparent opacity={0.92} /></mesh>
-        <mesh position={[0, 0.3, 0.05]} scale={[1.15, 0.6, 1.15]}><sphereGeometry args={[0.42, 20, 12]} /><meshLambertMaterial color={col} transparent opacity={0.35} depthWrite={false} /></mesh>
-        <mesh position={[-0.14, 0.5, 0.37]}><sphereGeometry args={[0.065, 12, 12]} /><meshBasicMaterial color="#1b1830" /></mesh>
-        <mesh position={[0.14, 0.5, 0.37]}><sphereGeometry args={[0.065, 12, 12]} /><meshBasicMaterial color="#1b1830" /></mesh>
-        <mesh position={[-0.12, 0.53, 0.42]}><sphereGeometry args={[0.02, 8, 8]} /><meshBasicMaterial color="#ffffff" /></mesh>
-        <mesh position={[0.16, 0.53, 0.42]}><sphereGeometry args={[0.02, 8, 8]} /><meshBasicMaterial color="#ffffff" /></mesh>
-      </group>
-      <points ref={puffs} geometry={geo}><pointsMaterial map={softDot()} size={0.4} color={col} transparent opacity={0.45} depthWrite={false} /></points>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}><circleGeometry args={[0.45, 20]} /><meshBasicMaterial color="#000" transparent opacity={0.16} depthWrite={false} /></mesh>
-    </group>
-  );
+  return <SlimeBody def={def} act={act} />;
 }

@@ -144,7 +144,7 @@ Painel do ADM → **Forja de Batalha** (`/#/admin/forja`, tabela `skills`). Segu
 
 Painel do ADM → **Invocador de Monstros** (`/#/admin/invocador`, tabela `creatures`, arquivos em
 `world-assets/creatures/<slug>/`). As criaturas são as Brumas do design de batalha (acalmadas, não mortas).
-- `shared/rules/creatures.ts`: corpo (.GLB + animações, imagem/sprite ou corpo de névoa na cor dela), aparência,
+- `shared/rules/creatures.ts`: corpo (.GLB + animações, imagem/sprite ou slime procedural na cor dela), aparência,
   essência, tipo de corpo, arquétipo, temperamento, estilo, níveis, atributos (crescem 8%/nível), altura, velocidade,
   percepção, habilidades da Forja com **peso** (frequência; `pickCreatureSkill`), regiões com peso, horário, grupo,
   raridade e **drops** (`rollDrops`). "Sugerir pela essência e corpo" usa o `kitFor`.
@@ -152,7 +152,13 @@ Painel do ADM → **Invocador de Monstros** (`/#/admin/invocador`, tabela `creat
 - No Companion World (`WorldCreatures.tsx`) elas já andam conforme o temperamento: passivo passeia e olha, medroso
   foge, territorial defende o canto, agressivo vem até o Companion (com "!" e animação de ataque). Sem luta ainda.
   Sem criaturas publicadas, entram 3 de reserva (Bruma de Musgo, Fagulha — só à noite, Lobinho de Geada).
-- Lab sem login (dev): `client/forge-lab.html` com o Vite em `--port 5199` (prévias de habilidades e criaturas).
+- **Slime procedural** (`client/src/scene/Slime.tsx`), para criaturas sem modelo: domo de gelatina (perfil de gota de
+  goma), material com verniz e borda luminosa (fresnel), contorno translúcido, reflexos pintados, núcleo e bolhinhas por
+  dentro, rosto desenhado em canvas e colado na superfície (DecalGeometry). Rosto pelo temperamento (calmo, tímido com
+  bochechas, sério) e pela ação (bravo com marca de raiva ao atacar, feliz, ferido, dormindo; pisca). Corpo em mola:
+  pula ao andar, achata ao pousar, estica no ataque. Enfeite no topo pela essência (broto, chama, cristal, gota, auréola,
+  chifrinhos, faísca, pedrinha, redemoinho).
+- Lab sem login (dev): `client/forge-lab.html` (`?slimes` mostra os rostos e enfeites) com o Vite em `--port 5199` (prévias de habilidades e criaturas).
 
 ## Companion 3D e animações (v1.4)
 

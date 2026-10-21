@@ -1,4 +1,4 @@
-/** Prévia de uma criatura no Invocador: ela no centro de um gramado, girando devagar, ao lado da silhueta de um Companion de 1 m. */
+/** Prévia de uma criatura no Invocador: ela no centro de um gramado, virando de um lado para o outro, ao lado da silhueta de um Companion de 1 m. */
 import { Suspense, useRef } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
@@ -8,7 +8,8 @@ import { AssetBoundary } from './Biome';
 
 function Turntable({ def, act }: { def: CreatureDef; act: CreatureAct }) {
   const g = useRef<THREE.Group>(null);
-  useFrame((_, dt) => { if (g.current) g.current.rotation.y += dt * 0.35; });
+  // balança de um lado para o outro (o rosto fica sempre à vista)
+  useFrame((s) => { if (g.current) g.current.rotation.y = Math.sin(s.clock.elapsedTime * 0.45) * 0.75; });
   return <group ref={g}><AssetBoundary><Suspense fallback={null}><CreatureBody def={def} act={act} /></Suspense></AssetBoundary></group>;
 }
 
