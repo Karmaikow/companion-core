@@ -80,7 +80,20 @@ function facingYaw(root: THREE.Object3D): number {
 
 const ONCE = new Set(['happy', 'jump', 'attack', 'hurt', 'eat']);
 
-export function CompanionModel({ files, world, burstKey, speech, onFail }: { files: CompanionModelFiles; world: WorldShape; burstKey: number; speech: string | null; onFail: () => void }) {
+/** Onde o Companion pode andar. No Refúgio: a clareira em volta do altar. No mundo aberto: longe, com passeios perto de onde está. */
+export interface Roam {
+  limit: number;                                   // raio máximo a partir da origem
+  wander: (x: number, z: number) => [number, number]; // próximo passeio sozinho
+  /** explorar sozinho: um destino distante (a próxima pedra-guia); null = só passeia */
+  goal?: { current: THREE.Vector3 | null };
+  start?: [number, number];
+}
+const REFUGE_ROAM: Roam = {
+  limit: CLEAR_R - 0.4,
+  wander: () => { const a = Math.random() * Math.PI * 2, rr = 2.3 + Math.random() * (CLEAR_R - 4); return [Math.cos(a) * rr, Math.sin(a) * rr]; },
+};
+
+export function CompanionModel({ files, world, burstKey, speech, onFail, roam = REFUGE_ROAM }: { files: CompanionModelFiles; world: WorldShape; burstKey: number; speech: string | null; onFail: () => void; roam?: Roam }) {
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   useEffect(() => {
     let alive = true;
@@ -99,10 +112,10 @@ export function CompanionModel({ files, world, burstKey, speech, onFail }: { fil
     return () => { alive = false; };
   }, [files, onFail]);
   if (!loaded) return null;
-  return <Walker loaded={loaded} world={world} burstKey={burstKey} speech={speech} />;
+  return <Walker loaded={loaded} world={world} burstKey={burstKey} speech={speech} roam={roam} />;
 }
 
-function Walker({ loaded, world, burstKey, speech }: { loaded: Loaded; world: WorldShape; burstKey: number; speech: string | null }) {
+function Walker({ loaded, world, burstKey, speech, roam }: { loaded: Loaded; world: WorldShape; burstKey: number; speech: string | null; roam: Roam }) {
   const root = useRef<THREE.Group>(null);
   const pose = useRef<THREE.Group>(null);
   const { model, scale, mixer, actions, walkSpeed, runSpeed } = useMemo(() => {
@@ -141,7 +154,8 @@ function Walker({ loaded, world, burstKey, speech }: { loaded: Loaded; world: Wo
     return { model: orient, scale, mixer, actions, walkSpeed, runSpeed };
   }, [loaded]);
 
-  const st = useRef({ target: new THREE.Vector3(1.6, 0, 1.4), wait: 2, act: '' as string, yaw: 0, burst: burstKey, once: 0, player: false, running: false, req: moveRequest.id, blocked: 0, lift: 0 });
+  const start = roam.start ?? [1.6, 1.4];
+  const st = useRef({ target: new THREE.Vector3(start[0], 0, start[1]), wait: 2, act: '' as string, yaw: 0, burst: burstKey, once: 0, player: false, running: false, req: moveRequest.id, blocked: 0, lift: 0, stuck: false });
   // WASD / setas: a pessoa conduz o Companion (relativo à câmera); Shift corre. Digitando no chat, as teclas são ignoradas.
   const keys = useRef(new Set<string>());
   useEffect(() => {
@@ -177,7 +191,7 @@ function Walker({ loaded, world, burstKey, speech }: { loaded: Loaded; world: Wo
       s.req = moveRequest.id;
       s.target.set(moveRequest.point.x, 0, moveRequest.point.z);
       const rr = Math.hypot(s.target.x, s.target.z);
-      if (rr > CLEAR_R - 0.4) s.target.multiplyScalar((CLEAR_R - 0.4) / rr);
+      if (rr > roam.limit) s.target.multiplyScalar(roam.limit / rr);
       s.wait = 10; s.running = false;
     }
     // controle pelo teclado
@@ -190,7 +204,7 @@ function Walker({ loaded, world, burstKey, speech }: { loaded: Loaded; world: Wo
       const dx = fwd.x * iz + rx * ix, dz = fwd.z * iz + rz * ix, n = Math.hypot(dx, dz) || 1;
       s.target.set(r.position.x + (dx / n) * 0.8, 0, r.position.z + (dz / n) * 0.8);
       const rr = Math.hypot(s.target.x, s.target.z);
-      if (rr > CLEAR_R - 0.4) s.target.multiplyScalar((CLEAR_R - 0.4) / rr);
+      if (rr > roam.limit) s.target.multiplyScalar(roam.limit / rr);
       s.player = true; s.running = k.has('shift'); s.wait = 12; // passeio sozinho só depois de um tempo parado
     } else if (s.player) { s.player = false; s.running = false; s.target.copy(r.position); }
 
@@ -201,7 +215,7 @@ function Walker({ loaded, world, burstKey, speech }: { loaded: Loaded; world: Wo
       const step = Math.min(d, (s.running ? runSpeed : walkSpeed) * dt);
       const before = { x: r.position.x, z: r.position.z }, next = { x: r.position.x + to.x * step, z: r.position.z + to.z * step };
       // colisão: desliza em volta de pedras, troncos e da fogueira; se ficar travado contra algo, desiste do destino
-      if (resolveCollisions(next) && Math.hypot(next.x - before.x, next.z - before.z) < step * 0.25) { s.blocked += dt; if (s.blocked > 0.6 && !s.player) { s.target.set(next.x, 0, next.z); s.blocked = 0; } } else s.blocked = 0;
+      if (resolveCollisions(next) && Math.hypot(next.x - before.x, next.z - before.z) < step * 0.25) { s.blocked += dt; if (s.blocked > 0.6 && !s.player) { s.target.set(next.x, 0, next.z); s.blocked = 0; s.stuck = true; } } else s.blocked = 0;
       r.position.x = next.x; r.position.z = next.z;
       const want = Math.atan2(to.x, to.z); let dy = want - s.yaw; while (dy > Math.PI) dy -= 2 * Math.PI; while (dy < -Math.PI) dy += 2 * Math.PI;
       s.yaw += dy * Math.min(1, dt * (s.player ? 9 : 5));
@@ -210,11 +224,22 @@ function Walker({ loaded, world, burstKey, speech }: { loaded: Loaded; world: Wo
       s.wait -= dt;
       const night = gameTime(Date.now()).phase === 'madrugada';
       play(night && actions.has('sleep') ? 'sleep' : 'idle');
+      const goal = roam.goal?.current;
+      if (goal && !s.player && s.wait > 0.4) s.wait = 0.4; // explorando: pausa curta entre os trechos
       if (s.wait <= 0 && !(night && actions.has('sleep'))) {
-        // próximo passeio: um ponto da clareira, longe do altar
-        const a = Math.random() * Math.PI * 2, rr = 2.3 + Math.random() * (CLEAR_R - 4);
-        s.target.set(Math.cos(a) * rr, 0, Math.sin(a) * rr);
-        s.wait = 3 + Math.random() * 6;
+        if (goal) {
+          // explorar sozinho: trechos de ~6 m na direção da pedra-guia, com um desvio (contorna o que travou)
+          const gx = goal.x - r.position.x, gz = goal.z - r.position.z, gd = Math.hypot(gx, gz) || 1, step = Math.min(gd, 6);
+          const side = s.stuck || Math.random() < 0.15 ? (Math.random() < 0.5 ? -1 : 1) * (3 + Math.random() * 4) : (Math.random() - 0.5) * 1.5;
+          s.stuck = false;
+          s.target.set(r.position.x + (gx / gd) * step - (gz / gd) * side, 0, r.position.z + (gz / gd) * step + (gx / gd) * side);
+          s.wait = 0.4; s.running = true; // explorando, ela vai correndo
+        } else {
+          s.running = false;
+          const [wx, wz] = roam.wander(r.position.x, r.position.z);
+          s.target.set(wx, 0, wz);
+          s.wait = 3 + Math.random() * 6;
+        }
       }
     }
     // sobe em plataformas baixas (o altar) com suavidade
@@ -231,7 +256,7 @@ function Walker({ loaded, world, burstKey, speech }: { loaded: Loaded; world: Wo
   });
 
   return (
-    <group ref={root} position={[1.6, 0, 1.4]}>
+    <group ref={root} position={[start[0], 0, start[1]]}>
       <group ref={pose} scale={scale}>
         <primitive object={model} />
       </group>

@@ -85,6 +85,33 @@ bloqueiam; grama, plantas e o que tem menos de ~45 cm não. O altar é plataform
 desiste depois de ~0,6 s encostado. Clique/toque no chão para andar até lá; WASD/setas continuam valendo.
 "Parado" que na verdade anda (o Tripo às vezes exporta o rig do corpo já com a animação de andar) é descartado.
 
+## Companion World (v1.7)
+
+O mundo aberto além da passagem na muralha. Por enquanto roda no cliente (o servidor de simulação do MVP 2 vai usar
+o mesmo gerador). Botão **Companion World** no topo do Refúgio quando o Companion tem modelo 3D e a passagem está aberta
+(primeiro sonho). Para testar sem a quest: `?mundo`.
+
+- Gerador puro `shared/rules/worldgen.ts` (`makeCompanionWorld(WORLD_SEED, biomas)`), seed única: todo mundo anda no
+  mesmo mundo. Grade de 7×7 regiões de 90 m (~630 m), Voronoi com bordas tortas; o sítio (0, 0) é o **Portal do
+  Refúgio** no bioma de casa, e os vizinhos dele são de outros biomas. Morros fecham a borda do mundo.
+- Regiões: os biomas publicados com **"Aparece como região do Companion World"** ligado (Estúdio). Com menos de 3,
+  entram as regiões de reserva `WORLD_FALLBACK_BIOMES` (Bosque Âmbar, Colinas Lavanda — os mesmos modelos com outra paleta).
+  O controle **Relevo no mundo** (`settings.hills`) define plano, colinas ou morros; na borda entre regiões tudo se mistura.
+- Trilhas ligando todas as regiões (testado), pedras-guia com nome em cada região (48 lugares). Chegar perto descobre o
+  lugar (comemoração + mapa). As descobertas ficam neste navegador por enquanto (vão para o servidor no MVP 2).
+- Vegetação por chunk de 16 m, densidade tirada do próprio bioma (a quantidade da clareira ÷ a área da zona × fração por
+  papel em `WORLD_ROLE`); zonas viram campo aberto (dentro), mata (fora) e meio-termo (borda) por um ruído de floresta.
+  Cada modelo vira uma malha instanciada só, com reserva que cresce; grama a 1 chunk, árvores e pedras a 3.
+- Cena `client/src/scene/World.tsx`: chão em chunks com normais sem costura, luz e sombra seguindo o Companion, névoa
+  escondendo a borda, câmera que sobe quando um morro fica na frente. Mapa no canto (toque amplia o mundo inteiro).
+- **Explorar sozinho**: o Companion corre em trechos até a pedra-guia mais perto ainda não descoberta, contornando o que
+  travar. Primeiro passo da autonomia (GDD: agentes como protagonistas).
+- Voltar: botão ou pisar no portal depois de se afastar.
+
+**Refúgio de cada Companion:** tabela `companion_biomes` (dono lê, ADM escolhe). Na Fábrica, cada Companion tem
+"Refúgio deste Companion": padrão (`refugio`) ou qualquer bioma do Estúdio — de preferência um com "Aparece no mundo"
+desligado, feito só para ele. O jogo usa: o próprio → o `refugio` publicado → o de fábrica.
+
 ## Companion 3D e animações (v1.4)
 
 - A Fábrica recebe o **modelo .GLB** e **várias animações .GLB** do mesmo rig (o Tripo exporta uma por arquivo). O tipo vem

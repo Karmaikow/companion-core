@@ -67,7 +67,7 @@ function useRockGeos(palette: BiomePalette) {
   }), [palette]);
 }
 
-interface Spot { x: number; z: number; rot: number; s: number }
+export interface Spot { x: number; z: number; rot: number; s: number }
 
 export function Cliffs({ world, quality, palette }: { world: WorldShape; quality: 'high' | 'low'; palette: BiomePalette }) {
   const geos = useRockGeos(palette);
@@ -107,8 +107,10 @@ function useSpots(world: WorldShape, n: number, rMin: number, rMax: number, salt
   }, [world, n, rMin, rMax, salt, minGap, avoid]);
 }
 
-export function GrassBlades({ world, count, palette }: { world: WorldShape; count: number; palette: BiomePalette }) {
-  const spots = useSpots(world, count, 1.6, 22, 11);
+export function GrassBlades({ world, count, palette, spots: given, capacity }: { world: WorldShape; count: number; palette: BiomePalette; spots?: Spot[]; capacity?: number }) {
+  const own = useSpots(world, given ? 0 : count, 1.6, 22, 11);
+  const spots = given ?? own;
+  const cap = Math.max(1, capacity && capacity >= spots.length ? capacity : given ? spots.length : count);
   const { geo, mat, tex } = useMemo(() => {
     const cv = document.createElement('canvas'); cv.width = cv.height = 128;
     const g = cv.getContext('2d')!, r = mulberry32(3);
@@ -147,8 +149,8 @@ export function GrassBlades({ world, count, palette }: { world: WorldShape; coun
       im.setColorAt(i, c.setScalar(0.85 + t.s * 0.3));
     });
     im.count = spots.length; im.instanceMatrix.needsUpdate = true; if (im.instanceColor) im.instanceColor.needsUpdate = true;
-  }, [spots, world]);
-  return <instancedMesh key={count} ref={ref} args={[geo, mat, Math.max(1, count)]} receiveShadow frustumCulled={false} />;
+  }, [spots, world, cap]);
+  return <instancedMesh key={cap} ref={ref} args={[geo, mat, cap]} receiveShadow frustumCulled={false} />;
 }
 
 /** Converte atributos quantizados (meshopt) para float antes de "assar" a transformação na geometria. */
@@ -169,7 +171,7 @@ function bakeGeometry(src: THREE.BufferGeometry, m: THREE.Matrix4) {
  * Um .GLB espalhado em várias cópias numa malha instanciada (uma por parte do modelo).
  * `height` é a altura desejada em metros: os modelos do Tripo chegam com ~1 m.
  */
-export function GlbInstances({ url, spots, world, height, wind = 0, shadows = false, hideNearCamera = false, solid = 0, layer }: { url: string; spots: Spot[]; world: WorldShape; height: [number, number]; wind?: number; shadows?: boolean; hideNearCamera?: boolean; /** fração do pé do modelo que bloqueia (0 = passa por cima/através) */ solid?: number; layer?: string }) {
+export function GlbInstances({ url, spots, world, height, wind = 0, shadows = false, hideNearCamera = false, solid = 0, layer, capacity }: { /** reserva de cópias (o mundo aberto troca os pontos sem recriar a malha) */ capacity?: number; url: string; spots: Spot[]; world: WorldShape; height: [number, number]; wind?: number; shadows?: boolean; hideNearCamera?: boolean; /** fração do pé do modelo que bloqueia (0 = passa por cima/através) */ solid?: number; layer?: string }) {
   const { scene } = useGLTF(url);
   const { parts, foot } = useMemo(() => {
     scene.updateMatrixWorld(true);
@@ -187,29 +189,32 @@ export function GlbInstances({ url, spots, world, height, wind = 0, shadows = fa
   }, [scene, wind]);
   useEffect(() => () => parts.forEach((p) => { p.geo.dispose(); p.mat.dispose(); }), [parts]);
   const refs = useRef<(THREE.InstancedMesh | null)[]>([]);
+  const hidden = useRef<boolean[]>([]);
+  const cap = Math.max(1, capacity && capacity >= spots.length ? capacity : spots.length);
   const mats = useMemo(() => {
     const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), v = new THREE.Vector3(), s = new THREE.Vector3();
     return spots.map((t) => { const h = height[0] + t.s * (height[1] - height[0]); return { m: m4.compose(v.set(t.x, world.heightAt(t.x, t.z) - 0.05, t.z), q.setFromEuler(e.set(0, t.rot, 0)), s.set(h, h, h)).clone(), x: t.x, z: t.z, h }; });
   }, [spots, world, height]);
   useLayoutEffect(() => {
+    hidden.current = [];
     refs.current.forEach((im) => { if (!im) return; mats.forEach((k, i) => im.setMatrixAt(i, k.m)); im.count = mats.length; im.instanceMatrix.needsUpdate = true; });
-  }, [mats, parts]);
+  }, [mats, parts, cap]);
   // obstáculos (só o que é alto o bastante; o que tem menos de ~45 cm dá para passar por cima)
   useEffect(() => {
     if (!solid || !layer) return;
     colliders.set(layer, mats.filter((k) => k.h >= 0.45).map((k) => ({ x: k.x, z: k.z, r: Math.max(0.12, foot * k.h * solid) })));
     return () => { colliders.delete(layer); };
   }, [mats, foot, solid, layer]);
-  // árvores altas entre a câmera e o centro saem da frente
-  const hidden = useRef<boolean[]>([]);
+  // árvores altas entre a câmera e o Companion saem da frente
   const zero = useMemo(() => new THREE.Matrix4().makeScale(0, 0, 0), []);
   useFrame(({ camera }) => {
     if (!hideNearCamera) return;
-    const cx = camera.position.x, cz = camera.position.z, cl = Math.hypot(cx, cz) || 1;
+    // entre a câmera e o Companion (companionFocus), perto da linha de visão
+    const fx = companionFocus.x, fz = companionFocus.z, cx = camera.position.x - fx, cz = camera.position.z - fz, cl = Math.hypot(cx, cz) || 1;
     let changed = false;
     mats.forEach((k, i) => {
-      const along = (k.x * cx + k.z * cz) / cl, lat = Math.abs((-k.x * cz + k.z * cx) / cl);
-      const hide = along > 4 && lat < 6;
+      const rx = k.x - fx, rz = k.z - fz, along = (rx * cx + rz * cz) / cl, lat = Math.abs((-rx * cz + rz * cx) / cl);
+      const hide = along > 1.5 && along < cl && lat < 2.2 + along * 0.25;
       if (hidden.current[i] !== hide) { hidden.current[i] = hide; changed = true; refs.current.forEach((im) => im?.setMatrixAt(i, hide ? zero : k.m)); }
     });
     if (changed) refs.current.forEach((im) => { if (im) im.instanceMatrix.needsUpdate = true; });
@@ -217,7 +222,7 @@ export function GlbInstances({ url, spots, world, height, wind = 0, shadows = fa
   return (
     <group>
       {parts.map((p, i) => (
-        <instancedMesh key={i} ref={(el) => { refs.current[i] = el; }} args={[p.geo, p.mat, Math.max(1, spots.length)]} castShadow={shadows} receiveShadow frustumCulled={false} />
+        <instancedMesh key={i + ':' + cap} ref={(el) => { refs.current[i] = el; }} args={[p.geo, p.mat, cap]} castShadow={shadows} receiveShadow frustumCulled={false} />
       ))}
     </group>
   );
@@ -252,14 +257,14 @@ export function BiomeVegetation({ biome, world, quality }: { biome: BiomeConfig;
   );
 }
 
-class AssetBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
+export class AssetBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
   state = { failed: false };
   static getDerivedStateFromError() { return { failed: true }; }
   componentDidCatch(e: unknown) { console.warn('[Bioma] modelo não carregou', e); }
   render() { return this.state.failed ? null : this.props.children; }
 }
 
-export function Sky({ daylight, palette }: { daylight: number; palette: BiomePalette }) {
+export function Sky({ daylight, palette, follow = false, fogFar }: { daylight: number; palette: BiomePalette; /** mundo aberto: a luz (e a sombra) acompanham o Companion */ follow?: boolean; /** distância da névoa (o mundo aberto esconde a borda dos chunks) */ fogFar?: number }) {
   const { scene } = useThree();
   const hemi = useRef<THREE.HemisphereLight>(null);
   const sun = useRef<THREE.DirectionalLight>(null);
@@ -268,10 +273,16 @@ export function Sky({ daylight, palette }: { daylight: number; palette: BiomePal
   useEffect(() => {
     const k = daylight;
     const bg = night.bg.clone().lerp(day.bg, k), fog = night.fog.clone().lerp(day.fog, k);
-    scene.background = bg; scene.fog = new THREE.Fog(fog, 30 + k * 8, 62 + k * 18);
+    scene.background = bg; scene.fog = fogFar ? new THREE.Fog(fog, fogFar * 0.45, fogFar) : new THREE.Fog(fog, 30 + k * 8, 62 + k * 18);
     if (hemi.current) { hemi.current.color.copy(night.sky).lerp(day.sky, k); hemi.current.groundColor.copy(night.ground).lerp(day.ground, k); hemi.current.intensity = 1.1 + k * 0.6; }
     if (sun.current) { sun.current.color.copy(night.sun).lerp(day.sun, k); sun.current.intensity = 0.7 + k * 1.5; }
-  }, [daylight, scene, day, night]);
+  }, [daylight, scene, day, night, fogFar]);
+  useFrame(() => {
+    const l = sun.current;
+    if (!follow || !l) return;
+    l.position.set(companionFocus.x + 9, companionFocus.y + 16, companionFocus.z + 5);
+    l.target.position.copy(companionFocus); l.target.updateMatrixWorld();
+  });
   return (
     <>
       <hemisphereLight ref={hemi} />
@@ -303,7 +314,7 @@ export function Motes({ world, night, amount }: { world: WorldShape; night: numb
 }
 
 /** Câmera em perspectiva olhando o altar; arrastar gira em volta, a roda/pinça aproxima. */
-export function CameraRig() {
+export function CameraRig({ ground }: { /** mundo aberto: a câmera nunca entra num morro */ ground?: (x: number, z: number) => number } = {}) {
   const { camera, size, gl } = useThree();
   const st = useRef({ az: 0.35, dist: 0, drag: null as null | { x: number }, pinch: 0, d0: 0 });
   const portrait = size.height > size.width;
@@ -322,12 +333,19 @@ export function CameraRig() {
   }, [gl]);
   const want = useMemo(() => new THREE.Vector3(), []);
   const look = useMemo(() => new THREE.Vector3(), []);
-  useFrame((s) => {
+  useFrame((s, dt) => {
     const k = st.current, t = s.clock.elapsedTime;
     const dist = (portrait ? 21 : 15) + k.dist, polar = 0.92, az = k.az + Math.sin(t * 0.05) * 0.08;
-    look.lerp(companionFocus, 0.05);
+    // suavização pelo tempo (não por quadro): no celular lento a câmera não fica para trás
+    look.lerp(companionFocus, 1 - Math.exp(-Math.min(dt, 0.25) * 3));
     want.set(look.x + Math.sin(polar) * Math.sin(az) * dist, look.y + Math.cos(polar) * dist + 0.8, look.z + Math.sin(polar) * Math.cos(az) * dist);
-    camera.position.lerp(want, 0.06);
+    if (ground) {
+      // sobe a câmera se um morro ficar entre ela e o Companion (amostra o caminho até lá)
+      let lift = 0;
+      for (let i = 1; i <= 4; i++) { const f = i / 4, x = look.x + (want.x - look.x) * f, z = look.z + (want.z - look.z) * f, y = look.y + (want.y - look.y) * f; lift = Math.max(lift, ground(x, z) + 1.6 - y); }
+      want.y += lift;
+    }
+    camera.position.lerp(want, 1 - Math.exp(-Math.min(dt, 0.25) * 3.6));
     camera.lookAt(look.x, look.y + (portrait ? 0.2 : 0.9), look.z);
   });
   return null;

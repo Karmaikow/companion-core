@@ -199,6 +199,7 @@ export function AdminPanel() {
                     + Animações .GLB (pode escolher várias)
                   </label>
                 </div>
+                <RefugeBiomePicker companionId={j.companionId} />
                 <div className="row">
                   {j.status === 'queued' && <button className="ghost" disabled={busy} onClick={() => void update(j, 'generating')}>Marcar "gerando"</button>}
                   {(j.artPath || j.modelPath) && j.status !== 'approved' && <button className="primary" disabled={busy} onClick={() => void update(j, 'approved')}>Aprovar e liberar no jogo</button>}
@@ -209,6 +210,51 @@ export function AdminPanel() {
           </article>
         ))}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Refúgio do Companion: todos usam o bioma padrão "refugio"; um Companion evoluído pode ganhar um Refúgio próprio
+ * (qualquer bioma publicado no Estúdio — de preferência um com "Aparece no mundo" desligado).
+ */
+function RefugeBiomePicker({ companionId }: { companionId: string }) {
+  const [list, setList] = useState<{ slug: string; name: string; status: string }[] | null>(null);
+  const [cur, setCur] = useState<string>('');
+  const [note, setNote] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const [b, mine] = await Promise.all([
+        supabase().from('biomes').select('slug,name,status').order('name'),
+        supabase().from('companion_biomes').select('biome_slug').eq('companion_id', companionId).maybeSingle(),
+      ]);
+      if (!alive) return;
+      setList(b.data ?? []);
+      setCur(mine.data?.biome_slug ?? '');
+    })();
+    return () => { alive = false; };
+  }, [companionId]);
+  async function choose(slug: string) {
+    setNote(null);
+    const uid = (await supabase().auth.getUser()).data.user?.id;
+    const r = slug
+      ? await supabase().from('companion_biomes').upsert({ companion_id: companionId, biome_slug: slug, updated_at: new Date().toISOString(), updated_by: uid })
+      : await supabase().from('companion_biomes').delete().eq('companion_id', companionId);
+    if (r.error) { setNote('Não deu para salvar: ' + r.error.message); return; }
+    setCur(slug);
+    const b = list?.find((x) => x.slug === slug);
+    setNote(slug ? (b?.status === 'published' ? 'Salvo. O Refúgio muda na próxima vez que a pessoa abrir o jogo.' : 'Salvo, mas este bioma é rascunho: publique no Estúdio para valer no jogo.') : 'Voltou para o Refúgio padrão.');
+  }
+  if (!list) return null;
+  return (
+    <div className="model-box">
+      <strong>Refúgio deste Companion</strong>
+      <select value={cur} onChange={(e) => void choose(e.target.value)} aria-label="Bioma do Refúgio">
+        <option value="">Padrão (bioma "refugio")</option>
+        {list.filter((b) => b.slug !== 'refugio').map((b) => <option key={b.slug} value={b.slug}>{b.name}{b.status === 'published' ? '' : ' (rascunho)'}</option>)}
+      </select>
+      {note && <small>{note}</small>}
     </div>
   );
 }

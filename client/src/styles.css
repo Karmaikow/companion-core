@@ -388,3 +388,26 @@ html:has(.admin), body:has(.admin), #root:has(.admin) { height: auto; min-height
 .biome-form .asset-row label { display: flex; align-items: center; gap: 4px; }
 .asset-row input[type=number] { width: 64px; }
 @media (max-width: 860px) { .biome-studio { grid-template-columns: 1fr; } }
+
+/* ---------- Companion World ---------- */
+.travel { position: absolute; top: max(14px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); display: flex; gap: 8px; z-index: 3; }
+.travel button { display: flex; flex-direction: column; align-items: center; padding: 9px 18px; border-radius: 99px; border: 1px solid var(--brass-dim); background: var(--panel); color: var(--parchment); font-family: var(--serif); font-size: 1rem; box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35); backdrop-filter: blur(6px); }
+.travel button.primary { background: linear-gradient(180deg, #f3d48d, #d6a957); color: #2a1e08; border-color: #f7e2a8; font-weight: 700; }
+.travel button.primary:disabled { background: var(--panel); color: var(--mist); border-color: var(--brass-dim); }
+.travel button small { font-family: var(--sans); font-size: 0.72rem; font-weight: 400; opacity: 0.9; }
+.travel button.on { background: var(--night-3); box-shadow: inset 0 0 0 1px var(--brass), 0 8px 22px rgba(0, 0, 0, 0.35); }
+.world-map { position: absolute; top: max(14px, env(safe-area-inset-top)); right: 14px; padding: 0; border-radius: 14px; overflow: hidden; border: 1px solid var(--brass-dim); box-shadow: inset 0 0 0 3px rgba(13, 23, 38, 0.4), 0 10px 26px rgba(0, 0, 0, 0.4); background: #cfe6c0; z-index: 2; }
+.world-map canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.world-map .map-count { position: absolute; left: 8px; bottom: 6px; font-size: 0.72rem; color: #1b1830; background: rgba(255, 255, 255, 0.72); padding: 1px 7px; border-radius: 99px; }
+.app.has-panel .world-map { right: calc(min(400px, 100vw - 28px) + 28px); }
+.region-banner { position: absolute; top: 22%; left: 50%; transform: translateX(-50%); font-family: var(--serif); font-size: clamp(1.4rem, 4vw, 2.2rem); color: #fffaf0; text-shadow: 0 2px 14px rgba(20, 16, 40, 0.65), 0 0 2px rgba(20, 16, 40, 0.8); pointer-events: none; animation: banner 3.2s ease-in-out forwards; white-space: nowrap; }
+@keyframes banner { 0% { opacity: 0; transform: translate(-50%, 8px); } 15%, 75% { opacity: 1; transform: translate(-50%, 0); } 100% { opacity: 0; } }
+@media (max-width: 760px) {
+  .travel { top: auto; bottom: calc(82px + env(safe-area-inset-bottom)); width: max-content; max-width: calc(100vw - 20px); }
+  .travel button { white-space: nowrap; padding: 8px 14px; font-size: 0.92rem; }
+  .app.has-panel .travel { display: none; }
+  .world-map { top: calc(86px + env(safe-area-inset-top)); width: 110px !important; height: 110px !important; }
+  .world-map.big { width: min(300px, calc(100vw - 28px)) !important; height: min(300px, calc(100vw - 28px)) !important; }
+  .app.has-panel .world-map { right: 14px; }
+}
+@media (prefers-reduced-motion: reduce) { .region-banner { animation: none; } }

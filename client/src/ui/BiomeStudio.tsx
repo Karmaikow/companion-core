@@ -176,7 +176,9 @@ export function BiomeStudio() {
             <fieldset>
               <legend>Chão</legend>
               <label>Grama leve (preenchimento) <input type="range" min={0} max={2} step={0.1} value={draft.settings.grassBlades} onChange={(e) => edit({ settings: { ...draft.settings, grassBlades: Number(e.target.value) } })} /> <small>{Math.round(draft.settings.grassBlades * 100)}%</small></label>
-              <label><input type="checkbox" checked={draft.settings.cliffs} onChange={(e) => edit({ settings: { ...draft.settings, cliffs: e.target.checked } })} /> Muralha de pedras em volta</label>
+              <label><input type="checkbox" checked={draft.settings.cliffs} onChange={(e) => edit({ settings: { ...draft.settings, cliffs: e.target.checked } })} /> Muralha de pedras em volta (só no Refúgio)</label>
+              <label><input type="checkbox" checked={draft.settings.world} onChange={(e) => edit({ settings: { ...draft.settings, world: e.target.checked } })} /> Aparece como região do Companion World <small>(desligue para um Refúgio feito só para um Companion)</small></label>
+              <label>Relevo no mundo <input type="range" min={0} max={2} step={0.1} value={draft.settings.hills} onChange={(e) => edit({ settings: { ...draft.settings, hills: Number(e.target.value) } })} /> <small>{draft.settings.hills < 0.4 ? 'plano' : draft.settings.hills < 1.3 ? 'colinas' : 'morros'}</small></label>
             </fieldset>
 
             <fieldset>

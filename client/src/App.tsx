@@ -1,6 +1,8 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { ELEMENTS, derivePalette, refugeFeatures, animKind, sanitizeBiome, type BiomeConfig } from '@rules';
+import { ELEMENTS, derivePalette, refugeFeatures, animKind, sanitizeBiome, makeCompanionWorld, WORLD_SEED, REFUGE_BIOME, WORLD_FALLBACK_BIOMES, type BiomeConfig, type WorldSite } from '@rules';
 import { Refuge } from './scene/Refuge';
+import { WorldScene } from './scene/World';
+import { WorldMap } from './ui/WorldMap';
 import { stableSeed } from './scene/world';
 import { useGame, type Tab } from './store';
 import { Icon } from './ui/icons';
@@ -81,18 +83,25 @@ export function App() {
   );
 
   const seed = useMemo(() => stableSeed(c?.id ?? 'refugio'), [c?.id]);
-  // Bioma do Refúgio: o "refugio" publicado no Estúdio de Biomas; sem ele (ou offline), o de fábrica.
+  // Bioma do Refúgio: o próprio do Companion (escolhido na Fábrica) → o "refugio" publicado no Estúdio → o de fábrica.
+  // O Companion World usa todos os biomas publicados com "aparece no mundo" (sem eles, as regiões de reserva).
   const [biome, setBiome] = useState<BiomeConfig | undefined>();
+  const [worldBiomes, setWorldBiomes] = useState<BiomeConfig[]>([]);
   useEffect(() => {
     let alive = true;
     (async () => {
       try {
-        const { data } = await supabase().from('biomes').select('slug,name,description,palette,settings,assets,status').eq('slug', 'refugio').eq('status', 'published').maybeSingle();
-        if (alive && data) setBiome(sanitizeBiome(data));
+        const sb = supabase();
+        const own = c?.id && backend?.kind === 'online' ? (await sb.from('companion_biomes').select('biome_slug').eq('companion_id', c.id).maybeSingle()).data?.biome_slug : null;
+        const { data } = await sb.from('biomes').select('slug,name,description,palette,settings,assets,status').eq('status', 'published');
+        if (!alive || !data) return;
+        const all = data.map(sanitizeBiome);
+        setBiome(all.find((b) => b.slug === own) ?? all.find((b) => b.slug === 'refugio'));
+        setWorldBiomes(all.filter((b) => b.settings.world));
       } catch { /* sem rede: fica o de fábrica */ }
     })();
     return () => { alive = false; };
-  }, []);
+  }, [c?.id, backend?.kind]);
 
   // Teste: ?modelo=corpo.glb,andando.glb mostra um modelo 3D no Refúgio sem passar pela Fábrica (o 1º arquivo é o corpo).
   const testModel = useMemo(() => {
@@ -100,14 +109,55 @@ export function App() {
     return list?.length ? { url: list[0], anims: list.map((u) => ({ url: u, kind: animKind(u) ?? 'special', name: u })) } : undefined;
   }, []);
 
+  // ---- Companion World: o mundo aberto além da passagem na muralha
+  const model = testModel ?? snap?.visualJob?.model;
+  const testWorld = useMemo(() => new URLSearchParams(location.search).has('mundo'), []);
+  const passage = features.window || testWorld;
+  const [place, setPlace] = useState<'refuge' | 'world'>('refuge');
+  const [explore, setExplore] = useState(false);
+  const [regionName, setRegionName] = useState<string | null>(null);
+  const toast = useGame((s) => s.toast);
+  const companionWorld = useMemo(() => {
+    // regiões: os biomas publicados com "aparece no mundo"; com poucos, entram as regiões de reserva
+    const list: BiomeConfig[] = [];
+    const add = (b: BiomeConfig) => { if (!list.some((x) => x.slug === b.slug)) list.push(b); };
+    add(worldBiomes.find((b) => b.slug === 'refugio') ?? REFUGE_BIOME);
+    worldBiomes.forEach(add);
+    if (list.length < 3) WORLD_FALLBACK_BIOMES.slice(1).forEach(add);
+    return makeCompanionWorld(WORLD_SEED, list);
+  }, [worldBiomes]);
+  const discKey = 'companion-core:world-found:' + (c?.id ?? 'teste');
+  const [discovered, setDiscovered] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    try { setDiscovered(new Set(JSON.parse(localStorage.getItem(discKey) ?? '[]'))); } catch { setDiscovered(new Set()); }
+  }, [discKey]);
+  const discover = (s: WorldSite) => {
+    setDiscovered((prev) => {
+      if (prev.has(s.name)) return prev;
+      const next = new Set(prev).add(s.name);
+      try { localStorage.setItem(discKey, JSON.stringify([...next])); } catch { /* só nesta sessão */ }
+      return next;
+    });
+    useGame.getState().celebrate({ kind: 'quest', eyebrow: 'Lugar descoberto', title: s.name, subtitle: companionWorld.biomes[s.biome].name });
+  };
+  const enterRegion = (s: WorldSite) => {
+    const label = s.home ? 'Portal do Refúgio' : companionWorld.biomes[s.biome].name;
+    setRegionName(label);
+  };
+  useEffect(() => { if (!regionName) return; const t = setTimeout(() => setRegionName(null), 3200); return () => clearTimeout(t); }, [regionName]);
+  const goWorld = () => { setPlace('world'); setExplore(false); };
+  const goHome = () => { setPlace('refuge'); setExplore(false); toast('De volta ao Refúgio.', 'soft'); };
+
   const panel = { chat: ChatPanel, memories: MemoriesPanel, diary: DiaryPanel, quests: QuestsPanel, inventory: InventoryPanel, recipes: RecipesPanel, bond: BondPanel };
   const Panel = tab ? panel[tab] : null;
 
   return (
-    <div className="app">
+    <div className={'app' + (tab ? ' has-panel' : '') + (place === 'world' ? ' in-world' : '')}>
       <div className="stage">
         <Suspense fallback={null}>
-          <Refuge color={visual.color} glow={visual.glow} element={d.element} energy={energy} pulseKey={pulse} burstKey={burst} features={features} contract={c?.stage === 'awakened' ? c.identityContract : null} speech={bubble} model={testModel ?? snap?.visualJob?.model} seed={seed} biome={biome} quality={quality()} />
+          {place === 'world' && model ? (
+            <WorldScene world={companionWorld} model={model} speech={bubble} burstKey={burst} color={visual.color} quality={quality()} discovered={discovered} explore={explore} onRegion={enterRegion} onDiscover={discover} onHome={goHome} />
+          ) : <Refuge color={visual.color} glow={visual.glow} element={d.element} energy={energy} pulseKey={pulse} burstKey={burst} features={passage && !features.window ? { ...features, window: true } : features} contract={c?.stage === 'awakened' ? c.identityContract : null} speech={bubble} model={model} seed={seed} biome={biome} quality={quality()} />}
         </Suspense>
       </div>
 
@@ -128,7 +178,23 @@ export function App() {
             <button className="leave" title="Sair" aria-label="Sair" onClick={() => void leave()}>⎋</button>
           </header>
 
-          {(testModel ?? snap?.visualJob?.model) && !tab && <div className="key-hint">WASD ou setas para andar · Shift corre · arraste para girar a câmera</div>}
+          {model && !tab && <div className="key-hint">{place === 'world' ? 'Clique ou WASD para andar · Shift corre · pise no portal para voltar' : 'Clique ou WASD para andar · Shift corre · arraste para girar a câmera'}</div>}
+          {model && (
+            <div className="travel">
+              {place === 'refuge' ? (
+                <button className="primary" disabled={!passage} onClick={goWorld} title={passage ? 'Atravessar a passagem na muralha' : 'A passagem na muralha abre depois do primeiro sonho'}>
+                  Companion World{!passage && <small>abre depois do primeiro sonho</small>}
+                </button>
+              ) : (
+                <>
+                  <button onClick={goHome}>⌂ Voltar ao Refúgio</button>
+                  <button className={explore ? 'on' : ''} aria-pressed={explore} onClick={() => setExplore(!explore)}>{explore ? 'Explorando sozinho…' : 'Explorar sozinho'}</button>
+                </>
+              )}
+            </div>
+          )}
+          {place === 'world' && <WorldMap world={companionWorld} discovered={discovered} />}
+          {place === 'world' && regionName && <div className="region-banner" key={regionName}>{regionName}</div>}
           {/* a fala aparece num balão sobre a cabeça do Companion (na cena); aqui só para leitores de tela */}
           {bubble && <div className="sr-only" role="status">{bubble}</div>}
 

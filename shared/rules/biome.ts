@@ -30,7 +30,13 @@ export interface BiomeConfig {
   name: string;
   description: string;
   palette: BiomePalette;
-  settings: { grassBlades: number; cliffs: boolean };
+  settings: {
+    grassBlades: number; cliffs: boolean;
+    /** aparece como região do Companion World (um Refúgio feito só para um Companion fica fora) */
+    world: boolean;
+    /** relevo da região no mundo aberto: 0 = plano, 1 = colinas, 2 = morros */
+    hills: number;
+  };
   assets: BiomeAsset[];
 }
 
@@ -66,7 +72,7 @@ export const REFUGE_BIOME: BiomeConfig = {
   name: 'Clareira do Refúgio',
   description: 'Clareira escondida cercada de pedras lavanda e árvores; onde o Companion nasce.',
   palette: DEFAULT_PALETTE,
-  settings: { grassBlades: 1, cliffs: true },
+  settings: { grassBlades: 1, cliffs: true, world: true, hills: 0.6 },
   assets: [
     A('arvore', 'Árvore', 'tree', { height: [3.0, 4.4], count: 14 }),
     A('arvore_dois', 'Árvore dois', 'tree', { height: [2.6, 3.8], count: 12 }),
@@ -111,10 +117,29 @@ export function sanitizeBiome(input: unknown): BiomeConfig {
     name: typeof b.name === 'string' && b.name.trim() ? b.name.trim().slice(0, 60) : 'Bioma sem nome',
     description: typeof b.description === 'string' ? b.description.slice(0, 300) : '',
     palette: pal,
-    settings: { grassBlades: clampN(b.settings?.grassBlades, 0, 2, 1), cliffs: b.settings?.cliffs !== false },
+    settings: {
+      grassBlades: clampN(b.settings?.grassBlades, 0, 2, 1), cliffs: b.settings?.cliffs !== false,
+      world: b.settings?.world !== false, hills: clampN(b.settings?.hills, 0, 2, 1),
+    },
     assets,
   };
 }
+
+/**
+ * Regiões de reserva do Companion World: variações do Refúgio com os mesmos modelos, para o mundo já ter cara de
+ * lugares diferentes enquanto o Estúdio ainda tem poucos biomas publicados.
+ */
+const variant = (slug: string, name: string, description: string, palette: Partial<BiomePalette>, hills: number, tweak: (a: BiomeAsset) => BiomeAsset | null): BiomeConfig => ({
+  slug, name, description, palette: { ...DEFAULT_PALETTE, ...palette }, settings: { grassBlades: 1, cliffs: false, world: true, hills },
+  assets: REFUGE_BIOME.assets.map(tweak).filter((a): a is BiomeAsset => !!a),
+});
+export const WORLD_FALLBACK_BIOMES: BiomeConfig[] = [
+  { ...REFUGE_BIOME, slug: 'prados', name: 'Prados do Refúgio', settings: { ...REFUGE_BIOME.settings, cliffs: false } },
+  variant('bosque-ambar', 'Bosque Âmbar', 'Folhas cor de mel e chão de terra quente.', { grassLight: '#c9c25a', grassDark: '#93a046', dirt: '#e0a56a', dirtDark: '#b97a4a', rockSide: '#c7a98f', rockTop: '#c9c25a', rockBottom: '#8d6f5c', sky: '#ffe2b8', fog: '#ffe9cc' }, 1,
+    (a) => (a.role === 'tree' ? { ...a, count: Math.round(a.count * 1.8) } : a)),
+  variant('colinas-lavanda', 'Colinas Lavanda', 'Morros de grama azulada e pedras grandes.', { grassLight: '#9fd0b0', grassDark: '#6a9f9a', dirt: '#cdb8e0', dirtDark: '#a58fc0', rockSide: '#c6b6ea', rockTop: '#9fd0b0', rockBottom: '#8576b0', sky: '#d6dcff', fog: '#e2e4ff' }, 1.8,
+    (a) => (a.role === 'tree' ? { ...a, count: Math.round(a.count * 0.4) } : a.role === 'rock' ? { ...a, count: a.count * 2 } : a)),
+];
 
 /** "Floresta Sussurrante" -> "floresta-sussurrante" */
 export function biomeSlug(name: string): string {
