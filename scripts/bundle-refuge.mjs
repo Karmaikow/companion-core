@@ -1,8 +1,8 @@
 // Empacota a Edge Function `refuge`.
 // Uso: npm run sync:rules && node scripts/bundle-refuge.mjs
 //  -> dist-fn/refuge/index.js        (arquivo único, para publicar inteiro via MCP/API)
-//  -> client/public/fn/refuge.<hash>.js + dist-fn/refuge-stub/ (publicação leve: o stub importa o módulo servido
-//     pelo site em produção; o Supabase embute o módulo remoto no deploy, então ele fica congelado naquela versão)
+//  -> client/public/fn/refuge.<hash>.js + dist-fn/refuge-stub/ (publicação leve: o stub baixa o código servido pelo
+//     site em produção ao iniciar, confere o SHA-256 fixado e o executa; o Supabase não aceita importar desse domínio)
 import { build } from 'esbuild';
 import { createHash } from 'node:crypto';
 import { mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
@@ -22,13 +22,21 @@ const shim = {
     b.onLoad({ filter: /.*/, namespace: 'sb-shim' }, () => ({ contents: 'export const createClient = (...a) => globalThis.__sbCreateClient(...a);', loader: 'js' }));
   },
 };
-const r = await build({ ...base, plugins: [shim], write: false, outfile: 'out.js' });
+const r = await build({ ...base, format: 'iife', plugins: [shim], write: false, outfile: 'out.js' });
 const code = r.outputFiles[0].text;
-const hash = createHash('sha256').update(code).digest('hex').slice(0, 12);
+const sha = createHash('sha256').update(code).digest('hex'), hash = sha.slice(0, 12);
 mkdirSync('client/public/fn', { recursive: true });
 for (const f of readdirSync('client/public/fn')) if (/^refuge\..*\.js$/.test(f)) rmSync('client/public/fn/' + f);
 writeFileSync(`client/public/fn/refuge.${hash}.js`, code);
 mkdirSync('dist-fn/refuge-stub', { recursive: true });
 writeFileSync('dist-fn/refuge-stub/deps.js', `import { createClient } from 'npm:@supabase/supabase-js@2';\nglobalThis.__sbCreateClient = createClient;\n`);
-writeFileSync('dist-fn/refuge-stub/index.js', `import './deps.js';\nimport 'https://companion-core-two.vercel.app/fn/refuge.${hash}.js';\n`);
+writeFileSync('dist-fn/refuge-stub/index.js', `// Carrega o código da função servido pelo site (conferido pelo SHA-256) e o executa.
+import './deps.js';
+const URL_ = 'https://companion-core-two.vercel.app/fn/refuge.${hash}.js';
+const SHA = '${sha}';
+const code = await (await fetch(URL_)).text();
+const got = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(code)))).map((b) => b.toString(16).padStart(2, '0')).join('');
+if (got !== SHA) throw new Error('refuge: código remoto não confere (' + got.slice(0, 12) + ')');
+new Function(code)();
+`);
 console.log(`ok -> dist-fn/refuge/index.js · client/public/fn/refuge.${hash}.js · dist-fn/refuge-stub/`);

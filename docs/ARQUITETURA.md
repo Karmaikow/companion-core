@@ -520,7 +520,10 @@ Prompt com o mundo de fantasia, regra explícita de pronomes ("mim" = a pessoa; 
   explícitos (migração `20261020173000_mvp1_service_grants.sql`). Sem isso a função falha com 500.
 - Publicar a função: `npm run sync:rules && node scripts/bundle-refuge.mjs`. O script gera dois formatos:
   - `dist-fn/refuge/index.js`: um arquivo só, em ASCII.
-  - Publicação leve: o módulo vai em `client/public/fn/refuge.<hash>.js` (servido pelo site em produção) e o stub em `dist-fn/refuge-stub/` (`index.js` + `deps.js`) o importa. O Supabase embute o módulo remoto no deploy, então a função fica congelada naquela versão. Ordem: commit, merge na `main`, esperar o deploy da Vercel e então publicar o stub.
+  - Publicação leve: o código vai em `client/public/fn/refuge.<hash>.js`, servido pelo site em produção. O stub em `dist-fn/refuge-stub/` (`index.js` + `deps.js`) baixa esse arquivo ao iniciar, confere o SHA-256 fixado e o executa.
+    - O Supabase não aceita `import` direto desse domínio, por isso o stub baixa o arquivo.
+    - Se o arquivo mudar ou sumir, a função não sobe. Por isso cada versão tem nome próprio.
+    - Ordem: commit, merge na `main`, esperar o deploy da Vercel e então publicar o stub.
 - Formas do Companion: `node scripts/sprite-lab.mjs` com o Vite em `--port 5199` renderiza uma grade com várias espécies (client/sprite-lab.html).
 - Teste contra o servidor real: `node scripts/e2e-refuge.mjs "oi" "..."` (cria um convidado descartável; `SETUP='{"name":...}'` usa o ritual).
 - Teste no navegador (modo offline): `node scripts/e2e-local.mjs http://localhost:4173/ <pasta>`.
