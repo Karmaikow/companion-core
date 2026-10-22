@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseCommand, bark, recordKill, dossier, combatMemoryLines, isAnalyzed, ANALYSIS_TARGET, DEFAULT_CREATURES, buildChatSystemPrompt, initialQuests, buildBarkBankPrompt, parseBarkBank, buildMomentPrompt, parseMoment, fillBark } from '../rules/index.ts';
+import { parseCommand, bark, recordKill, dossier, combatMemoryLines, isAnalyzed, ANALYSIS_TARGET, DEFAULT_CREATURES, buildChatSystemPrompt, initialQuests, buildBarkBankPrompt, parseBarkBank, buildMomentPrompt, parseMoment, fillBark, withXpMultiplier, resolveConfig, combatXp } from '../rules/index.ts';
 
 const places = ['Floresta Densa', 'Montanha Azul', 'Bosque Âmbar'];
 const creatures = ['Bruma de Musgo', 'Fagulha', 'Lobinho de Geada'];
@@ -96,5 +96,24 @@ describe('falas pela IA', () => {
   it('preenche marcadores, inclusive {you} no começo', () => {
     expect(fillBark('{you}! Estou em {p}!', { you: 'Diego', p: 'Monte Azul' })).toBe('Diego! Estou em Monte Azul!');
     expect(fillBark('Faltam {r}, {you}!', { n: 3, t: 10, you: 'Diego' })).toBe('Faltam 7, Diego!');
+  });
+});
+
+describe('XP: multiplicador e combate', () => {
+  it('o multiplicador escala mensagens, descobertas, memórias e combate', () => {
+    const cfg = withXpMultiplier(resolveConfig({ xpMultiplier: 5 }));
+    expect(cfg.messageXp).toBe(40);
+    expect(cfg.discoveryXp).toBe(200);
+    expect(cfg.killXp).toBe(20);
+    expect(withXpMultiplier(resolveConfig({})).messageXp).toBe(8);
+    expect(withXpMultiplier(resolveConfig({ xpMultiplier: 999 })).messageXp).toBe(160);
+  });
+  it('criatura dá XP; primeira vez e análise dão bônus', () => {
+    const cfg = withXpMultiplier(resolveConfig({}));
+    expect(combatXp(cfg, 1, false, false)).toBe(4);
+    expect(combatXp(cfg, 9, false, false)).toBe(7);
+    expect(combatXp(cfg, 1, true, false)).toBe(19);
+    expect(combatXp(cfg, 1, false, true)).toBe(34);
+    expect(combatXp(resolveConfig({ killXp: 0, firstKillXp: 0, analysisXp: 0 }), 5, true, true)).toBe(0);
   });
 });

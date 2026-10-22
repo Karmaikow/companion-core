@@ -6,7 +6,7 @@ import {
   offlineTurn, assistDiscoveries, buildDreamPrompt, parseDream, checkAwakening, buildIdentityContract, gameTime, companionDay, clampText,
   QUESTS, QUEST_REWARDS, validateSetup, evaluateSecrets, isQuestionAboutCompanion, buildMusePrompt,
   SECRET_BY_KEY, SECRET_XP, SECRET_BOOST_TURNS, buildArtPrompt, ANIM_KINDS, SPECIES, DEFAULT_CREATURES, sanitizeCreature, recordKill, combatMemoryLines, combatMemoryText,
-  BANK_EVENTS, MOMENT_EVENTS, buildBarkBankPrompt, parseBarkBank, buildMomentPrompt, parseMoment, dossier, type BarkEvent,
+  BANK_EVENTS, MOMENT_EVENTS, withXpMultiplier, combatXp, buildBarkBankPrompt, parseBarkBank, buildMomentPrompt, parseMoment, dossier, type BarkEvent,
   type BestiaryEntry, type CreatureDef, type SecretKey, type GameConfig, type IdentityContractV1, type QuestState, type Discoveries, type MemoryLite, type ChatLine,
 } from './rules/index.ts';
 import { complete, providerName } from './llm.ts';
@@ -34,7 +34,7 @@ class HttpError extends Error { constructor(public status: number, msg: string) 
 async function loadConfig(db: SupabaseClient): Promise<GameConfig & { dailyChatLimit: number; maxCompanions: number }> {
   const { data } = await db.from('game_config').select('values').eq('id', 1).maybeSingle();
   const v = (data?.values ?? {}) as Record<string, number>;
-  return { ...resolveConfig(v), dailyChatLimit: Number(v.dailyChatLimit) > 0 ? Number(v.dailyChatLimit) : 300, maxCompanions: Number(v.maxCompanions) > 0 ? Number(v.maxCompanions) : 1 };
+  return { ...withXpMultiplier(resolveConfig(v)), dailyChatLimit: Number(v.dailyChatLimit) > 0 ? Number(v.dailyChatLimit) : 300, maxCompanions: Number(v.maxCompanions) > 0 ? Number(v.maxCompanions) : 1 };
 }
 
 async function event(db: SupabaseClient, companionId: string, actor: 'player' | 'companion' | 'system', kind: string, payload: unknown): Promise<number> {
@@ -192,7 +192,7 @@ async function bodyAndCombat(db: SupabaseClient, c: Record<string, unknown>) {
 }
 
 /** Derrota de uma criatura no mundo: bestiário, partículas e as Memórias de Combate. */
-async function actCombatKill(db: SupabaseClient, c: Record<string, unknown>, body: Record<string, unknown>) {
+async function actCombatKill(db: SupabaseClient, c: Record<string, unknown>, body: Record<string, unknown>, cfg: GameConfig) {
   const cid = c.id as string;
   if (c.stage !== 'awakened') throw new HttpError(409, 'Só depois do despertar.');
   const slug = typeof body.slug === 'string' && /^[a-z0-9][a-z0-9-]{1,40}$/.test(body.slug) ? body.slug : null;
@@ -215,7 +215,20 @@ async function actCombatKill(db: SupabaseClient, c: Record<string, unknown>, bod
   if (r.first) mems.push({ companion_id: cid, subject: 'companion', content: combatMemoryText('first', me, def, name, level), importance: 3, source_event_ids: [ev], origin: 'combat' });
   if (r.analyzedNow) mems.push({ companion_id: cid, subject: 'companion', content: combatMemoryText('analyzed', me, def, name, level), importance: 4, source_event_ids: [ev], origin: 'combat' });
   if (mems.length) await db.from('companion_memories').insert(mems);
-  return { entry: r.entry, first: r.first, analyzed: r.analyzedNow, analyzedCount: r.analyzedCount, milestone: r.milestone };
+  // XP de vínculo pela luta (com o multiplicador do Admin)
+  const xp = combatXp(cfg, level, r.first, r.analyzedNow);
+  let levelUp: number | null = null;
+  if (xp > 0) {
+    const before = c.bond_xp as number, after = before + xp;
+    const { error } = await db.from('companions').update({ bond_xp: after }).eq('id', cid).eq('bond_xp', before);
+    if (!error) {
+      c.bond_xp = after;
+      await event(db, cid, 'system', 'bond.xp', { total: xp, reason: 'combate', parts: { message: 0, discoveries: 0, memories: 0, combat: xp }, meaningful: false, slug });
+      const lb = levelForXp(before, cfg), la = levelForXp(after, cfg);
+      if (la > lb) levelUp = la;
+    }
+  }
+  return { entry: r.entry, first: r.first, analyzed: r.analyzedNow, analyzedCount: r.analyzedCount, milestone: r.milestone, xp, levelUp };
 }
 
 /** Falas geradas pela IA: estoque por evento ("bank") ou uma fala de momento com contexto ("moment"). Não grava nada além do registro de uso. */
@@ -581,7 +594,7 @@ Deno.serve(async (req) => {
       return json(200, r.mused ? { ...snap, turn: { reply: r.reply, mood: r.mood, source: 'muse', xp: { total: 0, parts: { message: 0, discoveries: 0, memories: 0 }, reason: 'muse', meaningful: false }, completed: [], rejected: [], newMemories: 0, levelUp: null, awakeningReady: snap.awakening.ready } } : snap);
     }
     if (action === 'combat.kill') {
-      const r = await actCombatKill(db, c, body);
+      const r = await actCombatKill(db, c, body, cfg);
       return json(200, { ...(await snapshot(db, c, cfg)), combat: r });
     }
     if (action === 'barks') return json(200, await actBarks(db, c, body));

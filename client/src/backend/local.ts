@@ -6,7 +6,7 @@
 import {
   DEFAULT_CONFIG, initialQuests, applyTurn, offlineTurn, levelForXp, levelProgress, checkAwakening,
   buildIdentityContract, companionDay, QUEST_REWARDS, validateSetup, evaluateSecrets, isQuestionAboutCompanion, gameTime,
-  SECRET_BY_KEY, SECRET_XP, SECRET_BOOST_TURNS, DEFAULT_CREATURES, recordKill, combatMemoryText, type BestiaryEntry, type SecretKey, type Discoveries, type QuestState, type IdentityContractV1,
+  SECRET_BY_KEY, SECRET_XP, SECRET_BOOST_TURNS, DEFAULT_CREATURES, recordKill, combatMemoryText, combatXp, withXpMultiplier, type BestiaryEntry, type SecretKey, type Discoveries, type QuestState, type IdentityContractV1,
   type CompanionSetup,
 } from '@rules';
 import type { Backend, Snapshot, MemoryRow, DiaryRow, InventoryRow, TimelineRow } from './types';
@@ -33,7 +33,7 @@ interface LocalSave {
 }
 
 const KEY = 'companion-core:local:v1';
-const cfg = DEFAULT_CONFIG;
+const cfg = withXpMultiplier(DEFAULT_CONFIG);
 
 function load(): LocalSave | null {
   try {
@@ -109,8 +109,12 @@ export class LocalBackend implements Backend {
     const me = s.discoveries.name ?? 'O Companion';
     if (r.first) s.memories.push({ id: ++s.seq, subject: 'companion', content: combatMemoryText('first', me, def, r.entry.name, level), importance: 3, source_event_ids: [ev], origin: 'combat', created_at: now });
     if (r.analyzedNow) s.memories.push({ id: ++s.seq, subject: 'companion', content: combatMemoryText('analyzed', me, def, r.entry.name, level), importance: 4, source_event_ids: [ev], origin: 'combat', created_at: now });
+    const xp = s.stage === 'awakened' ? combatXp(cfg, level, r.first, r.analyzedNow) : 0;
+    const lb = levelForXp(s.bondXp, cfg);
+    if (xp > 0) { s.bondXp += xp; this.ev(s, 'system', 'bond.xp', { total: xp, reason: 'combate', meaningful: false, slug }); }
+    const la = levelForXp(s.bondXp, cfg);
     save(s);
-    return this.snap({ combat: { entry: r.entry, first: r.first, analyzed: r.analyzedNow, analyzedCount: r.analyzedCount, milestone: r.milestone } });
+    return this.snap({ combat: { entry: r.entry, first: r.first, analyzed: r.analyzedNow, analyzedCount: r.analyzedCount, milestone: r.milestone, xp, levelUp: la > lb ? la : null } });
   }
 
   async create(setup?: CompanionSetup) {

@@ -79,8 +79,10 @@ export const useGame = create<State>((set, get) => ({
       const snap = await b.combatKill(slug, level);
       // mantém a resposta da conversa em andamento; só troca bestiário e memórias
       const cur = get().snap;
-      set({ snap: cur ? { ...cur, bestiary: snap.bestiary, memories: snap.memories } : snap });
+      // mantém a conversa; troca bestiário, memórias, vínculo (XP da luta) e o progresso do despertar
+      set({ snap: cur ? { ...cur, bestiary: snap.bestiary, memories: snap.memories, companion: snap.companion ?? cur.companion, awakening: snap.awakening ?? cur.awakening } : snap });
       const r = snap.combat ?? null;
+      if (r?.levelUp) get().toast(`Vínculo nível ${r.levelUp}`, 'gold');
       if (r?.first) get().toast(`Memória de Combate: ${r.entry.name}`, 'soft');
       if (r?.analyzed) get().celebrate({ kind: 'quest', eyebrow: 'Análise de Partículas', title: r.entry.name, subtitle: 'Análise completa: fraquezas, atributos e o que solta estão no Bestiário (Memórias).' });
       if (r?.milestone) get().celebrate({ kind: 'secret', eyebrow: 'Quest: Análise de Partículas', title: `${r.milestone} espécie${r.milestone > 1 ? 's' : ''} analisada${r.milestone > 1 ? 's' : ''}`, subtitle: 'As partículas da Bruma contam quem são as criaturas do mundo.' });

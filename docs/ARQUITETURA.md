@@ -383,6 +383,8 @@ Os efeitos deixaram de ser pontos com textura e passaram a usar um motor própri
   - coletar (ainda responde que não sabe).
   - A ordem vira ação na hora e, se o ajuste permitir, também vai para a conversa com a IA.
 - **Falas** (`shared/rules/barks.ts`): frases curtas, sem IA, para ver uma criatura nova ou conhecida, atacar, apanhar, ficar com pouca vida ("Socorro, me ajuda!"), fugir, derrotar, analisar, responder a ordens e passear. O tom muda com os traços (brincalhona, corajosa, serena) e a frequência segue o ajuste "Quanto ela comenta".
+- **XP de vínculo pelo combate** (`combatXp`, config `killXp` 4, `firstKillXp` 15, `analysisXp` 30): cada criatura derrotada dá XP (+1 a cada 3 níveis dela). A primeira vez contra uma espécie e a análise completa dão bônus. Aparece "+N vínculo" sobre a criatura.
+- **Multiplicador de XP** (`xpMultiplier`, Admin → Servidor, até 10×): o servidor aplica sobre os valores base (`withXpMultiplier` no `loadConfig`), para conversa, descobertas, memórias e combate. Antes ele só era salvo e não valia.
 - **Falas pela IA** (`barks.ts`: `buildBarkBankPrompt`/`buildMomentPrompt`; ação `barks`; `brain.ts`). Ajuste "As falas dela no jogo" = IA (padrão) ou prontas.
   - Estoque: a IA escreve 5 falas por evento (golpe, apanhar, pouca vida, ordens, passeio…) no jeito dela. Fica no navegador, por Companion, e é renovado em lotes quando acaba; as já usadas vão como "evite repetir". Sai na hora, sem esperar a IA no meio da luta.
   - Momento: ver uma criatura nova, a primeira derrota, a análise completa, missão cumprida, chegar num lugar. A fala é escrita na hora com o que ela sabe da criatura (dossiê). Se passar de 4,5 s, sai uma do estoque ou pronta.

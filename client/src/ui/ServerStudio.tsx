@@ -15,6 +15,9 @@ const XP_FIELDS: [keyof GameConfig, string, string][] = [
   ['messageXp', 'XP por mensagem significativa', 'base 8'],
   ['discoveryXp', 'XP por descoberta (quest)', 'base 40'],
   ['memoryXp', 'XP por memória nova', 'base 4'],
+  ['killXp', 'XP por criatura derrotada', 'base 4 (+1 a cada 3 níveis dela)'],
+  ['firstKillXp', 'Bônus: primeira vez contra uma espécie', 'base 15'],
+  ['analysisXp', 'Bônus: Análise de Partículas completa', 'base 30'],
   ['maxMemoryXpPerTurn', 'Memórias que dão XP por turno', 'base 2'],
   ['dailySoftCap', 'Mensagens/dia antes do XP cair pela metade', 'base 25'],
   ['minMessageChars', 'Caracteres mínimos para dar XP', 'base 8'],
@@ -50,13 +53,10 @@ export function ServerStudio() {
     setValues(next); setMsg({ ok: true, text: ok });
   }
 
-  // multiplicador: escala os XP base (a função lê os valores já multiplicados)
-  const scaled = (k: keyof GameConfig) => Math.round(DEFAULT_CONFIG[k] * mult * 10) / 10;
-  function applyMult() {
-    setCfg({ ...cfg, messageXp: scaled('messageXp'), discoveryXp: scaled('discoveryXp'), memoryXp: scaled('memoryXp') });
-  }
+  // multiplicador: o servidor multiplica os valores base abaixo na hora de dar o XP
+  const scaled = (k: keyof GameConfig) => Math.round(Number(cfg[k]) * mult * 10) / 10;
   const levels = useMemo(() => [2, 3, 5, 8, 10, 15, 20].map((l) => ({ l, xp: Math.round(xpForLevel(l, cfg)) })), [cfg]);
-  const msgsTo5 = Math.ceil(xpForLevel(5, cfg) / Math.max(1, cfg.messageXp));
+  const msgsTo5 = Math.ceil(xpForLevel(5, cfg) / Math.max(1, cfg.messageXp * mult));
   const now = weatherAt(weather, Date.now(), 'refugio:refugio', REFUGE_BIOME.settings.weather);
 
   return (
@@ -64,8 +64,8 @@ export function ServerStudio() {
       <section className="biome-form">
         <fieldset>
           <legend>XP de vínculo</legend>
-          <label>Multiplicador de XP <input type="range" min={0.5} max={5} step={0.25} value={mult} onChange={(e) => setMult(Number(e.target.value))} /> <b>{mult}×</b></label>
-          <div className="row"><button className="ghost" onClick={applyMult}>Aplicar {mult}× nos valores base</button><small className="hint">Mensagem {scaled('messageXp')} · descoberta {scaled('discoveryXp')} · memória {scaled('memoryXp')}</small></div>
+          <label>Multiplicador de XP <input type="range" min={0.5} max={10} step={0.25} value={mult} onChange={(e) => setMult(Number(e.target.value))} /> <b>{mult}×</b></label>
+          <small className="hint">Vale para tudo (conversa, descobertas, memórias e combate). Com {mult}×, cada um dá: mensagem {scaled('messageXp')} · descoberta {scaled('discoveryXp')} · memória {scaled('memoryXp')} · criatura {scaled('killXp')} · 1ª vez {scaled('firstKillXp')} · análise {scaled('analysisXp')}.</small>
           <div className="grid-form">
             {XP_FIELDS.map(([k, label, hint]) => (
               <label key={k}>{label}<input type="number" step={k === 'levelExp' ? 0.05 : 1} min={0} value={cfg[k]} onChange={(e) => setCfg({ ...cfg, [k]: Number(e.target.value) })} /><small className="hint">{hint}</small></label>

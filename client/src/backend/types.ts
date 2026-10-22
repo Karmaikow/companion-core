@@ -6,7 +6,7 @@ export interface InventoryRow { item_key: string; qty: number; meta: { label?: s
 export interface RecipeRow { id: number; name: string; description: string; ingredients: { name: string; where?: string }[]; created_at: string }
 export interface TimelineRow { id: number; actor: string; kind: string; payload: Record<string, unknown>; created_at: string }
 
-export interface CombatResult { entry: BestiaryEntry; first: boolean; analyzed: boolean; analyzedCount: number; milestone: number | null }
+export interface CombatResult { entry: BestiaryEntry; first: boolean; analyzed: boolean; analyzedCount: number; milestone: number | null; xp?: number; levelUp?: number | null }
 
 export interface Snapshot {
   companion: null | {

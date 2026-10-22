@@ -82,6 +82,7 @@ function WorldCreature({ cw, def, spawn }: { cw: CompanionWorld; def: CreatureDe
           // bestiário (Análise de Partículas), caçada e fala
           onKill(def.slug, def.name);
           void useGame.getState().recordKill(def.slug, spawn.level).then((r) => {
+            if (r?.xp) numQueue.push({ pos: at.clone().setY(at.y + 1.1), text: `+${r.xp} vínculo`, kind: 'drop' });
             if (r?.analyzed) sayMoment('analyzed', { m: def.name }, def.slug);
             else if (r?.first) sayMoment('first-kill', { m: def.name }, def.slug);
             else say('kill', { m: def.name }, { chance: 0.6 });
