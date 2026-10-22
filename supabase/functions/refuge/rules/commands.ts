@@ -5,7 +5,7 @@
  */
 import { normalize } from './text.ts';
 
-export type GatherKind = 'madeira' | 'pedra' | 'planta' | 'folha' | 'flor' | 'cogumelo';
+export type GatherKind = 'madeira' | 'pedra' | 'planta' | 'folha' | 'flor' | 'raiz' | 'cogumelo' | 'cobre' | 'seiva' | 'gema';
 
 export type Command =
   | { kind: 'attack' }
@@ -40,7 +40,11 @@ function findName(t: string, names: string[]): string | null {
 
 const GATHER: [RegExp, GatherKind][] = [
   [/\b(madeira|madeiras|tronco|troncos|lenha|galho|galhos)\b/, 'madeira'],
-  [/\b(pedra|pedras|rocha|rochas|minerio|minerios|cristal|cristais)\b/, 'pedra'],
+  [/\b(cobre|minerio|minerios|metal)\b/, 'cobre'],
+  [/\b(cristal|cristais|gema|gemas|quartzo)\b/, 'gema'],
+  [/\b(seiva|seivas|resina)\b/, 'seiva'],
+  [/\b(raiz|raizes)\b/, 'raiz'],
+  [/\b(pedra|pedras|rocha|rochas|seixo|seixos|granito)\b/, 'pedra'],
   [/\b(folha|folhas)\b/, 'folha'],
   [/\b(flor|flores)\b/, 'flor'],
   [/\b(cogumelo|cogumelos)\b/, 'cogumelo'],

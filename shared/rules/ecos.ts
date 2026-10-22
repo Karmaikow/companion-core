@@ -183,7 +183,7 @@ export interface Approach {
   /** frase curta: por que escolher esta */
   pitch: string;
 }
-export interface NodeKind {
+export interface ResourceNodeKind {
   kind: string;
   name: string;
   category: ResCategory;
@@ -196,7 +196,7 @@ export interface NodeKind {
   sign: string;
 }
 
-export const NODE_KINDS: Record<string, NodeKind> = {
+export const NODE_KINDS: Record<string, ResourceNodeKind> = {
   salgueiro: {
     kind: 'salgueiro', name: 'Salgueiro', category: 'madeira', zone: 'bosque', capacity: 8, regenPerHour: 3, sign: 'Galhos longos que se curvam até a água.',
     approaches: [
@@ -288,7 +288,7 @@ export function approachOf(node: ResourceNode, approachId: string): Approach | n
 
 export interface NodeState { amount: number; at: number /* ms */ }
 /** Multiplicador da recuperação pelo clima da região (chuva ajuda plantas e o riacho). */
-export function regenFactor(kind: NodeKind, weather?: string): number {
+export function regenFactor(kind: ResourceNodeKind, weather?: string): number {
   if (weather === 'chuva' || weather === 'tempestade') return kind.category === 'planta' || kind.zone === 'riacho' ? 1.5 : 1;
   if (weather === 'sol') return kind.category === 'planta' ? 0.85 : 1;
   return 1;
@@ -360,6 +360,28 @@ export function expectedOutcome(node: ResourceNode, ap: Approach): { material: s
 
 /** Mochila: capacidade total (unidades). */
 export const BAG_CAPACITY = 60;
+
+/** Parâmetros de balanceamento (Admin → game_config.values.ecos). */
+export interface EcosConfig {
+  /** capacidade da mochila (unidades) */
+  bag: number;
+  /** escala das metas da obra comunitária (população/ritmo do servidor) */
+  projectScale: number;
+  /** fatia máxima de uma etapa que uma pessoa pode entregar (anti-monopólio) */
+  capShare: number;
+  /** depois de quantas horas com a etapa aberta a cota pessoal some (servidor vazio não trava) */
+  capHours: number;
+  /** tolerância do tempo de ação (0,85 = pode terminar com 85% do tempo) */
+  timeSlack: number;
+  /** distância máxima até o nó para coletar (m) */
+  reach: number;
+}
+export const DEFAULT_ECOS: EcosConfig = { bag: BAG_CAPACITY, projectScale: 1, capShare: 0.4, capHours: 2, timeSlack: 0.85, reach: 4.5 };
+export function resolveEcos(v: unknown): EcosConfig {
+  const o = (v && typeof v === 'object' ? v : {}) as Record<string, unknown>;
+  const n = (k: keyof EcosConfig, lo: number, hi: number) => { const x = Number(o[k]); return Number.isFinite(x) ? Math.min(hi, Math.max(lo, x)) : DEFAULT_ECOS[k]; };
+  return { bag: Math.round(n('bag', 10, 500)), projectScale: n('projectScale', 0.1, 20), capShare: n('capShare', 0.1, 1), capHours: n('capHours', 0, 720), timeSlack: n('timeSlack', 0.3, 1), reach: n('reach', 2, 20) };
+}
 export const bagUsed = (bag: { qty: number }[]) => bag.reduce((a, b) => a + Math.max(0, b.qty), 0);
 
 /** Valida e normaliza um id de pedido (UUID). */

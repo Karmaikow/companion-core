@@ -12,6 +12,7 @@ import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js
 import { animKind, attackVariant, strideSpeed, gameTime, type AnimKind } from '@rules';
 import type { CompanionModelFiles } from '../backend/types';
 import { CLEAR_R, companionFocus, moveRequest, resolveCollisions, platformHeight, type WorldShape } from './world';
+import { work } from '../ecos/ecosStore';
 import { SpeechBubble } from './SpeechBubble';
 import { Appendages, findAnchors, type AppendageSpec } from './Appendages';
 import { EquipmentLayer, findGearBones } from './Equipment';
@@ -530,6 +531,14 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
       const night = gameTime(Date.now()).phase === 'madrugada';
       // falando (balão aberto): gesticula, se tiver a animação
       if (s.jumpT >= 0 && actions.has('jump')) { /* pulando parado */ }
+      else if (work.on && !s.player) {
+        // coletando (Ecos da Terra): olha para o recurso e trabalha
+        const want = Math.atan2(work.at.x - r.position.x, work.at.z - r.position.z); let dy = want - s.yaw; while (dy > Math.PI) dy -= 2 * Math.PI; while (dy < -Math.PI) dy += 2 * Math.PI;
+        s.yaw += dy * Math.min(1, dt * 6);
+        const wk = actions.has('gather') ? 'gather' : actions.has('attack') ? 'attack' : 'idle';
+        play(wk); const wa = actions.get(wk); if (wa && wk === 'attack') wa.timeScale = 0.75;
+        s.wait = Math.max(s.wait, 1);
+      }
       else play(guard && actions.has('block') ? 'block' : s.sitting && actions.has('sit') ? 'sit' : night && actions.has('sleep') ? 'sleep' : speech && actions.has('talk') ? 'talk' : 'idle');
       if (s.sitting || guard) s.wait = Math.max(s.wait, 1);
       if (!ai.target && !ai.fleeing) idleChatter({ raining: weatherNow.kind === 'chuva' || weatherNow.kind === 'tempestade', night });

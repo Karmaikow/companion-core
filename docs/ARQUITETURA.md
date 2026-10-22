@@ -367,6 +367,19 @@ Os efeitos deixaram de ser pontos com textura e passaram a usar um motor própri
   - Cada monstro colide com o próprio tamanho (`resolveCollisions(p, raio)`) e é empurrado para fora dos obstáculos em todo quadro, inclusive parado ou recém-nascido.
 - **Cauda e asas:** as desenhadas por código ficam desligadas no jogo; só o modelo 3D aparece. O código continua, para testes (`?cauda=`, `?asas=`) e para uma versão futura, como cauda no próprio rig.
 
+## Ecos da Terra (v1.16)
+
+Coleta com escolhas no **Vale dos Ecos** (bosque, riacho e afloramento ao norte do Portal). Inclui:
+
+- materiais com propriedades em faixas;
+- 2–3 abordagens por recurso;
+- a cadeia de descoberta "A Seiva Azul" e o Jardim da Nascente;
+- receitas que valorizam propriedades;
+- a obra comunitária Ponte do Riacho;
+- a Companion coletando por intenção.
+
+Detalhes, o que é simulado e o que está implementado, parâmetros, testes e limitações: **docs/ECOS_DA_TERRA.md**.
+
 ## Memórias de Combate, ordens, falas e voz (v1.15)
 
 - **Ela sabe que tem corpo:** depois do despertar, o prompt (`PromptContext.body`) diz que ela não é mais uma esfera de luz e descreve a forma dela. A regra de "não pode sair do Refúgio" deixa de valer.

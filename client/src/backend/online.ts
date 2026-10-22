@@ -32,6 +32,7 @@ export class OnlineBackend implements Backend {
   awaken() { return this.call('awaken'); }
   muse() { return this.call('muse'); }
   combatKill(slug: string, level: number) { return this.call('combat.kill', { slug, level }); }
+  ecos(action: string, body: Record<string, unknown> = {}) { return this.call(action, body) as unknown as Promise<import('../ecos/types').EcosReply>; }
   barks(req: BarksRequest) { return this.call('barks', req as unknown as Record<string, unknown>) as unknown as Promise<{ lines?: Record<string, string[]>; line?: string | null }>; }
   async signOut() { await supabase().auth.signOut(); }
 }

@@ -10,6 +10,7 @@ import { ToneMappingMode } from 'postprocessing';
 import * as THREE from 'three';
 import { gameTime, CHUNK, WORLD_R, WORLD_ROLE, layerRole, type CompanionWorld, type WorldSite, type BiomePalette, type CreatureDef } from '@rules';
 import { WorldCreatures } from './WorldCreatures';
+import { Vale } from './Vale';
 import type { AppendageSpec } from './Appendages';
 import type { Gear } from './CompanionModel';
 import { WeatherFx } from './Weather';
@@ -305,6 +306,7 @@ export function WorldScene(props: WorldSceneProps) {
       <Vegetation cw={cw} shape={shape} center={center} high={high} />
       <Portal color={props.color} />
       <Waystones cw={cw} discovered={props.discovered} center={center} />
+      <Vale height={cw.heightAt} />
       <WorldCreatures cw={cw} creatures={props.creatures} center={center} night={daylight < 0.35} high={high} />
       <Suspense fallback={null}>
         <CompanionModel files={props.model} world={shape} burstKey={props.burstKey} speech={props.speech} onFail={props.onHome} roam={roam} appendages={props.appendages} speed={props.speed} gear={props.gear} />

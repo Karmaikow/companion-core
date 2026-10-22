@@ -53,6 +53,8 @@ export interface Backend {
   combatKill?(slug: string, level: number): Promise<Snapshot>;
   /** falas pela IA: estoque por evento, ou uma fala de momento com contexto (só online) */
   barks?(req: BarksRequest): Promise<{ lines?: Record<string, string[]>; line?: string | null }>;
+  /** Ecos da Terra: coleta, descoberta, receitas, jardim e obra (online: servidor; offline: simulado no aparelho) */
+  ecos?(action: string, body?: Record<string, unknown>): Promise<import('../ecos/types').EcosReply>;
   reset?(): Promise<void>;
   signOut?(): Promise<void>;
 }

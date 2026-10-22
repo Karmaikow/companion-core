@@ -6,6 +6,7 @@
 import { BANK_EVENTS, bark, fillBark, normalize, parseCommand, type BarkEvent, type BarkVars, type Command, type CreatureDef } from '@rules';
 import { useGame } from '../store';
 import { settings } from '../settings';
+import { useEcos, intentFromCommand } from '../ecos/ecosStore';
 
 export type Order =
   | { kind: 'attack'; until: number }
@@ -93,6 +94,7 @@ function persona() {
   return { d, you: d?.playerAddress ?? d?.playerName, pronoun: (d?.pronoun === 'ele' ? 'ele' : 'ela') as 'ela' | 'ele' };
 }
 function emit(text: string) { brain.lastBark = performance.now(); useGame.getState().sayBark(text); }
+const emitNow = emit;
 
 /** Fala da Companion (balão + voz, se ligada). `force` ignora o intervalo (respostas a ordens). */
 export function say(ev: BarkEvent, vars: BarkVars = {}, opts: { force?: boolean; chance?: number } = {}) {
@@ -150,7 +152,16 @@ export function handleCommand(text: string): Command | null {
     case 'flee': brain.order = { kind: 'flee', until: now + 7_000 }; say('order-flee', {}, { force: true }); break;
     case 'stop': brain.order = null; say('order-stop', {}, { force: true }); break;
     case 'calm': brain.order = null; useSettingsPosture('pacifica'); say('order-calm', {}, { force: true }); break;
-    case 'gather': say('order-gather', { n: cmd.count }, { force: true }); break;
+    case 'gather': {
+      // Ecos da Terra: no mundo, com corpo, ela coleta por intenção (abastecer) no Vale dos Ecos
+      const g = useGame.getState();
+      if (g.backend?.ecos && g.snap?.companion?.stage === 'awakened' && brain.places.length) {
+        const intent = intentFromCommand(cmd.what, cmd.count);
+        useEcos.getState().startIntent(intent);
+        emitNow(`Deixa comigo! ${intent.target?.label ?? 'Coletar'}: ${cmd.count}. Vou pelo Vale dos Ecos.`);
+      } else say('order-gather', { n: cmd.count }, { force: true });
+      break;
+    }
     case 'goto': {
       const p = findPlace(cmd.place);
       if (!p) return null;

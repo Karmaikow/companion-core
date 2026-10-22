@@ -12,6 +12,8 @@ import { Entry } from './ui/Entry';
 import { Creation } from './ui/Creation';
 import { SkillTreePanel } from './ui/SkillTreePanel';
 import { SettingsPanel } from './ui/SettingsPanel';
+import { EcosPanel } from './ui/EcosPanel';
+import { EcosHud } from './ui/EcosHud';
 import { speak, sendPlayerMessage, stopConversation, useConversation, useMic } from './ui/voice';
 import { brain } from './scene/brain';
 import { SkillBar } from './ui/SkillBar';
@@ -31,6 +33,7 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'recipes', label: 'Receitas' },
   { key: 'skills', label: 'Habilidades' },
   { key: 'bond', label: 'Vínculo' },
+  { key: 'ecos', label: 'Expedição' },
   { key: 'settings', label: 'Ajustes' },
 ];
 
@@ -268,7 +271,7 @@ export function App() {
     return () => { window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); window.removeEventListener('blur', releaseAttack); };
   }, []);
 
-  const panel = { chat: ChatPanel, memories: MemoriesPanel, diary: DiaryPanel, quests: QuestsPanel, inventory: InventoryPanel, recipes: RecipesPanel, skills: SkillTreePanel, bond: BondPanel, settings: SettingsPanel };
+  const panel = { chat: ChatPanel, memories: MemoriesPanel, diary: DiaryPanel, quests: QuestsPanel, inventory: InventoryPanel, recipes: RecipesPanel, skills: SkillTreePanel, bond: BondPanel, ecos: EcosPanel, settings: SettingsPanel };
   const Panel = tab ? panel[tab] : null;
 
   return (
@@ -327,6 +330,7 @@ export function App() {
             </button>
           )}
           {place === 'world' && <WorldMap world={companionWorld} discovered={discovered} />}
+          {place === 'world' && c.stage === 'awakened' && <EcosHud panelOpen={!!tab} />}
           {place === 'world' && regionName && <div className="region-banner" key={regionName}>{regionName}</div>}
           {/* a fala aparece num balão sobre a cabeça do Companion (na cena); aqui só para leitores de tela */}
           {bubble && <div className="sr-only" role="status">{bubble}</div>}

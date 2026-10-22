@@ -682,3 +682,112 @@ html:has(.admin), body:has(.admin), #root:has(.admin) { height: auto; min-height
 .listening.conv.paused { border-color: rgba(185, 166, 255, 0.5); }
 .listening.conv.paused span { animation: none; opacity: 0.6; }
 .listening.conv button { margin-left: 4px; padding: 2px 10px; border-radius: 99px; border: 1px solid rgba(255, 255, 255, 0.35); background: transparent; color: #fff; font-size: 0.8rem; cursor: pointer; }
+
+/* ---------------------------------------------------------------------------
+   Ecos da Terra — tokens de tema (verde-musgo, prata e brilho mágico discreto)
+   --------------------------------------------------------------------------- */
+:root {
+  --ecos-moss: #3f5a3a;
+  --ecos-moss-2: #56704a;
+  --ecos-moss-bg: rgba(22, 34, 24, 0.86);
+  --ecos-silver: #c9d1d6;
+  --ecos-silver-dim: #8d979e;
+  --ecos-glow: #8fd8ff;
+  --ecos-ok: #9fdc8a;
+  --ecos-warn: #ffcf7a;
+  --ecos-off: #c7a3a3;
+  --ecos-radius: 14px;
+  --ecos-gap: 10px;
+  --ecos-touch: 44px;
+}
+.ecos-hud { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
+.ecos-hud > * { pointer-events: auto; }
+.ecos-card { background: var(--ecos-moss-bg); border: 1px solid color-mix(in srgb, var(--ecos-silver) 35%, transparent); border-radius: var(--ecos-radius); box-shadow: 0 10px 26px rgba(0, 0, 0, 0.4), inset 0 0 0 1px rgba(143, 216, 255, 0.06); color: #eef2ec; backdrop-filter: blur(6px); }
+.ecos-eyebrow { color: var(--ecos-silver); text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.68rem; }
+.ecos-card .bar, .ecos-tab .bar { height: 6px; border-radius: 99px; background: rgba(255, 255, 255, 0.12); overflow: hidden; margin: 4px 0; }
+.ecos-card .bar i, .ecos-tab .bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--ecos-moss-2), var(--ecos-glow)); }
+.ecos-hud button:focus-visible, .ecos-tab button:focus-visible, .ecos-tab input:focus-visible { outline: 2px solid var(--ecos-glow); outline-offset: 2px; }
+.ecos-objective { position: absolute; top: max(14px, env(safe-area-inset-top)); left: 290px; width: min(300px, 40vw); padding: 10px 14px; display: grid; gap: 3px; }
+.ecos-objective b { font-size: 0.95rem; }
+.ecos-objective .ecos-auto { margin: 2px 0 0; font-size: 0.82rem; color: var(--ecos-glow); }
+.ecos-bagline { color: var(--ecos-silver-dim); font-size: 0.75rem; }
+.ecos-clues { position: absolute; top: calc(max(14px, env(safe-area-inset-top)) + 160px); right: 14px; width: 240px; padding: 8px 12px; max-height: 42vh; overflow: auto; }
+.ecos-clues header { display: flex; justify-content: space-between; align-items: center; }
+.ecos-clues ul { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 6px; font-size: 0.82rem; }
+.ecos-clues .tag { display: inline-block; margin-right: 6px; padding: 0 6px; border-radius: 99px; font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.05em; border: 1px solid currentColor; }
+.clue.observacao .tag { color: var(--ecos-silver); }
+.clue.hipotese .tag { color: var(--ecos-warn); border-style: dashed; }
+.clue.descoberta .tag { color: var(--ecos-glow); }
+.ecos-minimap { display: block; margin: 6px auto; }
+.mm-ground { fill: #2b3d2a; stroke: var(--ecos-silver-dim); }
+.mm-water { fill: none; stroke: #6cc3e6; stroke-width: 3; stroke-linecap: round; }
+.mm-bridge { stroke: #c8a878; stroke-width: 3; }
+.mm-node { stroke: #0d1726; stroke-width: 1; cursor: pointer; }
+.mm-madeira { fill: #a68a64; } .mm-planta { fill: #7bd47a; } .mm-pedra { fill: #c9c3b6; } .mm-minerio { fill: #62c39a; } .mm-gema { fill: var(--ecos-glow); } .mm-magico { fill: var(--ecos-glow); }
+.mm-node.sel { stroke: #fff; stroke-width: 2; }
+.mm-me { fill: #ffe9a8; stroke: #0d1726; }
+.mm-clue { fill: var(--ecos-warn); font: 700 12px var(--sans); }
+.ecos-panel { position: absolute; right: 14px; top: calc(max(14px, env(safe-area-inset-top)) + 160px); width: min(360px, calc(100vw - 28px)); max-height: calc(100vh - 260px); overflow: auto; padding: 12px 14px; display: grid; gap: 8px; }
+.ecos-clues + .ecos-panel { right: 266px; }
+.ecos-panel header { display: flex; justify-content: space-between; align-items: flex-start; }
+.ecos-panel h3 { margin: 2px 0 0; font-family: var(--serif); color: var(--ecos-silver); font-size: 1.2rem; }
+.ecos-panel .close { min-width: var(--ecos-touch); min-height: var(--ecos-touch); background: transparent; border: 0; color: inherit; font-size: 1.4rem; }
+.ecos-state { margin: 0; font-size: 0.84rem; color: #dfe6dc; }
+.pill { display: inline-block; padding: 0 8px; border-radius: 99px; font-size: 0.72rem; margin-right: 6px; border: 1px solid currentColor; }
+.pill.ok { color: var(--ecos-ok); } .pill.off { color: var(--ecos-off); }
+.ecos-sugg { margin: 0; padding: 6px 10px; border-left: 3px solid var(--ecos-glow); background: rgba(143, 216, 255, 0.08); border-radius: 6px; font-size: 0.86rem; }
+.ecos-aps { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.ecos-ap { padding: 8px 10px; border-radius: 10px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(201, 209, 214, 0.18); display: grid; gap: 4px; }
+.ecos-ap.blocked { opacity: 0.78; }
+.ap-head { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.ap-time, .ap-tool { font-size: 0.75rem; color: var(--ecos-silver); }
+.ap-out { list-style: none; margin: 0; padding: 0; font-size: 0.8rem; }
+.ap-bands { display: block; color: var(--ecos-silver-dim); font-size: 0.74rem; }
+.ap-meta { margin: 0; font-size: 0.74rem; color: #cfd8cc; display: flex; flex-wrap: wrap; gap: 4px 10px; }
+.fit.ok { color: var(--ecos-ok); } .fit.no { color: var(--ecos-off); }
+.ecos-ap .primary, .ecos-panel .ghost { min-height: var(--ecos-touch); }
+.ap-why { color: var(--ecos-warn); font-size: 0.76rem; }
+.ecos-uses { margin: 0; padding-left: 18px; font-size: 0.8rem; }
+.ecos-action { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(96px + env(safe-area-inset-bottom)); width: min(420px, calc(100vw - 28px)); padding: 8px 12px; display: grid; gap: 4px; }
+.ecos-action .ea-top { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; font-size: 0.85rem; }
+.ecos-action .ea-phase { color: var(--ecos-silver); }
+.ecos-action.erro .ea-phase, .ecos-action .ea-msg { color: var(--ecos-warn); }
+.ecos-action.concluido .ea-phase { color: var(--ecos-ok); }
+.ecos-action .ghost { justify-self: end; min-height: 36px; }
+.ecos-recent { position: absolute; left: 14px; bottom: calc(18px + env(safe-area-inset-bottom)); list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-width: 40vw; }
+.ecos-recent li { background: var(--ecos-moss-bg); border: 1px solid rgba(201, 209, 214, 0.25); border-radius: 99px; padding: 3px 10px; font-size: 0.78rem; animation: ecos-pop 0.3s ease-out; }
+.ecos-sim { position: absolute; top: calc(max(14px, env(safe-area-inset-top)) + 120px); left: 290px; font-size: 0.72rem; color: var(--ecos-warn); background: rgba(0, 0, 0, 0.45); padding: 2px 8px; border-radius: 99px; }
+.ecos-choice { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(5, 10, 8, 0.55); z-index: 9; }
+.ecos-choice > .ecos-card { width: min(560px, calc(100vw - 28px)); padding: 18px; display: grid; gap: 10px; }
+.ecos-choice h3 { margin: 0; font-family: var(--serif); color: var(--ecos-glow); }
+.choice-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.choice-row .choice { text-align: left; display: grid; gap: 4px; padding: 12px; border-radius: 12px; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(201, 209, 214, 0.35); color: inherit; min-height: var(--ecos-touch); cursor: pointer; }
+.choice-row .choice:hover { border-color: var(--ecos-glow); }
+.choice-row .choice small { color: var(--ecos-silver); }
+.ecos-tab { display: grid; gap: 10px; }
+.ecos-tab h4 { margin: 10px 0 4px; color: var(--ecos-silver); font-family: var(--serif); }
+.ecos-tab ul { padding-left: 18px; }
+.bag-row { display: flex; gap: 8px; justify-content: space-between; align-items: center; font-size: 0.85rem; padding: 2px 0; }
+.bag-row input { width: 64px; }
+.ecos-ok { color: var(--ecos-ok); } .ecos-error { color: var(--ecos-warn); }
+.stages { padding-left: 20px; font-size: 0.85rem; }
+.stages li.done { color: var(--ecos-ok); } .stages li.now { color: var(--ecos-glow); }
+.ecos-near { list-style: none; padding: 0; display: grid; gap: 4px; }
+.ecos-near .ghost { width: 100%; text-align: left; min-height: var(--ecos-touch); }
+.ecos-sugglist li.blocked { color: var(--ecos-silver-dim); }
+.ecos-recipe, .need, .ecos-site { padding: 8px 10px; border-radius: 10px; background: rgba(255, 255, 255, 0.04); margin-bottom: 8px; }
+@keyframes ecos-pop { from { transform: translateY(6px); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .ecos-recent li { animation: none; } }
+
+/* celular: o painel vira bandeja de baixo, recolhível; objetivo e indícios compactos */
+@media (max-width: 720px) {
+  .ecos-objective { left: 14px; top: calc(max(14px, env(safe-area-inset-top)) + 92px); width: min(260px, 60vw); padding: 8px 10px; }
+  .ecos-sim { left: 14px; top: auto; bottom: calc(180px + env(safe-area-inset-bottom)); }
+  .ecos-clues { width: 170px; top: calc(max(14px, env(safe-area-inset-top)) + 160px); max-height: 30vh; font-size: 0.78rem; }
+  .ecos-clues .ecos-minimap { width: 110px; height: 110px; }
+  .ecos-panel, .ecos-clues + .ecos-panel { left: 8px; right: 8px; top: auto; bottom: calc(8px + env(safe-area-inset-bottom)); width: auto; max-height: 52vh; border-radius: 16px 16px 12px 12px; }
+  .ecos-action { bottom: calc(8px + env(safe-area-inset-bottom)); }
+  .ecos-panel ~ .ecos-action { bottom: calc(52vh + 16px); }
+  .ecos-recent { display: none; }
+  .choice-row { grid-template-columns: 1fr; }
+}
