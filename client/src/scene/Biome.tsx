@@ -190,12 +190,14 @@ export function GlbInstances({ url, spots, world, height, wind = 0, shadows = fa
     });
     // pé de verdade (modelo com 1 m de altura): distância horizontal dos vértices perto do chão até o centro.
     // Pedras e objetos: a base até meia altura; árvores: só o tronco (o que fica abaixo de 15%).
+    // centro e raio da base: o centro é a média dos vértices de baixo (o tronco nem sempre fica no meio da caixa)
     const footAt = (band: number) => {
-      const d: number[] = [];
-      for (const p of out) { const a = p.geo.getAttribute('position'); for (let i = 0; i < a.count; i += 2) if (a.getY(i) <= band) d.push(Math.hypot(a.getX(i), a.getZ(i))); }
-      if (!d.length) return Math.max(size.x, size.z) / size.y / 2;
-      d.sort((x, y) => x - y);
-      return d[Math.floor(d.length * 0.9)];
+      const xs: number[] = [], zs: number[] = [];
+      for (const p of out) { const a = p.geo.getAttribute('position'); for (let i = 0; i < a.count; i += 2) if (a.getY(i) <= band) { xs.push(a.getX(i)); zs.push(a.getZ(i)); } }
+      if (!xs.length) return { cx: 0, cz: 0, r: Math.max(size.x, size.z) / size.y / 2 };
+      const cx = xs.reduce((t, v) => t + v, 0) / xs.length, cz = zs.reduce((t, v) => t + v, 0) / zs.length;
+      const d = xs.map((x, i) => Math.hypot(x - cx, zs[i] - cz)).sort((a, b) => a - b);
+      return { cx, cz, r: d[Math.floor(d.length * 0.9)] };
     };
     return { parts: out, foot: footAt(0.5), trunk: footAt(0.15), lu };
   }, [scene, wind]);
@@ -206,7 +208,7 @@ export function GlbInstances({ url, spots, world, height, wind = 0, shadows = fa
   const cap = Math.max(1, capacity && capacity >= spots.length ? capacity : spots.length);
   const mats = useMemo(() => {
     const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), v = new THREE.Vector3(), s = new THREE.Vector3();
-    return spots.map((t) => { const h = height[0] + t.s * (height[1] - height[0]); return { m: m4.compose(v.set(t.x, world.heightAt(t.x, t.z) - 0.05, t.z), q.setFromEuler(e.set(0, t.rot, 0)), s.set(h, h, h)).clone(), x: t.x, z: t.z, h }; });
+    return spots.map((t) => { const h = height[0] + t.s * (height[1] - height[0]); return { m: m4.compose(v.set(t.x, world.heightAt(t.x, t.z) - 0.05, t.z), q.setFromEuler(e.set(0, t.rot, 0)), s.set(h, h, h)).clone(), x: t.x, z: t.z, h, rot: t.rot }; });
   }, [spots, world, height]);
   useLayoutEffect(() => {
     hidden.current = [];
@@ -216,8 +218,12 @@ export function GlbInstances({ url, spots, world, height, wind = 0, shadows = fa
   useEffect(() => {
     if (!solid || !layer) return;
     // solid < 0,3 = árvore (bate no tronco); senão, a base inteira (pedras, marcos, objetos)
-    const base = solid < 0.3 ? Math.min(trunk, foot) : foot;
-    colliders.set(layer, mats.filter((k) => k.h >= 0.45).map((k) => ({ x: k.x, z: k.z, r: Math.max(0.12, base * k.h * (solid < 0.3 ? 1 : 0.92)) })));
+    const tree = solid < 0.3, b = tree ? (trunk.r < foot.r ? trunk : foot) : foot;
+    colliders.set(layer, mats.filter((k) => k.h >= 0.45).map((k) => {
+      // o centro da base gira junto com a cópia
+      const c = Math.cos(k.rot), sn = Math.sin(k.rot), ox = (b.cx * c + b.cz * sn) * k.h, oz = (-b.cx * sn + b.cz * c) * k.h;
+      return { x: k.x + ox, z: k.z + oz, r: Math.max(0.12, b.r * k.h * (tree ? 1 : 0.92)) };
+    }));
     return () => { colliders.delete(layer); };
   }, [mats, foot, trunk, solid, layer]);
   // árvores altas entre a câmera e o Companion saem da frente

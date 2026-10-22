@@ -90,13 +90,13 @@ export const colliders = new Map<string, Circle[]>();
 export const platforms: { x: number; z: number; r: number; top: number }[] = [{ x: 0, z: 0, r: 2.0, top: 0.19 }];
 export const BODY_R = 0.32;
 
-/** Empurra (x, z) para fora dos obstáculos; devolve true se encostou em algum. */
-export function resolveCollisions(p: { x: number; z: number }): boolean {
+/** Empurra (x, z) para fora dos obstáculos; devolve true se encostou em algum. `body`: raio de quem anda. */
+export function resolveCollisions(p: { x: number; z: number }, body = BODY_R): boolean {
   let hit = false;
   for (let pass = 0; pass < 2; pass++) {
     colliders.forEach((list) => {
       for (const c of list) {
-        const dx = p.x - c.x, dz = p.z - c.z, d = Math.hypot(dx, dz), min = c.r + BODY_R;
+        const dx = p.x - c.x, dz = p.z - c.z, d = Math.hypot(dx, dz), min = c.r + body;
         if (d >= min) continue;
         hit = true;
         if (d < 1e-4) { p.x += min; continue; }

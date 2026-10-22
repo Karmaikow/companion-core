@@ -350,6 +350,8 @@ Os efeitos deixaram de ser pontos com textura e passaram a usar um motor própri
   - Pedras, marcos e objetos: a base até meia altura, com 92% desse raio.
   - Árvores: só o tronco, abaixo de 15% da altura.
   - Antes era 42% da metade da largura e o Companion entrava nas pedras grandes.
+  - O centro do círculo é a média dos vértices da base, e não o meio da caixa (troncos fora do centro), e gira junto com cada cópia.
+  - Cada monstro colide com o próprio tamanho (`resolveCollisions(p, raio)`) e é empurrado para fora dos obstáculos em todo quadro, inclusive parado ou recém-nascido.
 - **Cauda e asas:** as desenhadas por código ficam desligadas no jogo; só o modelo 3D aparece. O código continua, para testes (`?cauda=`, `?asas=`) e para uma versão futura, como cauda no próprio rig.
 
 ## Veneno (v1.14)

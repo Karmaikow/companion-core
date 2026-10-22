@@ -179,7 +179,7 @@ function WorldCreature({ cw, def, spawn }: { cw: CompanionWorld; def: CreatureDe
     const dx = s.tx - s.x, dz = s.tz - s.z, d = Math.hypot(dx, dz);
     if (d > 0.15) {
       const step = Math.min(d, speed * dt), p = { x: s.x + (dx / d) * step, z: s.z + (dz / d) * step };
-      resolveCollisions(p);
+      resolveCollisions(p, R);
       // fugindo, vai no máximo 20 m de casa; perseguindo ou voltando, sem limite
       if (mode !== 'flee' || Math.hypot(p.x - spawn.x, p.z - spawn.z) < 20) { s.x = p.x; s.z = p.z; } else { s.tx = s.x; s.tz = s.z; }
       const wantYaw = Math.atan2(dx, dz); let dy = wantYaw - s.yaw; while (dy > Math.PI) dy -= 2 * Math.PI; while (dy < -Math.PI) dy += 2 * Math.PI;
@@ -188,6 +188,8 @@ function WorldCreature({ cw, def, spawn }: { cw: CompanionWorld; def: CreatureDe
     }
     // não ficar em cima do Companion
     if (dC < R + 0.5 && dC > 1e-3) { s.x = fx + ((s.x - fx) / dC) * (R + 0.5); s.z = fz + ((s.z - fz) / dC) * (R + 0.5); }
+    // e sempre fora das pedras e árvores (nasceu, parou ou foi empurrada para dentro de uma) — por último, para valer
+    { const q = { x: s.x, z: s.z }; if (resolveCollisions(q, R)) { s.x = q.x; s.z = q.z; } }
     grp.position.set(s.x, cw.heightAt(s.x, s.z), s.z);
     grp.rotation.y = s.yaw;
     const tg = targets.get('creature:' + spawn.id); if (tg) { tg.x = s.x; tg.z = s.z; }
