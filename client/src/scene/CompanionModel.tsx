@@ -123,7 +123,12 @@ const REFUGE_ROAM: Roam = {
 
 export function CompanionModel({ files, world, burstKey, speech, onFail, roam = REFUGE_ROAM, appendages, speed = 1, gear }: { /** armas e equipamentos */ gear?: Gear | null; /** velocidade da classe (1 = padrão) */ speed?: number; files: CompanionModelFiles; world: WorldShape; burstKey: number; speech: string | null; onFail: () => void; roam?: Roam; /** cauda e asas da classe, desenhadas por código */ appendages?: AppendageSpec | null }) {
   const [loaded, setLoaded] = useState<Loaded | null>(null);
+  // O objeto `files` é recriado a cada atualização do servidor (mesmos arquivos): recarregar por identidade trocava o
+  // modelo no meio da corrida e ele deslizava sem animar. Só recarrega quando os endereços mudam.
+  const filesKey = files.url.split('?')[0] + '|' + files.anims.map((a) => a.url.split('?')[0] + ':' + a.kind).join(',');
+  const filesRef = useRef(files); filesRef.current = files;
   useEffect(() => {
+    const files = filesRef.current;
     let alive = true;
     (async () => {
       const gltf = await load(files.url);
@@ -140,7 +145,7 @@ export function CompanionModel({ files, world, burstKey, speech, onFail, roam = 
       if (alive) setLoaded({ gltf, clips });
     })().catch(() => alive && onFail());
     return () => { alive = false; };
-  }, [files, onFail]);
+  }, [filesKey, onFail]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!loaded) return null;
   return <Walker loaded={loaded} world={world} burstKey={burstKey} speech={speech} roam={roam} appendages={appendages ?? null} speed={speed} gear={gear ?? null} />;
 }
@@ -227,8 +232,9 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
   const fwd = useMemo(() => new THREE.Vector3(), []);
   const play = (kind: string, fade = 0.3) => {
     const s = st.current;
-    if (s.act === kind) return;
     const next = actions.get(kind);
+    // só pula se já estiver tocando de verdade (modelo trocado ou animação apagada por outra = toca de novo)
+    if (s.act === kind && (!next || next.isRunning())) return;
     if (next) next.reset().setEffectiveWeight(1).fadeIn(fade).play();
     // apaga todas as outras (sem animação de parado, o corpo volta à pose de descanso e respira).
     // Compara a animação, não o nome: "attack" e "attack:faca" podem ser o mesmo clipe — apagar pelo nome apagava
@@ -236,7 +242,7 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
     actions.forEach((a) => { if (a !== next && a.isRunning()) a.fadeOut(fade); });
     s.act = kind;
   };
-  useEffect(() => () => { mixer.stopAllAction(); }, [mixer]);
+  useEffect(() => { st.current.act = ''; return () => { mixer.stopAllAction(); }; }, [mixer]);
   // testes no navegador (só no dev): estado das animações
   useEffect(() => {
     if (!import.meta.env.DEV) return;

@@ -330,6 +330,14 @@ Os efeitos deixaram de ser pontos com textura e passaram a usar um motor própri
 - **Tempo de volta do monstro:** no Invocador, em "Onde e quando aparece", `respawn` em segundos (5 s a 1 h; padrão 45 s).
 - **Lab:** `forge-lab.html?treino=/arquivo.glb` mostra os dois campos de treino com um modelo local.
 
+## Companion que desliza sem animar (v1.15)
+
+- **Causa:** o objeto do modelo (`snap.visualJob.model`) é recriado a cada atualização vinda do servidor. O `CompanionModel` recarregava por identidade, e o modelo novo começava parado enquanto o estado continuava marcando "run". Então `play('run')` saía cedo e ele deslizava pelo mapa.
+- **Correção, em três camadas:**
+  - recarrega só quando os endereços dos arquivos mudam (`filesKey`, sem o token da URL);
+  - modelo novo zera `act`;
+  - `play()` só pula se a animação estiver tocando de verdade (`isRunning`).
+
 ## Desmaio, cura e monstros sem coleira (v1.15)
 
 - **Desmaio:** com o HP zerado, a stamina zera e enche em 10 s (`DOWN_SECONDS`). O Companion só levanta com a stamina cheia, com pelo menos metade da vida. No centro da tela aparece "Desmaiou", a contagem e a barra de stamina (`FaintCounter`).
