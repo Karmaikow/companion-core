@@ -676,3 +676,94 @@ html:has(.admin), body:has(.admin), #root:has(.admin) { height: auto; min-height
 @keyframes mic-pulse { 50% { box-shadow: 0 0 0 6px rgba(255, 120, 140, 0.25); } }
 .listening { position: absolute; left: 50%; bottom: calc(96px + env(safe-area-inset-bottom)); transform: translateX(-50%); max-width: min(560px, 90vw); display: flex; gap: 8px; align-items: center; padding: 8px 14px; border-radius: 99px; background: rgba(20, 12, 34, 0.8); border: 1px solid rgba(255, 140, 160, 0.5); color: #fff; font-size: 0.9rem; z-index: 5; pointer-events: none; }
 .listening span { animation: mic-pulse 1s ease-in-out infinite; border-radius: 50%; }
+
+/* Game UI lab: responsive HUD layout. No gameplay or persistence changes. */
+.app {
+  --hud-edge: max(12px, env(safe-area-inset-left));
+  --hud-floor: calc(84px + env(safe-area-inset-bottom));
+}
+.app .nameplate { z-index: 2; max-width: min(360px, calc(100vw - 28px)); }
+.app .nameplate > div:not(.portrait) { min-width: 0; }
+.app .nameplate h1 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.app .vitals { width: min(210px, 100%); }
+.app .vbar { grid-template-columns: 28px minmax(24px, 1fr) 58px; }
+.app .vbar .bar { height: 9px; }
+.app .vbar > small { color: var(--parchment); }
+.app .rail { z-index: 4; }
+.app .rail button { min-height: 44px; flex-shrink: 0; }
+.app .rail button.on { color: #fff0ce; }
+.app .panel { z-index: 6; }
+.app .panel > header { flex-shrink: 0; gap: 12px; padding-bottom: 12px; }
+.app .panel > header .close { width: 44px; height: 44px; flex: none; border-radius: 10px; }
+.app .panel > header .close:hover { background: var(--night-3); color: var(--parchment); }
+.app .panel-body { overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--brass-dim) transparent; }
+.app .skill-bar { border-color: var(--brass-dim); background: color-mix(in srgb, var(--night) 92%, transparent); }
+.app .sb-slot { flex-shrink: 0; }
+.app .rail button:focus-visible, .app .sb-slot:focus-visible, .app .close:focus-visible {
+  outline: 2px solid #ffe3a6; outline-offset: -3px;
+}
+@media (min-width: 761px) {
+  .app .rail { top: 172px; bottom: 18px; transform: none; overflow-y: auto; scrollbar-width: thin; }
+  .app .key-hint { bottom: calc(90px + env(safe-area-inset-bottom)); max-width: calc(100vw - 360px); text-align: center; }
+  .app.has-panel .key-hint { display: none; }
+}
+/* Keep a usable world viewport beside panels on smaller laptops/tablets. */
+@media (min-width: 761px) and (max-width: 1100px) {
+  .app .rail { width: 64px; }
+  .app .rail button { justify-content: center; padding: 9px; }
+  .app .rail button span { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .app.has-panel .skill-bar { left: 88px; right: 428px; transform: none; flex-wrap: wrap; justify-content: center; }
+  .app.has-panel .sb-slot { width: 44px; height: 44px; }
+  .app .travel { top: 164px; left: auto; right: 14px; transform: none; flex-direction: column; }
+  .app.has-panel .travel, .app.has-panel .world-map { display: none; }
+}
+@media (max-width: 760px) {
+  .app .nameplate { left: var(--hud-edge); right: max(12px, env(safe-area-inset-right)); max-width: none; }
+  .app .nameplate > div:not(.portrait) { flex: 1; }
+  .app .rail {
+    left: var(--hud-edge); right: max(12px, env(safe-area-inset-right));
+    bottom: max(8px, env(safe-area-inset-bottom)); top: auto; transform: none;
+    flex-direction: row; justify-content: flex-start; gap: 4px; padding: 6px;
+    overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: thin;
+    scroll-snap-type: x proximity; z-index: 7;
+  }
+  .app .rail button { flex: 0 0 68px; min-height: 54px; padding: 6px 4px; font-size: 0.72rem; scroll-snap-align: start; }
+  .app .rail button svg { width: 22px; height: 22px; }
+  .app .panel {
+    top: auto; bottom: var(--hud-floor); left: var(--hud-edge);
+    right: max(12px, env(safe-area-inset-right)); width: auto;
+    height: min(62dvh, calc(100dvh - 240px)); min-height: 120px;
+  }
+  .app .skill-bar {
+    bottom: var(--hud-floor); display: grid; grid-template-columns: repeat(5, 44px);
+    gap: 5px; padding: 6px; border-radius: 14px; max-width: calc(100vw - 24px);
+  }
+  .app .sb-slot { width: 44px; height: 44px; border-radius: 10px; }
+  .app .sb-icon { font-size: 1.35rem; }
+  .app.has-panel .skill-bar { display: none; }
+  .app .travel { bottom: calc(204px + env(safe-area-inset-bottom)); }
+  .app .attack-btn { bottom: calc(256px + env(safe-area-inset-bottom)); width: 64px; height: 64px; }
+  .app .touch-moves { bottom: calc(256px + env(safe-area-inset-bottom)); right: 92px; gap: 6px; }
+  .app .touch-moves button { width: 44px; height: 44px; }
+  .app .world-map { top: calc(174px + env(safe-area-inset-top)); }
+  .app.has-panel .world-map { display: none; }
+  .app .key-hint { display: none; }
+  .app .sb-pick { max-height: min(42dvh, 300px); }
+}
+/* Short touch screens use a single skill row and a right-hand sheet. */
+@media (max-height: 500px) and (max-width: 1100px) {
+  .app .nameplate { max-width: 280px; right: auto; }
+  .app .portrait { display: none; }
+  .app .rail { left: var(--hud-edge); right: auto; top: 160px; bottom: 12px; width: 64px; transform: none; flex-direction: column; overflow-x: hidden; overflow-y: auto; }
+  .app .rail button { flex: 0 0 44px; width: 48px; min-height: 44px; padding: 6px; }
+  .app .rail button span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .app .skill-bar { display: flex; flex-wrap: nowrap; left: 88px; right: 12px; bottom: 12px; transform: none; max-width: none; justify-content: center; gap: 4px; padding: 6px; }
+  .app .sb-slot { width: 44px; height: 44px; }
+  .app .panel { left: auto; right: 12px; top: 12px; bottom: 12px; width: min(400px, calc(100vw - 100px)); height: auto; }
+  .app.has-panel .skill-bar { display: none; }
+  .app .travel { top: 12px; bottom: auto; left: auto; right: 12px; transform: none; width: auto; flex-direction: row; }
+  .app .world-map, .app .key-hint { display: none; }
+  .app .attack-btn { bottom: 84px; right: 12px; }
+  .app .touch-moves { bottom: 84px; right: 88px; flex-direction: row; }
+  .app .touch-moves button { width: 44px; height: 44px; }
+}
