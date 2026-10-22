@@ -28,6 +28,20 @@ export const TEMPERAMENTS: Record<Temperament, { label: string; hint: string }> 
 };
 export const BATTLE_STYLES: Record<BattleStyle, string> = { 'corpo-a-corpo': 'Corpo a corpo', distancia: 'À distância', suporte: 'Suporte (cura/protege o grupo)', misto: 'Misto' };
 export const TIMES: Record<TimeOfDay, string> = { sempre: 'Dia e noite', dia: 'Só de dia', noite: 'Só à noite' };
+/** Movimento por código para .GLB sem rig/animação (ou para as ações que faltarem no modelo). */
+export type Motion = 'auto' | 'saltitar' | 'gingar' | 'flutuar' | 'rastejar';
+export const MOTIONS: Record<Motion, { label: string; hint: string }> = {
+  auto: { label: 'Automático (pelo corpo)', hint: 'ave flutua, serpente/aquático rasteja, o resto ginga' },
+  saltitar: { label: 'Saltitar', hint: 'pulinhos que amassam ao cair (bichinhos, gosmas)' },
+  gingar: { label: 'Gingar', hint: 'balança de um lado para o outro ao andar (bípedes, quadrúpedes)' },
+  flutuar: { label: 'Flutuar', hint: 'paira no ar, inclina ao voar (aves, espíritos, fantasmas)' },
+  rastejar: { label: 'Rastejar', hint: 'serpenteia de um lado para o outro (serpentes, peixes, vermes)' },
+};
+/** O jeito de se mexer de verdade (resolve o automático pelo corpo). */
+export function motionFor(c: Pick<CreatureDef, 'motion' | 'body'>): Exclude<Motion, 'auto'> {
+  if (c.motion && c.motion !== 'auto') return c.motion;
+  return c.body === 'avian' ? 'flutuar' : c.body === 'serpentine' || c.body === 'aquatic' ? 'rastejar' : 'gingar';
+}
 
 /** vida, ataque (poder), defesa e agilidade no nível 1; velocidade de ataque em golpes por segundo. */
 export interface CreatureStats { vida: number; poder: number; defesa: number; agilidade: number; atkSpeed: number }
@@ -55,6 +69,7 @@ export interface CreatureDef {
   respawn: number;               // segundos até voltar depois de derrotada (no mesmo canto)
   drops: { item: string; chance: number; min: number; max: number }[];
   color: string;                 // cor da criatura (corpo de reserva, brilho, partículas)
+  motion: Motion;                // movimento por código (.GLB sem rig/animação)
   look?: ModelLook;
   model?: { url: string; path?: string; anims: { url: string; path?: string; kind: string; name: string }[] };
   art?: { url: string; path?: string };
@@ -104,6 +119,7 @@ export function sanitizeCreature(input: unknown): CreatureDef | null {
     drops: list(c.drops, 10, (d) => (typeof d.item === 'string' && d.item.trim() ? { item: d.item.trim().slice(0, 40), chance: n(d.chance, 0, 1, 0.5), ...(() => { const [a, b] = pair([d.min, d.max], 1, 99, [1, 1]); return { min: a, max: b }; })() } : null)),
     color: typeof c.color === 'string' && /^#[0-9a-f]{6}$/i.test(c.color) ? c.color.toLowerCase() : '#b9a6ff',
     look: sanitizeLook(c.look),
+    motion: c.motion && c.motion in MOTIONS ? c.motion : 'auto',
     model: m,
     art: c.art && typeof c.art.url === 'string' && URL_OK.test(c.art.url) ? { url: c.art.url, path: typeof c.art.path === 'string' ? c.art.path : undefined } : undefined,
   };

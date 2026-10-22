@@ -6,8 +6,8 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import {
   DEFAULT_CREATURES, DEFAULT_SKILLS, WORLD_FALLBACK_BIOMES, ELEMENTS, BODIES, ARCHETYPES, TEMPERAMENTS, BATTLE_STYLES, TIMES, ANIM_KINDS,
-  sanitizeCreature, sanitizeSkill, sanitizeBiome, kitFor, biomeSlug, animKind, creatureStatsAt, creatureSkillsAt, mitigate,
-  type CreatureDef, type Archetype, type Temperament, type BattleStyle, type TimeOfDay, type Element, type BodyPlan, type SkillDef,
+  sanitizeCreature, sanitizeSkill, sanitizeBiome, kitFor, MOTIONS, biomeSlug, animKind, creatureStatsAt, creatureSkillsAt, mitigate,
+  type CreatureDef, type Motion, type Archetype, type Temperament, type BattleStyle, type TimeOfDay, type Element, type BodyPlan, type SkillDef,
 } from '@rules';
 import { supabase } from '../backend/online';
 import { useCatalog, uploadWorldAsset, safeName } from './catalog';
@@ -167,6 +167,12 @@ export function SummonerStudio() {
                 </div>
                 <button className={'link' + (draft.look ? ' tinted' : '')} onClick={() => setLookOpen(!lookOpen)} aria-expanded={lookOpen}><i className="look-dot" style={{ background: draft.look ? draft.look.tint : 'transparent' }} />aparência do modelo (cor, luz, brilho)</button>
                 {lookOpen && <LookEditor look={draft.look} onChange={(look) => edit({ look })} />}
+                {draft.model && (
+                  <label>Movimento por código
+                    <select value={draft.motion} onChange={(e) => edit({ motion: e.target.value as Motion })}>{(Object.keys(MOTIONS) as Motion[]).map((k) => <option key={k} value={k}>{MOTIONS[k].label}</option>)}</select>
+                    <small className="hint">{draft.model.anims.length ? 'Usado nas ações que o modelo não tem (ex.: tem "parado" mas não "andar").' : 'Este .GLB não tem animações: o corpo inteiro se mexe por código.'} {MOTIONS[draft.motion].hint}. Veja na prévia trocando a ação.</small>
+                  </label>
+                )}
               </div>
             </fieldset>
 

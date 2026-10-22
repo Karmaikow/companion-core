@@ -62,3 +62,14 @@ describe('veneno', () => {
     expect(kitFor(DEFAULT_SKILLS, { essence: 'veneno', body: 'biped', bond: 5 }).essence.length).toBe(2);
   });
 });
+
+import { motionFor } from '../rules/index.ts';
+describe('movimento por código dos monstros', () => {
+  it('automático pelo corpo e escolha explícita', () => {
+    expect(motionFor({ motion: 'auto', body: 'avian' })).toBe('flutuar');
+    expect(motionFor({ motion: 'auto', body: 'serpentine' })).toBe('rastejar');
+    expect(motionFor({ motion: 'auto', body: 'quadruped' })).toBe('gingar');
+    expect(motionFor({ motion: 'saltitar', body: 'avian' })).toBe('saltitar');
+    expect(sanitizeCreature({ slug: 'x-y', motion: 'voar' })!.motion).toBe('auto');
+  });
+});

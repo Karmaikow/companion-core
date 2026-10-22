@@ -330,6 +330,19 @@ Os efeitos deixaram de ser pontos com textura e passaram a usar um motor própri
 - **Tempo de volta do monstro:** no Invocador, em "Onde e quando aparece", `respawn` em segundos (5 s a 1 h; padrão 45 s).
 - **Lab:** `forge-lab.html?treino=/arquivo.glb` mostra os dois campos de treino com um modelo local.
 
+## Movimento por código para monstros .GLB sem rig (v1.16)
+
+- **O que é:** `CreatureDef.motion` vale `auto` (pelo corpo: ave flutua, serpente ou aquático rasteja, o resto ginga) ou um estilo fixo:
+  - saltitar: pulinhos que amassam ao cair;
+  - gingar: balança de um lado para o outro;
+  - flutuar: paira e inclina ao voar;
+  - rastejar: serpenteia.
+- **Como funciona** (`Creature.tsx → proceduralMotion`):
+  - O modelo fica num pivô no pé, e cada ação tem um movimento próprio: andar, correr, atacar (recua e avança), levar dano (recua e treme), comemorar (pula girando) e dormir (deitado, respirando).
+  - Sem animações, o corpo inteiro se mexe assim e respira parado. Com animações, só as ações que faltam no modelo usam o movimento por código.
+- **No Invocador:** o campo "Movimento por código" aparece na seção do modelo. A prévia mostra o resultado trocando a ação.
+- **Lab:** `forge-lab.html?semrig=/arquivo.glb&acao=walk|attack|hurt|happy|sleep` mostra os 4 estilos.
+
 ## Companion que desliza sem animar (v1.15)
 
 - **Causa:** o objeto do modelo (`snap.visualJob.model`) é recriado a cada atualização vinda do servidor. O `CompanionModel` recarregava por identidade, e o modelo novo começava parado enquanto o estado continuava marcando "run". Então `play('run')` saía cedo e ele deslizava pelo mapa.
