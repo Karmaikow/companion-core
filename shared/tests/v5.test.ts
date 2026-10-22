@@ -86,6 +86,12 @@ describe('falas pela IA', () => {
     expect(p).toContain('fraca contra fogo');
     expect(parseMoment('{"line": "Que coisinha fofa e verde!"}')).toBe('Que coisinha fofa e verde!');
     expect(parseMoment(null)).toBeNull();
+    expect(parseMoment('{"line": "Uau, que coisa linda e estranha ao mesmo tempo. Será que ela morde? Vou chegar perto devagar, bem devagarzinho, sem barulho nenhum."}')!.length).toBeLessThanOrEqual(140);
+  });
+  it('estoque descarta falas com marcador que o evento não tem', () => {
+    const out = parseBarkBank('{"lines": {"idle": ["{p} é lindo", "Que vento bom, {you}!"], "kill": ["{m} caiu!"]}}', ['idle', 'kill']);
+    expect(out.idle).toEqual(['Que vento bom, {you}!']);
+    expect(out.kill).toEqual(['{m} caiu!']);
   });
   it('preenche marcadores, inclusive {you} no começo', () => {
     expect(fillBark('{you}! Estou em {p}!', { you: 'Diego', p: 'Monte Azul' })).toBe('Diego! Estou em Monte Azul!');

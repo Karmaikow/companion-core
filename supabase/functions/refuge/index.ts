@@ -237,7 +237,10 @@ async function actBarks(db: SupabaseClient, c: Record<string, unknown>, body: Re
     if (!asked.length) return { lines: {} };
     const recent = Array.isArray(body.recent) ? (body.recent as unknown[]).filter((x): x is string => typeof x === 'string').map((x) => x.slice(0, 80)).slice(0, 20) : [];
     let raw: string | null = null;
-    try { raw = await complete(buildBarkBankPrompt(persona, asked, 5, recent), [], 'Escreva as falas agora.', { maxTokens: 1400, timeoutMs: 20_000 }); } catch { /* sem modelo */ }
+    const prompt = buildBarkBankPrompt(persona, asked, 5, recent);
+    try { raw = await complete(prompt, [], 'Escreva as falas agora.', { maxTokens: 1400, timeoutMs: 20_000, quality: true }); } catch {
+      try { raw = await complete(prompt, [], 'Escreva as falas agora.', { maxTokens: 1400, timeoutMs: 20_000 }); } catch { /* sem modelo */ }
+    }
     return { lines: parseBarkBank(raw, asked) };
   }
   const ev = typeof body.event === 'string' && MOMENT_EVENTS.includes(body.event as BarkEvent) ? body.event as BarkEvent : null;
@@ -256,7 +259,10 @@ async function actBarks(db: SupabaseClient, c: Record<string, unknown>, body: Re
     }
   }
   let raw: string | null = null;
-  try { raw = await complete(buildMomentPrompt(persona, ev, vars, facts), [], 'Fale agora.', { maxTokens: 300, timeoutMs: 8_000 }); } catch { /* sem modelo */ }
+  const prompt = buildMomentPrompt(persona, ev, vars, facts);
+  try { raw = await complete(prompt, [], 'Fale agora.', { maxTokens: 300, timeoutMs: 8_000, quality: true }); } catch {
+    try { raw = await complete(prompt, [], 'Fale agora.', { maxTokens: 300, timeoutMs: 6_000 }); } catch { /* sem modelo */ }
+  }
   return { line: parseMoment(raw) };
 }
 

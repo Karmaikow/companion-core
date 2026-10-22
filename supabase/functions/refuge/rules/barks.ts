@@ -108,7 +108,7 @@ function personaBlock(p: BarkPersona): string {
   const you = d.playerAddress ?? d.playerName ?? 'a pessoa';
   return `Você escreve as falas curtas de ${d.name ?? 'um Companion'}, ${he ? 'um Companion (fale de si no masculino)' : 'uma Companion (fale de si no feminino)'} num jogo de fantasia: ${p.formLabel ?? 'um ser com corpo de verdade'} que explora o mundo, luta com criaturas e conversa com ${you} (a pessoa que joga; chame de "${you}").
 Traços: ${(d.traits ?? []).join(', ') || 'curiosa'}. ${voiceFor(d.traits)}${d.element ? ` Afinidade elemental: ${d.element}.` : ''}
-Português do Brasil, falado e espontâneo, como personagem de anime/jogo: interjeições, risadas, gírias leves ("bora", "eita", "uhul") quando combinar com o jeito dela. Sem emojis em excesso (no máximo 1 de vez em quando). Nunca narre em terceira pessoa nem use aspas.`;
+Português do Brasil, falado e espontâneo, como personagem de anime/jogo: interjeições, risadas, gírias leves ("bora", "eita", "uhul") quando combinar com o jeito dela. Tudo em português, inclusive gritos e onomatopeias (ex.: "Toma!", "Iááá!", "Ai!", "Ui!", "Pou!"), nunca em inglês. Palavras reais, sem inventar termos. Sem emojis em excesso (no máximo 1 de vez em quando). Nunca narre em terceira pessoa nem use aspas.`;
 }
 
 /** Prompt para encher o estoque de falas de alguns eventos (JSON: {"lines": {"evento": ["...", ...]}}). */
@@ -116,7 +116,7 @@ export function buildBarkBankPrompt(p: BarkPersona, events: BarkEvent[], perEven
   const list = events.filter((e) => BANK_HINT[e]).map((e) => `- "${e}": ${BANK_HINT[e]}`).join('\n');
   return `${personaBlock(p)}
 
-Escreva ${perEvent} falas DIFERENTES para cada situação abaixo (cada uma com no máximo 10 palavras; gritos de golpe com 1 a 3 palavras). Varie bastante: nada de repetir o começo das frases. Use os marcadores exatamente como estão quando fizer sentido: {m} = nome do monstro, {p} = nome do lugar, {n} e {t} = números, {you} = a pessoa.
+Escreva ${perEvent} falas DIFERENTES para cada situação abaixo (cada uma com no máximo 10 palavras; gritos de golpe com 1 a 3 palavras). Varie bastante: nada de repetir o começo das frases. Marcadores ({m} = nome do monstro, {p} = nome do lugar, {n} e {t} = números, {you} = a pessoa): use só os que aparecem na descrição daquela situação, escritos exatamente assim; nas outras, não use nenhum.
 ${list}
 ${recent.length ? `
 Evite repetir estas falas já usadas: ${recent.slice(0, 20).map((r) => `"${r}"`).join(', ')}.` : ''}
@@ -153,7 +153,9 @@ export function parseBarkBank(raw: string | null, events: BarkEvent[], perEvent 
     const arr = (lines as Record<string, unknown>)?.[ev];
     if (!Array.isArray(arr)) continue;
     const seen = new Set<string>(), got: string[] = [];
-    for (const x of arr) { const c = cleanLine(x); if (c && !seen.has(normalize(c))) { seen.add(normalize(c)); got.push(c); } if (got.length >= perEvent) break; }
+    const hint = BANK_HINT[ev] ?? '';
+    const okMark = (c: string) => [...c.matchAll(/\{(m|p|n|t|r|you)\}/g)].every((m) => m[1] === 'you' || m[1] === 'r' ? true : hint.includes(`{${m[1]}}`));
+    for (const x of arr) { const c = cleanLine(x); if (c && okMark(c) && !seen.has(normalize(c))) { seen.add(normalize(c)); got.push(c); } if (got.length >= perEvent) break; }
     if (got.length) out[ev] = got;
   }
   return out;
@@ -162,5 +164,9 @@ export function parseBarkBank(raw: string | null, events: BarkEvent[], perEvent 
 /** Saneia a fala de momento. */
 export function parseMoment(raw: string | null): string | null {
   if (!raw) return null;
-  try { const m = raw.match(/\{[\s\S]*\}/); const d = JSON.parse(m ? m[0] : raw); return cleanLine((d as { line?: unknown }).line, 160); } catch { return cleanLine(raw.split('\n')[0], 160); }
+  let line: string | null;
+  try { const m = raw.match(/\{[\s\S]*\}/); const d = JSON.parse(m ? m[0] : raw); line = cleanLine((d as { line?: unknown }).line, 220); } catch { line = cleanLine(raw.split('\n')[0], 220); }
+  // comprida demais: fica com as primeiras frases até ~140 letras
+  if (line && line.length > 140) { const parts = line.match(/[^.!?…]+[.!?…]+/g) ?? [line]; let out = ''; for (const p of parts) { if ((out + p).length > 140 && out) break; out += p; } line = out.trim() || line.slice(0, 140); }
+  return line;
 }
