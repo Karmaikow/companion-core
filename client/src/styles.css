@@ -745,13 +745,14 @@ html:has(.admin), body:has(.admin), #root:has(.admin) { height: auto; min-height
   .app .attack-btn { bottom: calc(256px + env(safe-area-inset-bottom)); width: 64px; height: 64px; }
   .app .touch-moves { bottom: calc(256px + env(safe-area-inset-bottom)); right: 92px; gap: 6px; }
   .app .touch-moves button { width: 44px; height: 44px; }
-  .app .world-map { top: calc(174px + env(safe-area-inset-top)); }
+  .app .world-map { top: calc(168px + env(safe-area-inset-top)); width: 80px !important; height: 80px !important; }
+  .app .world-map.big { width: min(280px, calc(100vw - 28px)) !important; height: min(280px, calc(100vw - 28px)) !important; }
   .app.has-panel .world-map { display: none; }
   .app .key-hint { display: none; }
   .app .sb-pick { max-height: min(42dvh, 300px); }
 }
 /* Short touch screens use a single skill row and a right-hand sheet. */
-@media (max-height: 500px) and (max-width: 1100px) {
+@media (orientation: landscape) and (max-height: 500px) and (max-width: 1100px) {
   .app .nameplate { max-width: 280px; right: auto; }
   .app .portrait { display: none; }
   .app .rail { left: var(--hud-edge); right: auto; top: 160px; bottom: 12px; width: 64px; transform: none; flex-direction: column; overflow-x: hidden; overflow-y: auto; }
