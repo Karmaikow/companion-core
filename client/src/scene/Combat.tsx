@@ -5,7 +5,9 @@
  * bonecos de treino e criaturas). A batalha de verdade (simulação por ticks) vai usar as mesmas regras de arma.
  */
 import { useMemo, useRef, useState } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { useFrame, useThree } from '@react-three/fiber';
+import { useEffect } from 'react';
+import { settings } from '../settings';
 import { Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { gameVfx } from './vfx/engine';
@@ -43,13 +45,13 @@ export type FxEvent =
 export const fxQueue: FxEvent[] = [];
 
 /** Habilidade pedida pela barra de atalhos (1–9); o Companion lê, vira para o alvo, anima e dispara. */
-export interface SkillCast { skill: SkillDef; level: number; color: string }
+export interface SkillCast { skill: SkillDef; level: number; color: string; /** mira num ponto (a Companion lutando sozinha, ou mira no monstro mais perto) */ aimAt?: { x: number; z: number } }
 export const skillInput = { id: 0, req: null as SkillCast | null, /** há um corpo 3D para lançar */ body: false };
 export function requestSkill(c: SkillCast) { skillInput.req = c; skillInput.id++; }
 
 /** Alvos que podem ser acertados (bonecos, criaturas). */
 /** `hit` devolve o dano que entrou (com a defesa), se o alvo tiver vida. */
-export interface Target { x: number; z: number; r: number; hit: (damage: number) => number | void; /** estado com dano por segundo (envenenado, queimando) */ afflict?: (key: string, seconds: number, dps: number) => void }
+export interface Target { x: number; z: number; r: number; hit: (damage: number) => number | void; /** criatura do mundo (para a Companion escolher alvos) */ creature?: { slug: string; name: string; level: number; hostile: () => boolean; hp: () => number }; /** estado com dano por segundo (envenenado, queimando) */ afflict?: (key: string, seconds: number, dps: number) => void }
 export const targets = new Map<string, Target>();
 
 /** Acerta tudo no círculo; devolve o maior dano que entrou (-1 = ninguém). */
@@ -71,7 +73,17 @@ export function CombatFx({ world }: { world: WorldShape }) {
   const line = useRef<THREE.Mesh>(null);
   const tip = useRef<THREE.Mesh>(null);
   const charger = useMemo(() => new Charge(gameVfx), []);
-  const pop = (pos: THREE.Vector3, text: string, gold: Num['gold']) => setNums((n) => [...n.slice(-8), { id: ++seq, pos: pos.clone(), text, gold, t: performance.now() }]);
+  // Ajustes: clique esquerdo ataca (segurar carrega o arco); o direito anda e não abre o menu do navegador
+  const { gl } = useThree();
+  useEffect(() => {
+    const el = gl.domElement;
+    const down = (e: PointerEvent) => { if (e.button === 0 && e.pointerType === 'mouse' && settings().click === 'atacar') pressAttack(); };
+    const up = (e: PointerEvent) => { if (e.button === 0) releaseAttack(); };
+    const menu = (e: MouseEvent) => { if (settings().click === 'atacar') e.preventDefault(); };
+    el.addEventListener('pointerdown', down); window.addEventListener('pointerup', up); el.addEventListener('contextmenu', menu);
+    return () => { el.removeEventListener('pointerdown', down); window.removeEventListener('pointerup', up); el.removeEventListener('contextmenu', menu); };
+  }, [gl]);
+  const pop = (pos: THREE.Vector3, text: string, gold: Num['gold']) => (gold === 'drop' || gold === 'heal' || settings().damageNumbers) && setNums((n) => [...n.slice(-8), { id: ++seq, pos: pos.clone(), text, gold, t: performance.now() }]);
 
   useFrame((s, dtRaw) => {
     const dt = Math.min(dtRaw, 0.05), t = s.clock.elapsedTime;

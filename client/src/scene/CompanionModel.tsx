@@ -15,9 +15,14 @@ import { CLEAR_R, companionFocus, moveRequest, resolveCollisions, platformHeight
 import { SpeechBubble } from './SpeechBubble';
 import { Appendages, findAnchors, type AppendageSpec } from './Appendages';
 import { EquipmentLayer, findGearBones } from './Equipment';
-import { aim, combatInput, chargeState, fxQueue, moveInput, skillInput, targets } from './Combat';
+import { aim, combatInput, chargeState, fxQueue, moveInput, requestSkill, skillInput, targets } from './Combat';
 import { canAct, spendStamina, tickVitals, vitals } from './vitals';
-import { useSkills } from '../ui/skillState';
+import { useSkills, aiCast } from '../ui/skillState';
+import { settings } from '../settings';
+import { brain, idleChatter, say } from './brain';
+import { weatherNow } from './Weather';
+import { spendSp } from './vitals';
+import type { Target } from './Combat';
 import { gameVfx } from './vfx/engine';
 import { Shield } from './vfx/recipes';
 import { basicAttack, bowShot, ELEMENTS, expectedDamage, RANK_POWER, type ItemDef, type SpeciesKey } from '@rules';
@@ -251,7 +256,7 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
 
   // ---- ataque: golpe/magia ao apertar; arco carrega enquanto segura e atira ao soltar
   const charge = useRef(0);
-  const cb = useRef({ press: combatInput.pressId, release: combatInput.releaseId, charging: false, held: 0, cd: 0, lunge: 0, want: 0, skill: skillInput.id, move: null as null | { from: THREE.Vector3; to: THREE.Vector3; t: number; dur: number; arc: number } });
+  const cb = useRef({ press: combatInput.pressId, release: combatInput.releaseId, charging: false, held: 0, cd: 0, lunge: 0, want: 0, skill: skillInput.id, ai: { think: 0, skillT: 1, target: null as Target | null, engaged: null as Target | null, fleeFrom: null as Target | null, fleeing: false, hitSeen: 0, lowSaid: 0 }, move: null as null | { from: THREE.Vector3; to: THREE.Vector3; t: number; dur: number; arc: number } });
   useEffect(() => { skillInput.body = true; return () => { skillInput.body = false; }; }, []);
   const prof = useMemo(() => basicAttack(gear?.weapon ?? null, gear?.species), [gear?.weapon, gear?.species]);
   const ESSENCE_FX: Record<string, string> = { fogo: 'chamas', agua: 'gotas', terra: 'pedras', vento: 'vento', luz: 'luz', sombra: 'sombra', gelo: 'gelo', raio: 'raios', natureza: 'folhas', veneno: 'veneno' };
@@ -259,8 +264,9 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
   const damageOf = (mul = 1) => Math.max(1, Math.round(20 * prof.power * (1 + (gear?.poder ?? 0) / 100) * mul));
   // mira do mouse (PC): o ponto do chão sob o cursor, na altura do Companion
   const aimRay = useMemo(() => ({ ray: new THREE.Raycaster(), plane: new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), hit: new THREE.Vector3() }), []);
-  const mouseGround = (state: { camera: THREE.Camera; pointer: THREE.Vector2 }, at: THREE.Vector3) => {
+  const mouseGround = (state: { camera: THREE.Camera; pointer: THREE.Vector2 }, at: THREE.Vector3, use: 'attack' | 'skill' = 'attack') => {
     if (!aim.mouse) return null;
+    if ((use === 'attack' ? settings().attackAim : settings().skillAim) === 'alvo') return null; // Ajustes: mira no monstro mais perto
     aimRay.ray.setFromCamera(state.pointer, state.camera); aimRay.plane.constant = -at.y;
     const h = aimRay.ray.ray.intersectPlane(aimRay.plane, aimRay.hit);
     return h && Math.hypot(h.x - at.x, h.z - at.z) > 0.15 ? h : null;
@@ -293,7 +299,7 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
       mixer.update(dt);
       return;
     }
-    if (s.act === 'faint') { const fa = actions.get('faint'); if (fa) fa.paused = false; p.rotation.z = 0; s.act = ''; }
+    if (s.act === 'faint') { const fa = actions.get('faint'); if (fa) fa.paused = false; p.rotation.z = 0; s.act = ''; say('revive', {}, { force: true }); }
     // sentar (C): fica sentado até mexer
     if (moveInput.sitId !== s.sitId) { s.sitId = moveInput.sitId; s.sitting = !s.sitting; if (s.sitting) { s.target.copy(r.position); s.player = false; } }
     // defesa (segurar E): escudo na frente, anda devagar, corta 75% do dano; gasta stamina
@@ -305,6 +311,72 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
       s.jumpId = moveInput.jumpId;
       if (s.jumpT < 0 && !guard && s.once <= 0 && spendStamina(15)) { s.jumpT = 0; s.sitting = false; const ja = actions.get('jump'); if (ja) { play('jump', 0.08); ja.timeScale = Math.max(1, ja.getClip().duration / 0.62); s.act = 'jump'; } }
     }
+    // ---- cérebro: agir sozinha (explorando, com uma ordem, ou se defendendo). O teclado do jogador manda mais.
+    const conf = settings(), ai = cs.ai, order0 = brain.order;
+    if (order0 && 'until' in order0 && performance.now() > order0.until) brain.order = null;
+    const order = brain.order;
+    const driving = [...keys.current].some((k2) => k2 !== 'shift');
+    ai.think -= dt; ai.skillT -= dt;
+    if (vitals.hitId !== ai.hitSeen) { ai.hitSeen = vitals.hitId; say('hurt', {}, { chance: 0.35 }); }
+    const hpR = vitals.hp / Math.max(1, vitals.hpMax);
+    if (ai.think <= 0) {
+      ai.think = 0.25; ai.target = null; ai.fleeFrom = null;
+      if (!driving && !cs.charging) {
+        let threat: Target | null = null, td = Infinity, prey: Target | null = null, pd = Infinity;
+        const huntR = order?.kind === 'hunt' ? 18 : 12;
+        targets.forEach((tg) => {
+          const c = tg.creature; if (!c || tg.r < 0 || c.hp() <= 0) return;
+          const dd = Math.hypot(tg.x - r.position.x, tg.z - r.position.z);
+          if (c.hostile() && dd < 10 && dd < td) { td = dd; threat = tg; }
+          const fits = order?.kind === 'hunt' ? order.arrived && (!order.creature || order.creature === c.slug) : true;
+          if (fits && dd < huntR && dd < pd) { pd = dd; prey = tg; }
+        });
+        const lowHp = conf.fleeAt > 0 && hpR < conf.fleeAt && !!threat && td < 9;
+        if (order?.kind === 'flee' || lowHp) {
+          ai.fleeFrom = threat;
+          if (lowHp && performance.now() - ai.lowSaid > 15000) { ai.lowSaid = performance.now(); say('low-hp', {}, { force: true }); }
+        } else {
+          const exploring = !!roam.goal?.current;
+          const hunting = order?.kind === 'attack' || order?.kind === 'hunt' || (exploring && conf.posture === 'cacadora');
+          if (hunting && prey) ai.target = prey;
+          else if (conf.posture !== 'pacifica' && threat && td < 7) ai.target = threat; // se defende de quem vem brigar
+        }
+      }
+    }
+    let aiYaw: number | null = null;
+    if (!driving && (ai.fleeFrom || order?.kind === 'flee')) {
+      // foge para longe da ameaça (sem ameaça: para longe de onde está, de volta para o começo)
+      const from = ai.fleeFrom;
+      let ux = from ? r.position.x - from.x : -r.position.x, uz = from ? r.position.z - from.z : -r.position.z;
+      const n = Math.hypot(ux, uz) || 1; ux /= n; uz /= n;
+      s.target.set(r.position.x + ux * 6, 0, r.position.z + uz * 6); s.running = true; s.wait = 1.5; s.sitting = false; s.player = false;
+      if (!ai.fleeing) { ai.fleeing = true; if (order?.kind !== 'flee') say('flee', {}, { chance: 0.8 }); }
+    } else ai.fleeing = false;
+    if (!driving && ai.target && !ai.fleeFrom && order?.kind !== 'flee') {
+      const tg = ai.target, dx = tg.x - r.position.x, dz = tg.z - r.position.z, dd = Math.hypot(dx, dz) || 1;
+      const reach = (prof.ranged === 'none' ? prof.range * 0.85 : Math.min(prof.range * 0.8, 6)) + tg.r;
+      if (ai.engaged !== tg) { ai.engaged = tg; say('engage', { m: tg.creature?.name }, { chance: 0.6 }); }
+      s.sitting = false; s.player = false; s.wait = 1;
+      if (dd > reach) { s.target.set(tg.x - (dx / dd) * reach * 0.8, 0, tg.z - (dz / dd) * reach * 0.8); s.running = true; }
+      else {
+        s.target.copy(r.position); aiYaw = Math.atan2(dx, dz);
+        if (prof.ranged !== 'charged') cs.want = Math.max(cs.want, 0.15);
+        else if (cs.cd <= 0 && canAct() && spendStamina(6)) {
+          // arco: tiro rápido (sem carregar) no ritmo da arma
+          const shot = bowShot(0.9, prof.range, prof.power);
+          s.yaw = aiYaw; r.rotation.y = s.yaw; cs.cd = 1 / prof.cadence + 0.5;
+          if (actions.has('shoot')) { play('shoot', 0.08); actions.get('shoot')!.timeScale = 1.6; s.act = ''; s.once = 0.45; }
+          fxQueue.push({ kind: 'arrow', pos: r.position.clone(), yaw: s.yaw, range: shot.range, speed: shot.speed, damage: damageOf(shot.power), color: fxColor, perfect: false });
+        }
+      }
+      // habilidades da barra, quando dá (SP, recarga, alcance)
+      if (ai.skillT <= 0 && s.once <= 0) {
+        ai.skillT = 1.4 + Math.random() * 1.2;
+        const used = aiCast(dd, { x: tg.x, z: tg.z }, gear?.color ?? '#ffd56b', hpR, vitals.sp, spendSp, (c) => requestSkill(c));
+        if (used) say('skill', {}, { chance: 0.45 });
+      }
+    } else if (!ai.target) ai.engaged = null;
+
     // apertar guarda o pedido por um instante (não perde o clique feito no fim do golpe anterior);
     // segurar F/Espaço continua atacando no ritmo da arma
     if (combatInput.pressId !== cs.press) {
@@ -327,8 +399,9 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
         play(kind, 0.06); a.timeScale = ts; s.act = ''; s.once = Math.min(0.75, (dur / ts) * 0.8);
       } else { s.once = 0.3; cs.lunge = 0.3; }
       s.target.copy(r.position);
-      const m = mouseGround(state, r.position);
-      if (m) { s.yaw = Math.atan2(m.x - r.position.x, m.z - r.position.z); r.rotation.y = s.yaw; }
+      const m = aiYaw !== null ? null : mouseGround(state, r.position);
+      if (aiYaw !== null) { s.yaw = aiYaw; r.rotation.y = s.yaw; say('attack', {}, { chance: 0.15 }); }
+      else if (m) { s.yaw = Math.atan2(m.x - r.position.x, m.z - r.position.z); r.rotation.y = s.yaw; }
       else {
         // celular: vira para o alvo mais perto
         let bestD = prof.range + 1.5;
@@ -383,7 +456,7 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
         let best: { x: number; z: number } | null = null, bd = Math.max(sk.range, sk.radius) + 1.5;
         targets.forEach((tg) => { const dd = Math.hypot(tg.x - r.position.x, tg.z - r.position.z); if (dd < bd && dd > 0.3) { bd = dd; best = tg; } });
         const b = best as { x: number; z: number } | null;
-        const mg = mouseGround(state, r.position);
+        const mg = q.aimAt ? new THREE.Vector3(q.aimAt.x, r.position.y, q.aimAt.z) : mouseGround(state, r.position, 'skill');
         if (mg && sk.shape !== 'aura') { s.yaw = Math.atan2(mg.x - r.position.x, mg.z - r.position.z); r.rotation.y = s.yaw; }
         else if (b && sk.shape !== 'aura') { s.yaw = Math.atan2(b.x - r.position.x, b.z - r.position.z); r.rotation.y = s.yaw; }
         const fv = new THREE.Vector3(Math.sin(s.yaw), 0, Math.cos(s.yaw));
@@ -459,6 +532,7 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
       if (s.jumpT >= 0 && actions.has('jump')) { /* pulando parado */ }
       else play(guard && actions.has('block') ? 'block' : s.sitting && actions.has('sit') ? 'sit' : night && actions.has('sleep') ? 'sleep' : speech && actions.has('talk') ? 'talk' : 'idle');
       if (s.sitting || guard) s.wait = Math.max(s.wait, 1);
+      if (!ai.target && !ai.fleeing) idleChatter({ raining: weatherNow.kind === 'chuva' || weatherNow.kind === 'tempestade', night });
       const goal = roam.goal?.current;
       if (goal && !s.player && s.wait > 0.4) s.wait = 0.4; // explorando: pausa curta entre os trechos
       if (s.wait <= 0 && !(night && actions.has('sleep'))) {

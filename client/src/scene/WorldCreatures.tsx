@@ -15,6 +15,8 @@ import { numQueue, skillInput, targets } from './Combat';
 import { gameVfx } from './vfx/engine';
 import { burst } from './vfx/recipes';
 import { hurtCompanion } from './vitals';
+import { brain, onKill, say } from './brain';
+import { useGame } from '../store';
 
 const ESSENCE_STYLE: Record<string, string> = { fogo: 'chamas', agua: 'gotas', terra: 'pedras', vento: 'vento', luz: 'luz', sombra: 'sombra', gelo: 'gelo', raio: 'raios', natureza: 'folhas', veneno: 'veneno' };
 
@@ -54,6 +56,7 @@ function WorldCreature({ cw, def, spawn }: { cw: CompanionWorld; def: CreatureDe
     const id = 'creature:' + spawn.id;
     targets.set(id, {
       x: spawn.x, z: spawn.z, r: Math.max(0.35, def.size * 0.45),
+      creature: { slug: def.slug, name: def.name, level: spawn.level, hostile: () => life.current.engaged || life.current.provoked, hp: () => Math.max(0, life.current.hp / stats.vida) },
       // envenenado acumula até 3 doses (renova o tempo); queimando só renova
       afflict: (key, seconds, dps) => {
         const L = life.current; if (L.dead > 0) return;
@@ -76,6 +79,13 @@ function WorldCreature({ cw, def, spawn }: { cw: CompanionWorld; def: CreatureDe
           gameVfx.after(0.12, () => burst(gameVfx, 'sombra', at.clone().setY(at.y + 0.2), def.color, 0.9, gy));
           rollDrops(def, Math.random).forEach((d, i) => numQueue.push({ pos: at.clone().setY(at.y + 0.6 + i * 0.32), text: `+${d.qty} ${d.item}`, kind: 'drop' }));
           L.dead = def.respawn; setDead(true);
+          // bestiário (Análise de Partículas), caçada e fala
+          onKill(def.slug, def.name);
+          void useGame.getState().recordKill(def.slug, spawn.level).then((r) => {
+            if (r?.analyzed) say('analyzed', { m: def.name }, { force: true });
+            else if (r?.first) say('first-kill', { m: def.name }, { force: true });
+            else say('kill', { m: def.name }, { chance: 0.6 });
+          });
           const tg = targets.get(id); if (tg) tg.r = -99; // fora do alcance enquanto não volta
         }
         return dealt;
@@ -198,6 +208,12 @@ function WorldCreature({ cw, def, spawn }: { cw: CompanionWorld; def: CreatureDe
     const al = mode === 'chase';
     if (al !== s.alert) { s.alert = al; setAlert(al); }
     const nr = dC < 9;
+    // primeira vez que ela vê esta espécie (na sessão): comenta; nunca derrotada = "nunca vi isso"
+    if (dC < 7 && !brain.seen.has(def.slug)) {
+      brain.seen.add(def.slug);
+      const known = useGame.getState().snap?.bestiary?.some((e) => e.slug === def.slug);
+      say(known ? 'see-known' : 'see-new', { m: def.name }, { chance: known ? 0.5 : 1 });
+    }
     if (nr !== s.near) { s.near = nr; setNear(nr); }
   });
   return (

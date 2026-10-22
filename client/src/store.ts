@@ -3,7 +3,7 @@ import { DEFAULT_ITEMS, type Equipped, type ItemDef } from '@rules';
 import { QUESTS, QUEST_REWARDS, SECRET_BY_KEY, SECRET_XP, SECRET_BOOST_TURNS, ELEMENTS, type QuestKey, type SecretKey } from '@rules';
 import type { Backend, Snapshot } from './backend/types';
 
-export type Tab = 'chat' | 'memories' | 'diary' | 'quests' | 'inventory' | 'recipes' | 'skills' | 'bond';
+export type Tab = 'chat' | 'memories' | 'diary' | 'quests' | 'inventory' | 'recipes' | 'skills' | 'bond' | 'settings';
 
 export interface Toast { id: number; text: string; tone: 'gold' | 'soft' | 'warn' }
 
@@ -33,6 +33,11 @@ interface State {
   run(fn: (b: Backend) => Promise<Snapshot>): Promise<void>;
   toast(text: string, tone?: Toast['tone']): void;
   celebrate(c: Omit<Celebration, 'id'>): void;
+  /** fala curta da Companion no jogo (balão; sem IA) */
+  bark: { id: number; text: string } | null;
+  sayBark(text: string): void;
+  /** Criatura derrotada: registra no bestiário (sem travar a conversa) e comemora o que for novo. */
+  recordKill(slug: string, level: number): Promise<import('./backend/types').CombatResult | null>;
   dismissCelebration(): void;
   dismissAwakenCall(): void;
 }
@@ -51,6 +56,8 @@ export const useGame = create<State>((set, get) => ({
   pulse: 0,
   burst: 0,
   toasts: [],
+  bark: null,
+  sayBark: (text) => set({ bark: { id: ++seq, text } }),
   celebrations: [],
   awakenCall: false,
   items: DEFAULT_ITEMS,
@@ -65,6 +72,21 @@ export const useGame = create<State>((set, get) => ({
     setTimeout(() => set({ toasts: get().toasts.filter((x) => x.id !== t.id) }), 4200);
   },
   celebrate: (c) => set({ celebrations: [...get().celebrations, { ...c, id: ++seq }] }),
+  recordKill: async (slug, level) => {
+    const b = get().backend;
+    if (!b?.combatKill || !get().snap?.companion) return null;
+    try {
+      const snap = await b.combatKill(slug, level);
+      // mantém a resposta da conversa em andamento; só troca bestiário e memórias
+      const cur = get().snap;
+      set({ snap: cur ? { ...cur, bestiary: snap.bestiary, memories: snap.memories } : snap });
+      const r = snap.combat ?? null;
+      if (r?.first) get().toast(`Memória de Combate: ${r.entry.name}`, 'soft');
+      if (r?.analyzed) get().celebrate({ kind: 'quest', eyebrow: 'Análise de Partículas', title: r.entry.name, subtitle: 'Análise completa: fraquezas, atributos e o que solta estão no Bestiário (Memórias).' });
+      if (r?.milestone) get().celebrate({ kind: 'secret', eyebrow: 'Quest: Análise de Partículas', title: `${r.milestone} espécie${r.milestone > 1 ? 's' : ''} analisada${r.milestone > 1 ? 's' : ''}`, subtitle: 'As partículas da Bruma contam quem são as criaturas do mundo.' });
+      return r;
+    } catch { return null; }
+  },
   dismissCelebration: () => set({ celebrations: get().celebrations.slice(1) }),
   dismissAwakenCall: () => {
     const id = get().snap?.companion?.id;

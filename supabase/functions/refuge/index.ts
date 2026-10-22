@@ -5,7 +5,8 @@ import {
   resolveConfig, levelForXp, levelProgress, initialQuests, applyTurn, parseModelTurn, buildChatSystemPrompt,
   offlineTurn, assistDiscoveries, buildDreamPrompt, parseDream, checkAwakening, buildIdentityContract, gameTime, companionDay, clampText,
   QUESTS, QUEST_REWARDS, validateSetup, evaluateSecrets, isQuestionAboutCompanion, buildMusePrompt,
-  SECRET_BY_KEY, SECRET_XP, SECRET_BOOST_TURNS, buildArtPrompt, ANIM_KINDS, type SecretKey, type GameConfig, type IdentityContractV1, type QuestState, type Discoveries, type MemoryLite, type ChatLine,
+  SECRET_BY_KEY, SECRET_XP, SECRET_BOOST_TURNS, buildArtPrompt, ANIM_KINDS, SPECIES, DEFAULT_CREATURES, sanitizeCreature, recordKill, combatMemoryLines, combatMemoryText,
+  type BestiaryEntry, type CreatureDef, type SecretKey, type GameConfig, type IdentityContractV1, type QuestState, type Discoveries, type MemoryLite, type ChatLine,
 } from './rules/index.ts';
 import { complete, providerName } from './llm.ts';
 
@@ -159,9 +160,66 @@ async function adminUpdate(db: SupabaseClient, body: Record<string, unknown>) {
   return adminJobs(db);
 }
 
+// ---------------------------------------------------------------------------
+// Corpo e Memórias de Combate (o que entra no prompt depois do despertar)
+
+/** Criaturas do Invocador (publicadas) ou as de reserva. */
+async function creatureDefs(db: SupabaseClient): Promise<CreatureDef[]> {
+  const { data } = await db.from('creatures').select('slug,name,data').eq('status', 'published');
+  const list = (data ?? []).map((r) => sanitizeCreature({ ...(r.data as object), slug: r.slug, name: r.name })).filter((x): x is CreatureDef => !!x);
+  return list.length ? list : DEFAULT_CREATURES;
+}
+
+const bestiaryRow = (r: Record<string, unknown>): BestiaryEntry => ({ slug: r.creature_slug as string, name: r.name as string, kills: r.kills as number, particles: r.particles as number, firstAt: r.first_at as string, lastAt: r.last_at as string });
+
+async function loadBestiary(db: SupabaseClient, cid: string): Promise<BestiaryEntry[]> {
+  const { data } = await db.from('companion_bestiary').select('creature_slug,name,kills,particles,first_at,last_at').eq('companion_id', cid).order('last_at', { ascending: false }).limit(200);
+  return (data ?? []).map(bestiaryRow);
+}
+
+/** Forma depois do despertar (classe e descrição do contrato) e Memórias de Combate, para o prompt. */
+async function bodyAndCombat(db: SupabaseClient, c: Record<string, unknown>) {
+  if (c.stage !== 'awakened') return { body: { awakened: false }, combat: [] as string[] };
+  const contract = c.identity_contract as IdentityContractV1 | null;
+  const fam = contract?.species?.family as keyof typeof SPECIES | undefined;
+  const sp = fam ? SPECIES[fam] : null;
+  const [entries, defs] = await Promise.all([loadBestiary(db, c.id as string), creatureDefs(db)]);
+  return {
+    body: { awakened: true, formLabel: sp ? `humanoide da classe ${sp.label} (${sp.lineage})` : 'humanoide', formDescription: contract?.species?.description || undefined, hasModel: true },
+    combat: combatMemoryLines(entries, defs),
+  };
+}
+
+/** Derrota de uma criatura no mundo: bestiário, partículas e as Memórias de Combate. */
+async function actCombatKill(db: SupabaseClient, c: Record<string, unknown>, body: Record<string, unknown>) {
+  const cid = c.id as string;
+  if (c.stage !== 'awakened') throw new HttpError(409, 'Só depois do despertar.');
+  const slug = typeof body.slug === 'string' && /^[a-z0-9][a-z0-9-]{1,40}$/.test(body.slug) ? body.slug : null;
+  if (!slug) throw new HttpError(400, 'Criatura inválida.');
+  const level = Math.max(1, Math.min(60, Math.round(Number(body.level) || 1)));
+  // freio contra spam: no máximo 40 derrotas por minuto
+  const { count } = await db.from('companion_events').select('id', { count: 'exact', head: true }).eq('companion_id', cid).eq('kind', 'combat.kill').gte('created_at', new Date(Date.now() - 60_000).toISOString());
+  if ((count ?? 0) >= 40) throw new HttpError(429, 'Calma! 🌙');
+  const defs = await creatureDefs(db);
+  const def = defs.find((d) => d.slug === slug) ?? DEFAULT_CREATURES.find((d) => d.slug === slug) ?? null;
+  const name = def?.name ?? slug;
+  const all = await loadBestiary(db, cid);
+  const prev = all.find((e) => e.slug === slug) ?? null;
+  const now = new Date().toISOString();
+  const r = recordKill(prev, all, { slug, name, level }, now);
+  await db.from('companion_bestiary').upsert({ companion_id: cid, creature_slug: slug, name, kills: r.entry.kills, particles: r.entry.particles, first_at: r.entry.firstAt, last_at: now });
+  const ev = await event(db, cid, 'system', 'combat.kill', { slug, level, first: r.first, analyzed: r.analyzedNow });
+  const me = (c.discoveries as Discoveries).name ?? 'O Companion';
+  const mems: { subject: string; content: string; importance: number; source_event_ids: number[]; origin: string; companion_id: string }[] = [];
+  if (r.first) mems.push({ companion_id: cid, subject: 'companion', content: combatMemoryText('first', me, def, name, level), importance: 3, source_event_ids: [ev], origin: 'combat' });
+  if (r.analyzedNow) mems.push({ companion_id: cid, subject: 'companion', content: combatMemoryText('analyzed', me, def, name, level), importance: 4, source_event_ids: [ev], origin: 'combat' });
+  if (mems.length) await db.from('companion_memories').insert(mems);
+  return { entry: r.entry, first: r.first, analyzed: r.analyzedNow, analyzedCount: r.analyzedCount, milestone: r.milestone };
+}
+
 async function snapshot(db: SupabaseClient, c: Record<string, unknown>, cfg: GameConfig) {
   const cid = c.id as string;
-  const [quests, mem, diary, inv, chat, job, secrets, recipes] = await Promise.all([
+  const [quests, mem, diary, inv, chat, job, secrets, recipes, bestiary] = await Promise.all([
     loadQuests(db, cid),
     db.from('companion_memories').select('id,subject,content,importance,source_event_ids,origin,created_at').eq('companion_id', cid).eq('status', 'active').order('id', { ascending: false }).limit(60),
     db.from('companion_diary').select('id,game_day,body,source_event_ids,created_at').eq('companion_id', cid).order('id', { ascending: false }).limit(30),
@@ -170,6 +228,7 @@ async function snapshot(db: SupabaseClient, c: Record<string, unknown>, cfg: Gam
     db.from('visual_jobs').select('id,status,contract_version,created_at,updated_at,result').eq('companion_id', cid).order('created_at', { ascending: false }).limit(1),
     db.from('companion_secrets').select('secret_key,achieved_at').eq('companion_id', cid).order('achieved_at'),
     db.from('companion_recipes').select('id,name,description,ingredients,created_at').eq('companion_id', cid).order('id', { ascending: false }).limit(50),
+    loadBestiary(db, cid),
   ]);
   const d = c.discoveries as Discoveries;
   const level = levelForXp(c.bond_xp as number, cfg);
@@ -187,6 +246,7 @@ async function snapshot(db: SupabaseClient, c: Record<string, unknown>, cfg: Gam
     visualJob: await withArtUrl(db, job.data?.[0] ?? null),
     secrets: (secrets.data ?? []).map((r) => ({ key: r.secret_key, achievedAt: r.achieved_at })),
     recipes: recipes.data ?? [],
+    bestiary,
     boost: (c.xp_boost as number) ?? 0,
     config: cfg,
     provider: providerName(),
@@ -275,7 +335,8 @@ async function actChat(db: SupabaseClient, c: Record<string, unknown>, message: 
   const playerEventId = await event(db, cid, 'player', 'chat.player', { text: message, ...(askedCompanion ? { askedCompanion: true } : {}) });
 
   const phase = gameTime(Date.now()).phase;
-  const system = buildChatSystemPrompt({ discoveries: d, quests, bondLevel: level, memories, history, gamePhase: phase, firstMeeting: history.length === 0, recipes: recipeNames, seed: playerEventId });
+  const bc = await bodyAndCombat(db, c);
+  const system = buildChatSystemPrompt({ discoveries: d, quests, bondLevel: level, memories, history, gamePhase: phase, firstMeeting: history.length === 0, recipes: recipeNames, seed: playerEventId, body: bc.body, combat: bc.combat });
   let model;
   let source: string = providerName();
   let diag: string | undefined;
@@ -394,7 +455,8 @@ async function actMuse(db: SupabaseClient, c: Record<string, unknown>, cfg: Awai
     db.from('companion_recipes').select('name').eq('companion_id', cid).limit(20),
   ]);
   const d = c.discoveries as Discoveries;
-  const system = buildMusePrompt({ discoveries: d, quests, bondLevel: levelForXp(c.bond_xp as number, cfg), memories: (mems.data ?? []) as MemoryLite[], history, gamePhase: gameTime(Date.now()).phase, firstMeeting: false, recipes: (recipeRows.data ?? []).map((r) => r.name as string), seed: Date.now() >> 16 });
+  const bc = await bodyAndCombat(db, c);
+  const system = buildMusePrompt({ discoveries: d, quests, bondLevel: levelForXp(c.bond_xp as number, cfg), memories: (mems.data ?? []) as MemoryLite[], history, gamePhase: gameTime(Date.now()).phase, firstMeeting: false, recipes: (recipeRows.data ?? []).map((r) => r.name as string), seed: Date.now() >> 16, body: bc.body, combat: bc.combat });
   let reply = '', mood = 'curiosa';
   try {
     const raw = await complete(system, history, '(a pessoa está em silêncio há um tempo)');
@@ -468,6 +530,10 @@ Deno.serve(async (req) => {
       const r = await actMuse(db, c, cfg);
       const snap = await snapshot(db, c, cfg);
       return json(200, r.mused ? { ...snap, turn: { reply: r.reply, mood: r.mood, source: 'muse', xp: { total: 0, parts: { message: 0, discoveries: 0, memories: 0 }, reason: 'muse', meaningful: false }, completed: [], rejected: [], newMemories: 0, levelUp: null, awakeningReady: snap.awakening.ready } } : snap);
+    }
+    if (action === 'combat.kill') {
+      const r = await actCombatKill(db, c, body);
+      return json(200, { ...(await snapshot(db, c, cfg)), combat: r });
     }
     if (action === 'awaken') {
       await actAwaken(db, c, cfg);

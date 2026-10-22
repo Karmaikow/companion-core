@@ -8,7 +8,7 @@
 import { useEffect, useMemo } from 'react';
 import { create } from 'zustand';
 import {
-  DEFAULT_SKILLS, buildSkillTree, validateAllocation, treeEffects, skillPoints, sanitizeSkill,
+  DEFAULT_SKILLS, ELEMENTS, RANK_COOLDOWN, buildSkillTree, validateAllocation, treeEffects, skillPoints, sanitizeSkill,
   type Allocation, type SkillDef, type SkillTree,
 } from '@rules';
 import { useGame } from '../store';
@@ -30,6 +30,8 @@ interface SkillState {
   saving: boolean;
   /** animação escolhida pelo ADM por habilidade ("__basic" = ataque básico): "clip:<nome>" | "kind:<tipo>" */
   animMap: Record<string, string>;
+  /** habilidades abertas (com nível) — para a Companion usar sozinha */
+  unlocked: { skill: SkillDef; level: number }[];
   setCatalog: (c: SkillDef[]) => void;
   setAlloc: (a: Allocation) => void;
   setBar: (slots: (string | null)[], removed?: string[]) => void;
@@ -47,6 +49,7 @@ export const useSkills = create<SkillState>((set) => ({
   ready: {},
   saving: false,
   animMap: {},
+  unlocked: [],
   setCatalog: (catalog) => set({ catalog }),
   setAlloc: (alloc) => set({ alloc }),
   setBar: (bar, removed) => set((s) => ({ bar, removed: removed ?? s.removed })),
@@ -135,6 +138,7 @@ export function useSkillSync() {
 
   // habilidade nova → primeiro espaço livre; habilidade que saiu da árvore → some da barra
   const open = unlocked.map((u) => u.skill.slug).join(',');
+  useEffect(() => { useSkills.setState({ unlocked }); }, [open, unlocked]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!c) return;
     const { bar, removed } = useSkills.getState();
@@ -151,3 +155,28 @@ export function useSkillSync() {
 
 // testes no navegador (só no dev)
 if (import.meta.env.DEV && typeof window !== 'undefined') (window as unknown as { __skills: unknown }).__skills = { useSkills, DEFAULT_SKILLS, useGame, buildSkillTree, persistAlloc };
+
+/** Cor do efeito de uma habilidade (do Companion, da essência ou fixa). */
+export function skillColor(s: SkillDef, companion: string): string {
+  if (s.vfx.color === 'companion') return companion;
+  if (s.vfx.color === 'essence') return s.essence ? ELEMENTS[s.essence].glow : companion;
+  return s.vfx.color;
+}
+export const skillCooldown = (s: SkillDef, level: number) => Math.max(0.3, s.cooldown * (1 - RANK_COOLDOWN * (level - 1)));
+
+/**
+ * A Companion lutando sozinha: usa uma habilidade da barra que esteja pronta, caiba no SP e alcance o alvo
+ * (as de cura só com a vida abaixo de 60%). Mesmas regras de SP e recarga do jogador.
+ */
+export function aiCast(dist: number, aimAt: { x: number; z: number }, companionColor: string, hpRatio: number, sp: number, spend: (n: number) => boolean, request: (c: { skill: SkillDef; level: number; color: string; aimAt: { x: number; z: number } }) => void): SkillDef | null {
+  const st = useSkills.getState(), now = performance.now();
+  const options = st.bar.map((slug) => st.unlocked.find((u) => u.skill.slug === slug)).filter((u): u is { skill: SkillDef; level: number } => !!u)
+    .filter(({ skill: s }) => (st.ready[s.slug] ?? 0) <= now && s.energy <= sp)
+    .filter(({ skill: s }) => (s.heal > 0 && s.power <= 0 ? hpRatio < 0.6 : s.shape === 'aura' ? dist <= s.radius + 0.6 : dist <= Math.max(s.range, 1.2) + 0.6))
+    .sort((a, b) => (b.skill.heal > 0 && hpRatio < 0.4 ? 1 : 0) - (a.skill.heal > 0 && hpRatio < 0.4 ? 1 : 0) || b.skill.power - a.skill.power);
+  const pick = options[0];
+  if (!pick || !spend(pick.skill.energy)) return null;
+  st.setReady(pick.skill.slug, now + (skillCooldown(pick.skill, pick.level) + pick.skill.windup) * 1000);
+  request({ skill: pick.skill, level: pick.level, color: skillColor(pick.skill, companionColor), aimAt });
+  return pick.skill;
+}

@@ -6,7 +6,7 @@
 import {
   DEFAULT_CONFIG, initialQuests, applyTurn, offlineTurn, levelForXp, levelProgress, checkAwakening,
   buildIdentityContract, companionDay, QUEST_REWARDS, validateSetup, evaluateSecrets, isQuestionAboutCompanion, gameTime,
-  SECRET_BY_KEY, SECRET_XP, SECRET_BOOST_TURNS, type SecretKey, type Discoveries, type QuestState, type IdentityContractV1,
+  SECRET_BY_KEY, SECRET_XP, SECRET_BOOST_TURNS, DEFAULT_CREATURES, recordKill, combatMemoryText, type BestiaryEntry, type SecretKey, type Discoveries, type QuestState, type IdentityContractV1,
   type CompanionSetup,
 } from '@rules';
 import type { Backend, Snapshot, MemoryRow, DiaryRow, InventoryRow, TimelineRow } from './types';
@@ -29,6 +29,7 @@ interface LocalSave {
   seq: number;
   secrets?: { key: string; achievedAt: string }[];
   boost?: number;
+  bestiary?: BestiaryEntry[];
 }
 
 const KEY = 'companion-core:local:v1';
@@ -72,6 +73,7 @@ export class LocalBackend implements Backend {
       timeline: s.events.filter((e) => ['chat.player', 'chat.companion', 'quest.completed', 'identity.renamed', 'secret.found', 'bond.level', 'companion.awakened'].includes(e.kind)).slice(-60),
       secrets: s.secrets ?? [],
       recipes: [],
+      bestiary: [...(s.bestiary ?? [])].sort((a, b) => b.lastAt.localeCompare(a.lastAt)),
       boost: s.boost ?? 0,
       visualJob: s.contract ? { id: 'local', status: 'queued', contract_version: 1, created_at: s.awakenedAt ?? '' } : null,
       config: cfg,
@@ -93,6 +95,23 @@ export class LocalBackend implements Backend {
   }
 
   async state() { return this.snap(); }
+
+  /** Derrota de uma criatura (offline: as criaturas de reserva dão o nome e a análise). */
+  async combatKill(slug: string, level: number) {
+    const s = this.s; if (!s) return this.snap();
+    const all = (s.bestiary ??= []);
+    const def = DEFAULT_CREATURES.find((d) => d.slug === slug) ?? null;
+    const prev = all.find((e) => e.slug === slug) ?? null;
+    const now = new Date().toISOString();
+    const r = recordKill(prev, all, { slug, name: def?.name ?? slug, level }, now);
+    if (prev) Object.assign(prev, r.entry); else all.push(r.entry);
+    const ev = this.ev(s, 'system', 'combat.kill', { slug, level, first: r.first, analyzed: r.analyzedNow });
+    const me = s.discoveries.name ?? 'O Companion';
+    if (r.first) s.memories.push({ id: ++s.seq, subject: 'companion', content: combatMemoryText('first', me, def, r.entry.name, level), importance: 3, source_event_ids: [ev], origin: 'combat', created_at: now });
+    if (r.analyzedNow) s.memories.push({ id: ++s.seq, subject: 'companion', content: combatMemoryText('analyzed', me, def, r.entry.name, level), importance: 4, source_event_ids: [ev], origin: 'combat', created_at: now });
+    save(s);
+    return this.snap({ combat: { entry: r.entry, first: r.first, analyzed: r.analyzedNow, analyzedCount: r.analyzedCount, milestone: r.milestone } });
+  }
 
   async create(setup?: CompanionSetup) {
     if (!this.s) {

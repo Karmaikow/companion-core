@@ -17,6 +17,9 @@ import type { WeatherKind } from '@rules';
 import { CombatFx } from './Combat';
 import type { CompanionModelFiles } from '../backend/types';
 import { CompanionModel, type Roam } from './CompanionModel';
+import { brain, notifyPlayer, say, type Place } from './brain';
+import { useGame } from '../store';
+import { settings } from '../settings';
 import { companionFocus, moveRequest, colliders, smooth, type WorldShape } from './world';
 import { GrassBlades, GlbInstances, AssetBoundary, Sky, CameraRig, WindClock, ClickMarker, Ambient, type Spot } from './Biome';
 import { runeTexture } from './textures';
@@ -90,8 +93,10 @@ function TerrainChunk({ cw, pals, cx, cz, walkable }: { cw: CompanionWorld; pals
     return g;
   }, [cw, pals, cx, cz]);
   useEffect(() => () => geo.dispose(), [geo]);
-  const onClick = walkable ? (e: ThreeEvent<MouseEvent>) => { if (e.delta > 6) return; moveRequest.point.copy(e.point); moveRequest.id++; } : undefined;
-  return <mesh geometry={geo} receiveShadow onClick={onClick}><meshLambertMaterial vertexColors /></mesh>;
+  // clique esquerdo anda (ou ataca, nos Ajustes — aí o direito anda)
+  const onClick = walkable ? (e: ThreeEvent<MouseEvent>) => { if (e.delta > 6 || settings().click === 'atacar') return; moveRequest.point.copy(e.point); moveRequest.id++; } : undefined;
+  const onContextMenu = walkable ? (e: ThreeEvent<MouseEvent>) => { if (settings().click !== 'atacar') return; e.nativeEvent.preventDefault(); moveRequest.point.copy(e.point); moveRequest.id++; } : undefined;
+  return <mesh geometry={geo} receiveShadow onClick={onClick} onContextMenu={onContextMenu}><meshLambertMaterial vertexColors /></mesh>;
 }
 
 // ---------------------------------------------------------------------------
@@ -202,6 +207,17 @@ function Waystone({ site, y, lit, palette }: { site: WorldSite; y: number; lit: 
 function WorldLogic(p: { cw: CompanionWorld; discovered: Set<string>; explore: boolean; goal: { current: THREE.Vector3 | null }; onCenter: (c: [number, number]) => void; onRegion: (s: WorldSite) => void; onDiscover: (s: WorldSite) => void; onHome: () => void }) {
   const props = useRef(p); props.current = p;
   const st = useRef({ t: 0, center: '', site: null as WorldSite | null, away: false, asked: new Set<string>() });
+  // lugares que ela conhece pelo nome (pedras-guia e regiões) — para "vá até a Floresta Densa"
+  useEffect(() => {
+    const out: Place[] = p.cw.sites.filter((x) => !x.home).map((x) => ({ name: x.name, x: x.x, z: x.z }));
+    p.cw.biomes.forEach((b, i) => {
+      let best: WorldSite | null = null, bd = Infinity;
+      for (const x of p.cw.sites) if (!x.home && x.biome === i) { const d = Math.hypot(x.x, x.z); if (d < bd) { bd = d; best = x; } }
+      if (best && !out.some((o) => o.name === b.name)) out.push({ name: b.name, x: best.x, z: best.z });
+    });
+    brain.places = out;
+    return () => { brain.places = []; };
+  }, [p.cw]);
   useFrame((_, dt) => {
     const s = st.current, P = props.current;
     s.t += dt; if (s.t < 0.2) return; s.t = 0;
@@ -217,6 +233,21 @@ function WorldLogic(p: { cw: CompanionWorld; discovered: Set<string>; explore: b
     const r0 = Math.hypot(f.x, f.z);
     if (r0 > 6) s.away = true;
     if (s.away && r0 < 1.2) { s.away = false; P.onHome(); }
+    // ordens: ir até um lugar (e avisar ao chegar) ou caçar num lugar (vai até lá primeiro)
+    const o = brain.order;
+    const dest = o?.kind === 'goto' ? { name: o.name, x: o.x, z: o.z } : o?.kind === 'hunt' && o.place && !o.arrived ? o.place : null;
+    if (dest) {
+      if (Math.hypot(dest.x - f.x, dest.z - f.z) < 6) {
+        if (o?.kind === 'goto') {
+          brain.order = null;
+          say('arrive', { p: dest.name }, { force: true });
+          useGame.getState().toast(`${useGame.getState().snap?.companion?.discoveries.name ?? 'Ela'} chegou em ${dest.name}!`, 'gold');
+          if (o.call) notifyPlayer('Cheguei!', `Estou em ${dest.name}.`);
+        } else if (o?.kind === 'hunt') { o.arrived = true; say('region', { p: dest.name }, { force: true }); }
+        P.goal.current = null;
+      } else { if (!P.goal.current) P.goal.current = new THREE.Vector3(); P.goal.current.set(dest.x, 0, dest.z); }
+      return;
+    }
     // explorar sozinho: a pedra-guia ainda não descoberta mais perto
     if (P.explore) {
       let best: WorldSite | null = null, bd = Infinity;

@@ -21,3 +21,6 @@ export * from './species.ts';
 export * from './combat/tree.ts';
 export * from './equipment.ts';
 export * from './weather.ts';
+export * from './bestiary.ts';
+export * from './commands.ts';
+export * from './barks.ts';

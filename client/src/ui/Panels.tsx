@@ -3,6 +3,9 @@ import { useEffect, useRef, useState } from 'react';
 import { QUESTS, QUEST_REWARDS, FORM_FAMILIES, ELEMENTS, SECRETS, SECRET_BY_KEY, type SecretKey } from '@rules';
 import { ItemIcon } from './itemIcons';
 import { useGame } from '../store';
+import { sendPlayerMessage, useMic } from './voice';
+import { useSettings } from '../settings';
+import { BestiaryPanel } from './Bestiary';
 
 const QUEST_FIELD: Record<string, (d: Record<string, unknown>) => string | null> = {
   identity: (d) => (d.name as string) ?? null,
@@ -29,12 +32,16 @@ export function ChatPanel() {
   const online = useGame((s) => s.backend?.kind === 'online');
   const name = snap?.companion?.discoveries.name ?? 'Núcleo';
   useEffect(() => { list.current?.scrollTo({ top: list.current.scrollHeight, behavior: 'smooth' }); }, [lines.length, busy]);
+  const autoSend = useSettings((s) => s.voiceAutoSend);
   const send = () => {
     const m = text.trim();
     if (!m || busy) return;
     setText('');
-    void run((b) => b.chat(m));
+    sendPlayerMessage(m);
   };
+  // microfone: o que ouvir vai para a caixa (e é enviado sozinho, se ligado nos Ajustes)
+  const mic = useMic((t) => { if (autoSend) sendPlayerMessage(t); else setText(t); });
+  void run;
   return (
     <div className="chat">
       <div className="chat-list" ref={list}>
@@ -58,7 +65,8 @@ export function ChatPanel() {
         {busy && <div className="line them typing" aria-label="pensando"><span /><span /><span /></div>}
       </div>
       <form className="chat-input" onSubmit={(e) => { e.preventDefault(); send(); }}>
-        <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Escreva para o seu Companion…" maxLength={1000} aria-label="Mensagem" />
+        <input value={mic.listening ? mic.heard : text} onChange={(e) => setText(e.target.value)} placeholder={mic.listening ? 'Ouvindo… pode falar' : 'Escreva ou fale com o seu Companion…'} maxLength={1000} aria-label="Mensagem" />
+        {mic.supported && <button type="button" className={'mic' + (mic.listening ? ' on' : '')} onClick={() => (mic.listening ? mic.stop() : mic.start())} aria-label={mic.listening ? 'Parar de ouvir' : 'Falar pelo microfone'} title="Falar (ou segure V)">🎙</button>}
         <button type="submit" disabled={busy || !text.trim()}>Enviar</button>
       </form>
     </div>
@@ -66,10 +74,21 @@ export function ChatPanel() {
 }
 
 export function MemoriesPanel() {
-  const mems = useGame((s) => s.snap?.memories ?? []);
+  const all = useGame((s) => s.snap?.memories ?? []);
+  const hasBest = useGame((s) => (s.snap?.bestiary?.length ?? 0) > 0 || s.snap?.companion?.stage === 'awakened');
+  const [view, setView] = useState<'todas' | 'combate'>('todas');
+  const mems = view === 'combate' ? all.filter((m) => m.origin === 'combat') : all;
   const label = { player: 'Sobre você', companion: 'Sobre mim', shared: 'Nós dois' } as const;
-  if (!mems.length) return <p className="empty">Nenhuma memória ainda. Conte algo sobre você — do que gosta, o que viveu hoje.</p>;
+  const tabs = hasBest && (
+    <nav className="mem-tabs" aria-label="Tipo de memória">
+      <button className={view === 'todas' ? 'on' : ''} onClick={() => setView('todas')}>Todas</button>
+      <button className={view === 'combate' ? 'on' : ''} onClick={() => setView('combate')}>Memórias de Combate</button>
+    </nav>
+  );
+  if (view === 'combate') return <>{tabs}<BestiaryPanel />{mems.length > 0 && <ul className="memories">{mems.map((m) => <li key={m.id}><p>{m.content.replace(' [Memória de Combate]', '')}</p><small>{when(m.created_at)}</small></li>)}</ul>}</>;
+  if (!mems.length) return <>{tabs}<p className="empty">Nenhuma memória ainda. Conte algo sobre você — do que gosta, o que viveu hoje.</p></>;
   return (
+    <>{tabs}
     <ul className="memories">
       {mems.map((m) => (
         <li key={m.id}>
@@ -78,10 +97,11 @@ export function MemoriesPanel() {
             <span className="stars" aria-label={`importância ${m.importance} de 5`}>{'●'.repeat(m.importance)}<i>{'●'.repeat(5 - m.importance)}</i></span>
           </div>
           <p>{m.content}</p>
-          <small title={`eventos ${m.source_event_ids.join(', ')}`}>{m.origin === 'dream' ? 'Percebida ao sonhar' : 'Da conversa'} · rastreável a {m.source_event_ids.length} {m.source_event_ids.length === 1 ? 'evento' : 'eventos'}</small>
+          <small title={`eventos ${m.source_event_ids.join(', ')}`}>{m.origin === 'dream' ? 'Percebida ao sonhar' : m.origin === 'combat' ? 'Memória de Combate' : 'Da conversa'} · rastreável a {m.source_event_ids.length} {m.source_event_ids.length === 1 ? 'evento' : 'eventos'}</small>
         </li>
       ))}
     </ul>
+    </>
   );
 }
 

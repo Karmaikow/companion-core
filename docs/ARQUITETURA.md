@@ -367,6 +367,30 @@ Os efeitos deixaram de ser pontos com textura e passaram a usar um motor própri
   - Cada monstro colide com o próprio tamanho (`resolveCollisions(p, raio)`) e é empurrado para fora dos obstáculos em todo quadro, inclusive parado ou recém-nascido.
 - **Cauda e asas:** as desenhadas por código ficam desligadas no jogo; só o modelo 3D aparece. O código continua, para testes (`?cauda=`, `?asas=`) e para uma versão futura, como cauda no próprio rig.
 
+## Memórias de Combate, ordens, falas e voz (v1.15)
+
+- **Ela sabe que tem corpo:** depois do despertar, o prompt (`PromptContext.body`) diz que ela não é mais uma esfera de luz e descreve a forma dela. A regra de "não pode sair do Refúgio" deixa de valer.
+- **Memórias de Combate / Análise de Partículas** (`shared/rules/bestiary.ts`, tabela `companion_bestiary`, ação `combat.kill`):
+  - Cada criatura derrotada solta de 1 a 3 partículas, conforme o nível. Com 3 partículas de uma espécie (`ANALYSIS_TARGET`), a análise fica completa.
+  - A ficha se revela em camadas: 1) temperamento e descrição; 2) jeito de lutar e habilidades; 3) fraquezas, resistências, atributos e o que solta.
+  - Os marcos 1, 3, 5, 10 e 20 de espécies analisadas formam a quest "Análise de Partículas".
+  - O primeiro encontro e a análise completa viram memórias de origem `combat`, que entram no prompt na seção MEMÓRIAS DE COMBATE.
+  - A ação tem limite de 40 abates por minuto.
+- **Ordens pelo chat ou pela voz** (`shared/rules/commands.ts` → `client/src/scene/brain.ts`):
+  - atacar, fugir, parar, ficar em paz;
+  - caçar ("mate 10 monstros na Floresta Densa");
+  - ir até um lugar ("vá até X e me chame quando chegar"; avisa com notificação do navegador se a aba estiver em segundo plano);
+  - coletar (ainda responde que não sabe).
+  - A ordem vira ação na hora e, se o ajuste permitir, também vai para a conversa com a IA.
+- **Falas** (`shared/rules/barks.ts`): frases curtas, sem IA, para ver uma criatura nova ou conhecida, atacar, apanhar, ficar com pouca vida ("Socorro, me ajuda!"), fugir, derrotar, analisar, responder a ordens e passear. O tom muda com os traços (brincalhona, corajosa, serena) e a frequência segue o ajuste "Quanto ela comenta".
+- **IA no mundo** (`CompanionModel`, bloco "cérebro"): a postura vem dos Ajustes (só passeia / se defende / caça). Ela escolhe a ameaça ou a presa, se aproxima, ataca e usa habilidades (`aiCast`), e foge quando a vida cai abaixo do limite.
+- **Ajustes** (`client/src/settings.ts`, salvo no navegador):
+  - clique esquerdo anda ou ataca (no modo ataque, o clique direito anda);
+  - mira do ataque e das habilidades pelo mouse ou no monstro mais perto;
+  - postura, limite de fuga, frequência das falas;
+  - voz das respostas, envio automático do microfone, números de dano.
+- **Voz** (`client/src/ui/voice.ts`): usa o navegador, sem custo. A leitura em voz alta usa SpeechSynthesis pt-BR; o microfone usa SpeechRecognition (botão 🎙 na conversa ou segurar V). Funciona no Chrome e no Edge; o Firefox não reconhece fala.
+
 ## Veneno (v1.14)
 
 - **Essência:** `veneno` (violeta `#b45cff`, sombra roxa escura e brilhos lilás). Fica fora do anel de afinidades: forte contra Natureza e Água, fraca contra Terra e Luz. Recebe mais dano de Terra e Luz e menos de Natureza e Água.
@@ -494,7 +518,9 @@ Prompt com o mundo de fantasia, regra explícita de pronomes ("mim" = a pessoa; 
   responde "Esta conta não é administradora".
 - Grants: este projeto Supabase não concede privilégios automáticos em tabelas novas; o `service_role` recebe grants
   explícitos (migração `20261020173000_mvp1_service_grants.sql`). Sem isso a função falha com 500.
-- Publicar a função: `npm run sync:rules && node scripts/bundle-refuge.mjs` gera `dist-fn/refuge/index.js` (um arquivo, só ASCII).
+- Publicar a função: `npm run sync:rules && node scripts/bundle-refuge.mjs`. O script gera dois formatos:
+  - `dist-fn/refuge/index.js`: um arquivo só, em ASCII.
+  - Publicação leve: o módulo vai em `client/public/fn/refuge.<hash>.js` (servido pelo site em produção) e o stub em `dist-fn/refuge-stub/` (`index.js` + `deps.js`) o importa. O Supabase embute o módulo remoto no deploy, então a função fica congelada naquela versão. Ordem: commit, merge na `main`, esperar o deploy da Vercel e então publicar o stub.
 - Formas do Companion: `node scripts/sprite-lab.mjs` com o Vite em `--port 5199` renderiza uma grade com várias espécies (client/sprite-lab.html).
 - Teste contra o servidor real: `node scripts/e2e-refuge.mjs "oi" "..."` (cria um convidado descartável; `SETUP='{"name":...}'` usa o ritual).
 - Teste no navegador (modo offline): `node scripts/e2e-local.mjs http://localhost:4173/ <pasta>`.

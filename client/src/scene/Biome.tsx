@@ -8,6 +8,7 @@ import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import { BIOME_ROLES, type ModelLook, type BiomeAsset, type BiomeConfig, type BiomePalette, type BiomeZone } from '@rules';
 import { lookUniforms, setLook, withLook } from './look';
+import { settings } from '../settings';
 import { mulberry32, smooth, angDiff, withWind, windTime, companionFocus, moveRequest, colliders, CLEAR_R, RIM_R, type WorldShape } from './world';
 
 const C = (h: string) => new THREE.Color(h);
@@ -34,9 +35,11 @@ export function Terrain({ world, palette, walkable = false }: { world: WorldShap
   }, [world, palette]);
   useEffect(() => () => geo.dispose(), [geo]);
   // clique/toque no chão (sem arrastar): pede para o Companion andar até lá
-  const onClick = walkable ? (e: ThreeEvent<MouseEvent>) => { if (e.delta > 6) return; moveRequest.point.copy(e.point); moveRequest.id++; } : undefined;
+  // clique esquerdo anda (ou ataca, nos Ajustes — aí o direito anda)
+  const onClick = walkable ? (e: ThreeEvent<MouseEvent>) => { if (e.delta > 6 || settings().click === 'atacar') return; moveRequest.point.copy(e.point); moveRequest.id++; } : undefined;
+  const onContextMenu = walkable ? (e: ThreeEvent<MouseEvent>) => { if (settings().click !== 'atacar') return; e.nativeEvent.preventDefault(); moveRequest.point.copy(e.point); moveRequest.id++; } : undefined;
   return (
-    <mesh geometry={geo} receiveShadow onClick={onClick}>
+    <mesh geometry={geo} receiveShadow onClick={onClick} onContextMenu={onContextMenu}>
       <meshLambertMaterial vertexColors />
     </mesh>
   );

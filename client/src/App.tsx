@@ -11,6 +11,9 @@ import { Celebration, AwakenCall } from './ui/Celebration';
 import { Entry } from './ui/Entry';
 import { Creation } from './ui/Creation';
 import { SkillTreePanel } from './ui/SkillTreePanel';
+import { SettingsPanel } from './ui/SettingsPanel';
+import { speak, sendPlayerMessage, useMic } from './ui/voice';
+import { brain } from './scene/brain';
 import { SkillBar } from './ui/SkillBar';
 import { VitalsBars, TouchMoves, FaintCounter } from './ui/VitalsHud';
 import { useSkillSync } from './ui/skillState';
@@ -28,6 +31,7 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'recipes', label: 'Receitas' },
   { key: 'skills', label: 'Habilidades' },
   { key: 'bond', label: 'Vínculo' },
+  { key: 'settings', label: 'Ajustes' },
 ];
 
 function quality(): 'high' | 'low' {
@@ -50,9 +54,29 @@ export function App() {
   useEffect(() => {
     if (!lastReply) return;
     setBubble(lastReply);
+    speak(lastReply);
     const t = setTimeout(() => setBubble(null), Math.max(5000, lastReply.length * 70));
     return () => clearTimeout(t);
   }, [lastReply]);
+  // falas curtas no jogo (ao ver monstros, lutando, ordens): balão rápido e voz, se ligada
+  const barkMsg = useGame((s) => s.bark);
+  useEffect(() => {
+    if (!barkMsg) return;
+    setBubble(barkMsg.text);
+    speak(barkMsg.text);
+    const t = setTimeout(() => setBubble((b) => (b === barkMsg.text ? null : b)), Math.max(2600, barkMsg.text.length * 75));
+    return () => clearTimeout(t);
+  }, [barkMsg]);
+  // segure V (fora de campos de texto) para falar com ela
+  const vmic = useMic((t) => sendPlayerMessage(t));
+  const vmicRef = useRef(vmic); vmicRef.current = vmic;
+  useEffect(() => {
+    const typing = () => { const el = document.activeElement; return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || (el as HTMLElement).isContentEditable); };
+    const down = (e: KeyboardEvent) => { if (e.repeat || typing() || e.key.toLowerCase() !== 'v') return; vmicRef.current.start(); };
+    const up = (e: KeyboardEvent) => { if (e.key.toLowerCase() === 'v') vmicRef.current.stop(); };
+    window.addEventListener('keydown', down); window.addEventListener('keyup', up);
+    return () => { window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); };
+  }, []);
 
   // Silêncio: depois de um tempo sem a pessoa responder, o Companion puxa assunto (online, até 3 vezes por sessão).
   const muses = useRef(0);
@@ -136,6 +160,7 @@ export function App() {
   }, [worldBiomes]);
   // criaturas do Invocador (publicadas); sem nenhuma, as de reserva
   const [creatures, setCreatures] = useState<CreatureDef[]>(DEFAULT_CREATURES);
+  useEffect(() => { brain.defs = creatures; brain.creatures = creatures.map((c) => ({ slug: c.slug, name: c.name })); }, [creatures]);
   useEffect(() => {
     if (place !== 'world') return;
     let alive = true;
@@ -241,7 +266,7 @@ export function App() {
     return () => { window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); window.removeEventListener('blur', releaseAttack); };
   }, []);
 
-  const panel = { chat: ChatPanel, memories: MemoriesPanel, diary: DiaryPanel, quests: QuestsPanel, inventory: InventoryPanel, recipes: RecipesPanel, skills: SkillTreePanel, bond: BondPanel };
+  const panel = { chat: ChatPanel, memories: MemoriesPanel, diary: DiaryPanel, quests: QuestsPanel, inventory: InventoryPanel, recipes: RecipesPanel, skills: SkillTreePanel, bond: BondPanel, settings: SettingsPanel };
   const Panel = tab ? panel[tab] : null;
 
   return (
@@ -303,6 +328,7 @@ export function App() {
           {place === 'world' && regionName && <div className="region-banner" key={regionName}>{regionName}</div>}
           {/* a fala aparece num balão sobre a cabeça do Companion (na cena); aqui só para leitores de tela */}
           {bubble && <div className="sr-only" role="status">{bubble}</div>}
+          {vmic.listening && <div className="listening" role="status"><span>🎙</span>{vmic.heard || 'Ouvindo… pode falar'}</div>}
 
           <nav className="rail" aria-label="Refúgio">
             {TABS.map((t) => (

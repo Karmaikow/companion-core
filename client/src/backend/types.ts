@@ -1,10 +1,12 @@
-import type { Discoveries, QuestState, AwakeningCheck, GameConfig, IdentityContractV1, TurnXp, CompanionSetup } from '@rules';
+import type { Discoveries, QuestState, AwakeningCheck, GameConfig, IdentityContractV1, TurnXp, CompanionSetup, BestiaryEntry } from '@rules';
 
 export interface MemoryRow { id: number; subject: 'player' | 'companion' | 'shared'; content: string; importance: number; source_event_ids: number[]; origin: string; created_at: string }
 export interface DiaryRow { id: number; game_day: number; body: string; source_event_ids: number[]; created_at: string }
 export interface InventoryRow { item_key: string; qty: number; meta: { label?: string; description?: string; quest?: string; [k: string]: unknown }; acquired_at: string }
 export interface RecipeRow { id: number; name: string; description: string; ingredients: { name: string; where?: string }[]; created_at: string }
 export interface TimelineRow { id: number; actor: string; kind: string; payload: Record<string, unknown>; created_at: string }
+
+export interface CombatResult { entry: BestiaryEntry; first: boolean; analyzed: boolean; analyzedCount: number; milestone: number | null }
 
 export interface Snapshot {
   companion: null | {
@@ -27,6 +29,10 @@ export interface Snapshot {
   visualJob?: { id: string; status: string; contract_version: number; created_at: string; artUrl?: string; model?: CompanionModelFiles } | null;
   secrets?: { key: string; achievedAt: string }[];
   recipes?: RecipeRow[];
+  /** Análise de Partículas: criaturas derrotadas e partículas recolhidas */
+  bestiary?: BestiaryEntry[];
+  /** resultado de combat.kill */
+  combat?: CombatResult;
   boost?: number;
   config?: GameConfig;
   provider?: string;
@@ -43,6 +49,8 @@ export interface Backend {
   awaken(): Promise<Snapshot>;
   /** O Companion puxa assunto após um silêncio. */
   muse?(): Promise<Snapshot>;
+  /** Uma criatura derrotada no mundo: bestiário, partículas e Memórias de Combate. */
+  combatKill?(slug: string, level: number): Promise<Snapshot>;
   reset?(): Promise<void>;
   signOut?(): Promise<void>;
 }

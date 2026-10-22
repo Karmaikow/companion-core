@@ -31,5 +31,6 @@ export class OnlineBackend implements Backend {
   dream() { return this.call('dream'); }
   awaken() { return this.call('awaken'); }
   muse() { return this.call('muse'); }
+  combatKill(slug: string, level: number) { return this.call('combat.kill', { slug, level }); }
   async signOut() { await supabase().auth.signOut(); }
 }
