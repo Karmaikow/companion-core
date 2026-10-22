@@ -143,23 +143,11 @@ export interface RecipeDef {
   output: { kind: 'item' | 'tool'; key: string; label: string };
   slots: RecipeSlot[];
 }
+/**
+ * Receitas livres (qualquer classe): só consumíveis. Arco e Cinzel viraram projetos da Forja Taurina (Pacto das
+ * Cinco): equipamento e ferramenta só a Taurina conclui.
+ */
 export const RECIPES: RecipeDef[] = [
-  {
-    id: 'arco-salgueiro', name: 'Arco de Salgueiro', description: 'Um arco que dobra sem quebrar. Madeira flexível vale mais aqui do que madeira rara.',
-    output: { kind: 'item', key: 'arco-de-salgueiro', label: 'Arco de Salgueiro' },
-    slots: [
-      { label: 'Madeira flexível', category: 'madeira', prop: 'flexibilidade', min: 'media', ideal: 'alta', qty: 3 },
-      { label: 'Seiva Azul (dá afinidade de água)', category: 'magico', materials: ['seiva-azul'], qty: 1 },
-    ],
-  },
-  {
-    id: 'cinzel-cobre', name: 'Cinzel de Cobre', description: 'Ferramenta fina: solta gemas inteiras sem rachar. Cobre puro e um cabo firme.',
-    output: { kind: 'tool', key: 'cinzel', label: 'Cinzel de Cobre' },
-    slots: [
-      { label: 'Cobre puro', category: 'minerio', materials: ['minerio-cobre'], prop: 'pureza', min: 'media', ideal: 'alta', qty: 2 },
-      { label: 'Cabo de madeira resistente', category: 'madeira', prop: 'resistencia', min: 'media', ideal: 'alta', qty: 1 },
-    ],
-  },
   {
     id: 'unguento-orvalho', name: 'Unguento de Orvalho', description: 'Remédio que dura na mochila. Folhas comuns e estáveis são as melhores.',
     output: { kind: 'item', key: 'unguento-de-orvalho', label: 'Unguento de Orvalho' },

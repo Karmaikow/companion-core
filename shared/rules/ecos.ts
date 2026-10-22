@@ -72,6 +72,11 @@ export const MATERIALS: Record<string, MaterialDef> = Object.fromEntries([
   M({ id: 'minerio-cobre', name: 'Cobre Nativo', category: 'minerio', rarity: 1, uses: ['Ferramentas finas (cinzel)', 'Lanternas e dobradiças'], ranges: { pureza: [25, 92] }, fixed: { composicao: 'cobre' } }),
   M({ id: 'seiva-azul', name: 'Seiva Azul', category: 'magico', rarity: 2, uses: ['Dá afinidade de água a arcos e varas', 'Lanternas que brilham sem fogo'], ranges: {}, fixed: { efeito: 'brilho e afinidade de água', estabilizacao: 'guardar fechada e longe do sol' } }),
   M({ id: 'quartzo-azul', name: 'Quartzo Azul', category: 'gema', rarity: 3, uses: ['Focos mágicos (inteiro)', 'Pó de encantamento (fragmentos)'], ranges: { integridade: [70, 98] }, fixed: { afinidade: 'água' } }),
+  // superiores (Pacto das Cinco): extraídos só pela classe da fonte; têm alternativas comuns nas receitas
+  M({ id: 'cerne-salgueiro', name: 'Cerne de Salgueiro Antigo', category: 'madeira', rarity: 3, uses: ['Cerne Preservado (Feral) para escudos e arcos superiores'], ranges: { flexibilidade: [70, 98], resistencia: [55, 88] }, fixed: { afinidade: 'água' } }),
+  M({ id: 'agua-da-nascente', name: 'Água de Remanso Profundo', category: 'magico', rarity: 3, uses: ['Agente de Têmpera (Dracônica) no lugar da seiva'], ranges: {}, fixed: { efeito: 'pureza aquática', estabilizacao: 'frasco fechado, frio' } }),
+  M({ id: 'fibra-aerea', name: 'Fibra dos Ventos', category: 'madeira', rarity: 3, uses: ['Tramas leves (Alada)', 'Cordas de arco'], ranges: { flexibilidade: [80, 99], resistencia: [20, 45] }, fixed: { afinidade: 'vento' } }),
+  M({ id: 'cristal-inscrito', name: 'Cristal Inscrito', category: 'gema', rarity: 3, uses: ['Suporte de matrizes rúnicas (Feérica)'], ranges: { integridade: [75, 98] }, fixed: { afinidade: 'luz' } }),
   M({ id: 'quartzo-fragmento', name: 'Fragmentos de Quartzo', category: 'gema', rarity: 2, uses: ['Pó de encantamento', 'Lanternas'], ranges: { integridade: [8, 32] }, fixed: { afinidade: 'água' } }),
 ].map((m) => [m.id, m]));
 
@@ -163,7 +168,11 @@ export const TOOLS: Record<ToolKey, { label: string; icon: string }> = {
   faca: { label: 'Faca de colheita', icon: '🔪' }, machado: { label: 'Machado', icon: '🪓' }, picareta: { label: 'Picareta', icon: '⛏️' }, cinzel: { label: 'Cinzel de Cobre', icon: '🛠️' },
 };
 /** Kit inicial do explorador (o cinzel se fabrica). */
-export const STARTER_TOOLS: ToolKey[] = ['faca', 'machado', 'picareta'];
+/**
+ * Kit inicial: VAZIO (decisão de 22/10, Pacto das Cinco). Ferramentas são equipamentos e só a Forja Taurina as conclui;
+ * a coleta básica funciona sem ferramenta. Fontes futuras (eventos, baús) precisam de origem declarada e finita.
+ */
+export const STARTER_TOOLS: ToolKey[] = [];
 
 export interface YieldSpec { material: string; qty: [number, number]; /** mínimo garantido */ guaranteed: number; chance?: number }
 export interface Approach {
@@ -194,6 +203,8 @@ export interface ResourceNodeKind {
   approaches: Approach[];
   /** o que se vê de longe (indício) */
   sign: string;
+  /** fonte SUPERIOR (Pacto das Cinco): só a classe dessa fonte extrai; Taurinas marcam e anunciam */
+  source?: 'aquatica' | 'pressao' | 'elemental' | 'altitude' | 'corrente' | 'fibra-aerea' | 'flora' | 'caca' | 'deposito' | 'encantada' | 'espiritual' | 'inscricao';
 }
 
 export const NODE_KINDS: Record<string, ResourceNodeKind> = {
@@ -248,6 +259,35 @@ export const NODE_KINDS: Record<string, ResourceNodeKind> = {
       { id: 'inteira', label: 'Soltar a gema inteira', seconds: 14, cost: 3, tool: 'cinzel', yields: [{ material: 'quartzo-azul', qty: [1, 1], guaranteed: 1 }], risk: 'nenhum', riskLevel: 0, effect: 'Esgota o geodo (volta em ~12 h).', pitch: 'Uma gema íntegra para focos mágicos.' },
     ],
   },
+  // ---- fontes superiores (Pacto das Cinco)
+  'salgueiro-antigo': {
+    kind: 'salgueiro-antigo', name: 'Salgueiro Antigo', category: 'madeira', zone: 'bosque', capacity: 4, regenPerHour: 0.5, source: 'flora', sign: 'Um salgueiro enorme, com o cerne exposto num galho caído.',
+    approaches: [
+      { id: 'cerne-cuidadoso', label: 'Extrair o cerne com cuidado', seconds: 10, cost: 1, tool: null, yields: [{ material: 'cerne-salgueiro', qty: [1, 1], guaranteed: 1 }], risk: 'nenhum', riskLevel: 0, effect: 'Preserva as fibras e a árvore.', pitch: 'Pouco, mas as fibras ficam intactas.' },
+      { id: 'cerne-volume', label: 'Abrir o galho inteiro', seconds: 16, cost: 3, tool: null, yields: [{ material: 'cerne-salgueiro', qty: [2, 2], guaranteed: 2 }], risk: 'galho pesado (leve)', riskLevel: 1, effect: 'O galho some até a árvore soltar outro (~6 h).', pitch: 'Mais cerne de uma vez.' },
+    ],
+  },
+  'remanso-profundo': {
+    kind: 'remanso-profundo', name: 'Remanso Profundo', category: 'magico', zone: 'riacho', capacity: 4, regenPerHour: 1, source: 'aquatica', sign: 'Um poço fundo no riacho onde a água fica azul e pesada.',
+    approaches: [
+      { id: 'decantar', label: 'Decantar com paciência', seconds: 12, cost: 1, tool: null, yields: [{ material: 'agua-da-nascente', qty: [1, 1], guaranteed: 1 }], risk: 'nenhum', riskLevel: 0, effect: 'Nenhum.', pitch: 'Água pura, sem turvar o poço.' },
+      { id: 'mergulhar', label: 'Mergulhar no fundo', seconds: 8, cost: 2, tool: null, yields: [{ material: 'agua-da-nascente', qty: [1, 2], guaranteed: 1 }], risk: 'correnteza (leve)', riskLevel: 1, effect: 'Turva o poço por ~2 h.', pitch: 'Mais rápido, às vezes traz mais.' },
+    ],
+  },
+  'liquen-dos-ventos': {
+    kind: 'liquen-dos-ventos', name: 'Líquen dos Ventos', category: 'madeira', zone: 'afloramento', capacity: 4, regenPerHour: 0.8, source: 'corrente', sign: 'Fios prateados que dançam no alto da rocha, onde venta.',
+    approaches: [
+      { id: 'colher-no-vento', label: 'Colher no sopro do vento', seconds: 9, cost: 1, tool: null, yields: [{ material: 'fibra-aerea', qty: [1, 1], guaranteed: 1 }], risk: 'nenhum', riskLevel: 0, effect: 'Os fios voltam rápido.', pitch: 'Fibras inteiras, leves.' },
+      { id: 'arrancar-tufos', label: 'Arrancar os tufos', seconds: 6, cost: 3, tool: null, yields: [{ material: 'fibra-aerea', qty: [2, 2], guaranteed: 2 }], risk: 'altura (leve)', riskLevel: 1, effect: 'A rocha fica pelada por ~4 h.', pitch: 'Bastante fibra de uma vez.' },
+    ],
+  },
+  'pedra-inscrita': {
+    kind: 'pedra-inscrita', name: 'Pedra Inscrita', category: 'gema', zone: 'afloramento', capacity: 2, regenPerHour: 0.2, source: 'inscricao', sign: 'Riscos luminosos na rocha, como uma escrita antiga.',
+    approaches: [
+      { id: 'ler-e-soltar', label: 'Ler a inscrição e soltar o cristal', seconds: 14, cost: 1, tool: null, yields: [{ material: 'cristal-inscrito', qty: [1, 1], guaranteed: 1 }], risk: 'nenhum', riskLevel: 0, effect: 'A inscrição se refaz devagar.', pitch: 'Um cristal íntegro, com a escrita preservada.' },
+      { id: 'quebrar-inscricao', label: 'Quebrar a inscrição', seconds: 6, cost: 2, tool: null, yields: [{ material: 'quartzo-fragmento', qty: [2, 3], guaranteed: 2 }], risk: 'nenhum', riskLevel: 0, effect: 'Apaga a inscrição por ~10 h.', pitch: 'Rápido, mas só sobram fragmentos.' },
+    ],
+  },
 };
 
 /** Viés de cada abordagem nas propriedades (escavar o veio dá cobre mais puro; lascas soltas são mais fracas). */
@@ -273,6 +313,10 @@ export const VALE_NODES: ResourceNode[] = [
   { id: 'granito-topo', kind: 'granito', x: 11.2, z: 43.5 },
   { id: 'cobre-veio', kind: 'cobre', x: 12.4, z: 39 },
   { id: 'geodo-fenda', kind: 'geodo', x: 7.4, z: 45 },
+  { id: 'salgueiro-antigo', kind: 'salgueiro-antigo', x: -12.8, z: 42 },
+  { id: 'remanso-profundo', kind: 'remanso-profundo', x: -3.4, z: 46.2 },
+  { id: 'liquen-dos-ventos', kind: 'liquen-dos-ventos', x: 10.4, z: 46.8 },
+  { id: 'pedra-inscrita', kind: 'pedra-inscrita', x: 5.4, z: 48.2 },
   { id: 'erva-leste-1', kind: 'erva', x: 6.8, z: 25, needs: 'ponte', name: 'Erva da Margem Leste' },
   { id: 'erva-leste-2', kind: 'erva', x: 9.5, z: 29.5, needs: 'ponte', name: 'Erva da Margem Leste' },
 ];

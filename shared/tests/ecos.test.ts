@@ -4,7 +4,7 @@ import {
   msUntilAvailable, expectedOutcome, streamDist, valeHeight, makeCompanionWorld, WORLD_FALLBACK_BIOMES, resolveEcos,
   SEIVA_AZUL, stepSatisfied, cluesFor, chainReward, JARDIM, siteStoredNow, RECIPES, slotFit, checkCraft, autoPick, recipeById,
   PONTE, acceptContribution, needFits, stageComplete, scaledNeed, suggestGather, perceivedNodes, DEFAULT_INTENT, nodeById,
-  type MaterialBatch,
+  STARTER_TOOLS, type MaterialBatch,
 } from '../rules/index.ts';
 
 const T0 = Date.UTC(2026, 9, 22, 12);
@@ -125,34 +125,20 @@ describe('Ecos: Jardim da Nascente', () => {
   });
 });
 
-describe('Ecos: receitas valorizam propriedades', () => {
-  const bag: MaterialBatch[] = [
-    { key: 'madeira-salgueiro|flexibilidade:alta,resistencia:media', material: 'madeira-salgueiro', bands: { flexibilidade: 'alta', resistencia: 'media' }, qty: 3 },
-    { key: 'madeira-carvalho|flexibilidade:baixa,resistencia:alta', material: 'madeira-carvalho', bands: { flexibilidade: 'baixa', resistencia: 'alta' }, qty: 3 },
-    { key: 'seiva-azul', material: 'seiva-azul', bands: {}, qty: 1 },
-    { key: 'minerio-cobre|pureza:baixa', material: 'minerio-cobre', bands: { pureza: 'baixa' }, qty: 5 },
-  ];
-  const arco = recipeById('arco-salgueiro')!;
-  it('salgueiro comum e flexível é ideal para o arco; carvalho raro-resistente não serve', () => {
-    expect(slotFit(arco.slots[0], bag[0])).toBe('ideal');
-    expect(slotFit(arco.slots[0], bag[1])).toBe('nao-serve');
+describe('Ecos: receitas livres são só consumíveis', () => {
+  it('nenhuma receita livre produz equipamento ou ferramenta (isso é da Forja Taurina)', () => {
+    expect(RECIPES.every((r) => r.output.kind === 'item' && !/arco|cinzel|espada|escudo|machado|picareta|faca/.test(r.output.key))).toBe(true);
   });
-  it('confere quantidades, encaixe e posse', () => {
-    const ok = checkCraft(arco, autoPick(arco, bag)!, bag);
+  it('o unguento valoriza folhas comuns e estáveis', () => {
+    const u = recipeById('unguento-orvalho')!;
+    const folha = { key: 'erva-orvalho-folha|estabilidade:alta,potencia:media', material: 'erva-orvalho-folha', bands: { estabilidade: 'alta' as const, potencia: 'media' as const }, qty: 2 };
+    const flor = { key: 'erva-orvalho-flor|estabilidade:baixa,potencia:alta', material: 'erva-orvalho-flor', bands: { estabilidade: 'baixa' as const, potencia: 'alta' as const }, qty: 2 };
+    expect(slotFit(u.slots[0], folha)).toBe('ideal');
+    expect(slotFit(u.slots[0], flor)).toBe('nao-serve');
+    const ok = checkCraft(u, autoPick(u, [folha as MaterialBatch])!, [folha as MaterialBatch]);
     expect(ok.ok && ok.quality).toBe('excelente');
-    expect(checkCraft(arco, [{ slot: 0, key: bag[1].key, qty: 3 }, { slot: 1, key: 'seiva-azul', qty: 1 }], bag).ok).toBe(false);
-    expect(checkCraft(arco, [{ slot: 0, key: bag[0].key, qty: 2 }, { slot: 1, key: 'seiva-azul', qty: 1 }], bag).ok).toBe(false);
-    expect(checkCraft(arco, [{ slot: 0, key: bag[0].key, qty: 3 }, { slot: 1, key: 'seiva-azul', qty: 2 }], bag).ok).toBe(false);
-    // cobre impuro não faz cinzel
-    expect(autoPick(recipeById('cinzel-cobre')!, bag)).toBeNull();
   });
-  it('materiais comuns têm receita útil', () => {
-    for (const id of ['madeira-salgueiro', 'madeira-carvalho', 'erva-orvalho-folha', 'minerio-cobre']) {
-      const m = MATERIALS[id];
-      const used = RECIPES.some((r) => r.slots.some((s) => s.category === m.category && (!s.materials || s.materials.includes(id))));
-      expect(used, id).toBe(true);
-    }
-  });
+  it('não há kit grátis de ferramentas', () => { expect(STARTER_TOOLS).toEqual([]); });
 });
 
 describe('Ecos: Ponte do Riacho', () => {
