@@ -383,6 +383,10 @@ Os efeitos deixaram de ser pontos com textura e passaram a usar um motor própri
   - coletar (ainda responde que não sabe).
   - A ordem vira ação na hora e, se o ajuste permitir, também vai para a conversa com a IA.
 - **Falas** (`shared/rules/barks.ts`): frases curtas, sem IA, para ver uma criatura nova ou conhecida, atacar, apanhar, ficar com pouca vida ("Socorro, me ajuda!"), fugir, derrotar, analisar, responder a ordens e passear. O tom muda com os traços (brincalhona, corajosa, serena) e a frequência segue o ajuste "Quanto ela comenta".
+- **Falas pela IA** (`barks.ts`: `buildBarkBankPrompt`/`buildMomentPrompt`; ação `barks`; `brain.ts`). Ajuste "As falas dela no jogo" = IA (padrão) ou prontas.
+  - Estoque: a IA escreve 5 falas por evento (golpe, apanhar, pouca vida, ordens, passeio…) no jeito dela. Fica no navegador, por Companion, e é renovado em lotes quando acaba; as já usadas vão como "evite repetir". Sai na hora, sem esperar a IA no meio da luta.
+  - Momento: ver uma criatura nova, a primeira derrota, a análise completa, missão cumprida, chegar num lugar. A fala é escrita na hora com o que ela sabe da criatura (dossiê). Se passar de 4,5 s, sai uma do estoque ou pronta.
+  - Freio: 8 pedidos de estoque a cada 10 min e 10 momentos por minuto (eventos `barks.ai`). Offline ou sem IA, usa as frases prontas.
 - **IA no mundo** (`CompanionModel`, bloco "cérebro"): a postura vem dos Ajustes (só passeia / se defende / caça). Ela escolhe a ameaça ou a presa, se aproxima, ataca e usa habilidades (`aiCast`), e foge quando a vida cai abaixo do limite.
 - **Ajustes** (`client/src/settings.ts`, salvo no navegador):
   - clique esquerdo anda ou ataca (no modo ataque, o clique direito anda);

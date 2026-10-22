@@ -76,7 +76,7 @@ export const FANTASY_TOPICS = [
   'que poder ou habilidade a pessoa teria se vivesse no seu mundo',
 ];
 
-function describeKnown(d: Discoveries): string {
+export function describeKnown(d: Discoveries): string {
   const parts: string[] = [];
   if (d.name) parts.push(`Seu nome: ${d.name}.`);
   if (d.colorName || d.color) parts.push(`Sua cor favorita: ${d.colorName ?? d.color}.`);
@@ -129,7 +129,7 @@ const TRAIT_VOICE: [string, string][] = [
   ['explorador', 'prefere descobrir as coisas no caminho'],
 ];
 
-function voiceFor(traits: string[] = []): string {
+export function voiceFor(traits: string[] = []): string {
   const hints = traits.flatMap((tr) => TRAIT_VOICE.filter(([stem]) => normalize(tr).includes(stem)).map(([, h]) => h));
   return hints.length ? `Seu jeito de falar: ${[...new Set(hints)].join('; ')}.` : '';
 }

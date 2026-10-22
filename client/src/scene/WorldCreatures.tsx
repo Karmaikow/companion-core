@@ -15,7 +15,7 @@ import { numQueue, skillInput, targets } from './Combat';
 import { gameVfx } from './vfx/engine';
 import { burst } from './vfx/recipes';
 import { hurtCompanion } from './vitals';
-import { brain, onKill, say } from './brain';
+import { brain, onKill, say, sayMoment } from './brain';
 import { useGame } from '../store';
 
 const ESSENCE_STYLE: Record<string, string> = { fogo: 'chamas', agua: 'gotas', terra: 'pedras', vento: 'vento', luz: 'luz', sombra: 'sombra', gelo: 'gelo', raio: 'raios', natureza: 'folhas', veneno: 'veneno' };
@@ -82,8 +82,8 @@ function WorldCreature({ cw, def, spawn }: { cw: CompanionWorld; def: CreatureDe
           // bestiário (Análise de Partículas), caçada e fala
           onKill(def.slug, def.name);
           void useGame.getState().recordKill(def.slug, spawn.level).then((r) => {
-            if (r?.analyzed) say('analyzed', { m: def.name }, { force: true });
-            else if (r?.first) say('first-kill', { m: def.name }, { force: true });
+            if (r?.analyzed) sayMoment('analyzed', { m: def.name }, def.slug);
+            else if (r?.first) sayMoment('first-kill', { m: def.name }, def.slug);
             else say('kill', { m: def.name }, { chance: 0.6 });
           });
           const tg = targets.get(id); if (tg) tg.r = -99; // fora do alcance enquanto não volta
@@ -212,7 +212,7 @@ function WorldCreature({ cw, def, spawn }: { cw: CompanionWorld; def: CreatureDe
     if (dC < 7 && !brain.seen.has(def.slug)) {
       brain.seen.add(def.slug);
       const known = useGame.getState().snap?.bestiary?.some((e) => e.slug === def.slug);
-      say(known ? 'see-known' : 'see-new', { m: def.name }, { chance: known ? 0.5 : 1 });
+      if (known) say('see-known', { m: def.name }, { chance: 0.5 }); else sayMoment('see-new', { m: def.name }, def.slug);
     }
     if (nr !== s.near) { s.near = nr; setNear(nr); }
   });

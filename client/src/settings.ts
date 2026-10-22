@@ -17,6 +17,8 @@ export interface Settings {
   fleeAt: number;
   /** quanto ela comenta sozinha (ao ver monstros, lutando, passeando) */
   chatter: 'muito' | 'normal' | 'pouco' | 'nunca';
+  /** falas dela no jogo: escritas pela IA no jeito dela (online) ou as prontas */
+  barkSource: 'ia' | 'prontas';
   /** ler em voz alta as respostas e as falas dela */
   voiceOut: boolean;
   /** nome da voz do navegador (vazio = automática em português) */
@@ -31,7 +33,7 @@ export interface Settings {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
-  click: 'andar', attackAim: 'mouse', skillAim: 'mouse', posture: 'defensiva', fleeAt: 0.3, chatter: 'normal',
+  click: 'andar', attackAim: 'mouse', skillAim: 'mouse', posture: 'defensiva', fleeAt: 0.3, chatter: 'normal', barkSource: 'ia',
   voiceOut: true, voiceName: '', voiceAutoSend: true, micMode: 'sempre', ordersToChat: true, damageNumbers: true,
 };
 

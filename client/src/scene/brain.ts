@@ -3,7 +3,7 @@
  * espontâneas (com intervalo mínimo e a frequência dos Ajustes) e o que ela já viu. O laço do Companion
  * (CompanionModel) lê as ordens; as criaturas e o mundo avisam o que acontece (`notify`).
  */
-import { bark, normalize, parseCommand, type BarkEvent, type Command, type CreatureDef } from '@rules';
+import { BANK_EVENTS, bark, fillBark, normalize, parseCommand, type BarkEvent, type BarkVars, type Command, type CreatureDef } from '@rules';
 import { useGame } from '../store';
 import { settings } from '../settings';
 
@@ -33,17 +33,94 @@ export const brain = {
 const GAP: Record<string, number> = { muito: 3500, normal: 7000, pouco: 15000, nunca: Infinity };
 const IDLE: Record<string, [number, number]> = { muito: [25_000, 45_000], normal: [50_000, 90_000], pouco: [120_000, 200_000], nunca: [Infinity, Infinity] };
 
+// ---- falas pela IA: estoque por evento (sai na hora) + falas de momento escritas com o contexto
+
+const BANK_KEY = 'companion-core:barks:';
+const bank = { cid: '', lines: {} as Record<string, string[]>, recent: [] as string[], pending: new Set<string>(), inflight: false, timer: 0, failUntil: 0, lastFill: 0 };
+
+/** As falas vêm da IA? (Ajuste ligado, servidor online e Companion desperta) */
+function aiOn() {
+  const g = useGame.getState();
+  return settings().barkSource === 'ia' && !!g.backend?.barks && g.snap?.companion?.stage === 'awakened';
+}
+function syncBank() {
+  const cid = useGame.getState().snap?.companion?.id ?? '';
+  if (cid === bank.cid) return;
+  bank.cid = cid; bank.lines = {}; bank.recent = []; bank.pending.clear();
+  try { const v = JSON.parse(localStorage.getItem(BANK_KEY + cid) ?? 'null'); if (v?.lines) { bank.lines = v.lines; bank.recent = v.recent ?? []; } } catch { /* vazio */ }
+}
+function saveBank() { try { localStorage.setItem(BANK_KEY + bank.cid, JSON.stringify({ lines: bank.lines, recent: bank.recent.slice(-30) })); } catch { /* só nesta sessão */ } }
+function scheduleFill(delay = 1500) {
+  if (bank.timer) return;
+  const wait = Math.max(delay, bank.lastFill + 20_000 - performance.now(), bank.failUntil - performance.now());
+  bank.timer = window.setTimeout(() => { bank.timer = 0; void fill(); }, Math.max(0, wait));
+}
+async function fill() {
+  const b = useGame.getState().backend;
+  if (!aiOn() || !b?.barks || bank.inflight || !bank.pending.size) return;
+  const cid = bank.cid, evs = [...bank.pending].slice(0, 8);
+  evs.forEach((e) => bank.pending.delete(e));
+  bank.inflight = true; bank.lastFill = performance.now();
+  try {
+    const r = await b.barks({ mode: 'bank', events: evs, recent: bank.recent.slice(-20) });
+    if (cid !== bank.cid) return;
+    for (const [ev, list] of Object.entries(r.lines ?? {})) bank.lines[ev] = [...(bank.lines[ev] ?? []), ...list].slice(-12);
+    saveBank();
+  } catch { evs.forEach((e) => bank.pending.add(e)); bank.failUntil = performance.now() + 120_000; } finally { bank.inflight = false; }
+  if (bank.pending.size) scheduleFill(20_000);
+}
+/** Prepara o estoque (ao entrar no mundo): pede o que estiver faltando, em lotes. */
+export function primeBarks() {
+  syncBank();
+  if (!aiOn()) return;
+  for (const ev of BANK_EVENTS) if ((bank.lines[ev]?.length ?? 0) < 3) bank.pending.add(ev);
+  if (bank.pending.size) scheduleFill(3000);
+}
+function takeFromBank(ev: BarkEvent): string | null {
+  syncBank();
+  if (!aiOn() || !BANK_EVENTS.includes(ev)) return null;
+  const arr = bank.lines[ev] ?? [];
+  if (arr.length < 2) { bank.pending.add(ev); scheduleFill(); }
+  if (!arr.length) return null;
+  const line = arr.splice(Math.floor(Math.random() * arr.length), 1)[0];
+  bank.recent.push(line); if (bank.recent.length > 40) bank.recent.shift();
+  saveBank();
+  return line;
+}
+
+function persona() {
+  const d = useGame.getState().snap?.companion?.discoveries;
+  return { d, you: d?.playerAddress ?? d?.playerName, pronoun: (d?.pronoun === 'ele' ? 'ele' : 'ela') as 'ela' | 'ele' };
+}
+function emit(text: string) { brain.lastBark = performance.now(); useGame.getState().sayBark(text); }
+
 /** Fala da Companion (balão + voz, se ligada). `force` ignora o intervalo (respostas a ordens). */
-export function say(ev: BarkEvent, vars: Parameters<typeof bark>[1] = {}, opts: { force?: boolean; chance?: number } = {}) {
+export function say(ev: BarkEvent, vars: BarkVars = {}, opts: { force?: boolean; chance?: number } = {}) {
   const chatter = settings().chatter;
   if (chatter === 'nunca' && !opts.force) return;
   const now = performance.now();
   if (!opts.force && now - brain.lastBark < GAP[chatter]) return;
   if (opts.chance !== undefined && Math.random() > opts.chance) return;
-  const snap = useGame.getState().snap, d = snap?.companion?.discoveries;
-  const text = bark(ev, { you: d?.playerAddress ?? d?.playerName, ...vars }, d?.traits ?? [], Math.random(), d?.pronoun === 'ele' ? 'ele' : 'ela');
-  brain.lastBark = now;
-  useGame.getState().sayBark(text);
+  const p = persona();
+  const ai = takeFromBank(ev);
+  emit(ai ? fillBark(ai, { you: p.you, ...vars }, p.pronoun) : bark(ev, { you: p.you, ...vars }, p.d?.traits ?? [], Math.random(), p.pronoun));
+}
+
+/**
+ * Momento especial (ver uma criatura nova, terminar uma análise, cumprir missão, chegar num lugar): a IA escreve a
+ * fala na hora, com o que ela sabe. Se demorar mais de 4,5 s (ou estiver offline), sai uma fala do estoque/pronta.
+ */
+export function sayMoment(ev: BarkEvent, vars: BarkVars = {}, slug?: string) {
+  if (settings().chatter === 'nunca') return;
+  const b = useGame.getState().backend;
+  if (!aiOn() || !b?.barks) return say(ev, vars, { force: true });
+  brain.lastBark = performance.now(); // segura as outras falas enquanto ela "pensa"
+  let done = false;
+  const fallback = () => { if (done) return; done = true; say(ev, vars, { force: true }); };
+  const timer = window.setTimeout(fallback, 4500);
+  b.barks({ mode: 'moment', event: ev, vars: { m: vars.m, p: vars.p, n: vars.n, t: vars.t }, slug })
+    .then((r) => { if (done) return; clearTimeout(timer); if (!r.line) return fallback(); done = true; const p = persona(); emit(fillBark(r.line, { you: p.you, ...vars }, p.pronoun)); })
+    .catch(() => { clearTimeout(timer); fallback(); });
 }
 
 /** Fala de passeio de vez em quando (chamada pelo laço do Companion). */
@@ -101,7 +178,7 @@ export function onKill(slug: string, name: string) {
   if (o?.kind === 'hunt' && (!o.creature || o.creature === slug)) {
     o.done++;
     if (o.done >= o.count) {
-      say('hunt-done', { n: o.done, m: name }, { force: true });
+      sayMoment('hunt-done', { n: o.done, m: name });
       useGame.getState().toast(`Missão cumprida: ${o.done} ${o.creatureName ?? 'criatura'}${o.done > 1 ? 's' : ''} derrotada${o.done > 1 ? 's' : ''}!`, 'gold');
       notifyPlayer('Missão cumprida!', `${o.done} derrotada${o.done > 1 ? 's' : ''}.`);
       brain.order = null;

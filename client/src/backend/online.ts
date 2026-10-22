@@ -1,6 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { CompanionSetup } from '@rules';
-import type { Backend, Snapshot } from './types';
+import type { Backend, Snapshot, BarksRequest } from './types';
 
 export const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL ?? 'https://rqdukyenuecrshzmofdo.supabase.co';
 export const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? 'sb_publishable_fIg0d4DQ3aUpLL6541ZSaA_iYyRY7BW';
@@ -32,5 +32,6 @@ export class OnlineBackend implements Backend {
   awaken() { return this.call('awaken'); }
   muse() { return this.call('muse'); }
   combatKill(slug: string, level: number) { return this.call('combat.kill', { slug, level }); }
+  barks(req: BarksRequest) { return this.call('barks', req as unknown as Record<string, unknown>) as unknown as Promise<{ lines?: Record<string, string[]>; line?: string | null }>; }
   async signOut() { await supabase().auth.signOut(); }
 }

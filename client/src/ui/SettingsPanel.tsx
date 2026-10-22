@@ -36,6 +36,7 @@ export function SettingsPanel() {
       <h3>Ela sozinha</h3>
       <Choice k="posture" label="Explorando sozinha, ela…" options={[['pacifica', 'Só passeia'], ['defensiva', 'Se defende'], ['cacadora', 'Caça monstros']]} hint="Ela sempre obedece às ordens no chat: “ataque!”, “fuja!”, “mate 10 monstros na Floresta Densa”, “vá até a Montanha Azul e me chame quando chegar”." />
       <Choice k="fleeAt" label="Foge quando a vida cai abaixo de" options={[[0, 'Nunca'], [0.2, '20%'], [0.3, '30%'], [0.5, '50%']]} />
+      <Choice k="barkSource" label="As falas dela no jogo" options={[['ia', 'Escritas pela IA, no jeito dela'], ['prontas', 'Frases prontas']]} hint="Com a IA, ela varia as falas e comenta cada criatura nova, a análise e as missões com o que sabe. Precisa estar online; sem conexão, usa as prontas." />
       <Choice k="chatter" label="Quanto ela comenta sozinha" options={[['muito', 'Muito'], ['normal', 'Normal'], ['pouco', 'Pouco'], ['nunca', 'Nunca']]} />
       <Choice k="ordersToChat" label="Ordens no chat também vão para a conversa" options={[[true, 'Sim (ela responde do jeito dela)'], [false, 'Não (só obedece)']]} />
 

@@ -17,7 +17,7 @@ import type { WeatherKind } from '@rules';
 import { CombatFx } from './Combat';
 import type { CompanionModelFiles } from '../backend/types';
 import { CompanionModel, type Roam } from './CompanionModel';
-import { brain, notifyPlayer, say, type Place } from './brain';
+import { brain, notifyPlayer, primeBarks, sayMoment, type Place } from './brain';
 import { useGame } from '../store';
 import { settings } from '../settings';
 import { companionFocus, moveRequest, colliders, smooth, type WorldShape } from './world';
@@ -216,6 +216,7 @@ function WorldLogic(p: { cw: CompanionWorld; discovered: Set<string>; explore: b
       if (best && !out.some((o) => o.name === b.name)) out.push({ name: b.name, x: best.x, z: best.z });
     });
     brain.places = out;
+    primeBarks(); // estoque de falas pela IA (se ligado)
     return () => { brain.places = []; };
   }, [p.cw]);
   useFrame((_, dt) => {
@@ -240,10 +241,10 @@ function WorldLogic(p: { cw: CompanionWorld; discovered: Set<string>; explore: b
       if (Math.hypot(dest.x - f.x, dest.z - f.z) < 6) {
         if (o?.kind === 'goto') {
           brain.order = null;
-          say('arrive', { p: dest.name }, { force: true });
+          sayMoment('arrive', { p: dest.name });
           useGame.getState().toast(`${useGame.getState().snap?.companion?.discoveries.name ?? 'Ela'} chegou em ${dest.name}!`, 'gold');
           if (o.call) notifyPlayer('Cheguei!', `Estou em ${dest.name}.`);
-        } else if (o?.kind === 'hunt') { o.arrived = true; say('region', { p: dest.name }, { force: true }); }
+        } else if (o?.kind === 'hunt') { o.arrived = true; sayMoment('region', { p: dest.name }); }
         P.goal.current = null;
       } else { if (!P.goal.current) P.goal.current = new THREE.Vector3(); P.goal.current.set(dest.x, 0, dest.z); }
       return;

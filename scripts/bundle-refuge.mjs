@@ -5,7 +5,7 @@
 //     site em produção ao iniciar, confere o SHA-256 fixado e o executa; o Supabase não aceita importar desse domínio)
 import { build } from 'esbuild';
 import { createHash } from 'node:crypto';
-import { mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 
 const base = {
   entryPoints: ['supabase/functions/refuge/index.ts'],
@@ -26,8 +26,10 @@ const r = await build({ ...base, format: 'iife', plugins: [shim], write: false, 
 const code = r.outputFiles[0].text;
 const sha = createHash('sha256').update(code).digest('hex'), hash = sha.slice(0, 12);
 mkdirSync('client/public/fn', { recursive: true });
-for (const f of readdirSync('client/public/fn')) if (/^refuge\..*\.js$/.test(f)) rmSync('client/public/fn/' + f);
 writeFileSync(`client/public/fn/refuge.${hash}.js`, code);
+// guarda as 3 versões mais novas: a função publicada continua achando a dela até o stub novo ser publicado
+const olds = readdirSync('client/public/fn').filter((f) => /^refuge\..*\.js$/.test(f)).map((f) => ({ f, t: statSync('client/public/fn/' + f).mtimeMs })).sort((a, b) => b.t - a.t);
+for (const { f } of olds.slice(3)) rmSync('client/public/fn/' + f);
 mkdirSync('dist-fn/refuge-stub', { recursive: true });
 writeFileSync('dist-fn/refuge-stub/deps.js', `import { createClient } from 'npm:@supabase/supabase-js@2';\nglobalThis.__sbCreateClient = createClient;\n`);
 writeFileSync('dist-fn/refuge-stub/index.js', `// Carrega o código da função servido pelo site (conferido pelo SHA-256) e o executa.

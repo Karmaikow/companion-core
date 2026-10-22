@@ -6,6 +6,7 @@ import {
   offlineTurn, assistDiscoveries, buildDreamPrompt, parseDream, checkAwakening, buildIdentityContract, gameTime, companionDay, clampText,
   QUESTS, QUEST_REWARDS, validateSetup, evaluateSecrets, isQuestionAboutCompanion, buildMusePrompt,
   SECRET_BY_KEY, SECRET_XP, SECRET_BOOST_TURNS, buildArtPrompt, ANIM_KINDS, SPECIES, DEFAULT_CREATURES, sanitizeCreature, recordKill, combatMemoryLines, combatMemoryText,
+  BANK_EVENTS, MOMENT_EVENTS, buildBarkBankPrompt, parseBarkBank, buildMomentPrompt, parseMoment, dossier, type BarkEvent,
   type BestiaryEntry, type CreatureDef, type SecretKey, type GameConfig, type IdentityContractV1, type QuestState, type Discoveries, type MemoryLite, type ChatLine,
 } from './rules/index.ts';
 import { complete, providerName } from './llm.ts';
@@ -215,6 +216,48 @@ async function actCombatKill(db: SupabaseClient, c: Record<string, unknown>, bod
   if (r.analyzedNow) mems.push({ companion_id: cid, subject: 'companion', content: combatMemoryText('analyzed', me, def, name, level), importance: 4, source_event_ids: [ev], origin: 'combat' });
   if (mems.length) await db.from('companion_memories').insert(mems);
   return { entry: r.entry, first: r.first, analyzed: r.analyzedNow, analyzedCount: r.analyzedCount, milestone: r.milestone };
+}
+
+/** Falas geradas pela IA: estoque por evento ("bank") ou uma fala de momento com contexto ("moment"). Não grava nada além do registro de uso. */
+async function actBarks(db: SupabaseClient, c: Record<string, unknown>, body: Record<string, unknown>) {
+  const cid = c.id as string;
+  if (c.stage !== 'awakened') throw new HttpError(409, 'Só depois do despertar.');
+  const mode = body.mode === 'moment' ? 'moment' : 'bank';
+  // freio: estoque até 8 pedidos a cada 10 min; momentos até 10 por minuto
+  const since = new Date(Date.now() - (mode === 'bank' ? 600_000 : 60_000)).toISOString();
+  const { count } = await db.from('companion_events').select('id', { count: 'exact', head: true }).eq('companion_id', cid).eq('kind', 'barks.ai').eq('payload->>mode', mode).gte('created_at', since);
+  if ((count ?? 0) >= (mode === 'bank' ? 8 : 10)) throw new HttpError(429, 'Calma! 🌙');
+  const d = c.discoveries as Discoveries;
+  const contract = c.identity_contract as IdentityContractV1 | null;
+  const fam = contract?.species?.family as keyof typeof SPECIES | undefined;
+  const persona = { discoveries: d, formLabel: fam && SPECIES[fam] ? `humanoide da classe ${SPECIES[fam].label}` : undefined };
+  await event(db, cid, 'system', 'barks.ai', { mode });
+  if (mode === 'bank') {
+    const asked = Array.isArray(body.events) ? (body.events as unknown[]).filter((e): e is BarkEvent => typeof e === 'string' && BANK_EVENTS.includes(e as BarkEvent)).slice(0, 8) : [];
+    if (!asked.length) return { lines: {} };
+    const recent = Array.isArray(body.recent) ? (body.recent as unknown[]).filter((x): x is string => typeof x === 'string').map((x) => x.slice(0, 80)).slice(0, 20) : [];
+    let raw: string | null = null;
+    try { raw = await complete(buildBarkBankPrompt(persona, asked, 5, recent), [], 'Escreva as falas agora.', { maxTokens: 1400, timeoutMs: 20_000 }); } catch { /* sem modelo */ }
+    return { lines: parseBarkBank(raw, asked) };
+  }
+  const ev = typeof body.event === 'string' && MOMENT_EVENTS.includes(body.event as BarkEvent) ? body.event as BarkEvent : null;
+  if (!ev) throw new HttpError(400, 'Momento inválido.');
+  const v = (body.vars ?? {}) as Record<string, unknown>;
+  const vars = { m: clampText(v.m, 40) || undefined, p: clampText(v.p, 40) || undefined, n: Number.isFinite(Number(v.n)) ? Math.round(Number(v.n)) : undefined, t: Number.isFinite(Number(v.t)) ? Math.round(Number(v.t)) : undefined };
+  let facts = '';
+  const slug = typeof body.slug === 'string' && /^[a-z0-9][a-z0-9-]{1,40}$/.test(body.slug) ? body.slug : null;
+  if (slug) {
+    const [defs, entries] = await Promise.all([creatureDefs(db), loadBestiary(db, cid)]);
+    const def = defs.find((x) => x.slug === slug) ?? DEFAULT_CREATURES.find((x) => x.slug === slug);
+    const e = entries.find((x) => x.slug === slug);
+    if (def) {
+      const z = dossier(def, e ?? { slug, name: def.name, kills: 0, particles: 0, firstAt: '', lastAt: '' }, (s) => s);
+      facts = [z.description, z.temperament && `temperamento ${z.temperament}`, z.weakTo?.length && `fraca contra ${z.weakTo.join(', ')}`, z.resists?.length && `resiste a ${z.resists.join(', ')}`, z.drops?.length && `solta ${z.drops.join(', ')}`].filter(Boolean).join('; ');
+    }
+  }
+  let raw: string | null = null;
+  try { raw = await complete(buildMomentPrompt(persona, ev, vars, facts), [], 'Fale agora.', { maxTokens: 300, timeoutMs: 8_000 }); } catch { /* sem modelo */ }
+  return { line: parseMoment(raw) };
 }
 
 async function snapshot(db: SupabaseClient, c: Record<string, unknown>, cfg: GameConfig) {
@@ -535,6 +578,7 @@ Deno.serve(async (req) => {
       const r = await actCombatKill(db, c, body);
       return json(200, { ...(await snapshot(db, c, cfg)), combat: r });
     }
+    if (action === 'barks') return json(200, await actBarks(db, c, body));
     if (action === 'awaken') {
       await actAwaken(db, c, cfg);
       const fresh = await getCompanion(db, userId, c.id);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseCommand, bark, recordKill, dossier, combatMemoryLines, isAnalyzed, ANALYSIS_TARGET, DEFAULT_CREATURES, buildChatSystemPrompt, initialQuests } from '../rules/index.ts';
+import { parseCommand, bark, recordKill, dossier, combatMemoryLines, isAnalyzed, ANALYSIS_TARGET, DEFAULT_CREATURES, buildChatSystemPrompt, initialQuests, buildBarkBankPrompt, parseBarkBank, buildMomentPrompt, parseMoment, fillBark } from '../rules/index.ts';
 
 const places = ['Floresta Densa', 'Montanha Azul', 'Bosque Âmbar'];
 const creatures = ['Bruma de Musgo', 'Fagulha', 'Lobinho de Geada'];
@@ -60,5 +60,35 @@ describe('Análise de Partículas', () => {
     expect(lines[0]).toContain('100%');
     const p = buildChatSystemPrompt({ discoveries: { name: 'Mayuna' }, quests: initialQuests(), bondLevel: 5, memories: [], history: [], gamePhase: 'dia', firstMeeting: false, body: { awakened: true, formLabel: 'humanoide da classe Dracônica' }, combat: lines });
     expect(p).toContain('não é mais uma esfera de luz'); expect(p).toContain('MEMÓRIAS DE COMBATE'); expect(p).not.toContain('Ainda não tem corpo');
+  });
+});
+
+describe('falas pela IA', () => {
+  const d = { name: 'Mayuna', pronoun: 'ela', traits: ['brincalhona', 'curiosa'], playerName: 'Diego' } as never;
+  it('prompt do estoque pede JSON com os eventos e o jeito dela', () => {
+    const p = buildBarkBankPrompt({ discoveries: d }, ['attack', 'low-hp'], 5, ['Toma!']);
+    expect(p).toContain('"attack"');
+    expect(p).toContain('"low-hp"');
+    expect(p).toContain('Mayuna');
+    expect(p).toContain('"Toma!"');
+  });
+  it('saneia o estoque: só eventos pedidos, sem repetidas nem marcadores estranhos', () => {
+    const raw = 'blá {"lines": {"attack": ["Toma!", "toma!", "Hyaa {x}!", 3], "kill": ["Pronto"], "outro": ["x"]}}';
+    const out = parseBarkBank(raw, ['attack', 'kill']);
+    expect(out.attack).toEqual(['Toma!', 'Hyaa !']);
+    expect(out.kill).toEqual(['Pronto']);
+    expect((out as Record<string, unknown>).outro).toBeUndefined();
+    expect(parseBarkBank('lixo', ['attack'])).toEqual({});
+  });
+  it('fala de momento: prompt com contexto e resposta saneada', () => {
+    const p = buildMomentPrompt({ discoveries: d }, 'see-new', { m: 'Bruma de Musgo' }, 'fraca contra fogo');
+    expect(p).toContain('Bruma de Musgo');
+    expect(p).toContain('fraca contra fogo');
+    expect(parseMoment('{"line": "Que coisinha fofa e verde!"}')).toBe('Que coisinha fofa e verde!');
+    expect(parseMoment(null)).toBeNull();
+  });
+  it('preenche marcadores, inclusive {you} no começo', () => {
+    expect(fillBark('{you}! Estou em {p}!', { you: 'Diego', p: 'Monte Azul' })).toBe('Diego! Estou em Monte Azul!');
+    expect(fillBark('Faltam {r}, {you}!', { n: 3, t: 10, you: 'Diego' })).toBe('Faltam 7, Diego!');
   });
 });

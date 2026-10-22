@@ -51,9 +51,15 @@ export interface Backend {
   muse?(): Promise<Snapshot>;
   /** Uma criatura derrotada no mundo: bestiário, partículas e Memórias de Combate. */
   combatKill?(slug: string, level: number): Promise<Snapshot>;
+  /** falas pela IA: estoque por evento, ou uma fala de momento com contexto (só online) */
+  barks?(req: BarksRequest): Promise<{ lines?: Record<string, string[]>; line?: string | null }>;
   reset?(): Promise<void>;
   signOut?(): Promise<void>;
 }
 
 /** Modelo 3D aprovado na Fábrica: o .GLB do corpo e as animações (cada uma num .GLB do mesmo rig). */
 export interface CompanionModelFiles { url: string; anims: { url: string; kind: string; name: string }[] }
+
+export type BarksRequest =
+  | { mode: 'bank'; events: string[]; recent?: string[] }
+  | { mode: 'moment'; event: string; vars?: { m?: string; p?: string; n?: number; t?: number }; slug?: string };
