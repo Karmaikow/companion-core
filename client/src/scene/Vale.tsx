@@ -53,7 +53,7 @@ function Stream() {
     return g;
   }, []);
   useFrame((_, dt) => { tex.offset.y -= dt * 0.35; });
-  return <mesh geometry={geo} renderOrder={2}><meshLambertMaterial map={tex} transparent opacity={0.82} depthWrite={false} emissive="#2a6f8f" emissiveIntensity={0.25} /></mesh>;
+  return <mesh geometry={geo} renderOrder={2}><meshLambertMaterial map={tex} transparent opacity={0.82} depthWrite={false} emissive="#2a6f8f" emissiveIntensity={0.25} side={THREE.DoubleSide} /></mesh>;
 }
 
 // ---------------------------------------------------------------------------
