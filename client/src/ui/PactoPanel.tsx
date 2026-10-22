@@ -312,7 +312,7 @@ function ForgeBench({ view, bag, orderId, setOrder }: { view: PactoView; bag: { 
       </aside>
 
       <footer className="bench-bottom">
-        <ol className="steps">{STEPS.map((s, i) => <li key={s} className={i === step ? 'on' : i < step ? 'done' : ''}><button onClick={() => setStep(i)}>{i + 1}. {s}</button></li>)}</ol>
+        <ol className="forge-steps">{STEPS.map((s, i) => <li key={s} className={i === step ? 'on' : i < step ? 'done' : ''}><button onClick={() => setStep(i)}>{i + 1}. {s}</button></li>)}</ol>
         <div className="step-body">
           {step === 0 && <p>Leia o projeto: {bp.slots.map((s) => `${s.qty}× ${s.label}`).join(' · ')}. <button className="ghost" onClick={assisted}>Modo assistido: montar com o melhor da mochila</button> <button className="ghost" onClick={() => setStep(1)}>Montar à mão</button></p>}
           {step === 1 && <p>Escolha cada parte na peça e os lotes à esquerda (a procedência aparece no nome). <button className="ghost" onClick={assisted}>Completar sozinho</button> <button className="ghost" onClick={() => setStep(2)}>Seguir</button></p>}

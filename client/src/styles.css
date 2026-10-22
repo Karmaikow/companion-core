@@ -795,8 +795,11 @@ html:has(.admin), body:has(.admin), #root:has(.admin) { height: auto; min-height
 /* ---------------------------------------------------------------------------------------------------------------
    Pacto das Cinco — Oficina (bancada larga no desktop; peça em cima + bandeja/abas no celular)
    --------------------------------------------------------------------------------------------------------------- */
-.panel.panel-pacto { width: min(1180px, calc(100vw - 28px)); }
-.pacto { display: flex; flex-direction: column; gap: 10px; font-size: 0.92rem; }
+.panel.panel-pacto { left: 196px; right: 14px; width: auto; max-width: 1180px; margin-left: auto; z-index: 6; }
+@media (max-width: 760px) { .panel.panel-pacto { left: 8px; right: 8px; top: 150px; bottom: 82px; height: auto; margin: 0; } }
+.pacto { display: flex; flex-direction: column; gap: 10px; font-size: 0.92rem; min-width: 0; }
+.panel-pacto .panel-body { overflow-x: hidden; }
+.bench > * { min-width: 0; }
 .pacto .hint, .pacto .d { color: var(--mist, #b9c3d6); font-size: 0.82rem; display: block; }
 .pacto .why { color: #f0a58f; }
 .pacto h3 { font-family: var(--serif); color: var(--brass); margin: 10px 0 4px; font-size: 1.05rem; }
@@ -855,7 +858,7 @@ html:has(.admin), body:has(.admin), #root:has(.admin) { height: auto; min-height
 .layer-corpo h4 { color: #c8a26b; }
 .layer-trama h4 { color: #9ff0d8; }
 .layer-marca h4 { color: #a07cff; }
-.layer .slot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px; width: 100%; text-align: left; background: var(--night); border: 1px dashed #3a4b6e; border-radius: 8px; color: var(--parchment); padding: 6px 8px; margin-top: 4px; }
+.layer .slot { display: flex; flex-direction: row; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 2px 8px; min-height: 0; height: auto; width: 100%; text-align: left; background: var(--night); border: 1px dashed #3a4b6e; border-radius: 8px; color: var(--parchment); padding: 6px 8px; margin-top: 4px; }
 .layer .slot.on { border-color: var(--brass); border-style: solid; }
 .layer .slot.full { border-color: #7be36b; }
 .layer .slot em { flex-basis: 100%; font-style: normal; font-size: 0.78rem; color: #cfe; cursor: pointer; }
@@ -866,10 +869,10 @@ html:has(.admin), body:has(.admin), #root:has(.admin) { height: auto; min-height
 .reqs.good { border-color: #7be36b; }
 .reqs.bad { border-color: #e0664f; }
 .risk { border-top: 1px dashed #33425f; padding-top: 6px; margin-top: 6px; }
-.steps { list-style: none; margin: 0; padding: 0; display: flex; gap: 4px; flex-wrap: wrap; }
-.steps button { background: var(--night-2); border: 1px solid #33425f; color: var(--parchment); border-radius: 99px; padding: 3px 10px; font-size: 0.8rem; }
-.steps li.on button { border-color: var(--brass); color: var(--brass); }
-.steps li.done button { border-color: #56704a; }
+.forge-steps { list-style: none; margin: 0; padding: 0; display: flex; gap: 4px; flex-wrap: wrap; }
+.forge-steps button { background: var(--night-2); border: 1px solid #33425f; color: var(--parchment); border-radius: 99px; padding: 3px 10px; font-size: 0.8rem; }
+.forge-steps li.on button { border-color: var(--brass); color: var(--brass); }
+.forge-steps li.done button { border-color: #56704a; }
 .step-body p, .step-body .radios, .step-body label { margin: 0; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 0.86rem; }
 .forge-go { align-self: flex-end; font-size: 1rem; padding: 8px 18px; }
 
@@ -904,13 +907,14 @@ html:has(.admin), body:has(.admin), #root:has(.admin) { height: auto; min-height
 .vshield.on { background: rgba(63, 182, 255, 0.45); color: #fff; box-shadow: 0 0 12px #3fb6ff; }
 
 @media (max-width: 760px) {
-  .bench { grid-template-columns: 1fr; grid-template-areas: 'top' 'mtabs' 'center' 'left' 'right' 'bottom'; }
+  .bench { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'top' 'mtabs' 'center' 'left' 'right' 'bottom'; }
   .bench-mtabs { display: flex; grid-area: mtabs; }
   .bench.m-peca .bench-left, .bench.m-peca .bench-right { display: none; }
   .bench.m-materiais .bench-center, .bench.m-materiais .bench-right { display: none; }
   .bench.m-previsao .bench-center, .bench.m-previsao .bench-left { display: none; }
   .bench-left { max-height: none; }
-  .bench-bottom { position: sticky; bottom: -18px; background: var(--panel); padding-bottom: 10px; z-index: 1; }
+  .bench-bottom { position: static; }
+  .forge-go { position: sticky; bottom: 0; align-self: stretch; z-index: 1; box-shadow: 0 -6px 16px rgba(0, 0, 0, 0.45); }
   .pacto-jobs li { grid-template-columns: 1fr auto; }
   .pacto-jobs li .bar { grid-column: 1 / -1; }
   .pick-list li { grid-template-columns: 1fr auto auto auto; }

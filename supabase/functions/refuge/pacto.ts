@@ -328,11 +328,12 @@ export async function pactoAction(action: string, body: Record<string, unknown>,
       db.from('companion_equipment').select('equipped').eq('companion_id', cid).maybeSingle(),
     ]);
     if (!e || e.owner !== cid) throw new PactoError(409, reason('peca-invalida'));
+    if (e.status !== 'ativo') return { recycled: [], pacto: await state() };
     if (Object.values((eqp?.equipped ?? {}) as Record<string, string>).some((s) => s === 'inst-' + item.replace(/-/g, '').slice(0, 12))) throw new PactoError(409, 'Desequipe a peça antes de reciclar.');
     const give = recycleReturn(((e.data as { consumed?: { key: string; qty: number }[] }).consumed) ?? []);
-    const r = await rpc<{ ok: boolean; reason?: string }>(db, 'pacto_equipment_recycle', { p_cid: cid, p_item: item, p_give: give, p_bag_cap: ecfg.bag });
+    const r = await rpc<{ ok: boolean; reason?: string; repeat?: boolean }>(db, 'pacto_equipment_recycle', { p_cid: cid, p_item: item, p_give: give, p_bag_cap: ecfg.bag });
     if (!r.ok) throw new PactoError(409, reason(r.reason));
-    return { recycled: give, pacto: await state() };
+    return { recycled: r.repeat ? [] : give, pacto: await state() };
   }
   if (action === 'pacto.item.reforge') {
     if (!canCompleteEquipment(cls.effective)) throw new PactoError(403, 'Reforja estrutural é da Taurina.');

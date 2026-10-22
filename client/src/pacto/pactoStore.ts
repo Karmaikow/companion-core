@@ -102,3 +102,4 @@ export function offhandMark(): MarkConfig | null {
   const slug = useGame.getState().equipped.offhand;
   return instanceOf(slug)?.mark ?? null;
 }
+if (import.meta.env.DEV && typeof window !== 'undefined') (window as unknown as { __pacto: unknown }).__pacto = usePacto;
