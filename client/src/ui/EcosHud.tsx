@@ -10,7 +10,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   MATERIALS, NODE_KINDS, VALE, VALE_NODES, STREAM, NASCENTE, BRIDGE, CATEGORIES, TOOLS, PROP_LABEL, BAND_LABEL, SEIVA_AZUL, nodeById, nodeName,
-  expectedOutcome, msUntilAvailable, batchQuality, parseBatchKey, slotFit, RECIPES,
+  expectedOutcome, msUntilAvailable, batchQuality, parseBatchKey, slotFit, RECIPES, superiorBlockFor,
   type ResourceNode, type Approach, type PropKey, type Band,
 } from '@rules';
 import {
@@ -18,6 +18,8 @@ import {
   type RunPhase,
 } from '../ecos/ecosStore';
 import { companionFocus } from '../scene/world';
+import { usePacto } from '../pacto/pactoStore';
+import { useGame } from '../store';
 
 const STATUS_LABEL = { observacao: 'Observação', hipotese: 'Hipótese', descoberta: 'Descoberta' } as const;
 const PHASE_LABEL: Record<RunPhase, string> = { andando: 'Indo até lá…', coletando: 'Coletando…', confirmando: 'Confirmando no servidor…', concluido: 'Concluído', interrompido: 'Interrompido', erro: 'Não deu' };
@@ -152,15 +154,18 @@ function ApproachRow({ node, ap, state }: { node: ResourceNode; ap: Approach; st
 function ContextPanel() {
   const selected = useEcos((s) => s.selected), view = useEcos((s) => s.view), intent = useEcos((s) => s.intent);
   const [more, setMore] = useState(false);
+  const cls = usePacto((s) => s.view?.cls.effective ?? null);
   const node = selected ? nodeById(selected) : null;
   const sugg = useMemo(() => (node && view ? suggestionsNow(view, intent ?? { mode: 'abastecer', target: null, risk: 1, reserve: 4, tools: [], prefer: null, gentle: true }).find((x) => x.node.id === node.id && !x.blocked) : null), [node, view, intent]);
   if (!node) return null;
   const k = NODE_KINDS[node.kind], amount = amountOf(view, node), now = Date.now();
   const free = (view?.config.bag ?? 60) - bagUsedOf(view);
   const tools = view?.profile.tools ?? [];
+  const superior = superiorBlockFor(node.id, cls);
   const states = k.approaches.map((ap) => {
     if (node.needs === 'ponte' && !bridgeDone(view)) return 'do outro lado do riacho: precisa da ponte';
-    if (ap.tool && !tools.includes(ap.tool)) return `ferramenta incompatível: precisa de ${TOOLS[ap.tool].label}`;
+    if (superior) return superior;
+    if (ap.tool && !tools.includes(ap.tool)) return `precisa de ${TOOLS[ap.tool].label} (forjada por uma Taurina — encomende na Oficina)`;
     const wait = msUntilAvailable(node, ap, view?.nodes[node.id] ?? null, now);
     if (wait > 0) return `esgotado: volta em ~${fmtTime(wait)}`;
     if (free < ap.yields.reduce((a, y) => a + y.qty[1], 0)) return 'mochila cheia (ou quase): libere espaço';
@@ -185,6 +190,7 @@ function ContextPanel() {
       <ul className="ecos-aps">
         {k.approaches.map((ap, i) => <ApproachRow key={ap.id} node={node} ap={ap} state={{ blocked: states[i] }} />)}
       </ul>
+      {superior && cls === 'touro' && !usePacto.getState().view?.simulated && <button type="button" className="ghost" onClick={() => void usePacto.getState().call('pacto.board.post', { kind: 'oportunidade', text: `${nodeName(node)} localizado no Vale dos Ecos (abundância ${Math.floor(amount)}/${k.capacity}).`, node: node.id }).then((r) => r && useGame.getState().toast('Oportunidade anunciada no quadro do Pacto', 'gold'))}>📣 Anunciar oportunidade</button>}
       <button type="button" className="ghost" onClick={() => useEcos.getState().inspect(node.id)}>👁 Observar com calma</button>
     </aside>
   );

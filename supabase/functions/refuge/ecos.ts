@@ -5,7 +5,9 @@ import {
   NODE_KINDS, VALE_NODES, NASCENTE, nodeById, approachOf, rollGather, cleanRequestId, parseBatchKey, resolveEcos, abundanceNow,
   SEIVA_AZUL, CHAINS, stepSatisfied, chainReward, JARDIM, siteStoredNow, recipeById, checkCraft, PONTE, needFits, scaledNeed, levelForXp,
   type EcosConfig, type MaterialBatch, type ChainChoice, type GameConfig, type Discoveries, type ToolKey,
+  type PactoConfig,
 } from './rules/index.ts';
+import { ownedTools, wearTool, superiorBlock, classInfo, lumes } from './pacto.ts';
 
 export class EcosError extends Error { constructor(public status: number, msg: string) { super(msg); } }
 
@@ -40,6 +42,7 @@ async function rpc<T = Record<string, unknown>>(db: SupabaseClient, fn: string, 
 // ---------------------------------------------------------------------------
 
 export async function ecosState(db: SupabaseClient, cid: string, ecfg: EcosConfig) {
+  const toolsP = ownedTools(db, cid);
   await db.from('ecos_profile').upsert({ companion_id: cid }, { onConflict: 'companion_id', ignoreDuplicates: true });
   const [prof, bag, nodes, sites, proj, mine] = await Promise.all([
     db.from('ecos_profile').select('tools,seen,known_materials,techniques,chain').eq('companion_id', cid).maybeSingle(),
@@ -50,12 +53,13 @@ export async function ecosState(db: SupabaseClient, cid: string, ecfg: EcosConfi
     db.from('ecos_contributions').select('stage,need,qty').eq('companion_id', cid).eq('project_id', PONTE.id),
   ]);
   const now = Date.now();
-  const p = prof.data ?? { tools: ['faca', 'machado', 'picareta'], seen: [], known_materials: [], techniques: [], chain: {} };
+  const tools = await toolsP;
+  const p = prof.data ?? { tools: [], seen: [], known_materials: [], techniques: [], chain: {} };
   const pr = proj.data ?? { project_id: PONTE.id, stage: 0, progress: PONTE.stages[0].needs.map(() => 0), started_at: new Date(now).toISOString(), completed_at: null };
   const stage = PONTE.stages[pr.stage as number];
   return {
     serverNow: now,
-    profile: { tools: p.tools as ToolKey[], seen: p.seen as string[], knownMaterials: p.known_materials as string[], techniques: p.techniques as string[], chain: p.chain as Record<string, unknown> },
+    profile: { tools: tools as ToolKey[], seen: p.seen as string[], knownMaterials: p.known_materials as string[], techniques: p.techniques as string[], chain: p.chain as Record<string, unknown> },
     bag: (bag.data ?? []).map((b) => ({ key: b.batch_key as string, qty: b.qty as number })).filter((b) => b.qty > 0),
     nodes: Object.fromEntries((nodes.data ?? []).map((n) => [n.node_id as string, { amount: Number(n.amount), at: Date.parse(n.at as string) }])),
     sites: (sites.data ?? []).map((s) => ({ id: s.site_id as string, stored: Number(s.stored), at: Date.parse(s.at as string), caredAt: s.cared_at ? Date.parse(s.cared_at as string) : null, createdAt: s.created_at as string,
@@ -76,7 +80,7 @@ export type EcosState = Awaited<ReturnType<typeof ecosState>>;
 // Ações
 // ---------------------------------------------------------------------------
 
-interface Ctx { db: SupabaseClient; c: Record<string, unknown>; cfg: GameConfig; ecfg: EcosConfig; event: (kind: string, payload: unknown) => Promise<number> }
+interface Ctx { db: SupabaseClient; c: Record<string, unknown>; cfg: GameConfig; ecfg: EcosConfig; pcfg: PactoConfig; admin: boolean; event: (kind: string, payload: unknown) => Promise<number> }
 
 const pos = (b: Record<string, unknown>) => {
   const x = Number(b.x), z = Number(b.z);
@@ -132,11 +136,9 @@ export async function ecosAction(action: string, body: Record<string, unknown>, 
     if (node.needs === 'ponte' && !(await bridgeDone(db))) throw new EcosError(409, 'Do outro lado do riacho — precisa da ponte.');
     const p = pos(body);
     if (Math.hypot(p.x - node.x, p.z - node.z) > ecfg.reach) throw new EcosError(409, 'Longe demais: chegue mais perto do recurso.');
-    if (ap.tool) {
-      const { data } = await db.from('ecos_profile').select('tools').eq('companion_id', cid).maybeSingle();
-      const tools = (data?.tools as string[] | undefined) ?? ['faca', 'machado', 'picareta'];
-      if (!tools.includes(ap.tool)) throw new EcosError(409, `Ferramenta incompatível: precisa de ${ap.tool}.`);
-    }
+    const block = superiorBlock(node.id, (await classInfo(db, c, ctx.admin)).effective);
+    if (block) throw new EcosError(403, block);
+    if (ap.tool && !(await ownedTools(db, cid)).includes(ap.tool)) throw new EcosError(409, `Precisa de uma ferramenta (${ap.tool}) — só Taurinas forjam ferramentas: peça uma no quadro de encomendas.`);
     const r = await rpc<{ ok: boolean; status: string; started_at: string; result: unknown; reason?: string }>(db, 'ecos_start', { p_request: request, p_cid: cid, p_node: node.id, p_approach: ap.id });
     if (!r.ok) throw new EcosError(400, reasonText(r.reason));
     return { started: { request, startedAt: Date.parse(r.started_at), status: r.status, result: r.result, seconds: ap.seconds * ecfg.timeSlack } };
@@ -147,13 +149,18 @@ export async function ecosAction(action: string, body: Record<string, unknown>, 
     const node = nodeById(String(body.node)); if (!node) throw new EcosError(400, 'Recurso inexistente.');
     const ap = approachOf(node, String(body.approach)); if (!ap) throw new EcosError(400, 'Abordagem inexistente.');
     const kind = NODE_KINDS[node.kind];
+    const block = superiorBlock(node.id, (await classInfo(db, c, ctx.admin)).effective);
+    if (block) throw new EcosError(403, block);
     const items = rollGather(node, ap, request).map((b) => ({ key: b.key, qty: b.qty }));
     const r = await rpc<{ ok: boolean; reason?: string; items?: { key: string; qty: number }[]; repeat?: boolean; wait?: number }>(db, 'ecos_finish_gather', {
       p_request: request, p_cid: cid, p_node: node.id, p_approach: ap.id, p_cost: ap.cost, p_cap: kind.capacity, p_regen: kind.regenPerHour,
       p_min_seconds: ap.seconds * ecfg.timeSlack, p_items: items, p_bag_cap: ecfg.bag,
     });
     let clue = null;
-    if (r.ok && !r.repeat) clue = await advanceChain(ctx, { node: node.id, approach: ap.id });
+    if (r.ok && !r.repeat) {
+      if (ap.tool) await wearTool(db, cid, ap.tool);
+      clue = await advanceChain(ctx, { node: node.id, approach: ap.id });
+    }
     return { gather: { ok: r.ok, reason: r.reason ?? null, message: r.ok ? null : reasonText(r.reason), wait: r.wait ?? null, items: r.ok ? r.items : [], repeat: !!r.repeat }, clue, ecos: await ecosState(db, cid, ecfg) };
   }
 
@@ -195,6 +202,7 @@ export async function ecosAction(action: string, body: Record<string, unknown>, 
         ? `${name} descobriu a Nascente Azul do Vale dos Ecos e escolheu preservá-la: ali nasceu o Jardim da Nascente.`
         : `${name} descobriu a Nascente Azul do Vale dos Ecos e extraiu seus cristais de quartzo azul.`, 4);
       bond = await grantBond(ctx, cid, ctx.cfg.discoveryXp, 'descoberta');
+      await lumes(db, 'disc:' + request, cid, ctx.pcfg.discoveryLumes, 'descoberta', chain.id);
     }
     return { chosen: { choice, gave: give, site: choice === 'preservar' ? JARDIM.id : null }, bond, ecos: await ecosState(db, cid, ecfg) };
   }
@@ -269,6 +277,7 @@ export async function ecosAction(action: string, body: Record<string, unknown>, 
       for (const other of (r.contributors ?? []).slice(0, 200)) {
         const g = await grantBond(ctx, other, Math.round(ctx.cfg.discoveryXp / 2), 'obra');
         if (other === cid) bond = g;
+        await lumes(db, `obra:${PONTE.id}:${stage}:${other}`, other, ctx.pcfg.projectStageLumes, 'obra', PONTE.id);
         await memory(ctx, other, `A etapa "${st.title}" da Ponte do Riacho ficou pronta, com a ajuda de quem passou pelo Vale dos Ecos. ${st.done}`, 3);
       }
     }

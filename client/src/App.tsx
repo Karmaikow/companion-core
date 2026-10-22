@@ -13,6 +13,8 @@ import { Creation } from './ui/Creation';
 import { SkillTreePanel } from './ui/SkillTreePanel';
 import { SettingsPanel } from './ui/SettingsPanel';
 import { EcosPanel } from './ui/EcosPanel';
+import { PactoPanel } from './ui/PactoPanel';
+import { usePacto } from './pacto/pactoStore';
 import { EcosHud } from './ui/EcosHud';
 import { speak, sendPlayerMessage, stopConversation, useConversation, useMic } from './ui/voice';
 import { brain } from './scene/brain';
@@ -34,6 +36,7 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'skills', label: 'Habilidades' },
   { key: 'bond', label: 'Vínculo' },
   { key: 'ecos', label: 'Expedição' },
+  { key: 'pacto', label: 'Oficina' },
   { key: 'settings', label: 'Ajustes' },
 ];
 
@@ -234,6 +237,14 @@ export function App() {
     return { tail, wings, palette: { primary: pal.primary, secondary: pal.secondary, accent: pal.accent, glow: pal.glow } };
   }, [c?.identityContract, visual.color, visual.glow]);
 
+  // ---- Pacto das Cinco: peças forjadas, trabalhos em andamento (terminam sozinhos, mesmo com o painel fechado)
+  useEffect(() => {
+    if (!c?.id || c.stage !== 'awakened' || !backend) return;
+    void usePacto.getState().refresh();
+    const t = setInterval(() => usePacto.getState().tick(), 1000);
+    return () => clearInterval(t);
+  }, [c?.id, c?.stage, backend]);
+
   // ---- armas e equipamentos: arsenal publicado (ou o inicial) + o que está equipado
   const items = useGame((s) => s.items);
   const equipped = useGame((s) => s.equipped);
@@ -271,7 +282,7 @@ export function App() {
     return () => { window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); window.removeEventListener('blur', releaseAttack); };
   }, []);
 
-  const panel = { chat: ChatPanel, memories: MemoriesPanel, diary: DiaryPanel, quests: QuestsPanel, inventory: InventoryPanel, recipes: RecipesPanel, skills: SkillTreePanel, bond: BondPanel, ecos: EcosPanel, settings: SettingsPanel };
+  const panel = { chat: ChatPanel, memories: MemoriesPanel, diary: DiaryPanel, quests: QuestsPanel, inventory: InventoryPanel, recipes: RecipesPanel, skills: SkillTreePanel, bond: BondPanel, ecos: EcosPanel, pacto: PactoPanel, settings: SettingsPanel };
   const Panel = tab ? panel[tab] : null;
 
   return (

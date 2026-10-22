@@ -3,7 +3,7 @@ import { DEFAULT_ITEMS, type Equipped, type ItemDef } from '@rules';
 import { QUESTS, QUEST_REWARDS, SECRET_BY_KEY, SECRET_XP, SECRET_BOOST_TURNS, ELEMENTS, type QuestKey, type SecretKey } from '@rules';
 import type { Backend, Snapshot } from './backend/types';
 
-export type Tab = 'chat' | 'memories' | 'diary' | 'quests' | 'inventory' | 'recipes' | 'skills' | 'bond' | 'ecos' | 'settings';
+export type Tab = 'chat' | 'memories' | 'diary' | 'quests' | 'inventory' | 'recipes' | 'skills' | 'bond' | 'ecos' | 'pacto' | 'settings';
 
 export interface Toast { id: number; text: string; tone: 'gold' | 'soft' | 'warn' }
 
@@ -62,7 +62,7 @@ export const useGame = create<State>((set, get) => ({
   awakenCall: false,
   items: DEFAULT_ITEMS,
   equipped: {},
-  setItems: (items) => set({ items }),
+  setItems: (items) => set((s) => ({ items: [...items.filter((i) => !i.slug.startsWith('inst-')), ...s.items.filter((i) => i.slug.startsWith('inst-'))] })),
   setEquipped: (equipped) => set({ equipped }),
   setBackend: (backend) => set({ backend, snap: null, error: null, lastReply: null, celebrations: [], awakenCall: false }),
   setTab: (tab) => set({ tab }),

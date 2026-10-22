@@ -8,7 +8,7 @@ import { create } from 'zustand';
 import * as THREE from 'three';
 import {
   MATERIALS, NODE_KINDS, VALE, NASCENTE, nodeById, approachOf, nodeName, parseBatchKey, abundanceNow, atLeast, perceivedNodes, suggestGather, SEIVA_AZUL,
-  cluesFor, nextStep, CATEGORIES, BAND_LABEL, PROP_LABEL,
+  cluesFor, nextStep, CATEGORIES, BAND_LABEL, PROP_LABEL, superiorBlockFor, type SpeciesKey,
   type GatheringIntent, type ResourceNode, type MaterialBatch, type Suggestion, type EnvironmentalClue, type GatherKind, type ResCategory, type PropKey, type Band,
 } from '@rules';
 import { useGame } from '../store';
@@ -91,11 +91,14 @@ export function visibleClues(v: EcosView | null): EnvironmentalClue[] {
   const st = v?.profile.chain[SEIVA_AZUL.id] ?? null;
   return cluesFor(SEIVA_AZUL, st, (id, r) => { const n = nodeById(id); return !!n && (v?.profile.seen.includes(id) || Math.hypot(n.x - companionFocus.x, n.z - companionFocus.z) <= r); });
 }
+/** Classe efetiva (do Pacto) para saber quais fontes superiores o Companion pode extrair. */
+export const classSource = { get: (): SpeciesKey | null => null };
 export function suggestionsNow(v: EcosView | null, intent: GatheringIntent): Suggestion[] {
+  const cls = classSource.get();
   return suggestGather(intent, {
     known: knownNow(v), bagFree: (v?.config.bag ?? 60) - bagUsedOf(v), tools: v?.profile.tools ?? [], knownMaterials: v?.profile.knownMaterials ?? [],
     clueNode: clueNode(v), now: Date.now(),
-  });
+  }).map((s) => { const b = superiorBlockFor(s.node.id, cls); return b && !s.blocked ? { ...s, blocked: b } : s; });
 }
 
 /** Ordem do chat ("colher 40 folhas") → intenção de coleta. */

@@ -6,11 +6,12 @@ import {
   offlineTurn, assistDiscoveries, buildDreamPrompt, parseDream, checkAwakening, buildIdentityContract, gameTime, companionDay, clampText,
   QUESTS, QUEST_REWARDS, validateSetup, evaluateSecrets, isQuestionAboutCompanion, buildMusePrompt,
   SECRET_BY_KEY, SECRET_XP, SECRET_BOOST_TURNS, buildArtPrompt, ANIM_KINDS, SPECIES, DEFAULT_CREATURES, sanitizeCreature, recordKill, combatMemoryLines, combatMemoryText,
-  BANK_EVENTS, MOMENT_EVENTS, withXpMultiplier, combatXp, resolveEcos, type EcosConfig, buildBarkBankPrompt, parseBarkBank, buildMomentPrompt, parseMoment, dossier, type BarkEvent,
+  BANK_EVENTS, MOMENT_EVENTS, withXpMultiplier, combatXp, resolveEcos, type EcosConfig, resolvePacto, type PactoConfig, buildBarkBankPrompt, parseBarkBank, buildMomentPrompt, parseMoment, dossier, type BarkEvent,
   type BestiaryEntry, type CreatureDef, type SecretKey, type GameConfig, type IdentityContractV1, type QuestState, type Discoveries, type MemoryLite, type ChatLine,
 } from './rules/index.ts';
 import { complete, providerName } from './llm.ts';
 import { ecosAction, EcosError } from './ecos.ts';
+import { pactoAction, PactoError } from './pacto.ts';
 
 const URL_ = Deno.env.get('SUPABASE_URL')!;
 const SERVICE = (() => {
@@ -32,10 +33,10 @@ const json = (status: number, body: unknown) =>
 
 class HttpError extends Error { constructor(public status: number, msg: string) { super(msg); } }
 
-async function loadConfig(db: SupabaseClient): Promise<GameConfig & { dailyChatLimit: number; maxCompanions: number; ecos: EcosConfig }> {
+async function loadConfig(db: SupabaseClient): Promise<GameConfig & { dailyChatLimit: number; maxCompanions: number; ecos: EcosConfig; pacto: PactoConfig }> {
   const { data } = await db.from('game_config').select('values').eq('id', 1).maybeSingle();
   const v = (data?.values ?? {}) as Record<string, number>;
-  return { ...withXpMultiplier(resolveConfig(v)), ecos: resolveEcos((data?.values as Record<string, unknown> | undefined)?.ecos), dailyChatLimit: Number(v.dailyChatLimit) > 0 ? Number(v.dailyChatLimit) : 300, maxCompanions: Number(v.maxCompanions) > 0 ? Number(v.maxCompanions) : 1 };
+  return { ...withXpMultiplier(resolveConfig(v)), ecos: resolveEcos((data?.values as Record<string, unknown> | undefined)?.ecos), pacto: resolvePacto((data?.values as Record<string, unknown> | undefined)?.pacto), dailyChatLimit: Number(v.dailyChatLimit) > 0 ? Number(v.dailyChatLimit) : 300, maxCompanions: Number(v.maxCompanions) > 0 ? Number(v.maxCompanions) : 1 };
 }
 
 async function event(db: SupabaseClient, companionId: string, actor: 'player' | 'companion' | 'system', kind: string, payload: unknown): Promise<number> {
@@ -601,7 +602,11 @@ Deno.serve(async (req) => {
     if (action === 'barks') return json(200, await actBarks(db, c, body));
     if (action.startsWith('ecos.')) {
       const cc = c;
-      return json(200, await ecosAction(action, body, { db, c: cc, cfg, ecfg: cfg.ecos, event: (kind, payload) => event(db, cc.id as string, 'system', kind, payload) }));
+      return json(200, await ecosAction(action, body, { db, c: cc, cfg, ecfg: cfg.ecos, pcfg: cfg.pacto, admin: await isAdmin(db, userId), event: (kind, payload) => event(db, cc.id as string, 'system', kind, payload) }));
+    }
+    if (action.startsWith('pacto.')) {
+      const cc = c;
+      return json(200, await pactoAction(action, body, { db, c: cc, admin: await isAdmin(db, userId), pcfg: cfg.pacto, ecfg: cfg.ecos, event: (kind, payload) => event(db, cc.id as string, 'system', kind, payload) }));
     }
     if (action === 'awaken') {
       await actAwaken(db, c, cfg);
@@ -610,7 +615,7 @@ Deno.serve(async (req) => {
     }
     return json(404, { error: 'Ação desconhecida.' });
   } catch (e) {
-    if (e instanceof HttpError || e instanceof EcosError) return json(e.status, { error: e.message });
+    if (e instanceof HttpError || e instanceof EcosError || e instanceof PactoError) return json(e.status, { error: e.message });
     console.error('refuge', (e as Error).message);
     return json(500, { error: 'O Refúgio está instável agora. Tente de novo.' });
   }

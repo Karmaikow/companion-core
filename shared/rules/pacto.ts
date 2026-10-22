@@ -18,7 +18,7 @@
 import type { Element } from './identity.ts';
 import type { SpeciesKey, AttrKey } from './species.ts';
 import type { ItemType, Rarity } from './equipment.ts';
-import { MATERIALS, parseBatchKey, bandRank, atLeast, type Band, type PropKey, type ResCategory, type MaterialBatch, type ToolKey } from './ecos.ts';
+import { MATERIALS, parseBatchKey, bandRank, atLeast, nodeById, NODE_KINDS, type Band, type PropKey, type ResCategory, type MaterialBatch, type ToolKey } from './ecos.ts';
 
 // ---------------------------------------------------------------------------
 // Ofícios de Origem
@@ -57,6 +57,13 @@ export const SOURCE_CLASS: Record<SourceKind, SpeciesKey> = {
 /** Pode extrair diretamente desta fonte superior? (Taurina nunca; ela marca e anuncia) */
 export function canExtractSuperior(cls: SpeciesKey | null | undefined, source: SourceKind): boolean {
   return !!cls && cls !== 'touro' && SOURCE_CLASS[source] === cls;
+}
+/** Mensagem de bloqueio de uma fonte superior para esta classe (null = pode extrair ou é fonte básica). */
+export function superiorBlockFor(nodeId: string, cls: SpeciesKey | null | undefined): string | null {
+  const n = nodeById(nodeId); const src = n ? (NODE_KINDS[n.kind].source as SourceKind | undefined) : undefined;
+  if (!src || canExtractSuperior(cls, src)) return null;
+  const who = SOURCE_CLASS[src];
+  return `Fonte superior (${SOURCE_LABEL[src]}): só ${CLASS_LABEL[who]} extrai daqui.${cls === 'touro' ? ' Você pode localizar e anunciar a oportunidade no quadro do Pacto.' : ''}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -377,7 +384,7 @@ export function assistPlan(blueprint: string, bag: { key: string; qty: number }[
 // Equipamento (EquipmentInstance), assinatura, reparo, reforja e reciclagem
 // ---------------------------------------------------------------------------
 
-export interface ArtisanSignature { artisan: string; artisanName: string; at: string; contributors: { office: OfficeKey; maker: string; component: string }[] }
+export interface ArtisanSignature { artisan: string; artisanName: string; at: string; contributors: { office: OfficeKey; maker: string; component: string; name?: string }[] }
 export interface EquipmentInstance {
   id: string; owner: string; blueprint: string; name: string; kind: ForgeBlueprint['kind']; itemType: ItemType | null; tool: ToolKey | null;
   stats: Partial<Record<AttrKey, number>>; weight: ForgeOutcome['weight']; affinity: Element | null; mark: MarkConfig | null; rarity: Rarity;

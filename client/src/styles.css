@@ -791,3 +791,128 @@ html:has(.admin), body:has(.admin), #root:has(.admin) { height: auto; min-height
   .ecos-recent { display: none; }
   .choice-row { grid-template-columns: 1fr; }
 }
+
+/* ---------------------------------------------------------------------------------------------------------------
+   Pacto das Cinco — Oficina (bancada larga no desktop; peça em cima + bandeja/abas no celular)
+   --------------------------------------------------------------------------------------------------------------- */
+.panel.panel-pacto { width: min(1180px, calc(100vw - 28px)); }
+.pacto { display: flex; flex-direction: column; gap: 10px; font-size: 0.92rem; }
+.pacto .hint, .pacto .d { color: var(--mist, #b9c3d6); font-size: 0.82rem; display: block; }
+.pacto .why { color: #f0a58f; }
+.pacto h3 { font-family: var(--serif); color: var(--brass); margin: 10px 0 4px; font-size: 1.05rem; }
+.pacto h4 { margin: 0 0 6px; font-size: 0.9rem; color: var(--parchment); }
+.pacto-top { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.pacto-who { display: flex; gap: 10px; align-items: center; flex: 1; min-width: 220px; }
+.pacto-who small { display: block; color: var(--mist, #b9c3d6); font-size: 0.78rem; }
+.pacto-office { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font-size: 1.3rem; border: 1px solid var(--brass-dim); background: var(--night-2); flex: none; }
+.pacto-lumes { background: var(--night-2); border: 1px solid var(--brass-dim); border-radius: 99px; padding: 4px 12px; color: #fff1a8; white-space: nowrap; }
+.pacto-sim { font-size: 0.72rem; border: 1px dashed var(--brass-dim); border-radius: 99px; padding: 1px 8px; color: var(--brass); }
+.pacto-test { font-size: 0.78rem; display: flex; gap: 6px; align-items: center; background: #2a1f3a; border: 1px dashed #a07cff; border-radius: 10px; padding: 3px 8px; }
+.pacto-test select { background: var(--night); color: var(--parchment); border: 1px solid #33425f; border-radius: 6px; }
+.pacto-warn { margin: 0; font-size: 0.8rem; background: #2a1f3a; border-left: 3px solid #a07cff; padding: 6px 10px; border-radius: 6px; }
+.pacto-error { margin: 0; background: #3a1d1d; border-left: 3px solid #e0664f; padding: 6px 10px; border-radius: 6px; cursor: pointer; }
+.pacto-notice { margin: 0; background: #1d3a26; border-left: 3px solid #7be36b; padding: 6px 10px; border-radius: 6px; cursor: pointer; }
+.pacto-tabs { flex-wrap: wrap; }
+.pacto .bar { height: 6px; border-radius: 99px; background: rgba(255, 255, 255, 0.12); overflow: hidden; }
+.pacto .bar i { display: block; height: 100%; background: linear-gradient(90deg, #c8a26b, #ff7a3d); transition: width 0.4s; }
+.pacto .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.pacto .chip { background: var(--night-2); border: 1px solid #33425f; border-radius: 99px; padding: 4px 10px; color: var(--parchment); font-size: 0.82rem; }
+.pacto .chip.on { border-color: var(--brass); background: var(--night-3); color: var(--brass); }
+.pacto button.ghost { background: transparent; border: 1px solid #33425f; color: var(--parchment); border-radius: 8px; padding: 3px 9px; font-size: 0.8rem; }
+.pacto button.ghost:disabled { opacity: 0.4; }
+.pacto input[type=number], .pacto input:not([type]), .pacto select { background: var(--night); color: var(--parchment); border: 1px solid #33425f; border-radius: 6px; padding: 4px 6px; }
+.pacto input[type=number] { width: 72px; }
+.pacto-jobs { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.pacto-jobs li { display: grid; grid-template-columns: minmax(120px, 1fr) 2fr auto auto; gap: 8px; align-items: center; background: var(--night-2); border-radius: 10px; padding: 6px 10px; }
+.pick-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.pick-list li { display: grid; grid-template-columns: 1fr auto auto auto auto; gap: 6px; align-items: center; background: var(--night-2); border-radius: 8px; padding: 4px 8px; font-size: 0.82rem; }
+.pick-list li > span { overflow-wrap: anywhere; }
+.pick-list .from { color: #9ff0d8; }
+
+/* ofício */
+.office { display: flex; flex-direction: column; gap: 8px; }
+.office-slot { border: 1px solid #2a3858; border-radius: 10px; padding: 8px; }
+.office-slot header { display: flex; justify-content: space-between; margin-bottom: 6px; }
+.office-choice { border: 1px solid #2a3858; border-radius: 10px; display: grid; gap: 6px; padding: 8px; }
+.office-choice label { display: flex; gap: 8px; align-items: flex-start; padding: 6px; border-radius: 8px; }
+.office-choice label.on { background: var(--night-3); }
+.office-ess { border: 1px solid; border-radius: 10px; padding: 8px; display: flex; gap: 8px; align-items: flex-start; font-size: 0.85rem; }
+.office-out { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; position: sticky; bottom: 0; background: var(--panel); padding: 8px 0; }
+
+/* forja: grade de bancada */
+.bench { display: grid; gap: 10px; grid-template-columns: minmax(220px, 1fr) minmax(260px, 1.3fr) minmax(220px, 1fr); grid-template-areas: 'top top top' 'left center right' 'bottom bottom bottom'; }
+.bench-top { grid-area: top; display: flex; flex-direction: column; gap: 6px; }
+.bench-left { grid-area: left; border: 1px solid #2a3858; border-radius: 12px; padding: 8px; max-height: 420px; overflow: auto; }
+.bench-center { grid-area: center; display: flex; flex-direction: column; gap: 8px; }
+.bench-right { grid-area: right; border: 1px solid #2a3858; border-radius: 12px; padding: 8px; }
+.bench-bottom { grid-area: bottom; display: flex; flex-direction: column; gap: 8px; border-top: 1px solid #2a3858; padding-top: 8px; }
+.bench-mtabs { display: none; }
+.piece { display: flex; align-items: center; gap: 10px; justify-content: center; border: 2px solid var(--brass-dim); border-radius: 14px; padding: 12px; background: radial-gradient(circle at 50% 40%, var(--night-3), var(--night)); }
+.piece span { font-size: 2.4rem; filter: drop-shadow(0 0 10px rgba(255, 122, 61, 0.45)); }
+.piece b { font-family: var(--serif); font-size: 1.1rem; }
+.layer { border-radius: 12px; padding: 8px; border: 1px solid #2a3858; background: var(--night-2); }
+.layer.empty { opacity: 0.55; }
+.layer-corpo h4 { color: #c8a26b; }
+.layer-trama h4 { color: #9ff0d8; }
+.layer-marca h4 { color: #a07cff; }
+.layer .slot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px; width: 100%; text-align: left; background: var(--night); border: 1px dashed #3a4b6e; border-radius: 8px; color: var(--parchment); padding: 6px 8px; margin-top: 4px; }
+.layer .slot.on { border-color: var(--brass); border-style: solid; }
+.layer .slot.full { border-color: #7be36b; }
+.layer .slot em { flex-basis: 100%; font-style: normal; font-size: 0.78rem; color: #cfe; cursor: pointer; }
+.pv { display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; margin: 0 0 8px; font-size: 0.85rem; }
+.pv dt { color: var(--mist, #b9c3d6); }
+.pv dd { margin: 0; }
+.reqs { border-radius: 8px; padding: 6px 8px; display: grid; gap: 2px; border: 1px solid #33425f; }
+.reqs.good { border-color: #7be36b; }
+.reqs.bad { border-color: #e0664f; }
+.risk { border-top: 1px dashed #33425f; padding-top: 6px; margin-top: 6px; }
+.steps { list-style: none; margin: 0; padding: 0; display: flex; gap: 4px; flex-wrap: wrap; }
+.steps button { background: var(--night-2); border: 1px solid #33425f; color: var(--parchment); border-radius: 99px; padding: 3px 10px; font-size: 0.8rem; }
+.steps li.on button { border-color: var(--brass); color: var(--brass); }
+.steps li.done button { border-color: #56704a; }
+.step-body p, .step-body .radios, .step-body label { margin: 0; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 0.86rem; }
+.forge-go { align-self: flex-end; font-size: 1rem; padding: 8px 18px; }
+
+/* encomendas, peças, as cinco */
+.orders-head { display: flex; justify-content: space-between; align-items: center; }
+.order-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.order { background: var(--night-2); border-radius: 10px; padding: 8px 10px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; }
+.order > div:first-child { flex: 1; min-width: 220px; }
+.order-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: flex-start; }
+.st { border-radius: 99px; padding: 0 7px; font-size: 0.72rem; background: var(--night-3); }
+.st-aberta, .st-oportunidade { color: #9ff0d8; } .st-aceita, .st-em_forja { color: #ffe14d; } .st-entregue { color: #7be36b; } .st-cancelada, .st-expirada { color: #f0a58f; } .st-servico { color: #c9a3ff; }
+.history { font-size: 0.78rem; margin: 6px 0 0; padding-left: 18px; flex-basis: 100%; color: var(--mist, #b9c3d6); }
+.new-order { border: 1px solid var(--brass-dim); border-radius: 12px; padding: 10px; display: grid; gap: 8px; }
+.form-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.form-row input:not([type=checkbox]) { flex: 1; min-width: 60px; }
+.board ul { list-style: none; padding: 0; margin: 0 0 8px; display: grid; gap: 4px; }
+.board li { background: var(--night-2); border-radius: 8px; padding: 5px 8px; font-size: 0.85rem; }
+.piece-item.broken { opacity: 0.7; }
+.piece-item .bar.dur { margin: 4px 0; max-width: 220px; }
+.piece-item .bar.dur i { background: linear-gradient(90deg, #56704a, #7be36b); }
+.piece-actions { display: flex; flex-direction: column; gap: 4px; }
+.piece-more { font-size: 0.82rem; margin-top: 6px; }
+.piece-more p { margin: 3px 0; }
+.reforge { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 6px; }
+.five ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
+.five li { display: flex; gap: 10px; background: var(--night-2); border-radius: 10px; padding: 8px; }
+.five li.on { outline: 1px solid var(--brass); }
+.five li > span { font-size: 1.4rem; }
+.five li small { display: block; color: var(--mist, #b9c3d6); font-size: 0.8rem; }
+.five .ess li { border-left: 3px solid; display: block; font-size: 0.84rem; }
+.vshield { font-size: 0.72rem; text-align: center; border-radius: 99px; padding: 1px 8px; background: rgba(63, 182, 255, 0.15); color: #bfe9ff; }
+.vshield.on { background: rgba(63, 182, 255, 0.45); color: #fff; box-shadow: 0 0 12px #3fb6ff; }
+
+@media (max-width: 760px) {
+  .bench { grid-template-columns: 1fr; grid-template-areas: 'top' 'mtabs' 'center' 'left' 'right' 'bottom'; }
+  .bench-mtabs { display: flex; grid-area: mtabs; }
+  .bench.m-peca .bench-left, .bench.m-peca .bench-right { display: none; }
+  .bench.m-materiais .bench-center, .bench.m-materiais .bench-right { display: none; }
+  .bench.m-previsao .bench-center, .bench.m-previsao .bench-left { display: none; }
+  .bench-left { max-height: none; }
+  .bench-bottom { position: sticky; bottom: -18px; background: var(--panel); padding-bottom: 10px; z-index: 1; }
+  .pacto-jobs li { grid-template-columns: 1fr auto; }
+  .pacto-jobs li .bar { grid-column: 1 / -1; }
+  .pick-list li { grid-template-columns: 1fr auto auto auto; }
+  .pick-list li > small:first-of-type { display: none; }
+}

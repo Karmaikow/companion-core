@@ -4,6 +4,7 @@
  * e testar sem back-end, e como referência de comportamento.
  */
 import { localEcos } from '../ecos/localEcos';
+import { localPacto } from '../pacto/localPacto';
 import {
   DEFAULT_CONFIG, initialQuests, applyTurn, offlineTurn, levelForXp, levelProgress, checkAwakening,
   buildIdentityContract, companionDay, QUEST_REWARDS, validateSetup, evaluateSecrets, isQuestionAboutCompanion, gameTime,
@@ -99,6 +100,7 @@ export class LocalBackend implements Backend {
 
   /** Ecos da Terra offline: simulado neste aparelho (não vale na economia online). */
   ecos(action: string, body: Record<string, unknown> = {}) { return localEcos(action, body); }
+  pacto(action: string, body: Record<string, unknown> = {}) { return localPacto(action, body); }
 
   /** Derrota de uma criatura (offline: as criaturas de reserva dão o nome e a análise). */
   async combatKill(slug: string, level: number) {

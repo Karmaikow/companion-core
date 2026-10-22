@@ -4,8 +4,8 @@ import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import {
   SPECIES, OFFICES, CLASS_LABEL, canCompleteEquipment, transformationById, checkTransformation, blueprintById, forgePreview, resolvePacto, coreCost,
   meetsRequirements, cancelSettlement, payout, recycleReturn, REPAIR_KIT_AMOUNT, parseComponentKey, COMPONENTS, cleanRequestId, nodeById, NODE_KINDS,
-  canExtractSuperior, SOURCE_LABEL, type PactoConfig, type ForgePlan, type SpeciesKey, type Element, type IdentityContractV1, type Discoveries,
-  type OrderRequirements, type EcosConfig, type Conduct, type Temper, type SourceKind,
+  superiorBlockFor, type PactoConfig, type ForgePlan, type SpeciesKey, type Element, type IdentityContractV1, type Discoveries,
+  type OrderRequirements, type EcosConfig, type Conduct, type Temper,
 } from './rules/index.ts';
 
 export class PactoError extends Error { constructor(public status: number, msg: string) { super(msg); } }
@@ -56,18 +56,18 @@ export async function ownedTools(db: SupabaseClient, cid: string): Promise<strin
 }
 export async function wearTool(db: SupabaseClient, cid: string, tool: string) { await rpc(db, 'pacto_equipment_wear', { p_cid: cid, p_tool: tool, p_item: null, p_amount: 1 }).catch(() => null); }
 
-/** Fonte superior: só a classe da fonte extrai (Taurina nunca). */
-export function superiorBlock(nodeId: string, effective: SpeciesKey | null): string | null {
-  const n = nodeById(nodeId); const src = n ? NODE_KINDS[n.kind].source as SourceKind | undefined : undefined;
-  if (!src) return null;
-  if (canExtractSuperior(effective, src)) return null;
-  const who = Object.values(OFFICES).find((o) => o.cls !== 'touro' && canExtractSuperior(o.cls, src));
-  return `Fonte superior (${SOURCE_LABEL[src]}): só ${who ? CLASS_LABEL[who.cls] : 'outra classe'} extrai daqui.${effective === 'touro' ? ' Você pode anunciar a oportunidade no quadro.' : ''}`;
-}
+export const superiorBlock = (nodeId: string, effective: SpeciesKey | null) => superiorBlockFor(nodeId, effective);
 
-export async function lumes(db: SupabaseClient, request: string, cid: string, delta: number, why: string, ref: string | null) {
+/** UUID determinístico (idempotência de recompensas derivadas de outro evento). */
+export async function stableUuid(s: string) {
+  const h = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s))).slice(0, 16);
+  h[6] = (h[6] & 0x0f) | 0x50; h[8] = (h[8] & 0x3f) | 0x80;
+  const x = [...h].map((v) => v.toString(16).padStart(2, '0')).join('');
+  return `${x.slice(0, 8)}-${x.slice(8, 12)}-${x.slice(12, 16)}-${x.slice(16, 20)}-${x.slice(20)}`;
+}
+export async function lumes(db: SupabaseClient, key: string, cid: string, delta: number, why: string, ref: string | null) {
   if (!delta) return null;
-  return rpc(db, 'pacto_lumes', { p_request: request, p_cid: cid, p_delta: delta, p_reason: why, p_ref: ref }).catch(() => null);
+  return rpc(db, 'pacto_lumes', { p_request: await stableUuid(key), p_cid: cid, p_delta: delta, p_reason: why, p_ref: ref }).catch(() => null);
 }
 
 // ---------------------------------------------------------------------------

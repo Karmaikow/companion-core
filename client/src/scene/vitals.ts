@@ -10,11 +10,16 @@
 import { create } from 'zustand';
 import { SPECIES, type AttrKey, type SpeciesKey } from '@rules';
 
-export interface VitalsView { hp: number; hpMax: number; sp: number; spMax: number; st: number; stMax: number; down: boolean; hitId: number; /** segundos até levantar (desmaiado) */ wake: number }
+export interface VitalsView { /** Barreira Breve: segundos ativos restantes e de recarga */ shield: number; shieldCd: number; hp: number; hpMax: number; sp: number; spMax: number; st: number; stMax: number; down: boolean; hitId: number; /** segundos até levantar (desmaiado) */ wake: number }
 
 export const vitals = { hp: 100, hpMax: 100, sp: 60, spMax: 60, st: 100, stMax: 100, down: 0, rest: 0, hitId: 0, blocking: false, lastHit: 0 };
 
-export const useVitals = create<VitalsView>(() => ({ hp: 100, hpMax: 100, sp: 60, spMax: 60, st: 100, stMax: 100, down: false, hitId: 0, wake: 0 }));
+/** Marca da mão secundária (preenchida pelo Pacto). */
+export const markSource = { get: (): { id: string; duration: number; absorb: number; cooldown: number; spCost: number } | null => null };
+/** Barreira Breve: ativa só depois de uma defesa válida, se não estiver em recarga (a recarga começa na ativação → sem ciclo infinito). */
+export const barrier = { until: 0, cdUntil: 0, left: 0 };
+
+export const useVitals = create<VitalsView>(() => ({ shield: 0, shieldCd: 0, hp: 100, hpMax: 100, sp: 60, spMax: 60, st: 100, stMax: 100, down: false, hitId: 0, wake: 0 }));
 
 /** Desmaiado: a stamina enche do zero em DOWN_SECONDS e só então ele levanta. */
 export const DOWN_SECONDS = 10;
@@ -22,8 +27,9 @@ export const DOWN_SECONDS = 10;
 let acc = 0;
 function publish(force = false) {
   const v = vitals, cur = useVitals.getState();
-  const next: VitalsView = { hp: Math.round(v.hp), hpMax: v.hpMax, sp: Math.round(v.sp), spMax: v.spMax, st: Math.round(v.st), stMax: v.stMax, down: v.down > 0, hitId: v.hitId, wake: v.down > 0 ? Math.ceil(((v.stMax - v.st) / v.stMax) * DOWN_SECONDS) : 0 };
-  if (force || next.hp !== cur.hp || next.sp !== cur.sp || next.st !== cur.st || next.down !== cur.down || next.hpMax !== cur.hpMax || next.spMax !== cur.spMax || next.stMax !== cur.stMax || next.hitId !== cur.hitId || next.wake !== cur.wake) useVitals.setState(next);
+  const t = performance.now();
+  const next: VitalsView = { shield: barrier.until > t ? Math.ceil((barrier.until - t) / 1000) : 0, shieldCd: barrier.cdUntil > t ? Math.ceil((barrier.cdUntil - t) / 1000) : 0, hp: Math.round(v.hp), hpMax: v.hpMax, sp: Math.round(v.sp), spMax: v.spMax, st: Math.round(v.st), stMax: v.stMax, down: v.down > 0, hitId: v.hitId, wake: v.down > 0 ? Math.ceil(((v.stMax - v.st) / v.stMax) * DOWN_SECONDS) : 0 };
+  if (force || next.shield !== cur.shield || next.shieldCd !== cur.shieldCd || next.hp !== cur.hp || next.sp !== cur.sp || next.st !== cur.st || next.down !== cur.down || next.hpMax !== cur.hpMax || next.spMax !== cur.spMax || next.stMax !== cur.stMax || next.hitId !== cur.hitId || next.wake !== cur.wake) useVitals.setState(next);
 }
 
 /** Máximos pela classe, bônus da árvore (%) e vínculo. Mantém a proporção atual. */
@@ -58,6 +64,16 @@ export function canAct() { return vitals.down <= 0; }
 export function hurtCompanion(damage: number): number {
   const v = vitals;
   if (v.down > 0) return 0;
+  const now = performance.now();
+  // Barreira Breve: uma defesa válida (bloqueando ao receber o golpe) ergue a barreira, se a Marca estiver pronta
+  const mark = markSource.get();
+  if (mark?.id === 'barreira-breve' && v.blocking && now >= barrier.cdUntil && v.sp >= mark.spCost) {
+    v.sp -= mark.spCost; barrier.until = now + mark.duration * 1000; barrier.cdUntil = now + mark.cooldown * 1000; barrier.left = mark.absorb;
+  }
+  if (barrier.until > now && barrier.left > 0) {
+    const soak = Math.min(barrier.left, damage); barrier.left -= soak; damage -= soak;
+    if (damage <= 0) { v.hitId++; publish(); return 0; }
+  }
   const dmg = Math.max(1, Math.round(damage * (v.blocking ? 0.25 : 1)));
   v.hp = Math.max(0, v.hp - dmg); v.hitId++; v.lastHit = performance.now();
   if (v.hp <= 0) { v.down = 1; v.st = 0; v.blocking = false; } // desmaia: a stamina zera

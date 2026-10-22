@@ -7,10 +7,14 @@ import { useMemo, useState } from 'react';
 import { ITEM_TYPES, RARITIES, SLOTS_EQ, ELEMENTS, SPECIES, equip, equipmentBonus, forgeCheck, canForge, basicAttack, type EquipSlot, type Equipped, type ItemDef } from '@rules';
 import { useGame } from '../store';
 import { supabase } from '../backend/online';
+import { ownsInstance, offhandMark } from '../pacto/pactoStore';
+import { markSource } from '../scene/vitals';
+
+markSource.get = offhandMark;
 
 const TEST = typeof location !== 'undefined' && new URLSearchParams(location.search).has('arsenal');
 /** Itens que o Companion tem: os de evento (starter) — e, no modo de teste, todos. */
-export const ownsItem = (slug: string) => TEST || !!useGame.getState().items.find((i) => i.slug === slug)?.starter;
+export const ownsItem = (slug: string) => TEST || ownsInstance(slug) || !!useGame.getState().items.find((i) => i.slug === slug)?.starter;
 const materials = (): Record<string, number> => (TEST ? new Proxy({}, { get: () => 99 }) as Record<string, number> : {});
 const ATTR: Record<string, string> = { vida: 'Vida', energia: 'Energia', poder: 'Poder', defesa: 'Defesa', agilidade: 'Agilidade', sintonia: 'Sintonia' };
 const ICON: Record<string, string> = { espada: '🗡', faca: '🔪', maca: '🔨', lanca: '🔱', cajado: '🪄', varinha: '✨', arco: '🏹', escudo: '🛡', grimorio: '📖', orbe: '🔮', chapeu: '🎩', tiara: '👑', laco: '🎀', coroa: '🌸', mochila: '🎒', aljava: '🏹', amuleto: '📿', anel: '💍' };
@@ -75,45 +79,21 @@ export function EquipmentPanel() {
                   </div>
                   {own
                     ? <button className={on ? 'ghost' : 'primary'} onClick={() => { if (on) { const n = { ...equipped }; delete n[slot]; void save(n); } else void save(equip(equipped, it, items)); }}>{on ? 'Tirar' : 'Equipar'}</button>
-                    : <small className="lock">Só na Forja</small>}
+                    : <small className="lock">Modelo do arsenal</small>}
                 </li>
               );
             })}
             {!list.length && <li className="empty">Nenhum item deste tipo no Arsenal ainda.</li>}
           </ul>
-          {!TEST && <small className="hint">Itens são raros e só existem pela Forja — e só Companions da classe Taurina forjam.</small>}
+          {!TEST && <small className="hint">Peças só nascem na Forja Primordial (Oficina do Pacto) — nenhuma vem de drop, baú ou recompensa.</small>}
         </>
       ) : (
-        <ForgeList items={items} species={species} bond={c?.bond.level ?? 1} />
+        <div className="forge">
+          <p className="hint">A forja agora acontece na <b>Oficina do Pacto das Cinco</b>: só Taurinas concluem equipamentos, com componentes que as outras classes preparam nos seus ofícios. As peças forjadas aparecem aqui para equipar.</p>
+          <button className="primary" onClick={() => useGame.getState().setTab('pacto')}>Abrir a Oficina do Pacto</button>
+        </div>
       )}
     </div>
   );
 }
 
-function ForgeList({ items, species, bond }: { items: ItemDef[]; species: string | null; bond: number }) {
-  const mats = materials();
-  const taurina = canForge(species as never);
-  return (
-    <div className="forge">
-      {taurina
-        ? <p className="hint">{SPECIES.touro.craft?.hint} Os ingredientes vêm dos monstros acalmados — a coleta chega com a batalha.</p>
-        : <p className="hint">🔒 Só Companions da classe <b>Taurina</b> sabem forjar. Os outros conseguem itens com quem forja (troca e presentes, no mundo compartilhado).</p>}
-      <ul className="eq-list">
-        {items.map((it) => {
-          const missing = forgeCheck(it, { species: species as never, bond, materials: mats });
-          return (
-            <li key={it.slug} className={'eq-item' + (missing.length ? ' locked' : '')}>
-              <span className="eq-icon" style={{ borderColor: RARITIES[it.rarity].color }} aria-hidden>{ICON[it.type]}</span>
-              <div>
-                <strong>{it.name}</strong> <small style={{ color: RARITIES[it.rarity].color }}>{RARITIES[it.rarity].label}</small>
-                <small className="d">{it.recipe.ingredients.map((g) => `${g.qty}× ${g.item}`).join(' · ')} · vínculo {it.recipe.minBond}</small>
-                {missing.length > 0 && taurina && <small className="d why">Falta: {missing.join(' · ')}</small>}
-              </div>
-              <button className="primary" disabled={missing.length > 0} title={missing.join('\n') || 'Forjar'} onClick={() => useGame.getState().toast(`${it.name} forjado! (modo de teste: a forja de verdade grava no servidor junto com a coleta)`, 'gold')}>Forjar</button>
-            </li>
-          );
-        })}
-      </ul>
-    </div>
-  );
-}

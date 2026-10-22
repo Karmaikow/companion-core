@@ -18,6 +18,13 @@ interface Save {
   site: { stored: number; at: number; caredAt: number | null; createdAt: string } | null;
   project: { stage: number; progress: number[]; startedAt: number; completedAt: string | null; mine: number[] };
 }
+/** Ganchos do Pacto das Cinco (preenchidos por localPacto): ferramentas forjadas, desgaste, bloqueio superior e Lumes. */
+export const localHooks = {
+  tools: (): ToolKey[] => [],
+  wear: (_tool: string) => {},
+  superior: (_node: string): string | null => null,
+  reward: (_key: string, _amount: 'descoberta' | 'obra') => {},
+};
 const fresh = (): Save => ({ tools: [...STARTER_TOOLS], seen: [], known: [], techniques: [], chain: {}, bag: {}, nodes: {}, actions: {}, site: null, project: { stage: 0, progress: [0], startedAt: Date.now(), completedAt: null, mine: [] } });
 let mem: Save | null = null;
 function load(): Save { if (mem) return mem; try { mem = { ...fresh(), ...JSON.parse(localStorage.getItem(KEY) ?? 'null') }; } catch { mem = fresh(); } return mem!; }
@@ -34,7 +41,7 @@ function view(s: Save): EcosView {
   const goals = st ? st.needs.map((n) => scaledNeed(n, cfg.projectScale)) : [];
   return {
     serverNow: now, simulated: true,
-    profile: { tools: s.tools, seen: s.seen, knownMaterials: s.known, techniques: s.techniques, chain: s.chain },
+    profile: { tools: localHooks.tools(), seen: s.seen, knownMaterials: s.known, techniques: s.techniques, chain: s.chain },
     bag: Object.entries(s.bag).map(([key, qty]) => ({ key, qty })),
     nodes: s.nodes,
     sites: s.site ? [{ id: JARDIM.id, stored: s.site.stored, at: s.site.at, caredAt: s.site.caredAt, createdAt: s.site.createdAt, now: siteStoredNow(JARDIM, s.site, now) }] : [],
@@ -62,7 +69,8 @@ export async function localEcos(action: string, b: Record<string, unknown> = {})
         if (!node || !ap) throw new Fail('Recurso inexistente.');
         if (node.needs === 'ponte' && s.project.stage < 2) throw new Fail('Do outro lado do riacho — precisa da ponte.');
         if (Math.hypot(Number(b.x) - node.x, Number(b.z) - node.z) > cfg.reach) throw new Fail('Longe demais: chegue mais perto do recurso.');
-        if (ap.tool && !s.tools.includes(ap.tool)) throw new Fail(`Ferramenta incompatível: precisa de ${ap.tool}.`);
+        const block = localHooks.superior(node.id); if (block) throw new Fail(block);
+        if (ap.tool && !localHooks.tools().includes(ap.tool)) throw new Fail(`Precisa de uma ferramenta (${ap.tool}) — só Taurinas forjam ferramentas: peça uma no quadro de encomendas.`);
         const req = String(b.request);
         s.actions[req] ??= { node: node.id, approach: ap.id, startedAt: now, status: 'running' };
         save();
@@ -86,6 +94,7 @@ export async function localEcos(action: string, b: Record<string, unknown> = {})
           for (const it of items) { const m = it.key.split('|')[0]; if (!s.known.includes(m)) s.known.push(m); }
           res = { ok: true, reason: null, message: null, wait: null, items, repeat: false };
         }
+        if (res.ok && ap.tool) localHooks.wear(ap.tool);
         a.status = res.ok ? 'done' : 'rejected'; a.result = res as unknown as Record<string, unknown>;
         const clue = res.ok ? advance(s, { node: node.id, approach: ap.id }) : null;
         save();
@@ -113,6 +122,7 @@ export async function localEcos(action: string, b: Record<string, unknown> = {})
         if (used(s) + give.reduce((x, y) => x + y.qty, 0) > cfg.bag) throw new Fail('A mochila está cheia: libere espaço antes de decidir.');
         add(s, give, 1);
         s.chain[chain.id] = { ...st, choice, completedAt: new Date().toISOString() };
+        localHooks.reward('disc:' + chain.id, 'descoberta');
         if (!s.techniques.includes('leitura-de-inclusoes')) s.techniques.push('leitura-de-inclusoes');
         if (choice === 'preservar') s.site = { stored: 0, at: now, caredAt: null, createdAt: new Date().toISOString() };
         const out: EcosReply = { chosen: { choice, gave: give, site: choice === 'preservar' ? JARDIM.id : null }, bond: null };
@@ -171,6 +181,7 @@ export async function localEcos(action: string, b: Record<string, unknown> = {})
         let done = false;
         if (stageComplete(PONTE, s.project, cfg.projectScale)) {
           done = true;
+          localHooks.reward(`obra:${stage}`, 'obra');
           if (stage + 1 >= PONTE.stages.length) { s.project.completedAt = new Date().toISOString(); s.project.stage = stage + 1; }
           else s.project = { ...s.project, stage: stage + 1, progress: PONTE.stages[stage + 1].needs.map(() => 0), startedAt: now };
         }
@@ -186,3 +197,18 @@ export async function localEcos(action: string, b: Record<string, unknown> = {})
     throw e;
   }
 }
+
+/** Mochila local para o Pacto offline (mesma mochila do Ecos). */
+export const localBag = {
+  list: () => Object.entries(load().bag).map(([key, qty]) => ({ key, qty })),
+  has: (take: { key: string; qty: number }[]) => { const s = load(); const need = new Map<string, number>(); for (const t of take) need.set(t.key, (need.get(t.key) ?? 0) + t.qty); return [...need].every(([k, q]) => (s.bag[k] ?? 0) >= q); },
+  /** tira e põe atomicamente; recusa sem mudar nada se faltar material ou estourar a mochila */
+  apply(take: { key: string; qty: number }[], give: { key: string; qty: number }[]): 'ok' | 'faltam-materiais' | 'mochila-cheia' {
+    const s = load();
+    if (!localBag.has(take)) return 'faltam-materiais';
+    const after = used(s) - take.reduce((a, b) => a + b.qty, 0) + give.reduce((a, b) => a + b.qty, 0);
+    if (give.length && after > cfg.bag) return 'mochila-cheia';
+    add(s, take, -1); add(s, give, 1); save();
+    return 'ok';
+  },
+};

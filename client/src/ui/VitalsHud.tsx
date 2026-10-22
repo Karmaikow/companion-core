@@ -20,6 +20,7 @@ export function VitalsBars({ bondRatio, bondLevel }: { bondRatio: number; bondLe
       {row('hp', 'HP', v.hp, v.hpMax, 'Vida: cai com os golpes das criaturas; zerou, desmaia um pouco')}
       {row('sp', 'SP', v.sp, v.spMax, 'Energia das habilidades da barra (1–9)')}
       {row('st', 'ST', v.st, v.stMax, 'Stamina: pulo, golpe e defesa')}
+      {(v.shield > 0 || v.shieldCd > 0) && <div className={'vshield' + (v.shield > 0 ? ' on' : '')} role="status">{v.shield > 0 ? `🛡 Barreira Breve · ${v.shield}s` : `Barreira em recarga · ${v.shieldCd}s`}</div>}
       {row('bond', 'VÍN', Math.round(bondRatio * 100), 100, `Vínculo ${bondLevel}: % até o próximo nível`, true)}
     </div>
   );

@@ -55,6 +55,8 @@ export interface Backend {
   barks?(req: BarksRequest): Promise<{ lines?: Record<string, string[]>; line?: string | null }>;
   /** Ecos da Terra: coleta, descoberta, receitas, jardim e obra (online: servidor; offline: simulado no aparelho) */
   ecos?(action: string, body?: Record<string, unknown>): Promise<import('../ecos/types').EcosReply>;
+  /** Pacto das Cinco: ofícios, forja, encomendas e ciclo de vida das peças (online: servidor; offline: simulado) */
+  pacto?(action: string, body?: Record<string, unknown>): Promise<import('../pacto/types').PactoReply>;
   reset?(): Promise<void>;
   signOut?(): Promise<void>;
 }
