@@ -389,7 +389,10 @@ Os efeitos deixaram de ser pontos com textura e passaram a usar um motor própri
   - mira do ataque e das habilidades pelo mouse ou no monstro mais perto;
   - postura, limite de fuga, frequência das falas;
   - voz das respostas, envio automático do microfone, números de dano.
-- **Voz** (`client/src/ui/voice.ts`): usa o navegador, sem custo. A leitura em voz alta usa SpeechSynthesis pt-BR; o microfone usa SpeechRecognition (botão 🎙 na conversa ou segurar V). Funciona no Chrome e no Edge; o Firefox não reconhece fala.
+- **Voz** (`client/src/ui/voice.ts`): usa o navegador, sem custo. Funciona no Chrome e no Edge; o Firefox não reconhece fala.
+  - Ela fala com voz de menina (Companion "ela") ou de menino ("ele"). Sem uma voz masculina pt-BR no aparelho, usa a feminina em tom grave. A voz vem ligada por padrão; os ajustes antigos (v1) migram com ela ligada.
+  - Conversa por voz: o 🎙 fica ligado, escuta sem parar e envia cada frase. Ele pausa enquanto ela fala, para não ouvir a própria voz.
+  - Segurar V ouve uma frase só.
 
 ## Veneno (v1.14)
 

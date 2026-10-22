@@ -23,6 +23,8 @@ export interface Settings {
   voiceName: string;
   /** microfone: enviar sozinho quando terminar de falar */
   voiceAutoSend: boolean;
+  /** botão 🎙: fica ligado (modo conversa, escuta sem parar) ou ouve uma frase só */
+  micMode: 'sempre' | 'uma';
   /** ordens no chat ("ataque!", "fuja!") também vão para a conversa com a IA (ela responde do jeito dela) */
   ordersToChat: boolean;
   damageNumbers: boolean;
@@ -30,12 +32,19 @@ export interface Settings {
 
 export const DEFAULT_SETTINGS: Settings = {
   click: 'andar', attackAim: 'mouse', skillAim: 'mouse', posture: 'defensiva', fleeAt: 0.3, chatter: 'normal',
-  voiceOut: false, voiceName: '', voiceAutoSend: true, ordersToChat: true, damageNumbers: true,
+  voiceOut: true, voiceName: '', voiceAutoSend: true, micMode: 'sempre', ordersToChat: true, damageNumbers: true,
 };
 
-const KEY = 'companion-core:settings:v1';
+const KEY = 'companion-core:settings:v2';
+const OLD = 'companion-core:settings:v1';
 function load(): Settings {
-  try { const v = JSON.parse(localStorage.getItem(KEY) ?? 'null'); if (v && typeof v === 'object') return { ...DEFAULT_SETTINGS, ...v }; } catch { /* padrão */ }
+  try {
+    const v = JSON.parse(localStorage.getItem(KEY) ?? 'null');
+    if (v && typeof v === 'object') return { ...DEFAULT_SETTINGS, ...v };
+    // v1 → v2: mantém os ajustes, mas a voz dela passa a vir ligada
+    const old = JSON.parse(localStorage.getItem(OLD) ?? 'null');
+    if (old && typeof old === 'object') return { ...DEFAULT_SETTINGS, ...old, voiceOut: true };
+  } catch { /* padrão */ }
   return DEFAULT_SETTINGS;
 }
 

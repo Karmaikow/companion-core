@@ -676,3 +676,9 @@ html:has(.admin), body:has(.admin), #root:has(.admin) { height: auto; min-height
 @keyframes mic-pulse { 50% { box-shadow: 0 0 0 6px rgba(255, 120, 140, 0.25); } }
 .listening { position: absolute; left: 50%; bottom: calc(96px + env(safe-area-inset-bottom)); transform: translateX(-50%); max-width: min(560px, 90vw); display: flex; gap: 8px; align-items: center; padding: 8px 14px; border-radius: 99px; background: rgba(20, 12, 34, 0.8); border: 1px solid rgba(255, 140, 160, 0.5); color: #fff; font-size: 0.9rem; z-index: 5; pointer-events: none; }
 .listening span { animation: mic-pulse 1s ease-in-out infinite; border-radius: 50%; }
+
+.chat-input .mic.paused { animation: none; opacity: 0.75; }
+.listening.conv { pointer-events: auto; }
+.listening.conv.paused { border-color: rgba(185, 166, 255, 0.5); }
+.listening.conv.paused span { animation: none; opacity: 0.6; }
+.listening.conv button { margin-left: 4px; padding: 2px 10px; border-radius: 99px; border: 1px solid rgba(255, 255, 255, 0.35); background: transparent; color: #fff; font-size: 0.8rem; cursor: pointer; }

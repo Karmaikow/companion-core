@@ -12,7 +12,7 @@ import { Entry } from './ui/Entry';
 import { Creation } from './ui/Creation';
 import { SkillTreePanel } from './ui/SkillTreePanel';
 import { SettingsPanel } from './ui/SettingsPanel';
-import { speak, sendPlayerMessage, useMic } from './ui/voice';
+import { speak, sendPlayerMessage, stopConversation, useConversation, useMic } from './ui/voice';
 import { brain } from './scene/brain';
 import { SkillBar } from './ui/SkillBar';
 import { VitalsBars, TouchMoves, FaintCounter } from './ui/VitalsHud';
@@ -69,6 +69,8 @@ export function App() {
   }, [barkMsg]);
   // segure V (fora de campos de texto) para falar com ela
   const vmic = useMic((t) => sendPlayerMessage(t));
+  const conv = useConversation();
+  useEffect(() => () => stopConversation(), []);
   const vmicRef = useRef(vmic); vmicRef.current = vmic;
   useEffect(() => {
     const typing = () => { const el = document.activeElement; return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || (el as HTMLElement).isContentEditable); };
@@ -329,6 +331,12 @@ export function App() {
           {/* a fala aparece num balão sobre a cabeça do Companion (na cena); aqui só para leitores de tela */}
           {bubble && <div className="sr-only" role="status">{bubble}</div>}
           {vmic.listening && <div className="listening" role="status"><span>🎙</span>{vmic.heard || 'Ouvindo… pode falar'}</div>}
+          {conv.on && !vmic.listening && (
+            <div className={'listening conv' + (conv.listening ? '' : ' paused')} role="status">
+              <span>🎙</span>{conv.listening ? conv.heard || 'Conversa por voz ligada — pode falar' : 'Ela está falando…'}
+              <button type="button" onClick={stopConversation} aria-label="Desligar a conversa por voz">desligar</button>
+            </div>
+          )}
 
           <nav className="rail" aria-label="Refúgio">
             {TABS.map((t) => (

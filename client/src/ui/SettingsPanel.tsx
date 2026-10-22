@@ -1,7 +1,8 @@
 /** Ajustes: controles do mouse, mira, postura explorando sozinha, falas, voz e números de dano (neste navegador). */
 import { useEffect, useState } from 'react';
 import { useSettings, type Settings } from '../settings';
-import { micSupported, speak, voicesPtBr } from './voice';
+import { useGame } from '../store';
+import { micSupported, speak, voiceGender, voicesPtBr } from './voice';
 
 function Choice<K extends keyof Settings>({ k, label, options, hint }: { k: K; label: string; options: [Settings[K], string][]; hint?: string }) {
   const v = useSettings((s) => s[k]), set = useSettings((s) => s.set);
@@ -17,6 +18,7 @@ function Choice<K extends keyof Settings>({ k, label, options, hint }: { k: K; l
 export function SettingsPanel() {
   const s = useSettings();
   const [voices, setVoices] = useState(voicesPtBr());
+  const he = useGame((g) => g.snap?.companion?.discoveries.pronoun === 'ele');
   useEffect(() => {
     if (typeof speechSynthesis === 'undefined') return;
     const up = () => setVoices(voicesPtBr());
@@ -38,21 +40,22 @@ export function SettingsPanel() {
       <Choice k="ordersToChat" label="Ordens no chat também vão para a conversa" options={[[true, 'Sim (ela responde do jeito dela)'], [false, 'Não (só obedece)']]} />
 
       <h3>Voz</h3>
-      <Choice k="voiceOut" label="Ouvir as respostas dela em voz alta" options={[[true, 'Ligado'], [false, 'Desligado']]} />
+      <Choice k="voiceOut" label="Ouvir a voz dela (respostas e falas no jogo)" options={[[true, 'Ligado'], [false, 'Desligado']]} hint={he ? 'Voz de menino.' : 'Voz de menina.'} />
       {s.voiceOut && (
         <fieldset className="set-row">
           <legend>Voz</legend>
           <div className="row">
             <select value={s.voiceName} onChange={(e) => s.set({ voiceName: e.target.value })} aria-label="Voz">
-              <option value="">Automática ({voices.length ? 'português do Brasil' : 'nenhuma voz pt-BR neste navegador'})</option>
-              {voices.map((v) => <option key={v.name} value={v.name}>{v.name}</option>)}
+              <option value="">Automática ({voices.length ? (he ? 'voz de menino' : 'voz de menina') : 'nenhuma voz pt-BR neste navegador'})</option>
+              {voices.map((v) => <option key={v.name} value={v.name}>{v.name}{voiceGender(v) ? ` · ${voiceGender(v)}` : ''}</option>)}
             </select>
-            <button type="button" className="ghost" onClick={() => speak('Oi! Assim fica a minha voz.')}>Ouvir</button>
+            <button type="button" className="ghost" onClick={() => speak(he ? 'Oi! Assim fica a minha voz. Bora explorar?' : 'Oi! Assim fica a minha voz. Bora explorar?', { force: true })}>Ouvir</button>
           </div>
-          <small className="hint">As vozes são as do seu navegador/sistema (no Chrome e no Edge há vozes em português melhores).</small>
+          <small className="hint">As vozes são as do seu navegador/sistema. Sem uma voz masculina em português no aparelho, a voz de menino usa a feminina num tom mais grave (no Edge há vozes melhores, como Antonio e Francisca).</small>
         </fieldset>
       )}
-      <Choice k="voiceAutoSend" label="Microfone: ao terminar de falar" options={[[true, 'Envia sozinho'], [false, 'Deixa na caixa']]} hint={micSupported() ? 'Toque no 🎙 da conversa ou segure V em qualquer lugar.' : 'Este navegador não reconhece fala (use Chrome ou Edge).'} />
+      <Choice k="micMode" label="Microfone (🎙 da conversa)" options={[['sempre', 'Fica ligado (conversa por voz)'], ['uma', 'Ouve uma frase só']]} hint={micSupported() ? 'Ligado, ele escuta sem parar e envia cada frase; pausa enquanto ela fala. Segure V em qualquer lugar para falar uma frase.' : 'Este navegador não reconhece fala (use Chrome ou Edge).'} />
+      {s.micMode === 'uma' && <Choice k="voiceAutoSend" label="Ao terminar a frase" options={[[true, 'Envia sozinho'], [false, 'Deixa na caixa']]} />}
 
       <h3>Tela</h3>
       <Choice k="damageNumbers" label="Números de dano" options={[[true, 'Mostrar'], [false, 'Esconder']]} />

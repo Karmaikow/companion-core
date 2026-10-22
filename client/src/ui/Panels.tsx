@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { QUESTS, QUEST_REWARDS, FORM_FAMILIES, ELEMENTS, SECRETS, SECRET_BY_KEY, type SecretKey } from '@rules';
 import { ItemIcon } from './itemIcons';
 import { useGame } from '../store';
-import { sendPlayerMessage, useMic } from './voice';
+import { sendPlayerMessage, toggleConversation, useConversation, useMic } from './voice';
 import { useSettings } from '../settings';
 import { BestiaryPanel } from './Bestiary';
 
@@ -41,6 +41,10 @@ export function ChatPanel() {
   };
   // microfone: o que ouvir vai para a caixa (e é enviado sozinho, se ligado nos Ajustes)
   const mic = useMic((t) => { if (autoSend) sendPlayerMessage(t); else setText(t); });
+  const micMode = useSettings((s) => s.micMode);
+  const conv = useConversation();
+  const micOn = conv.on || mic.listening;
+  const micClick = () => (micMode === 'sempre' || conv.on ? toggleConversation() : mic.listening ? mic.stop() : mic.start());
   void run;
   return (
     <div className="chat">
@@ -65,8 +69,8 @@ export function ChatPanel() {
         {busy && <div className="line them typing" aria-label="pensando"><span /><span /><span /></div>}
       </div>
       <form className="chat-input" onSubmit={(e) => { e.preventDefault(); send(); }}>
-        <input value={mic.listening ? mic.heard : text} onChange={(e) => setText(e.target.value)} placeholder={mic.listening ? 'Ouvindo… pode falar' : 'Escreva ou fale com o seu Companion…'} maxLength={1000} aria-label="Mensagem" />
-        {mic.supported && <button type="button" className={'mic' + (mic.listening ? ' on' : '')} onClick={() => (mic.listening ? mic.stop() : mic.start())} aria-label={mic.listening ? 'Parar de ouvir' : 'Falar pelo microfone'} title="Falar (ou segure V)">🎙</button>}
+        <input value={mic.listening ? mic.heard : conv.on && conv.heard ? conv.heard : text} onChange={(e) => setText(e.target.value)} placeholder={conv.on ? (conv.listening ? 'Conversa por voz ligada… pode falar' : 'Ela está falando…') : mic.listening ? 'Ouvindo… pode falar' : 'Escreva ou fale com o seu Companion…'} maxLength={1000} aria-label="Mensagem" />
+        {mic.supported && <button type="button" className={'mic' + (micOn ? ' on' : '') + (conv.on && !conv.listening ? ' paused' : '')} onClick={micClick} aria-pressed={micOn} aria-label={micOn ? 'Desligar o microfone' : 'Falar pelo microfone'} title={micMode === 'sempre' ? 'Conversa por voz: fica ligado até você desligar' : 'Falar uma frase (ou segure V)'}>🎙</button>}
         <button type="submit" disabled={busy || !text.trim()}>Enviar</button>
       </form>
     </div>
