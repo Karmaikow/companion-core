@@ -79,6 +79,8 @@ export const companionFocus = new THREE.Vector3();
 
 /** Pedido de "anda até aqui" (clique/toque no chão). O id muda a cada clique. */
 export const moveRequest = { id: 0, point: new THREE.Vector3() };
+/** Teletransporte (testes no dev e, no futuro, viagem rápida). O id muda a cada pedido. */
+export const teleport = { id: 0, point: new THREE.Vector3() };
 
 /**
  * Colisão simples no chão (círculos): cada camada do cenário registra os seus obstáculos.
@@ -116,5 +118,5 @@ export function platformHeight(x: number, z: number): number {
 
 // testes no navegador (só no dev): window.__cc.go(x, z) manda o Companion andar até um ponto
 if (import.meta.env.DEV && typeof window !== 'undefined') {
-  (window as unknown as { __cc: unknown }).__cc = { go: (x: number, z: number) => { moveRequest.point.set(x, 0, z); moveRequest.id++; }, focus: companionFocus, colliders };
+  (window as unknown as { __cc: unknown }).__cc = { go: (x: number, z: number) => { moveRequest.point.set(x, 0, z); moveRequest.id++; }, tp: (x: number, z: number) => { teleport.point.set(x, 0, z); teleport.id++; }, focus: companionFocus, colliders };
 }
