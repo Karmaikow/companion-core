@@ -21,7 +21,7 @@ export function pressAttack() { if (combatInput.holding) return; combatInput.hol
 export function releaseAttack() { if (!combatInput.holding) return; combatInput.holding = false; combatInput.releaseId++; }
 
 /** Números flutuantes vindos de fora (dano no Companion, itens que caíram). */
-export const numQueue: { pos: THREE.Vector3; text: string; kind: 'hurt' | 'drop' | 'heal' }[] = [];
+export const numQueue: { pos: THREE.Vector3; text: string; kind: 'hurt' | 'drop' | 'heal' | 'poison' | 'burn' }[] = [];
 
 /** Pulo, sentar e defesa (teclado: Espaço, C, segurar E; celular: botões). */
 export const moveInput = { jumpId: 0, sitId: 0, block: false };
@@ -48,7 +48,7 @@ export function requestSkill(c: SkillCast) { skillInput.req = c; skillInput.id++
 
 /** Alvos que podem ser acertados (bonecos, criaturas). */
 /** `hit` devolve o dano que entrou (com a defesa), se o alvo tiver vida. */
-export interface Target { x: number; z: number; r: number; hit: (damage: number) => number | void }
+export interface Target { x: number; z: number; r: number; hit: (damage: number) => number | void; /** estado com dano por segundo (envenenado, queimando) */ afflict?: (key: string, seconds: number, dps: number) => void }
 export const targets = new Map<string, Target>();
 
 /** Acerta tudo no círculo; devolve o maior dano que entrou (-1 = ninguém). */
@@ -59,7 +59,7 @@ function hitAt(x: number, z: number, radius: number, damage: number): number {
 }
 
 interface Live { id: number; ev: FxEvent; t: number; done: boolean; hit: boolean; at: THREE.Vector3; fx?: Missile }
-interface Num { id: number; pos: THREE.Vector3; text: string; gold: boolean | 'heal' | 'hurt' | 'drop'; t: number }
+interface Num { id: number; pos: THREE.Vector3; text: string; gold: boolean | 'heal' | 'hurt' | 'drop' | 'poison' | 'burn'; t: number }
 let seq = 0;
 
 export function CombatFx({ world }: { world: WorldShape }) {
@@ -182,7 +182,7 @@ function FxView({ L }: { L: Live }) {
 }
 
 /** Lança uma habilidade no mundo: aviso no chão, efeito do formato e do estilo, e o dano nos alvos dentro da área. */
-function runSkill(ev: Extract<FxEvent, { kind: 'skill' }>, world: WorldShape, pop: (p: THREE.Vector3, t: string, g: boolean | 'heal' | 'hurt' | 'drop') => void) {
+function runSkill(ev: Extract<FxEvent, { kind: 'skill' }>, world: WorldShape, pop: (p: THREE.Vector3, t: string, g: boolean | 'heal' | 'hurt' | 'drop' | 'poison' | 'burn') => void) {
   const s = ev.skill, st = s.vfx.style, col = ev.color, yaw = ev.yaw, V = gameVfx;
   const fw = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw));
   const gy = (x: number, z: number) => world.heightAt(x, z);
@@ -202,7 +202,8 @@ function runSkill(ev: Extract<FxEvent, { kind: 'skill' }>, world: WorldShape, po
     }
   };
   const strike = (list: Target[], delay: number) => V.after(delay, () => {
-    for (const t of list) { if (ev.damage > 0) { const d = t.hit(ev.damage); pop(at(t).setY(at(t).y + 0.4), String(typeof d === 'number' ? d : ev.damage), false); } burst(V, st, at(t), col, 0.5, gy(t.x, t.z)); }
+    const dot = s.status && (s.status.key === 'envenenado' || s.status.key === 'queimando') ? s.status : null;
+    for (const t of list) { if (dot && Math.random() < dot.chance) t.afflict?.(dot.key, dot.seconds, Math.max(2, Math.round(ev.damage * 0.15))); if (ev.damage > 0) { const d = t.hit(ev.damage); pop(at(t).setY(at(t).y + 0.4), String(typeof d === 'number' ? d : ev.damage), false); } burst(V, st, at(t), col, 0.5, gy(t.x, t.z)); }
   });
   const inside = () => { const l: Target[] = []; targets.forEach((t) => { if (inShape(t)) l.push(t); }); return l; };
   // aviso: onde vai cair (área, salto, aura)
@@ -223,6 +224,7 @@ function runSkill(ev: Extract<FxEvent, { kind: 'skill' }>, world: WorldShape, po
         const hit = best as Target | null, to = hit ? at(hit) : chest.clone().addScaledVector(fw, s.range);
         missile(V, { style: st, color: col, from: chest.clone().addScaledVector(fw, 0.4), to, duration: Math.max(0.15, chest.distanceTo(to) / 14), arc: 0.3, size: Math.max(0.55, s.radius * 1.3), onArrive: (p) => {
           burst(V, st, p, col, 0.85, gy(p.x, p.z));
+          if (hit && s.status && (s.status.key === 'envenenado' || s.status.key === 'queimando') && Math.random() < s.status.chance) hit.afflict?.(s.status.key, s.status.seconds, Math.max(2, Math.round(ev.damage * 0.15)));
           if (hit && ev.damage > 0) { const d = hit.hit(ev.damage); pop(p.clone().setY(p.y + 0.4), String(typeof d === 'number' ? d : ev.damage), false); }
         } });
         break;

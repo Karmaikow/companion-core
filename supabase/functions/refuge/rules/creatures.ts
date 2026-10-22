@@ -60,7 +60,7 @@ export interface CreatureDef {
   art?: { url: string; path?: string };
 }
 
-const ELEMENT_KEYS: Element[] = ['fogo', 'agua', 'terra', 'vento', 'luz', 'sombra', 'gelo', 'raio', 'natureza'];
+const ELEMENT_KEYS: Element[] = ['fogo', 'agua', 'terra', 'vento', 'luz', 'sombra', 'gelo', 'raio', 'natureza', 'veneno'];
 const BODY_KEYS: BodyPlan[] = ['quadruped', 'biped', 'avian', 'serpentine', 'aquatic'];
 const SLUG = /^[a-z0-9][a-z0-9-]{1,40}$/;
 const URL_OK = /^(https:\/\/|\/)/;

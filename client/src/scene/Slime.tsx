@@ -201,6 +201,13 @@ function EssenceTop({ def }: { def: CreatureDef }) {
         {[-1, 1].map((sx) => <mesh key={sx} position={[sx * 0.13, 0.04, 0]} rotation={[0, 0, -sx * 0.5]}><coneGeometry args={[0.035, 0.12, 10]} /><meshLambertMaterial color="#3a2a5a" /></mesh>)}
       </group>
     );
+    case 'veneno': return (
+      <group position={[0, top + 0.02, 0]}>
+        {[[0, 0.05, 0, 0.05], [0.06, 0.1, 0.02, 0.032], [-0.05, 0.13, -0.01, 0.024]].map(([x, y, z, r], i) => (
+          <mesh key={i} position={[x, y, z]}><sphereGeometry args={[r, 14, 10]} /><meshPhysicalMaterial color="#c8f55a" roughness={0.1} clearcoat={1} transparent opacity={0.85} emissive="#7c3fb8" emissiveIntensity={0.25} /></mesh>
+        ))}
+      </group>
+    );
     case 'raio': return <mesh position={[0, top + 0.05, 0]} rotation={[0, 0, 0.4]} scale={[0.03, 0.11, 0.03]}><octahedronGeometry args={[1, 0]} /><meshBasicMaterial color="#ffe14d" toneMapped={false} /></mesh>;
     case 'terra': return <mesh position={[0.05, top - 0.01, 0]} scale={[0.08, 0.05, 0.07]}><dodecahedronGeometry args={[1, 0]} /><meshLambertMaterial color="#b08a5a" flatShading /></mesh>;
     case 'vento': return <mesh position={[0, top + 0.06, 0]} rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[0.07, 0.012, 8, 24, Math.PI * 1.5]} /><meshBasicMaterial color="#c8fff0" /></mesh>;

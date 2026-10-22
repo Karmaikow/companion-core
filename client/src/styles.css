@@ -627,3 +627,5 @@ html:has(.admin), body:has(.admin), #root:has(.admin) { height: auto; min-height
 .anim-preview > small { position: absolute; left: 8px; bottom: 6px; color: #223; font-weight: 700; }
 /* Arsenal: pegada logo abaixo do campo de treino */
 .grip-box { border-color: var(--brass, #e6c178); background: color-mix(in srgb, var(--night-3, #1c2440) 55%, transparent); }
+.dmg.poison { color: #c8f55a; font-size: 1.05rem; text-shadow: 0 2px 6px rgba(80, 30, 120, 0.85); }
+.dmg.burn { color: #ffb36b; font-size: 1.05rem; }

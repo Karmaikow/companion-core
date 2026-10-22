@@ -35,7 +35,7 @@ export const FORM_FAMILIES: Record<FormFamily, { label: string; vocation: string
   },
 };
 
-export type Element = 'fogo' | 'agua' | 'terra' | 'vento' | 'luz' | 'sombra' | 'gelo' | 'raio' | 'natureza';
+export type Element = 'fogo' | 'agua' | 'terra' | 'vento' | 'luz' | 'sombra' | 'gelo' | 'raio' | 'natureza' | 'veneno';
 
 export const ELEMENTS: Record<Element, { label: string; aliases: string[]; glow: string }> = {
   fogo: { label: 'Fogo', aliases: ['fogo', 'chama', 'brasa', 'lava', 'calor', 'sol'], glow: '#ff7a3d' },
@@ -47,6 +47,7 @@ export const ELEMENTS: Record<Element, { label: string; aliases: string[]; glow:
   gelo: { label: 'Gelo', aliases: ['gelo', 'neve', 'frio', 'inverno', 'geada'], glow: '#bfe9ff' },
   raio: { label: 'Raio', aliases: ['raio', 'trovao', 'eletricidade', 'relampago', 'tempestade eletrica'], glow: '#ffe14d' },
   natureza: { label: 'Natureza', aliases: ['natureza', 'planta', 'floresta', 'flor', 'folha', 'vida', 'arvore'], glow: '#7be36b' },
+  veneno: { label: 'Veneno', aliases: ['veneno', 'venenoso', 'venenosa', 'toxico', 'toxica', 'toxina', 'peconha', 'acido', 'pantano', 'praga'], glow: '#b6f03c' },
 };
 
 /** Nomes de cor em pt-BR -> hex. Hex direto também é aceito. */

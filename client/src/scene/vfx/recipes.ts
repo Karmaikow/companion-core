@@ -34,6 +34,8 @@ export function palette(style: string, color: Col): Palette {
     case 'luz': set({ flash: '#fffbe6', puff1: '#fff8d8', spark: '#fff6c0' }); break;
     case 'sombra': p.puff2 = main.clone().offsetHSL(0, 0, -0.28); p.puff1 = main.clone(); p.flash = main.clone().lerp(new THREE.Color('#f0d8ff'), 0.6); break;
     case 'raios': set({ flash: '#ffffff', spark: '#ffffff' }); break;
+    // veneno: verde-ácido com a sombra roxa (o contraste do desenho animado)
+    case 'veneno': set({ flash: '#f2ffb0', puff1: '#c8f55a', puff2: '#7c3fb8', spark: '#b6f03c', light: '#e4ff9a', dark: '#5a2a8a' }); break;
   }
   return p;
 }
@@ -70,6 +72,12 @@ function debris(s: VfxStore, style: string, P: Palette, pos: V3, n: number, sp: 
         s.emit({ k: K.STREAK, pos, vel: v.clone().multiplyScalar(1.6), drag: 3, life: rr(0.15, 0.3), size: 0.09 * scale, stretch: 0.12, c1: P.main });
         if (i % 2 === 0) s.emit({ k: K.PUFF, pos, vel: v.multiplyScalar(0.35), drag: 3, life: rr(0.35, 0.5), size: 0.35 * scale, size1: 0.8 * scale, c1: '#fffbe0', c2: P.main });
         if (i % 3 === 0) bolt(s, pos.clone(), pos.clone().add(rndDir(0.2).multiplyScalar(rr(0.6, 1.1) * scale)), P.light, 0.1 * scale, 0.2);
+        break;
+      case 'veneno':
+        // nuvem tóxica (verde por cima, roxa por baixo), gotas que pingam e bolhas que sobem e estouram
+        s.emit({ k: K.PUFF, pos, vel: v.clone().multiplyScalar(0.6), drag: 3, g: -0.6, life: rr(0.55, 0.85), size: 0.45 * scale, size1: rr(0.9, 1.25) * scale, c1: P.puff1, c2: P.puff2 });
+        if (i % 2 === 0) s.emit({ k: K.DROP, pos, vel: v.clone().add(v3(0, 2.2, 0)), g: 12, floor, life: rr(0.45, 0.7), size: rr(0.14, 0.2) * scale, stretch: 0.06, c1: '#d6ff7a', c2: '#6e2fa8' });
+        if (i % 3 === 0) s.emit({ k: K.RING, pos: pos.clone().add(rndDir(0.8).multiplyScalar(0.3 * scale)), vel: v3(0, rr(0.6, 1.2), 0), delay: rr(0.1, 0.4), life: 0.45, size: 0.18 * scale, size1: 0.32 * scale, c1: '#d6ff7a', alpha: 0.9 });
         break;
       case 'faiscas':
         s.emit({ k: K.STREAK, pos, vel: v.multiplyScalar(1.4), g: 9, drag: 1.5, floor, life: rr(0.3, 0.55), size: 0.06 * scale, stretch: 0.1, c1: P.spark });
@@ -166,6 +174,12 @@ export class Missile {
         case 'raios':
           s.emit({ k: K.STREAK, pos: at, vel: rndDir(0).multiplyScalar(rr(2, 4)), drag: 4, life: 0.15, size: z * 0.12, stretch: 0.12, c1: P.light });
           if (R() < 0.08) bolt(s, pos.clone(), pos.clone().add(rndDir(0).multiplyScalar(z * 1.6)), P.light, z * 0.15, 0.12);
+          break;
+        case 'veneno':
+          // rastro de bolhas tóxicas e um pingo de vez em quando
+          s.emit({ k: K.PUFF, pos: at, vel: back.clone().add(v3(0, 0.25, 0)), drag: 3, life: rr(0.35, 0.5), size: z * 0.85, size1: z * 0.4, c1: P.puff1, c2: P.puff2 });
+          if (R() < 0.25) s.emit({ k: K.DROP, pos: at, vel: back.clone().add(v3(0, 0.6, 0)), g: 9, life: 0.45, size: z * 0.3, stretch: 0.06, c1: '#d6ff7a', c2: '#6e2fa8' });
+          if (R() < 0.2) s.emit({ k: K.RING, pos: at, vel: v3(0, 0.8, 0), life: 0.4, size: z * 0.25, size1: z * 0.45, c1: '#d6ff7a', alpha: 0.85 });
           break;
         case 'faiscas':
           s.emit({ k: K.STREAK, pos: at, vel: back.clone().add(rndDir(0.4).multiplyScalar(2)), g: 8, drag: 1, life: 0.35, size: z * 0.1, stretch: 0.1, c1: P.spark });

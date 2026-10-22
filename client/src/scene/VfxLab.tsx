@@ -6,7 +6,7 @@ import { VfxStore } from './vfx/engine';
 import { VfxLayer } from './vfx/VfxLayer';
 import { area, aura, beam, burst, cone, missile, slash } from './vfx/recipes';
 
-const COLORS: Record<string, string> = { impacto: '#ffd56b', chamas: '#ff7a3d', gotas: '#3fb6ff', folhas: '#7be36b', pedras: '#c8a26b', gelo: '#7fd0ff', raios: '#ffe14d', vento: '#9ff0d8', luz: '#fff1a8', sombra: '#a07cff', faiscas: '#ffb84d' };
+const COLORS: Record<string, string> = { impacto: '#ffd56b', chamas: '#ff7a3d', gotas: '#3fb6ff', folhas: '#7be36b', pedras: '#c8a26b', gelo: '#7fd0ff', raios: '#ffe14d', vento: '#9ff0d8', luz: '#fff1a8', sombra: '#a07cff', faiscas: '#ffb84d', veneno: '#b6f03c' };
 
 function Driver({ store, style, mode, slow, freeze }: { store: VfxStore; style: string; mode: string; slow: number; freeze: number | null }) {
   const t = useRef(10);

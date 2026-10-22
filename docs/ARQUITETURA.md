@@ -330,6 +330,15 @@ Os efeitos deixaram de ser pontos com textura e passaram a usar um motor própri
 - **Tempo de volta do monstro:** no Invocador, em "Onde e quando aparece", `respawn` em segundos (5 s a 1 h; padrão 45 s).
 - **Lab:** `forge-lab.html?treino=/arquivo.glb` mostra os dois campos de treino com um modelo local.
 
+## Veneno (v1.14)
+
+- **Essência:** `veneno` (verde-ácido `#b6f03c`, sombra roxa). Fica fora do anel de afinidades: forte contra Natureza e Água, fraca contra Terra e Luz. Recebe mais dano de Terra e Luz e menos de Natureza e Água.
+- **Estado e efeito:** estado `envenenado` (dano por segundo que acumula até 3 doses) e estilo de efeito `veneno`. O efeito tem nuvem tóxica em duas cores, gotas que pingam e bolhas que sobem e estouram; o rastro do projétil é de bolhas.
+- **Habilidades:** Cuspe Tóxico (projétil) e Névoa Venenosa (área, abre no vínculo 3).
+- **Outros visuais:** enfeite de bolhas nas gosmas de veneno, ícone 🧪 na barra e acento no prompt de arte.
+- **No mundo:** os estados com dano por segundo (`envenenado` e `queimando`) agora funcionam nos monstros (`Target.afflict`). Cada segundo mostra o número na cor do estado e uma nuvem saindo do corpo, e o dano passa pela defesa.
+- **Pendência:** para um Companion *descobrir* a essência veneno na conversa, a função `refuge` precisa ser publicada de novo. Ela reconhece as essências pelas palavras (veneno, tóxico, peçonha, ácido…).
+
 ## Escala e frente do modelo 3D (v1.12)
 
 - **Medida pelos ossos:** o tamanho do modelo é medido com os ossos aplicados (`Box3.setFromObject(model, true)`). Alguns rigs do Tripo trazem a malha "crua" em outra escala: a Mayuna humana media 2 m crua e 0,98 m de verdade, e ficava com metade do tamanho.

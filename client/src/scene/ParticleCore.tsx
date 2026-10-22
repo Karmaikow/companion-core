@@ -3,7 +3,7 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 
 /** Índice do comportamento por elemento (afeta o movimento das partículas). */
-const ELEMENT_MODE: Record<string, number> = { fogo: 1, agua: 2, vento: 3, terra: 4, luz: 5, sombra: 6, gelo: 7, raio: 8, natureza: 9 };
+const ELEMENT_MODE: Record<string, number> = { fogo: 1, agua: 2, vento: 3, terra: 4, luz: 5, sombra: 6, gelo: 7, raio: 8, natureza: 9, veneno: 2 };
 
 const vertex = /* glsl */ `
 uniform float uTime;

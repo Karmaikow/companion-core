@@ -10,7 +10,7 @@ import { requestSkill, skillInput } from '../scene/Combat';
 import { BAR_SIZE, saveBar, useSkillData, useSkills } from './skillState';
 import { canAct, spendSp, useVitals } from '../scene/vitals';
 
-const ICON: Record<string, string> = { impacto: '💥', chamas: '🔥', gotas: '💧', folhas: '🍃', pedras: '🪨', gelo: '❄️', raios: '⚡', vento: '🌪️', luz: '✨', sombra: '🌑', faiscas: '🎆' };
+const ICON: Record<string, string> = { impacto: '💥', chamas: '🔥', gotas: '💧', folhas: '🍃', pedras: '🪨', gelo: '❄️', raios: '⚡', vento: '🌪️', luz: '✨', sombra: '🌑', faiscas: '🎆', veneno: '🧪' };
 
 function colorOf(s: SkillDef, companion: string): string {
   if (s.vfx.color === 'companion') return companion;

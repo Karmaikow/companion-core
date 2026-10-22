@@ -218,7 +218,7 @@ export function bowShot(held: number, baseRange = 16, basePower = 1) {
 const SLUG = /^[a-z0-9][a-z0-9-]{1,40}$/;
 const HEX = /^#[0-9a-f]{6}$/i;
 const n = (v: unknown, lo: number, hi: number, d: number) => { const x = Number(v); return Number.isFinite(x) ? Math.min(hi, Math.max(lo, x)) : d; };
-const ELEMENT_KEYS: Element[] = ['fogo', 'agua', 'terra', 'vento', 'luz', 'sombra', 'gelo', 'raio', 'natureza'];
+const ELEMENT_KEYS: Element[] = ['fogo', 'agua', 'terra', 'vento', 'luz', 'sombra', 'gelo', 'raio', 'natureza', 'veneno'];
 const ATTRS: AttrKey[] = ['vida', 'energia', 'poder', 'defesa', 'agilidade', 'sintonia'];
 
 export function sanitizeItem(input: unknown): ItemDef | null {

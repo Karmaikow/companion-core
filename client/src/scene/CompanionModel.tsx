@@ -248,7 +248,7 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
   const cb = useRef({ press: combatInput.pressId, release: combatInput.releaseId, charging: false, held: 0, cd: 0, lunge: 0, want: 0, skill: skillInput.id, move: null as null | { from: THREE.Vector3; to: THREE.Vector3; t: number; dur: number; arc: number } });
   useEffect(() => { skillInput.body = true; return () => { skillInput.body = false; }; }, []);
   const prof = useMemo(() => basicAttack(gear?.weapon ?? null, gear?.species), [gear?.weapon, gear?.species]);
-  const ESSENCE_FX: Record<string, string> = { fogo: 'chamas', agua: 'gotas', terra: 'pedras', vento: 'vento', luz: 'luz', sombra: 'sombra', gelo: 'gelo', raio: 'raios', natureza: 'folhas' };
+  const ESSENCE_FX: Record<string, string> = { fogo: 'chamas', agua: 'gotas', terra: 'pedras', vento: 'vento', luz: 'luz', sombra: 'sombra', gelo: 'gelo', raio: 'raios', natureza: 'folhas', veneno: 'veneno' };
   const fxColor = gear?.weapon?.essence ? ELEMENTS[gear.weapon.essence].glow : gear?.color ?? '#ffd56b';
   const damageOf = (mul = 1) => Math.max(1, Math.round(20 * prof.power * (1 + (gear?.poder ?? 0) / 100) * mul));
   // mira do mouse (PC): o ponto do chão sob o cursor, na altura do Companion

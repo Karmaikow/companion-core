@@ -40,7 +40,7 @@ function Mannequin({ item, charge }: { item: ItemDef; charge: number }) {
   );
 }
 
-const ESSENCE_STYLE: Record<string, string> = { fogo: 'chamas', agua: 'gotas', terra: 'pedras', vento: 'vento', luz: 'luz', sombra: 'sombra', gelo: 'gelo', raio: 'raios', natureza: 'folhas' };
+const ESSENCE_STYLE: Record<string, string> = { fogo: 'chamas', agua: 'gotas', terra: 'pedras', vento: 'vento', luz: 'luz', sombra: 'sombra', gelo: 'gelo', raio: 'raios', natureza: 'folhas', veneno: 'veneno' };
 
 /** Campo de treino: o Companion escolhido segura o item e golpeia no ritmo da arma, de lado para a câmera. */
 function Trainer({ item, body, charge }: { item: ItemDef; body: { url: string; companionId: string; swing: boolean }; charge: number }) {

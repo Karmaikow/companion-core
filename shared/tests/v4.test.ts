@@ -44,3 +44,21 @@ describe('monstros: tempo de volta', () => {
     expect(sanitizeCreature({ slug: 'x-y', respawn: 120 })!.respawn).toBe(120);
   });
 });
+
+import { affinity, ELEMENTS, DEFAULT_SKILLS, kitFor, STATUSES, VFX_STYLES } from '../rules/index.ts';
+describe('veneno', () => {
+  it('é uma essência com afinidades fora do anel', () => {
+    expect(ELEMENTS.veneno.label).toBe('Veneno');
+    expect(affinity('veneno', 'natureza')).toBe(1.25); expect(affinity('veneno', 'agua')).toBe(1.25);
+    expect(affinity('veneno', 'terra')).toBe(0.8); expect(affinity('veneno', 'luz')).toBe(0.8);
+    expect(affinity('luz', 'veneno')).toBe(1.25); expect(affinity('natureza', 'veneno')).toBe(0.8);
+    expect(affinity('veneno', 'fogo')).toBe(1); expect(affinity('fogo', 'veneno')).toBe(1);
+  });
+  it('tem duas habilidades, estado e efeito', () => {
+    const v = DEFAULT_SKILLS.filter((s) => s.essence === 'veneno');
+    expect(v.map((s) => s.slug).sort()).toEqual(['cuspe-toxico', 'nevoa-venenosa']);
+    expect(v.every((s) => s.status?.key === 'envenenado' && s.vfx.style === 'veneno')).toBe(true);
+    expect(STATUSES.envenenado.good).toBe(false); expect(VFX_STYLES.veneno).toBe('Veneno');
+    expect(kitFor(DEFAULT_SKILLS, { essence: 'veneno', body: 'biped', bond: 5 }).essence.length).toBe(2);
+  });
+});

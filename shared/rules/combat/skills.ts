@@ -12,8 +12,8 @@ import type { SpeciesKey } from '../species.ts';
 
 export type SkillSlot = 'basic' | 'essence' | 'form' | 'supreme';
 export type SkillShape = 'melee' | 'cone' | 'line' | 'circle' | 'projectile' | 'aura' | 'dash' | 'leap';
-export type StatusKey = 'encharcado' | 'queimando' | 'enraizado' | 'lento' | 'ofuscado' | 'sombreado' | 'atordoado' | 'protegido' | 'acelerado';
-export type VfxStyle = 'impacto' | 'chamas' | 'gotas' | 'folhas' | 'pedras' | 'gelo' | 'raios' | 'vento' | 'luz' | 'sombra' | 'faiscas';
+export type StatusKey = 'encharcado' | 'queimando' | 'enraizado' | 'lento' | 'ofuscado' | 'sombreado' | 'atordoado' | 'protegido' | 'acelerado' | 'envenenado';
+export type VfxStyle = 'impacto' | 'chamas' | 'gotas' | 'folhas' | 'pedras' | 'gelo' | 'raios' | 'vento' | 'luz' | 'sombra' | 'faiscas' | 'veneno';
 
 export interface SkillDef {
   slug: string;
@@ -52,9 +52,10 @@ export const STATUSES: Record<StatusKey, { label: string; effect: string; good: 
   atordoado: { label: 'Atordoado', effect: 'para por um instante', good: false },
   protegido: { label: 'Protegido', effect: '–40% de dano recebido', good: true },
   acelerado: { label: 'Acelerado', effect: '+30% velocidade e recarga', good: true },
+  envenenado: { label: 'Envenenado', effect: 'dano por segundo que aumenta a cada nova dose (até 3); luz purifica', good: false },
 };
 export const VFX_STYLES: Record<VfxStyle, string> = {
-  impacto: 'Impacto', chamas: 'Chamas', gotas: 'Água', folhas: 'Folhas', pedras: 'Pedras', gelo: 'Gelo', raios: 'Raios', vento: 'Vento', luz: 'Luz', sombra: 'Sombra', faiscas: 'Faíscas',
+  impacto: 'Impacto', chamas: 'Chamas', gotas: 'Água', folhas: 'Folhas', pedras: 'Pedras', gelo: 'Gelo', raios: 'Raios', vento: 'Vento', luz: 'Luz', sombra: 'Sombra', faiscas: 'Faíscas', veneno: 'Veneno',
 };
 export const BODIES: Record<BodyPlan, string> = { quadruped: 'Quadrúpede', biped: 'Bípede/humanoide', avian: 'Ave', serpentine: 'Serpente', aquatic: 'Aquático' };
 export const SKILL_ANIMS: AnimKind[] = ['attack', 'jump', 'run', 'happy', 'special'];
@@ -70,6 +71,9 @@ export const AFFINITY_STRONG = 1.25, AFFINITY_WEAK = 0.8;
 export function affinity(attacker: Element | null, defender: Element | null): number {
   if (!attacker || !defender) return 1;
   if ((attacker === 'luz' && defender === 'sombra') || (attacker === 'sombra' && defender === 'luz')) return AFFINITY_STRONG;
+  // veneno fica fora do anel: corrói natureza e contamina a água; a terra o absorve e a luz o purifica
+  if (attacker === 'veneno') return defender === 'natureza' || defender === 'agua' ? AFFINITY_STRONG : defender === 'terra' || defender === 'luz' ? AFFINITY_WEAK : 1;
+  if (defender === 'veneno') return attacker === 'terra' || attacker === 'luz' ? AFFINITY_STRONG : attacker === 'natureza' || attacker === 'agua' ? AFFINITY_WEAK : 1;
   const a = RING.indexOf(attacker), d = RING.indexOf(defender);
   if (a < 0 || d < 0) return 1;
   if ((a + 1) % RING.length === d) return AFFINITY_STRONG;
@@ -122,13 +126,15 @@ export const DEFAULT_SKILLS: SkillDef[] = [
   S('raio-de-luz', 'Raio de Luz', 'essence', 'luz', 'line', { description: 'Um feixe reto de luz.', power: 60, energy: 25, cooldown: 5, windup: 0.5, range: 8, radius: 0.5, vfx: { style: 'luz', color: 'essence', ground: false }, unlockBond: 3 }),
   S('garra-sombria', 'Garra Sombria', 'essence', 'sombra', 'melee', { description: 'Um golpe que deixa a sombra grudada no alvo.', power: 55, energy: 15, cooldown: 3, windup: 0.2, range: 1.8, status: { key: 'sombreado', chance: 0.7, seconds: 4 }, vfx: { style: 'sombra', color: 'essence', ground: false } }),
   S('veu', 'Véu', 'essence', 'sombra', 'aura', { description: 'Some na própria sombra e volta mais rápido.', energy: 20, cooldown: 8, windup: 0.1, radius: 1, status: { key: 'acelerado', chance: 1, seconds: 3 }, anim: 'jump', vfx: { style: 'sombra', color: 'essence', ground: true }, unlockBond: 3 }),
+  S('cuspe-toxico', 'Cuspe Tóxico', 'essence', 'veneno', 'projectile', { description: 'Uma bolha de veneno que estoura no alvo e envenena.', power: 40, energy: 20, cooldown: 3.5, windup: 0.3, range: 7, radius: 0.5, status: { key: 'envenenado', chance: 0.8, seconds: 5 }, vfx: { style: 'veneno', color: 'essence', ground: false } }),
+  S('nevoa-venenosa', 'Névoa Venenosa', 'essence', 'veneno', 'circle', { description: 'Uma nuvem tóxica cai na área e envenena quem respira.', power: 35, energy: 25, cooldown: 7, windup: 0.7, range: 6, radius: 2, status: { key: 'envenenado', chance: 1, seconds: 6 }, vfx: { style: 'veneno', color: 'essence', ground: true }, unlockBond: 3 }),
   // suprema (do vínculo)
   S('ressonancia', 'Ressonância', 'supreme', null, 'aura', { description: 'O golpe do vínculo: uma explosão na cor e na essência do Companion.', power: 140, energy: 0, cooldown: 30, windup: 1, radius: 4, anim: 'happy', vfx: { style: 'luz', color: 'companion', ground: true }, unlockBond: 8 }),
 ];
 
 // ---------------------------------------------------------------------------
 
-const ELEMENT_KEYS: Element[] = ['fogo', 'agua', 'terra', 'vento', 'luz', 'sombra', 'gelo', 'raio', 'natureza'];
+const ELEMENT_KEYS: Element[] = ['fogo', 'agua', 'terra', 'vento', 'luz', 'sombra', 'gelo', 'raio', 'natureza', 'veneno'];
 const SLUG = /^[a-z0-9][a-z0-9-]{1,40}$/;
 const n = (v: unknown, lo: number, hi: number, d: number) => { const x = Number(v); return Number.isFinite(x) ? Math.min(hi, Math.max(lo, x)) : d; };
 

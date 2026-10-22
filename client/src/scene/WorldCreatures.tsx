@@ -16,7 +16,7 @@ import { gameVfx } from './vfx/engine';
 import { burst } from './vfx/recipes';
 import { hurtCompanion } from './vitals';
 
-const ESSENCE_STYLE: Record<string, string> = { fogo: 'chamas', agua: 'gotas', terra: 'pedras', vento: 'vento', luz: 'luz', sombra: 'sombra', gelo: 'gelo', raio: 'raios', natureza: 'folhas' };
+const ESSENCE_STYLE: Record<string, string> = { fogo: 'chamas', agua: 'gotas', terra: 'pedras', vento: 'vento', luz: 'luz', sombra: 'sombra', gelo: 'gelo', raio: 'raios', natureza: 'folhas', veneno: 'veneno' };
 
 export function WorldCreatures({ cw, creatures, center, night, high }: { cw: CompanionWorld; creatures: CreatureDef[]; center: [number, number]; night: boolean; high: boolean }) {
   const bySlug = useMemo(() => new Map(creatures.map((c) => [c.slug, c])), [creatures]);
@@ -46,7 +46,7 @@ function WorldCreature({ cw, def, spawn }: { cw: CompanionWorld; def: CreatureDe
   const R = Math.max(0.25, def.size * 0.35);
   // vida no nível dela; os golpes do Companion descontam a defesa. Zerou: explode em névoa e volta depois de um tempo.
   const stats = useMemo(() => creatureStatsAt(def, spawn.level), [def, spawn.level]);
-  const life = useRef({ hp: stats.vida, dead: 0, provoked: false, atk: 0.8, swing: -1 });
+  const life = useRef({ hp: stats.vida, dead: 0, provoked: false, atk: 0.8, swing: -1, dots: [] as { key: string; left: number; dps: number; stacks: number; tick: number }[] });
   const [hpPct, setHpPct] = useState(1);
   const [dead, setDead] = useState(false);
   const hurt = useRef(0);
@@ -54,6 +54,14 @@ function WorldCreature({ cw, def, spawn }: { cw: CompanionWorld; def: CreatureDe
     const id = 'creature:' + spawn.id;
     targets.set(id, {
       x: spawn.x, z: spawn.z, r: Math.max(0.35, def.size * 0.45),
+      // envenenado acumula até 3 doses (renova o tempo); queimando só renova
+      afflict: (key, seconds, dps) => {
+        const L = life.current; if (L.dead > 0) return;
+        const cur = L.dots.find((d) => d.key === key);
+        if (cur) { cur.left = Math.max(cur.left, seconds); if (key === 'envenenado') cur.stacks = Math.min(3, cur.stacks + 1); cur.dps = Math.max(cur.dps, dps); }
+        else L.dots.push({ key, left: seconds, dps, stacks: 1, tick: 1 });
+        L.provoked = true;
+      },
       hit: (damage) => {
         const L = life.current;
         if (L.dead > 0) return 0;
@@ -79,7 +87,23 @@ function WorldCreature({ cw, def, spawn }: { cw: CompanionWorld; def: CreatureDe
     const s = st.current, grp = g.current; if (!grp) return;
     const dt = Math.min(dtRaw, 0.1);
     const L = life.current;
+    // dano por segundo (veneno, fogo): número na cor do estado e a nuvem saindo do corpo
+    if (L.dead <= 0 && L.dots.length) {
+      for (const d of L.dots) {
+        d.left -= dt; d.tick -= dt;
+        if (d.tick <= 0 && d.left > -0.01) {
+          d.tick = 1;
+          const tg = targets.get('creature:' + spawn.id);
+          const dmg = d.dps * d.stacks, at = new THREE.Vector3(s.x, cw.heightAt(s.x, s.z) + def.size * 0.6, s.z);
+          const dealt = tg ? tg.hit(dmg) : 0; // passa pela vida (desconta a defesa; pode derrotar)
+          if (typeof dealt === 'number' && dealt > 0) numQueue.push({ pos: at.clone().setY(at.y + 0.5), text: String(dealt), kind: d.key === 'envenenado' ? 'poison' : 'burn' });
+          burst(gameVfx, d.key === 'envenenado' ? 'veneno' : 'chamas', at, d.key === 'envenenado' ? '#b6f03c' : '#ff7a3d', 0.3, cw.heightAt(s.x, s.z));
+        }
+      }
+      L.dots = L.dots.filter((d) => d.left > 0);
+    }
     if (L.dead > 0) {
+      L.dots = [];
       L.dead -= dt;
       if (L.dead <= 0) {
         L.dead = 0; L.hp = stats.vida; L.provoked = false; s.x = spawn.x; s.z = spawn.z; s.tx = spawn.x; s.tz = spawn.z;
