@@ -12,7 +12,7 @@ import { Entry } from './ui/Entry';
 import { Creation } from './ui/Creation';
 import { SkillTreePanel } from './ui/SkillTreePanel';
 import { SkillBar } from './ui/SkillBar';
-import { VitalsBars, TouchMoves } from './ui/VitalsHud';
+import { VitalsBars, TouchMoves, FaintCounter } from './ui/VitalsHud';
 import { useSkillSync } from './ui/skillState';
 import { pressAttack, releaseAttack } from './scene/Combat';
 import { ownsItem } from './ui/EquipmentPanel';
@@ -290,6 +290,7 @@ export function App() {
           )}
           {model && <SkillBar color={visual.glow} />}
           {model && <TouchMoves />}
+          {model && <FaintCounter />}
           {model && (
             <button className={'attack-btn' + (bowEquipped ? ' bow' : '')} aria-label={bowEquipped ? 'Segure para carregar o arco e solte para atirar' : 'Atacar'}
               onPointerDown={(e) => { e.preventDefault(); (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId); pressAttack(); }}

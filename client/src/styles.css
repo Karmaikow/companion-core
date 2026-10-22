@@ -629,3 +629,12 @@ html:has(.admin), body:has(.admin), #root:has(.admin) { height: auto; min-height
 .grip-box { border-color: var(--brass, #e6c178); background: color-mix(in srgb, var(--night-3, #1c2440) 55%, transparent); }
 .dmg.poison { color: #c98cff; font-size: 1.05rem; text-shadow: 0 2px 6px rgba(40, 10, 70, 0.9); }
 .dmg.burn { color: #ffb36b; font-size: 1.05rem; }
+
+/* Desmaiado: contagem até levantar */
+.faint-counter { position: absolute; left: 50%; top: 32%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 14px 26px 16px; border-radius: 18px; background: rgba(20, 12, 34, 0.72); border: 1px solid rgba(255, 140, 160, 0.45); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45); pointer-events: none; z-index: 4; animation: faint-in 0.4s ease-out; }
+.faint-counter b { font-family: var(--serif); font-size: 1.1rem; color: #ffb3c0; letter-spacing: 0.04em; }
+.faint-counter .faint-num { font: 700 3rem/1 var(--serif); color: #fff; text-shadow: 0 2px 12px rgba(255, 120, 150, 0.6); }
+.faint-counter small { color: var(--mist); font-size: 0.75rem; }
+.faint-counter .bar { width: 150px; height: 7px; margin-top: 4px; }
+.faint-counter .bar i { background: linear-gradient(90deg, #d9a63a, #ffe17a); transition: width 0.18s linear; }
+@keyframes faint-in { from { opacity: 0; transform: translate(-50%, -40%); } }

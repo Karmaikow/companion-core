@@ -12,6 +12,7 @@ import { gameVfx } from './vfx/engine';
 import { VfxLayer } from './vfx/VfxLayer';
 import { area, aura, beam, burst, Charge, cone, Missile, missile, slash } from './vfx/recipes';
 import { K } from './vfx/engine';
+import { healCompanion, hurtCompanion, vitals } from './vitals';
 import type { SkillDef } from '@rules';
 import type { WorldShape } from './world';
 
@@ -238,10 +239,11 @@ function runSkill(ev: Extract<FxEvent, { kind: 'skill' }>, world: WorldShape, po
       case 'leap': V.after(0.4, () => { area(V, st, tp, s.radius, col, tp.y); strike(inside(), 0); }); break;
       case 'aura': aura(V, st, feet, s.radius, col, feet.y); strike(inside(), 0.1); break;
     }
-    if (ev.heal > 0) V.after(0.15, () => pop(chest.clone().setY(chest.y + 0.7), '+' + ev.heal, 'heal'));
+    // cura: soma no HP do Companion (antes só mostrava o número verde)
+    if (ev.heal > 0) V.after(0.15, () => { healCompanion(ev.heal); pop(chest.clone().setY(chest.y + 0.7), '+' + ev.heal, 'heal'); });
   });
 }
 
 const devLog: { kind: string; yaw: number; x: number; z: number; t: number }[] = [];
 // testes no navegador (só no dev)
-if (import.meta.env.DEV && typeof window !== 'undefined') (window as unknown as { __combat: unknown }).__combat = { combatInput, chargeState, targets, fxQueue, vfx: gameVfx, skillInput, requestSkill, aim, devLog };
+if (import.meta.env.DEV && typeof window !== 'undefined') (window as unknown as { __combat: unknown }).__combat = { combatInput, chargeState, targets, fxQueue, vfx: gameVfx, skillInput, requestSkill, aim, devLog, hurt: hurtCompanion, vitals };

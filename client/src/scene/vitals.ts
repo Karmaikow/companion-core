@@ -1,6 +1,7 @@
 /**
  * Vida (HP), SP e Stamina do Companion fora da batalha de verdade (treino e mundo).
- * - HP: cai com os golpes das criaturas (a defesa segurada corta 75%); zerou, o Companion desmaia e volta com metade.
+ * - HP: cai com os golpes das criaturas (a defesa segurada corta 75%); zerou, o Companion desmaia: a stamina zera e
+ *   enche devagar; só levanta com a stamina cheia (volta com metade da vida). A tela mostra a contagem.
  * - SP: gasto pelas habilidades (energia da Forja); volta devagar.
  * - Stamina: pulo, ataque básico e defesa; volta rápido depois de um instante sem gastar.
  * Os máximos vêm da classe (tendência dos atributos), dos bônus da árvore e do vínculo.
@@ -9,17 +10,20 @@
 import { create } from 'zustand';
 import { SPECIES, type AttrKey, type SpeciesKey } from '@rules';
 
-export interface VitalsView { hp: number; hpMax: number; sp: number; spMax: number; st: number; stMax: number; down: boolean; hitId: number }
+export interface VitalsView { hp: number; hpMax: number; sp: number; spMax: number; st: number; stMax: number; down: boolean; hitId: number; /** segundos até levantar (desmaiado) */ wake: number }
 
 export const vitals = { hp: 100, hpMax: 100, sp: 60, spMax: 60, st: 100, stMax: 100, down: 0, rest: 0, hitId: 0, blocking: false, lastHit: 0 };
 
-export const useVitals = create<VitalsView>(() => ({ hp: 100, hpMax: 100, sp: 60, spMax: 60, st: 100, stMax: 100, down: false, hitId: 0 }));
+export const useVitals = create<VitalsView>(() => ({ hp: 100, hpMax: 100, sp: 60, spMax: 60, st: 100, stMax: 100, down: false, hitId: 0, wake: 0 }));
+
+/** Desmaiado: a stamina enche do zero em DOWN_SECONDS e só então ele levanta. */
+export const DOWN_SECONDS = 10;
 
 let acc = 0;
 function publish(force = false) {
   const v = vitals, cur = useVitals.getState();
-  const next: VitalsView = { hp: Math.round(v.hp), hpMax: v.hpMax, sp: Math.round(v.sp), spMax: v.spMax, st: Math.round(v.st), stMax: v.stMax, down: v.down > 0, hitId: v.hitId };
-  if (force || next.hp !== cur.hp || next.sp !== cur.sp || next.st !== cur.st || next.down !== cur.down || next.hpMax !== cur.hpMax || next.spMax !== cur.spMax || next.stMax !== cur.stMax || next.hitId !== cur.hitId) useVitals.setState(next);
+  const next: VitalsView = { hp: Math.round(v.hp), hpMax: v.hpMax, sp: Math.round(v.sp), spMax: v.spMax, st: Math.round(v.st), stMax: v.stMax, down: v.down > 0, hitId: v.hitId, wake: v.down > 0 ? Math.ceil(((v.stMax - v.st) / v.stMax) * DOWN_SECONDS) : 0 };
+  if (force || next.hp !== cur.hp || next.sp !== cur.sp || next.st !== cur.st || next.down !== cur.down || next.hpMax !== cur.hpMax || next.spMax !== cur.spMax || next.stMax !== cur.stMax || next.hitId !== cur.hitId || next.wake !== cur.wake) useVitals.setState(next);
 }
 
 /** Máximos pela classe, bônus da árvore (%) e vínculo. Mantém a proporção atual. */
@@ -56,7 +60,7 @@ export function hurtCompanion(damage: number): number {
   if (v.down > 0) return 0;
   const dmg = Math.max(1, Math.round(damage * (v.blocking ? 0.25 : 1)));
   v.hp = Math.max(0, v.hp - dmg); v.hitId++; v.lastHit = performance.now();
-  if (v.hp <= 0) v.down = 4; // desmaia por 4 s
+  if (v.hp <= 0) { v.down = 1; v.st = 0; v.blocking = false; } // desmaia: a stamina zera
   publish();
   return dmg;
 }
@@ -67,8 +71,9 @@ export function healCompanion(n: number) { vitals.hp = Math.min(vitals.hpMax, vi
 export function tickVitals(dt: number) {
   const v = vitals;
   if (v.down > 0) {
-    v.down -= dt;
-    if (v.down <= 0) { v.down = 0; v.hp = v.hpMax * 0.5; v.st = v.stMax * 0.5; publish(true); }
+    // só levanta com a stamina cheia
+    v.st = Math.min(v.stMax, v.st + (v.stMax / DOWN_SECONDS) * dt);
+    if (v.st >= v.stMax) { v.down = 0; v.hp = Math.max(v.hp, v.hpMax * 0.5); publish(true); }
   } else {
     v.hp = Math.min(v.hpMax, v.hp + (performance.now() - v.lastHit > 6000 ? 2 : 0.4) * dt);
     v.sp = Math.min(v.spMax, v.sp + 3 * dt);

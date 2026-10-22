@@ -25,6 +25,20 @@ export function VitalsBars({ bondRatio, bondLevel }: { bondRatio: number; bondLe
   );
 }
 
+/** Desmaiado: aviso no centro com a contagem até levantar (quando a stamina encher). */
+export function FaintCounter() {
+  const down = useVitals((v) => v.down), wake = useVitals((v) => v.wake), st = useVitals((v) => v.st), stMax = useVitals((v) => v.stMax);
+  if (!down) return null;
+  return (
+    <div className="faint-counter" role="status" aria-live="polite">
+      <b>Desmaiou</b>
+      <span className="faint-num">{wake}</span>
+      <small>levanta quando a stamina encher</small>
+      <div className="bar"><i style={{ width: Math.round((st / Math.max(1, stMax)) * 100) + '%' }} /></div>
+    </div>
+  );
+}
+
 /** Pulo, defesa e sentar para toque (no PC: Espaço, E e C). */
 export function TouchMoves() {
   return (

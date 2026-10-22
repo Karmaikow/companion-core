@@ -330,6 +330,12 @@ Os efeitos deixaram de ser pontos com textura e passaram a usar um motor própri
 - **Tempo de volta do monstro:** no Invocador, em "Onde e quando aparece", `respawn` em segundos (5 s a 1 h; padrão 45 s).
 - **Lab:** `forge-lab.html?treino=/arquivo.glb` mostra os dois campos de treino com um modelo local.
 
+## Desmaio, cura e monstros sem coleira (v1.15)
+
+- **Desmaio:** com o HP zerado, a stamina zera e enche em 10 s (`DOWN_SECONDS`). O Companion só levanta com a stamina cheia, com pelo menos metade da vida. No centro da tela aparece "Desmaiou", a contagem e a barra de stamina (`FaintCounter`).
+- **Cura:** as habilidades de cura (Bolha, Pólen Curativo…) agora somam no HP (`healCompanion`); antes só mostravam o número.
+- **Monstros sem coleira:** quem começou a brigar persegue o Companion para onde for, inclusive para fora do bioma. Só desiste quando ele se afasta 2,5× o alcance de percepção; aí volta para casa mais rápido, recuperando 25% da vida por segundo. Antes ficavam presos a 14 m de casa, parados apanhando no limite. Fugindo, vão no máximo a 20 m.
+
 ## Colisão pela base real e sem cauda (v1.15)
 
 - **Colisão dos modelos GLB do bioma:** o raio vem da base de verdade do modelo, pelos vértices perto do chão (90º percentil da distância ao centro).

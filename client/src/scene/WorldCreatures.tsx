@@ -46,7 +46,7 @@ function WorldCreature({ cw, def, spawn }: { cw: CompanionWorld; def: CreatureDe
   const R = Math.max(0.25, def.size * 0.35);
   // vida no nível dela; os golpes do Companion descontam a defesa. Zerou: explode em névoa e volta depois de um tempo.
   const stats = useMemo(() => creatureStatsAt(def, spawn.level), [def, spawn.level]);
-  const life = useRef({ hp: stats.vida, dead: 0, provoked: false, atk: 0.8, swing: -1, dots: [] as { key: string; left: number; dps: number; stacks: number; tick: number }[] });
+  const life = useRef({ hp: stats.vida, dead: 0, provoked: false, atk: 0.8, swing: -1, engaged: false, returning: false, dots: [] as { key: string; left: number; dps: number; stacks: number; tick: number }[] });
   const [hpPct, setHpPct] = useState(1);
   const [dead, setDead] = useState(false);
   const hurt = useRef(0);
@@ -121,8 +121,27 @@ function WorldCreature({ cw, def, spawn }: { cw: CompanionWorld; def: CreatureDe
     if (def.temperament === 'medroso' && dC < def.aggroRange) mode = 'flee';
     if (def.temperament === 'passivo' && dC < 2.5) mode = 'face';
     if (L.provoked && dC < def.aggroRange * 1.6 && def.temperament !== 'medroso') mode = 'chase'; // provocado: vem brigar
+    // Perseguição sem coleira: quem começou a brigar segue o Companion para onde for (inclusive para fora do bioma) e só
+    // desiste quando ele se afasta bem; aí volta para casa recuperando a vida. Antes ficava parado a 14 m de casa
+    // apanhando no limite.
+    if (mode === 'chase') { L.engaged = true; L.returning = false; }
+    else if (L.engaged && def.temperament !== 'medroso') {
+      if (dC > def.aggroRange * 2.5) { L.engaged = false; L.provoked = false; L.returning = true; }
+      else mode = 'chase';
+    }
     if (L.provoked && dC > def.aggroRange * 2.5) L.provoked = false;
-    let speed = def.speed, want: CreatureAct = 'idle';
+    const dHome = Math.hypot(s.x - spawn.x, s.z - spawn.z);
+    if (mode !== 'chase' && mode !== 'flee' && dHome > 8) L.returning = true;
+    if (L.returning) {
+      if (mode === 'chase') L.returning = false;
+      else if (dHome < 1.2) L.returning = false;
+      else {
+        mode = 'wander'; s.tx = spawn.x; s.tz = spawn.z; s.wait = 1;
+        L.hp = Math.min(stats.vida, L.hp + stats.vida * 0.25 * dt); // recupera voltando
+        if (L.hp >= stats.vida) setHpPct(1);
+      }
+    }
+    let speed = L.returning ? def.speed * 1.4 : def.speed, want: CreatureAct = 'idle';
     if (mode === 'chase') {
       const stop = 1.4 + R;
       if (dC > stop) { s.tx = fx; s.tz = fz; speed = def.speed * 1.6; } else { s.tx = s.x; s.tz = s.z; }
@@ -152,7 +171,7 @@ function WorldCreature({ cw, def, spawn }: { cw: CompanionWorld; def: CreatureDe
       s.yaw = Math.atan2(fx - s.x, fz - s.z);
     } else {
       s.wait -= dt;
-      if (s.wait <= 0 && Math.hypot(s.tx - s.x, s.tz - s.z) < 0.2) {
+      if (!L.returning && s.wait <= 0 && Math.hypot(s.tx - s.x, s.tz - s.z) < 0.2) {
         const a = Math.random() * Math.PI * 2, r = 1 + Math.random() * 4;
         s.tx = spawn.x + Math.cos(a) * r; s.tz = spawn.z + Math.sin(a) * r; s.wait = 2 + Math.random() * 5;
       }
@@ -161,8 +180,8 @@ function WorldCreature({ cw, def, spawn }: { cw: CompanionWorld; def: CreatureDe
     if (d > 0.15) {
       const step = Math.min(d, speed * dt), p = { x: s.x + (dx / d) * step, z: s.z + (dz / d) * step };
       resolveCollisions(p);
-      // não sai do mundo nem da área de casa demais (fugindo, vai no máximo 14 m)
-      if (Math.hypot(p.x - spawn.x, p.z - spawn.z) < 14) { s.x = p.x; s.z = p.z; } else { s.tx = s.x; s.tz = s.z; }
+      // fugindo, vai no máximo 20 m de casa; perseguindo ou voltando, sem limite
+      if (mode !== 'flee' || Math.hypot(p.x - spawn.x, p.z - spawn.z) < 20) { s.x = p.x; s.z = p.z; } else { s.tx = s.x; s.tz = s.z; }
       const wantYaw = Math.atan2(dx, dz); let dy = wantYaw - s.yaw; while (dy > Math.PI) dy -= 2 * Math.PI; while (dy < -Math.PI) dy += 2 * Math.PI;
       s.yaw += dy * Math.min(1, dt * 6);
       if (want === 'idle') want = 'walk';
