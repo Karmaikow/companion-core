@@ -707,7 +707,7 @@ html:has(.admin), body:has(.admin), #root:has(.admin) { height: auto; min-height
 .ecos-card .bar, .ecos-tab .bar { height: 6px; border-radius: 99px; background: rgba(255, 255, 255, 0.12); overflow: hidden; margin: 4px 0; }
 .ecos-card .bar i, .ecos-tab .bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--ecos-moss-2), var(--ecos-glow)); }
 .ecos-hud button:focus-visible, .ecos-tab button:focus-visible, .ecos-tab input:focus-visible { outline: 2px solid var(--ecos-glow); outline-offset: 2px; }
-.ecos-objective { position: absolute; top: max(14px, env(safe-area-inset-top)); left: 290px; width: min(300px, 40vw); padding: 10px 14px; display: grid; gap: 3px; }
+.ecos-objective { position: absolute; top: calc(max(14px, env(safe-area-inset-top)) + 54px); left: 290px; width: min(300px, 40vw); padding: 10px 14px; display: grid; gap: 3px; }
 .ecos-objective b { font-size: 0.95rem; }
 .ecos-objective .ecos-auto { margin: 2px 0 0; font-size: 0.82rem; color: var(--ecos-glow); }
 .ecos-bagline { color: var(--ecos-silver-dim); font-size: 0.75rem; }
@@ -756,7 +756,7 @@ html:has(.admin), body:has(.admin), #root:has(.admin) { height: auto; min-height
 .ecos-action .ghost { justify-self: end; min-height: 36px; }
 .ecos-recent { position: absolute; left: 14px; bottom: calc(18px + env(safe-area-inset-bottom)); list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-width: 40vw; }
 .ecos-recent li { background: var(--ecos-moss-bg); border: 1px solid rgba(201, 209, 214, 0.25); border-radius: 99px; padding: 3px 10px; font-size: 0.78rem; animation: ecos-pop 0.3s ease-out; }
-.ecos-sim { position: absolute; top: calc(max(14px, env(safe-area-inset-top)) + 120px); left: 290px; font-size: 0.72rem; color: var(--ecos-warn); background: rgba(0, 0, 0, 0.45); padding: 2px 8px; border-radius: 99px; }
+.ecos-sim { position: absolute; top: calc(max(14px, env(safe-area-inset-top)) + 150px); left: 290px; font-size: 0.72rem; color: var(--ecos-warn); background: rgba(0, 0, 0, 0.45); padding: 2px 8px; border-radius: 99px; }
 .ecos-choice { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(5, 10, 8, 0.55); z-index: 9; }
 .ecos-choice > .ecos-card { width: min(560px, calc(100vw - 28px)); padding: 18px; display: grid; gap: 10px; }
 .ecos-choice h3 { margin: 0; font-family: var(--serif); color: var(--ecos-glow); }

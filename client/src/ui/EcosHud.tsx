@@ -153,7 +153,7 @@ function ContextPanel() {
   const selected = useEcos((s) => s.selected), view = useEcos((s) => s.view), intent = useEcos((s) => s.intent);
   const [more, setMore] = useState(false);
   const node = selected ? nodeById(selected) : null;
-  const sugg = useMemo(() => (node && view ? suggestionsNow(view, intent ?? { mode: 'abastecer', target: null, risk: 1, reserve: 4, tools: [], prefer: null, gentle: false }).find((x) => x.node.id === node.id && !x.blocked) : null), [node, view, intent]);
+  const sugg = useMemo(() => (node && view ? suggestionsNow(view, intent ?? { mode: 'abastecer', target: null, risk: 1, reserve: 4, tools: [], prefer: null, gentle: true }).find((x) => x.node.id === node.id && !x.blocked) : null), [node, view, intent]);
   if (!node) return null;
   const k = NODE_KINDS[node.kind], amount = amountOf(view, node), now = Date.now();
   const free = (view?.config.bag ?? 60) - bagUsedOf(view);

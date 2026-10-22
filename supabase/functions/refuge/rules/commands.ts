@@ -40,7 +40,7 @@ function findName(t: string, names: string[]): string | null {
 
 const GATHER: [RegExp, GatherKind][] = [
   [/\b(madeira|madeiras|tronco|troncos|lenha|galho|galhos)\b/, 'madeira'],
-  [/\b(cobre|minerio|minerios|metal)\b/, 'cobre'],
+  [/\b(cobre|cobres|minerio|minerios|metal)\b/, 'cobre'],
   [/\b(cristal|cristais|gema|gemas|quartzo)\b/, 'gema'],
   [/\b(seiva|seivas|resina)\b/, 'seiva'],
   [/\b(raiz|raizes)\b/, 'raiz'],
