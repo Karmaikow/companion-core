@@ -146,32 +146,11 @@ O admin vê **🧪 testar como**, só fora de `companion-core-two.vercel.app`. A
   - os baús dão **partes ou componentes** que a Taurina conclui; ou
   - um **estoque finito declarado** (evento) com origem registrada.
   - Nada disso foi implementado.
-- **Mais de uma essência e formas híbridas:** ver a seção Linhagem.
+- **Linhagem:** ver a seção Linhagem (restrita).
 
-## Linhagem (late game): várias essências e formas
+## Linhagem
 
-Raríssimo. A identidade de nascença nunca muda: a linhagem **soma**, na ordem da conquista, até 2 formas e 2 essências (`LINEAGE_LIMITS`).
-
-Decisões de 22/10:
-
-- **Híbrido tem os ofícios completos de todas as formas.** Taurina + Dracônica forja e faz Confluência, e extrai as fontes superiores aquáticas.
-- **Todas as essências valem sempre.** Fogo + Terra traz os dois núcleos: a Forja não cobra nenhum. No ofício, escolhe qual essência aplicar.
-- **Essência extra:** quests específicas em locais específicos (a planejar).
-- **Forma extra:** item lendário de quests secretas difíceis, e só **depois da forma avançada** (a planejar).
-  - A evolução das formas é infinita: Partículas → Forma 1 (Infância) → Forma 2 (Crescimento) → Forma 3 (Maturidade) → Forma 4+ (Avançadas).
-  - A forma híbrida é **uma nova evolução** depois da Forma 4+, e cada evolução gera um **modelo novo**.
-  - A evolução das formas ainda não existe no jogo; as regras já exigem a Forma 4+ (`canGainForm`, `ADVANCED_FORM`).
-
-Código:
-
-- Regras: `lineageOf`, `canGainForm`, `canGainEssence`, `officesOf`. As regras do Pacto aceitam uma forma ou uma lista (`Forms`).
-- Banco: tabela `companion_lineage` (formas e essências extras, com histórico) e a função `lineage_set`.
-- Por enquanto só há concessão de **teste de admin** na homologação: "🧪 + forma / + essência" na Oficina.
-
-Ainda não feito:
-
-- O combate continua usando só a essência e a forma de nascença.
-- O modelo 3D não muda.
+Mecânica restrita (segredo de lore). O desenho fica só no documento privado do projeto.
 
 ## Testes críticos
 

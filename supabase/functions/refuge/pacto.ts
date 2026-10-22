@@ -46,7 +46,7 @@ export async function classInfo(db: SupabaseClient, c: Record<string, unknown>, 
   const { data } = await db.from('pacto_profile').select('test_class').eq('companion_id', c.id).maybeSingle();
   const test = admin ? ((data?.test_class as SpeciesKey | null) ?? null) : null;
   const essence = ((c.discoveries as Discoveries).element ?? null) as Element | null;
-  // linhagem (late game): formas e essências extras somam à identidade de nascença
+  // linhagem (segredo de lore)
   const { data: lin } = await db.from('companion_lineage').select('forms,essences').eq('companion_id', c.id).maybeSingle();
   const lineage = lineageOf(real, essence, lin as { forms: string[]; essences: string[] } | null);
   const forms = test ? [test] : lineage.forms;
@@ -159,9 +159,9 @@ export async function pactoAction(action: string, body: Record<string, unknown>,
     return { pacto: await state() };
   }
 
-  // linhagem: só teste de admin na homologação (as quests de essência e a troca de forma de adulto ainda serão planejadas)
+  // linhagem (segredo de lore): só teste de admin na homologação
   if (action === 'pacto.lineage.set') {
-    if (!admin) throw new PactoError(403, 'Só para administradores (teste). Essências e formas extras virão de quests.');
+    if (!admin) throw new PactoError(403, 'Só para administradores (teste).');
     const kind = body.kind === 'form' ? 'form' : body.kind === 'essence' ? 'essence' : null;
     const value = String(body.value ?? '');
     if (!kind || (kind === 'form' ? !(value in SPECIES) : !(value in ELEMENTS))) throw new PactoError(400, 'Valor inválido.');
@@ -178,7 +178,7 @@ export async function pactoAction(action: string, body: Record<string, unknown>,
     const t = transformationById(String(body.transformation)); if (!t) throw new PactoError(400, 'Transformação inexistente.');
     if (!officesOf(cls.forms).some((o) => o.key === t.office)) throw new PactoError(403, `Só quem tem o ofício ${Object.values(OFFICES).find((o) => o.key === t.office)!.name} faz isso.`);
     const picks = Array.isArray(body.picks) ? (body.picks as Record<string, unknown>[]).slice(0, 12).map((p) => ({ slot: Number(p.slot), key: String(p.key), qty: Number(p.qty) })) : [];
-    // híbridos de essência: escolhe qual essência aplicar (todas valem)
+    // qual essência aplicar (entre as do Companion)
     const ess = (typeof body.essence === 'string' && cls.essences.includes(body.essence as Element) ? body.essence : cls.essences[0] ?? null) as Element | null;
     const chk = checkTransformation(t, picks, await bagOf(db, cid), String(body.choice), ess, body.useEssence === true, cid);
     if (!chk.ok) throw new PactoError(409, chk.reason);

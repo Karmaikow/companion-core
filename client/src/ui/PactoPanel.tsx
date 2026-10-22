@@ -58,8 +58,8 @@ export function PactoPanel() {
           <span className="pacto-office" aria-hidden>{office?.icon ?? '·'}</span>
           <div>
             <strong>{forms.length ? forms.map((f) => `${CLASS_LABEL[f]} · ${OFFICES[f].name}`).join('  +  ') : 'Sem classe'}</strong>
-            <small>{forms.length > 1 ? 'Linhagem híbrida: ofícios completos de todas as formas.' : office?.focus}</small>
-            {(view.cls.essences ?? []).length > 0 && <small className="pacto-ess">{(view.cls.essences ?? []).map((e) => <b key={e} style={{ color: AFFINITY_COLOR[e] }}>{ELEMENTS[e].label}</b>)}{(view.cls.essences ?? []).length > 1 ? ' — todas valem sempre' : ''}</small>}
+            <small>{forms.length > 1 ? null : office?.focus}</small>
+            {(view.cls.essences ?? []).length > 0 && <small className="pacto-ess">{(view.cls.essences ?? []).map((e) => <b key={e} style={{ color: AFFINITY_COLOR[e] }}>{ELEMENTS[e].label}</b>)}</small>}
           </div>
         </div>
         <div className="pacto-lumes" title="Lumes: a moeda do Pacto. Entram por descobertas, obras e encomendas; saem nos núcleos da oficina e na taxa do quadro.">✧ <b>{view.lumes}</b> Lumes</div>
@@ -100,7 +100,7 @@ function TestClass({ view }: { view: PactoView }) {
   const lin = view.cls.lineage;
   const extraForms = (lin?.forms ?? []).slice(1), extraEss = (lin?.essences ?? []).slice(1);
   return (
-    <div className="pacto-test" title="Só administradores, fora da produção: testa as classes e a linhagem (no jogo, virão de quests)">
+    <div className="pacto-test" title="Só administradores, fora da produção">
       <label>🧪 testar como
         <select value={view.cls.test ?? ''} onChange={(e) => void call('pacto.testClass', { cls: e.target.value || null })}>
           <option value="">(classe real)</option>
@@ -119,7 +119,7 @@ function TestClass({ view }: { view: PactoView }) {
           {(Object.keys(ELEMENTS) as (keyof typeof ELEMENTS)[]).filter((k) => !lin?.essences.includes(k)).map((k) => <option key={k} value={k}>{ELEMENTS[k].label}</option>)}
         </select>
       </label>
-      {(extraForms.length > 0 || extraEss.length > 0) && <button className="ghost" onClick={() => { for (const f of extraForms) void call('pacto.lineage.set', { kind: 'form', value: f, on: false }); for (const x of extraEss) void call('pacto.lineage.set', { kind: 'essence', value: x, on: false }); }}>limpar linhagem</button>}
+      {(extraForms.length > 0 || extraEss.length > 0) && <button className="ghost" onClick={() => { for (const f of extraForms) void call('pacto.lineage.set', { kind: 'form', value: f, on: false }); for (const x of extraEss) void call('pacto.lineage.set', { kind: 'essence', value: x, on: false }); }}>limpar</button>}
     </div>
   );
 }

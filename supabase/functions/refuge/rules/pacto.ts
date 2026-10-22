@@ -34,55 +34,43 @@ export const OFFICES: Record<SpeciesKey, OfficeDef> = {
   mistica: { key: 'inscricao', cls: 'mistica', name: 'Inscrição Vital', icon: '✶', focus: 'Matrizes rúnicas, catalisadores de cura e tratamento de corrupção e maldições.', superior: 'Fontes encantadas, espirituais e inscrições naturais.' },
 };
 export const officeOf = (cls: SpeciesKey | null | undefined) => (cls ? OFFICES[cls] : null);
-/** Ofícios de todas as formas (híbridos têm todos, completos). */
+/** Ofícios de todas as formas do Companion. */
 export const officesOf = (cls: Forms) => formsOf(cls).map((f) => OFFICES[f]);
 export const CLASS_LABEL: Record<SpeciesKey, string> = { serpente: 'Dracônica', passaro: 'Alada', felino: 'Feral', touro: 'Taurina', mistica: 'Feérica' };
 
 /** Só Taurinas concluem equipamentos (inclusive ferramentas). */
-/** Uma forma ou várias (híbridos do late game): a regra vale se QUALQUER forma do Companion permite. */
+/** Uma forma ou várias: a regra vale se qualquer forma permite. */
 export type Forms = SpeciesKey | readonly SpeciesKey[] | null | undefined;
 export const formsOf = (f: Forms): SpeciesKey[] => (Array.isArray(f) ? [...new Set(f as SpeciesKey[])] : f ? [f as SpeciesKey] : []);
 export const canCompleteEquipment = (cls: Forms) => formsOf(cls).includes('touro');
 
 // ---------------------------------------------------------------------------
-// Linhagem (late game): mais de uma essência e mais de uma forma
+// Linhagem
 // ---------------------------------------------------------------------------
 /**
- * Raríssimo e caro. Decisões de 22/10:
- *  - Híbrido tem os ofícios COMPLETOS de todas as suas formas (ex.: Taurina + Dracônica forja e faz Confluência).
- *  - Todas as essências valem SEMPRE (Fogo + Terra: a Forja não cobra nenhum núcleo).
- *  - Essência extra: quests específicas em locais específicos (a planejar).
- *  - Forma extra: item lendário de quests secretas difíceis, e só DEPOIS da forma avançada (Forma 4+) na evolução
- *    infinita das formas (Partículas → Forma 1 Infância → 2 Crescimento → 3 Maturidade → 4+ Avançadas). A forma
- *    híbrida é ela mesma um passo de evolução: cada evolução gera um modelo novo (a planejar).
- * A identidade (forma/essência de nascença) nunca muda: a linhagem SOMA, na ordem em que foi conquistada.
+ * SEGREDO DE LORE: não expor ao jogador (nem em textos do jogo) até a lenda ser introduzida na lore.
+ * Desenho completo só no documento privado do projeto (pacto-das-cinco.md, seção Linhagem).
+ * Aqui ficam só a mecânica e códigos neutros, sem texto descritivo.
  */
 export interface Lineage { forms: SpeciesKey[]; essences: Element[] }
 export const LINEAGE_LIMITS = { forms: 2, essences: 2 };
-/** Evolução das formas (infinita). 0 = Partículas; 1–3 = Infância, Crescimento, Maturidade; 4+ = Formas avançadas. */
-export const FORM_STAGES = ['Partículas', 'Forma 1 · Infância', 'Forma 2 · Crescimento', 'Forma 3 · Maturidade'] as const;
+/** Evolução das formas (infinita): 0 Partículas, 1–3, e 4+ avançadas. */
 export const ADVANCED_FORM = 4;
-export const formStageLabel = (n: number) => (n < ADVANCED_FORM ? FORM_STAGES[Math.max(0, n)] : `Forma ${n} · Avançada`);
-export const LINEAGE_RULES = {
-  essence: 'Quests específicas em locais específicos (a planejar).',
-  form: 'Item lendário de quests secretas, depois da forma avançada (Forma 4+); a forma híbrida é uma nova evolução, com modelo novo (a planejar).',
-  minFormStage: ADVANCED_FORM,
-} as const;
 export function lineageOf(primaryForm: SpeciesKey | null, primaryEssence: Element | null, extra?: { forms?: string[]; essences?: string[] } | null): Lineage {
   const forms = [...new Set([primaryForm, ...(extra?.forms ?? [])].filter(Boolean))] as SpeciesKey[];
   const essences = [...new Set([primaryEssence, ...(extra?.essences ?? [])].filter(Boolean))] as Element[];
   return { forms: forms.slice(0, LINEAGE_LIMITS.forms), essences: essences.slice(0, LINEAGE_LIMITS.essences) };
 }
-/** Pode ganhar mais uma forma? Só a partir da forma avançada (evolução 4+) e com o item lendário. */
-export function canGainForm(l: Lineage, formStage: number, hasLegendary: boolean): string | null {
-  if (l.forms.length >= LINEAGE_LIMITS.forms) return 'Já tem o máximo de formas.';
-  if (!(formStage >= LINEAGE_RULES.minFormStage)) return 'A forma híbrida só vem depois da forma avançada (Forma 4+).';
-  if (!hasLegendary) return 'Precisa do item lendário das quests secretas.';
+/** null = pode; senão um código neutro ('limite' | 'estagio' | 'item'). */
+export function canGainForm(l: Lineage, formStage: number, hasKey: boolean): 'limite' | 'estagio' | 'item' | null {
+  if (l.forms.length >= LINEAGE_LIMITS.forms) return 'limite';
+  if (!(formStage >= ADVANCED_FORM)) return 'estagio';
+  if (!hasKey) return 'item';
   return null;
 }
-export function canGainEssence(l: Lineage, questDone: boolean): string | null {
-  if (l.essences.length >= LINEAGE_LIMITS.essences) return 'Já tem o máximo de essências.';
-  if (!questDone) return 'Precisa completar a quest daquela essência, no lugar dela.';
+export function canGainEssence(l: Lineage, questDone: boolean): 'limite' | 'quest' | null {
+  if (l.essences.length >= LINEAGE_LIMITS.essences) return 'limite';
+  if (!questDone) return 'quest';
   return null;
 }
 export const lineageLabel = (l: Lineage) => l.forms.map((f) => CLASS_LABEL[f]).join(' + ') || '—';

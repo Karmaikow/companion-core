@@ -169,8 +169,8 @@ describe('Pacto: ciclo de vida e economia', () => {
   });
 });
 
-describe('linhagem (late game): várias formas e essências', () => {
-  it('híbrido Taurina + Dracônica forja e tem os dois ofícios completos', () => {
+describe('linhagem', () => {
+  it('duas formas: as regras valem para qualquer uma', () => {
     const l = lineageOf('serpente', 'agua', { forms: ['touro'] });
     expect(canCompleteEquipment(l.forms)).toBe(true);
     expect(officesOf(l.forms).map((o) => o.key)).toEqual(['confluencia', 'forja']);
@@ -182,17 +182,17 @@ describe('linhagem (late game): várias formas e essências', () => {
     expect(coreCost(['fogo', 'agua'], DEFAULT_PACTO).total).toBe(DEFAULT_PACTO.coreFee);
     expect(coreCost('luz', DEFAULT_PACTO).total).toBe(DEFAULT_PACTO.coreFee * 2);
   });
-  it('limites e pré-requisitos: forma híbrida só depois da forma avançada (4+) e com o lendário', () => {
+  it('limites e pré-requisitos (códigos neutros)', () => {
     const l = lineageOf('felino', 'natureza', null);
-    expect(canGainForm(l, 3, true)).toMatch(/avançada/);
-    expect(canGainForm(l, 4, false)).toMatch(/lendário/);
+    expect(canGainForm(l, 3, true)).toBe('estagio');
+    expect(canGainForm(l, 4, false)).toBe('item');
     expect(canGainForm(l, 4, true)).toBeNull();
     expect(canGainForm(l, 9, true)).toBeNull(); // evolução infinita
-    expect(canGainEssence(l, false)).toMatch(/quest/);
+    expect(canGainEssence(l, false)).toBe('quest');
     const full = lineageOf('felino', 'natureza', { forms: ['passaro', 'touro'], essences: ['fogo', 'terra'] });
     expect(full.forms.length).toBe(LINEAGE_LIMITS.forms);
     expect(full.essences.length).toBe(LINEAGE_LIMITS.essences);
-    expect(canGainForm(full, 5, true)).toMatch(/máximo/);
+    expect(canGainForm(full, 5, true)).toBe('limite');
   });
   it('a identidade de nascença vem primeiro e não se repete', () => {
     expect(lineageOf('touro', 'fogo', { forms: ['touro', 'mistica'], essences: ['fogo'] })).toEqual({ forms: ['touro', 'mistica'], essences: ['fogo'] });
