@@ -191,14 +191,14 @@ export function App() {
 
   useSkillSync();
 
-  // cauda e asas da classe (o modelo 3D vem sem elas). Teste: ?cauda=scaly|fluffy|tuft|feather|wisp&asas=feather|dragon|fairy
+  // Cauda e asas desenhadas por código: desligadas no jogo (ficavam fora do modelo; só o modelo 3D por enquanto).
+  // O código fica para uma versão futura (ex.: cauda no próprio rig). Teste: ?cauda=scaly|fluffy|tuft|feather|wisp&asas=feather|dragon|fairy
   const appendages = useMemo(() => {
     const q = new URLSearchParams(location.search);
     const contract = c?.identityContract;
-    const sheet = contract ? characterSheet(contract) : null;
     const qt = q.get('cauda'), qw = q.get('asas');
-    const tail = (qt && ['scaly', 'fluffy', 'tuft', 'feather', 'wisp'].includes(qt) ? qt : sheet?.appendages.tail ?? null) as never;
-    const wings = (qw && ['feather', 'dragon', 'fairy'].includes(qw) ? qw : sheet?.appendages.wings ?? null) as never;
+    const tail = (qt && ['scaly', 'fluffy', 'tuft', 'feather', 'wisp'].includes(qt) ? qt : null) as never;
+    const wings = (qw && ['feather', 'dragon', 'fairy'].includes(qw) ? qw : null) as never;
     if (!tail && !wings) return null;
     const pal = contract?.palette ?? { primary: visual.color, secondary: visual.color, accent: '#9e6bc7', glow: visual.glow };
     return { tail, wings, palette: { primary: pal.primary, secondary: pal.secondary, accent: pal.accent, glow: pal.glow } };

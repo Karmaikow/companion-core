@@ -204,7 +204,7 @@ function EssenceTop({ def }: { def: CreatureDef }) {
     case 'veneno': return (
       <group position={[0, top + 0.02, 0]}>
         {[[0, 0.05, 0, 0.05], [0.06, 0.1, 0.02, 0.032], [-0.05, 0.13, -0.01, 0.024]].map(([x, y, z, r], i) => (
-          <mesh key={i} position={[x, y, z]}><sphereGeometry args={[r, 14, 10]} /><meshPhysicalMaterial color="#c8f55a" roughness={0.1} clearcoat={1} transparent opacity={0.85} emissive="#7c3fb8" emissiveIntensity={0.25} /></mesh>
+          <mesh key={i} position={[x, y, z]}><sphereGeometry args={[r, 14, 10]} /><meshPhysicalMaterial color="#c98cff" roughness={0.1} clearcoat={1} transparent opacity={0.85} emissive="#4a1680" emissiveIntensity={0.25} /></mesh>
         ))}
       </group>
     );

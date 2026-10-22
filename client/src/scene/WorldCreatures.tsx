@@ -97,7 +97,7 @@ function WorldCreature({ cw, def, spawn }: { cw: CompanionWorld; def: CreatureDe
           const dmg = d.dps * d.stacks, at = new THREE.Vector3(s.x, cw.heightAt(s.x, s.z) + def.size * 0.6, s.z);
           const dealt = tg ? tg.hit(dmg) : 0; // passa pela vida (desconta a defesa; pode derrotar)
           if (typeof dealt === 'number' && dealt > 0) numQueue.push({ pos: at.clone().setY(at.y + 0.5), text: String(dealt), kind: d.key === 'envenenado' ? 'poison' : 'burn' });
-          burst(gameVfx, d.key === 'envenenado' ? 'veneno' : 'chamas', at, d.key === 'envenenado' ? '#b6f03c' : '#ff7a3d', 0.3, cw.heightAt(s.x, s.z));
+          burst(gameVfx, d.key === 'envenenado' ? 'veneno' : 'chamas', at, d.key === 'envenenado' ? '#b45cff' : '#ff7a3d', 0.3, cw.heightAt(s.x, s.z));
         }
       }
       L.dots = L.dots.filter((d) => d.left > 0);

@@ -47,7 +47,7 @@ export const ELEMENTS: Record<Element, { label: string; aliases: string[]; glow:
   gelo: { label: 'Gelo', aliases: ['gelo', 'neve', 'frio', 'inverno', 'geada'], glow: '#bfe9ff' },
   raio: { label: 'Raio', aliases: ['raio', 'trovao', 'eletricidade', 'relampago', 'tempestade eletrica'], glow: '#ffe14d' },
   natureza: { label: 'Natureza', aliases: ['natureza', 'planta', 'floresta', 'flor', 'folha', 'vida', 'arvore'], glow: '#7be36b' },
-  veneno: { label: 'Veneno', aliases: ['veneno', 'venenoso', 'venenosa', 'toxico', 'toxica', 'toxina', 'peconha', 'acido', 'pantano', 'praga'], glow: '#b6f03c' },
+  veneno: { label: 'Veneno', aliases: ['veneno', 'venenoso', 'venenosa', 'toxico', 'toxica', 'toxina', 'peconha', 'acido', 'pantano', 'praga'], glow: '#b45cff' },
 };
 
 /** Nomes de cor em pt-BR -> hex. Hex direto também é aceito. */

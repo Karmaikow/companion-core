@@ -174,7 +174,7 @@ function bakeGeometry(src: THREE.BufferGeometry, m: THREE.Matrix4) {
  */
 export function GlbInstances({ url, spots, world, height, wind = 0, shadows = false, hideNearCamera = false, solid = 0, layer, capacity, look }: { /** cor/luz/brilho deste bioma */ look?: ModelLook; /** reserva de cópias (o mundo aberto troca os pontos sem recriar a malha) */ capacity?: number; url: string; spots: Spot[]; world: WorldShape; height: [number, number]; wind?: number; shadows?: boolean; hideNearCamera?: boolean; /** fração do pé do modelo que bloqueia (0 = passa por cima/através) */ solid?: number; layer?: string }) {
   const { scene } = useGLTF(url);
-  const { parts, foot, lu } = useMemo(() => {
+  const { parts, foot, trunk, lu } = useMemo(() => {
     const lu = lookUniforms();
     scene.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(scene), c = box.getCenter(new THREE.Vector3()), size = box.getSize(new THREE.Vector3());
@@ -188,7 +188,16 @@ export function GlbInstances({ url, spots, world, height, wind = 0, shadows = fa
       withLook(mat, lu);
       out.push({ geo: bakeGeometry(mesh.geometry, norm.clone().multiply(mesh.matrixWorld)), mat });
     });
-    return { parts: out, foot: Math.max(size.x, size.z) / size.y / 2, lu };
+    // pé de verdade (modelo com 1 m de altura): distância horizontal dos vértices perto do chão até o centro.
+    // Pedras e objetos: a base até meia altura; árvores: só o tronco (o que fica abaixo de 15%).
+    const footAt = (band: number) => {
+      const d: number[] = [];
+      for (const p of out) { const a = p.geo.getAttribute('position'); for (let i = 0; i < a.count; i += 2) if (a.getY(i) <= band) d.push(Math.hypot(a.getX(i), a.getZ(i))); }
+      if (!d.length) return Math.max(size.x, size.z) / size.y / 2;
+      d.sort((x, y) => x - y);
+      return d[Math.floor(d.length * 0.9)];
+    };
+    return { parts: out, foot: footAt(0.5), trunk: footAt(0.15), lu };
   }, [scene, wind]);
   useEffect(() => setLook(lu, look), [lu, look]);
   useEffect(() => () => parts.forEach((p) => { p.geo.dispose(); p.mat.dispose(); }), [parts]);
@@ -206,9 +215,11 @@ export function GlbInstances({ url, spots, world, height, wind = 0, shadows = fa
   // obstáculos (só o que é alto o bastante; o que tem menos de ~45 cm dá para passar por cima)
   useEffect(() => {
     if (!solid || !layer) return;
-    colliders.set(layer, mats.filter((k) => k.h >= 0.45).map((k) => ({ x: k.x, z: k.z, r: Math.max(0.12, foot * k.h * solid) })));
+    // solid < 0,3 = árvore (bate no tronco); senão, a base inteira (pedras, marcos, objetos)
+    const base = solid < 0.3 ? Math.min(trunk, foot) : foot;
+    colliders.set(layer, mats.filter((k) => k.h >= 0.45).map((k) => ({ x: k.x, z: k.z, r: Math.max(0.12, base * k.h * (solid < 0.3 ? 1 : 0.92)) })));
     return () => { colliders.delete(layer); };
-  }, [mats, foot, solid, layer]);
+  }, [mats, foot, trunk, solid, layer]);
   // árvores altas entre a câmera e o Companion saem da frente
   const zero = useMemo(() => new THREE.Matrix4().makeScale(0, 0, 0), []);
   useFrame(({ camera }) => {

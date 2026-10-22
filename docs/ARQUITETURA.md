@@ -330,9 +330,17 @@ Os efeitos deixaram de ser pontos com textura e passaram a usar um motor própri
 - **Tempo de volta do monstro:** no Invocador, em "Onde e quando aparece", `respawn` em segundos (5 s a 1 h; padrão 45 s).
 - **Lab:** `forge-lab.html?treino=/arquivo.glb` mostra os dois campos de treino com um modelo local.
 
+## Colisão pela base real e sem cauda (v1.15)
+
+- **Colisão dos modelos GLB do bioma:** o raio vem da base de verdade do modelo, pelos vértices perto do chão (90º percentil da distância ao centro).
+  - Pedras, marcos e objetos: a base até meia altura, com 92% desse raio.
+  - Árvores: só o tronco, abaixo de 15% da altura.
+  - Antes era 42% da metade da largura e o Companion entrava nas pedras grandes.
+- **Cauda e asas:** as desenhadas por código ficam desligadas no jogo; só o modelo 3D aparece. O código continua, para testes (`?cauda=`, `?asas=`) e para uma versão futura, como cauda no próprio rig.
+
 ## Veneno (v1.14)
 
-- **Essência:** `veneno` (verde-ácido `#b6f03c`, sombra roxa). Fica fora do anel de afinidades: forte contra Natureza e Água, fraca contra Terra e Luz. Recebe mais dano de Terra e Luz e menos de Natureza e Água.
+- **Essência:** `veneno` (violeta `#b45cff`, sombra roxa escura e brilhos lilás). Fica fora do anel de afinidades: forte contra Natureza e Água, fraca contra Terra e Luz. Recebe mais dano de Terra e Luz e menos de Natureza e Água.
 - **Estado e efeito:** estado `envenenado` (dano por segundo que acumula até 3 doses) e estilo de efeito `veneno`. O efeito tem nuvem tóxica em duas cores, gotas que pingam e bolhas que sobem e estouram; o rastro do projétil é de bolhas.
 - **Habilidades:** Cuspe Tóxico (projétil) e Névoa Venenosa (área, abre no vínculo 3).
 - **Outros visuais:** enfeite de bolhas nas gosmas de veneno, ícone 🧪 na barra e acento no prompt de arte.

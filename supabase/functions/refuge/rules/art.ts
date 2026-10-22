@@ -37,7 +37,7 @@ const ACCENT_EN: Record<string, string> = {
   terra: 'earth (small crystal ornaments and earthy tones)', vento: 'wind (feathery swirl patterns on the clothes)', luz: 'light (soft glowing markings and a halo-like hair ornament)',
   sombra: 'shadow (night-sky patterns on the clothes)', gelo: 'ice (frosty crystal ornaments)', raio: 'lightning (zigzag glowing stripes on the clothes)',
   natureza: 'nature (leaves and small flowers in the hair)',
-  veneno: 'poison (lime-and-purple dripping patterns on the clothes and a small glass vial ornament)',
+  veneno: 'poison (violet dripping patterns on the clothes and a small purple glass vial ornament)',
 };
 const A_POSE = 'A-pose: standing straight, arms slightly away from the body (about 30 degrees), hands open, legs slightly apart, feet flat';
 
