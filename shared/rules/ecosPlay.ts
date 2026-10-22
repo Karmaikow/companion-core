@@ -373,7 +373,7 @@ function explain(intent: GatheringIntent, kn: KnownNode, ap: Approach, f: { fits
   }
   const propTxt = t?.prop && t.min ? `${t.prop === 'flexibilidade' ? 'flexibilidade' : t.prop} ${t.min === 'alta' ? 'alta' : 'boa'}` : '';
   if (intent.mode === 'selecionar' && propTxt) {
-    const conf = f.unknown ? 'deve' : f.fitsProp >= 0.99 ? 'garante' : f.fitsProp >= 0.5 ? 'costuma ter' : 'às vezes tem';
+    const conf = f.unknown ? 'deve ter' : f.fitsProp >= 0.99 ? 'garante' : f.fitsProp >= 0.5 ? 'costuma ter' : 'às vezes tem';
     return `${cap(where)}: ${conf} ${propTxt}${f.harsh ? '' : ', sem estragar o lugar'}.`;
   }
   return `${cap(where)}: ${f.harsh ? 'rende bastante de uma vez' : 'rápido e preserva o lugar'}${t ? ` para ${t.label.toLowerCase()}` : ''}.`;

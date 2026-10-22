@@ -50,7 +50,6 @@ export function EcosHud({ panelOpen = false }: { panelOpen?: boolean }) {
       <ActionBar />
       <RecentLoot />
       <ChoiceModal />
-      {view?.simulated && <div className="ecos-sim" role="note">Modo offline: expedição simulada neste aparelho (não vale online).</div>}
     </div>
   );
 }
@@ -72,6 +71,7 @@ function ObjectiveCard() {
         <p className="ecos-auto">✦ Coletando por conta{auto.last ? `: ${auto.last}` : '…'} <button type="button" className="link" onClick={() => useEcos.getState().stopIntent()}>parar</button></p>
       )}
       <small className="ecos-bagline">Mochila {used}/{cap}{used >= cap ? ' · cheia' : ''}{conn === 'perdida' ? ' · conexão perdida (tentando de novo)' : ''}</small>
+      {view?.simulated && <small className="ecos-sim" role="note">Offline: simulado neste aparelho (não vale online).</small>}
       {obj && <button type="button" className="link" onClick={() => useEcos.getState().setObjective(null)}>tirar objetivo</button>}
     </section>
   );
@@ -101,7 +101,7 @@ function MiniMap() {
 function CluesCard() {
   const view = useEcos((s) => s.view);
   const clues = visibleClues(view);
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(() => !(typeof matchMedia !== 'undefined' && matchMedia('(max-width: 720px)').matches));
   return (
     <section className="ecos-clues ecos-card">
       <header><b>Indícios</b><button type="button" className="link" aria-expanded={open} onClick={() => setOpen(!open)}>{open ? 'recolher' : 'abrir'}</button></header>

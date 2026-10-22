@@ -227,6 +227,29 @@ A qualidade do resultado depende de quantos ingredientes estavam na faixa ideal.
   | Cadeia | Não pula etapa; uma segunda escolha, mesmo com outro pedido, é recusada |
   | Jardim | Colheita repetida não duplica; cuidar duas vezes é recusado |
 
+### Servidor de verdade
+
+Testado com um usuário descartável, pela função publicada:
+
+| Situação | Resultado |
+|---|---|
+| Terminar antes do tempo | "cedo" |
+| **Duas confirmações em paralelo do mesmo pedido** | Uma aplica, a outra devolve `repeat`; a mochila fica com 1 lote, não 2 |
+| Repetir depois | Igual |
+| Posição longe do recurso | Recusada ("Longe demais") |
+| Gema inteira sem cinzel | "Ferramenta incompatível" |
+| Margem Leste sem a ponte | Recusada |
+| Observar o Salgueiro da Nascente | Avança a cadeia para a etapa 1 |
+| Escolher na nascente antes da hora | Recusada |
+| Madeira entregue na fundação de pedra | Recusada |
+
+### Navegador (modo offline)
+
+- Chegar ao vale, selecionar um recurso e coletar: o painel e a barra mostram o progresso e o lote entra agrupado por faixa.
+- A observação revela o indício.
+- A Companion por intenção juntou 3 madeiras flexíveis em 2 coletas, explicando cada escolha, e parou sozinha ao cumprir o objetivo.
+- A aba Expedição e a bandeja do celular funcionam.
+
 ## Como rodar
 
 - `npm run dev` e depois `Jogar offline` (simulado), ou entrar com uma conta (servidor).

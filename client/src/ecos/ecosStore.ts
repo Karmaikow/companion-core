@@ -189,10 +189,16 @@ export const useEcos = create<EcosStore>((set, get) => ({
         // quem joga mudou o caminho (clicou no chão): desiste da coleta
         if (moveRequest.id !== myMove) { get().cancel('você mudou o caminho'); return; }
         if (now - walkCheck.at > 2500) {
-          if (dist > walkCheck.d - 0.3) { walkCheck.tries++; if (walkCheck.tries > 2) { get().cancel('não consegui chegar até lá'); return; } walkTo(n); }
+          if (dist > walkCheck.d - 0.3) {
+            walkCheck.tries++;
+            // travou perto o bastante? começa daqui mesmo (o servidor confere o alcance)
+            if (dist <= (v?.config.reach ?? 4.5) - 0.2) { walkCheck.d = 0; }
+            else if (walkCheck.tries > 4) { get().cancel('não consegui chegar até lá'); return; }
+            else walkTo(n);
+          }
           walkCheck.at = now; walkCheck.d = dist;
         }
-        if (dist <= reach) {
+        if (dist <= reach || walkCheck.d === 0) {
           work.on = true; work.at.set(n.x, 0, n.z); work.kind = NODE_KINDS[n.kind].category;
           if (r.inspect) { set({ run: { ...r, phase: 'confirmando' } }); void doInspect(r); return; }
           set({ run: { ...r, phase: 'confirmando' } });

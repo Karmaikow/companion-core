@@ -754,9 +754,9 @@ html:has(.admin), body:has(.admin), #root:has(.admin) { height: auto; min-height
 .ecos-action.erro .ea-phase, .ecos-action .ea-msg { color: var(--ecos-warn); }
 .ecos-action.concluido .ea-phase { color: var(--ecos-ok); }
 .ecos-action .ghost { justify-self: end; min-height: 36px; }
-.ecos-recent { position: absolute; left: 14px; bottom: calc(18px + env(safe-area-inset-bottom)); list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-width: 40vw; }
+.ecos-recent { position: absolute; left: 14px; bottom: calc(96px + env(safe-area-inset-bottom)); list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-width: 40vw; }
 .ecos-recent li { background: var(--ecos-moss-bg); border: 1px solid rgba(201, 209, 214, 0.25); border-radius: 99px; padding: 3px 10px; font-size: 0.78rem; animation: ecos-pop 0.3s ease-out; }
-.ecos-sim { position: absolute; top: calc(max(14px, env(safe-area-inset-top)) + 150px); left: 290px; font-size: 0.72rem; color: var(--ecos-warn); background: rgba(0, 0, 0, 0.45); padding: 2px 8px; border-radius: 99px; }
+.ecos-sim { font-size: 0.72rem; color: var(--ecos-warn); }
 .ecos-choice { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(5, 10, 8, 0.55); z-index: 9; }
 .ecos-choice > .ecos-card { width: min(560px, calc(100vw - 28px)); padding: 18px; display: grid; gap: 10px; }
 .ecos-choice h3 { margin: 0; font-family: var(--serif); color: var(--ecos-glow); }
@@ -781,9 +781,9 @@ html:has(.admin), body:has(.admin), #root:has(.admin) { height: auto; min-height
 
 /* celular: o painel vira bandeja de baixo, recolhível; objetivo e indícios compactos */
 @media (max-width: 720px) {
-  .ecos-objective { left: 14px; top: calc(max(14px, env(safe-area-inset-top)) + 92px); width: min(260px, 60vw); padding: 8px 10px; }
-  .ecos-sim { left: 14px; top: auto; bottom: calc(180px + env(safe-area-inset-bottom)); }
-  .ecos-clues { width: 170px; top: calc(max(14px, env(safe-area-inset-top)) + 160px); max-height: 30vh; font-size: 0.78rem; }
+  .ecos-objective { left: 8px; top: calc(max(14px, env(safe-area-inset-top)) + 150px); width: min(230px, 58vw); padding: 6px 10px; font-size: 0.85rem; }
+  .ecos-objective b { font-size: 0.85rem; }
+  .ecos-clues { width: 150px; right: 8px; top: calc(max(14px, env(safe-area-inset-top)) + 172px); max-height: 30vh; font-size: 0.76rem; padding: 6px 8px; }
   .ecos-clues .ecos-minimap { width: 110px; height: 110px; }
   .ecos-panel, .ecos-clues + .ecos-panel { left: 8px; right: 8px; top: auto; bottom: calc(8px + env(safe-area-inset-bottom)); width: auto; max-height: 52vh; border-radius: 16px 16px 12px 12px; }
   .ecos-action { bottom: calc(8px + env(safe-area-inset-bottom)); }
