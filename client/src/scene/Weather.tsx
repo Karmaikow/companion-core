@@ -1,6 +1,6 @@
 /**
  * Clima na cena: partículas em volta do Companion (chuva, neve, areia, névoa), névoa e cor do céu puxadas para o
- * clima, e o relâmpago da tempestade. A transição entre climas é suave (a força sobe e desce em ~3 s).
+ * clima, e o relâmpago da tempestade. A névoa é só a neblina da cena (as bolas de partícula ficavam evidentes demais). A transição entre climas é suave (a força sobe e desce em ~3 s).
  * O escurecimento/tinta da tela fica no DOM (WeatherOverlay), mais barato que pós-processamento.
  */
 import { useEffect, useMemo, useRef } from 'react';
@@ -65,7 +65,7 @@ export function WeatherFx({ kind, intensity, world }: { kind: WeatherKind; inten
     // partículas em volta do Companion
     const fx = companionFocus.x, fz = companionFocus.z, W = 30, H = 14;
     const isRain = sh.kind === 'chuva' || sh.kind === 'tempestade';
-    const count = Math.floor(N * K * (sh.kind === 'tempestade' ? 1 : sh.kind === 'chuva' ? 0.6 : sh.kind === 'neve' ? 0.95 : sh.kind === 'areia' ? 0.7 : sh.kind === 'nevoa' ? 0.25 : sh.kind === 'sol' ? 0.08 : 0));
+    const count = Math.floor(N * K * (sh.kind === 'tempestade' ? 1 : sh.kind === 'chuva' ? 0.6 : sh.kind === 'neve' ? 0.95 : sh.kind === 'areia' ? 0.7 : sh.kind === 'nevoa' ? 0 : sh.kind === 'sol' ? 0.08 : 0));
     const windX = sh.kind === 'tempestade' ? 3 : sh.kind === 'areia' ? 9 : sh.kind === 'chuva' ? 0.8 : 0.4;
     if (rainRef.current) rainRef.current.visible = isRain && count > 0;
     if (dotRef.current) dotRef.current.visible = !isRain && count > 0;
