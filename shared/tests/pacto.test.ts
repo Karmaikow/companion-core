@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   OFFICES, SOURCE_CLASS, canCompleteEquipment, canExtractSuperior, TRANSFORMATIONS, transformationById, checkTransformation, componentKey, parseComponentKey,
   BLUEPRINTS, blueprintById, forgePreview, assistPlan, recycleReturn, meetsRequirements, cancelSettlement, payout, DEFAULT_PACTO, resolvePacto, coreCost,
-  NODE_KINDS, VALE_NODES, essenceApplies, ESSENCE_CRAFT, DEFAULT_BARRIER, repairWithKit,
+  NODE_KINDS, VALE_NODES, essenceApplies, ESSENCE_CRAFT, DEFAULT_BARRIER, repairWithKit, lineageOf, officesOf, canGainForm, canGainEssence, LINEAGE_LIMITS,
   type SpeciesKey, type SourceKind,
 } from '../rules/index.ts';
 
@@ -166,5 +166,34 @@ describe('Pacto: ciclo de vida e economia', () => {
     expect(c.orderFee).toBe(0.5);
     expect(c.barrier.cooldown).toBeGreaterThan(c.barrier.duration);
     expect(DEFAULT_BARRIER.cooldown).toBeGreaterThan(DEFAULT_BARRIER.duration);
+  });
+});
+
+describe('linhagem (late game): várias formas e essências', () => {
+  it('híbrido Taurina + Dracônica forja e tem os dois ofícios completos', () => {
+    const l = lineageOf('serpente', 'agua', { forms: ['touro'] });
+    expect(canCompleteEquipment(l.forms)).toBe(true);
+    expect(officesOf(l.forms).map((o) => o.key)).toEqual(['confluencia', 'forja']);
+    expect(canExtractSuperior(l.forms, 'aquatica')).toBe(true); // a parte Dracônica extrai
+    expect(canExtractSuperior(l.forms, 'flora')).toBe(false);
+  });
+  it('Fogo + Terra: a forja não cobra núcleo nenhum; só uma delas, cobra a outra metade', () => {
+    expect(coreCost(['fogo', 'terra'], DEFAULT_PACTO).total).toBe(0);
+    expect(coreCost(['fogo', 'agua'], DEFAULT_PACTO).total).toBe(DEFAULT_PACTO.coreFee);
+    expect(coreCost('luz', DEFAULT_PACTO).total).toBe(DEFAULT_PACTO.coreFee * 2);
+  });
+  it('limites e pré-requisitos: forma só depois de adulto e com o lendário', () => {
+    const l = lineageOf('felino', 'natureza', null);
+    expect(canGainForm(l, 'awakened', true)).toMatch(/adulto/);
+    expect(canGainForm(l, 'adulto', false)).toMatch(/lendário/);
+    expect(canGainForm(l, 'adulto', true)).toBeNull();
+    expect(canGainEssence(l, false)).toMatch(/quest/);
+    const full = lineageOf('felino', 'natureza', { forms: ['passaro', 'touro'], essences: ['fogo', 'terra'] });
+    expect(full.forms.length).toBe(LINEAGE_LIMITS.forms);
+    expect(full.essences.length).toBe(LINEAGE_LIMITS.essences);
+    expect(canGainForm(full, 'adulto', true)).toMatch(/máximo/);
+  });
+  it('a identidade de nascença vem primeiro e não se repete', () => {
+    expect(lineageOf('touro', 'fogo', { forms: ['touro', 'mistica'], essences: ['fogo'] })).toEqual({ forms: ['touro', 'mistica'], essences: ['fogo'] });
   });
 });

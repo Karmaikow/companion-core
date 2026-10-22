@@ -34,10 +34,52 @@ export const OFFICES: Record<SpeciesKey, OfficeDef> = {
   mistica: { key: 'inscricao', cls: 'mistica', name: 'Inscrição Vital', icon: '✶', focus: 'Matrizes rúnicas, catalisadores de cura e tratamento de corrupção e maldições.', superior: 'Fontes encantadas, espirituais e inscrições naturais.' },
 };
 export const officeOf = (cls: SpeciesKey | null | undefined) => (cls ? OFFICES[cls] : null);
+/** Ofícios de todas as formas (híbridos têm todos, completos). */
+export const officesOf = (cls: Forms) => formsOf(cls).map((f) => OFFICES[f]);
 export const CLASS_LABEL: Record<SpeciesKey, string> = { serpente: 'Dracônica', passaro: 'Alada', felino: 'Feral', touro: 'Taurina', mistica: 'Feérica' };
 
 /** Só Taurinas concluem equipamentos (inclusive ferramentas). */
-export const canCompleteEquipment = (cls: SpeciesKey | null | undefined) => cls === 'touro';
+/** Uma forma ou várias (híbridos do late game): a regra vale se QUALQUER forma do Companion permite. */
+export type Forms = SpeciesKey | readonly SpeciesKey[] | null | undefined;
+export const formsOf = (f: Forms): SpeciesKey[] => (Array.isArray(f) ? [...new Set(f as SpeciesKey[])] : f ? [f as SpeciesKey] : []);
+export const canCompleteEquipment = (cls: Forms) => formsOf(cls).includes('touro');
+
+// ---------------------------------------------------------------------------
+// Linhagem (late game): mais de uma essência e mais de uma forma
+// ---------------------------------------------------------------------------
+/**
+ * Raríssimo e caro. Decisões de 22/10:
+ *  - Híbrido tem os ofícios COMPLETOS de todas as suas formas (ex.: Taurina + Dracônica forja e faz Confluência).
+ *  - Todas as essências valem SEMPRE (Fogo + Terra: a Forja não cobra nenhum núcleo).
+ *  - Essência extra: quests específicas em locais específicos (a planejar).
+ *  - Forma extra: item lendário de quests secretas difíceis + troca de forma depois de ADULTO (a planejar).
+ * A identidade (forma/essência de nascença) nunca muda: a linhagem SOMA, na ordem em que foi conquistada.
+ */
+export interface Lineage { forms: SpeciesKey[]; essences: Element[] }
+export const LINEAGE_LIMITS = { forms: 2, essences: 2 };
+export const LINEAGE_RULES = {
+  essence: 'Quests específicas em locais específicos (a planejar).',
+  form: 'Item lendário de quests secretas + troca de forma depois de adulto (a planejar).',
+  formStage: 'adulto',
+} as const;
+export function lineageOf(primaryForm: SpeciesKey | null, primaryEssence: Element | null, extra?: { forms?: string[]; essences?: string[] } | null): Lineage {
+  const forms = [...new Set([primaryForm, ...(extra?.forms ?? [])].filter(Boolean))] as SpeciesKey[];
+  const essences = [...new Set([primaryEssence, ...(extra?.essences ?? [])].filter(Boolean))] as Element[];
+  return { forms: forms.slice(0, LINEAGE_LIMITS.forms), essences: essences.slice(0, LINEAGE_LIMITS.essences) };
+}
+/** Pode ganhar mais uma forma? Só depois de adulto (a troca de forma) e com o item lendário. */
+export function canGainForm(l: Lineage, stage: string | null | undefined, hasLegendary: boolean): string | null {
+  if (l.forms.length >= LINEAGE_LIMITS.forms) return 'Já tem o máximo de formas.';
+  if (stage !== LINEAGE_RULES.formStage) return 'A segunda forma só vem na troca de forma, depois de adulto.';
+  if (!hasLegendary) return 'Precisa do item lendário das quests secretas.';
+  return null;
+}
+export function canGainEssence(l: Lineage, questDone: boolean): string | null {
+  if (l.essences.length >= LINEAGE_LIMITS.essences) return 'Já tem o máximo de essências.';
+  if (!questDone) return 'Precisa completar a quest daquela essência, no lugar dela.';
+  return null;
+}
+export const lineageLabel = (l: Lineage) => l.forms.map((f) => CLASS_LABEL[f]).join(' + ') || '—';
 
 // ---------------------------------------------------------------------------
 // Coleta superior por tipo de fonte
@@ -55,15 +97,15 @@ export const SOURCE_CLASS: Record<SourceKind, SpeciesKey> = {
   encantada: 'mistica', espiritual: 'mistica', inscricao: 'mistica',
 };
 /** Pode extrair diretamente desta fonte superior? (Taurina nunca; ela marca e anuncia) */
-export function canExtractSuperior(cls: SpeciesKey | null | undefined, source: SourceKind): boolean {
-  return !!cls && cls !== 'touro' && SOURCE_CLASS[source] === cls;
+export function canExtractSuperior(cls: Forms, source: SourceKind): boolean {
+  return formsOf(cls).some((f) => f !== 'touro' && SOURCE_CLASS[source] === f);
 }
 /** Mensagem de bloqueio de uma fonte superior para esta classe (null = pode extrair ou é fonte básica). */
-export function superiorBlockFor(nodeId: string, cls: SpeciesKey | null | undefined): string | null {
+export function superiorBlockFor(nodeId: string, cls: Forms): string | null {
   const n = nodeById(nodeId); const src = n ? (NODE_KINDS[n.kind].source as SourceKind | undefined) : undefined;
   if (!src || canExtractSuperior(cls, src)) return null;
   const who = SOURCE_CLASS[src];
-  return `Fonte superior (${SOURCE_LABEL[src]}): só ${CLASS_LABEL[who]} extrai daqui.${cls === 'touro' ? ' Você pode localizar e anunciar a oportunidade no quadro do Pacto.' : ''}`;
+  return `Fonte superior (${SOURCE_LABEL[src]}): só ${CLASS_LABEL[who]} extrai daqui.${canCompleteEquipment(cls) ? ' Você pode localizar e anunciar a oportunidade no quadro do Pacto.' : ''}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -446,8 +488,9 @@ export function resolvePacto(v: unknown): PactoConfig {
 }
 
 /** Quanto de núcleo a forja cobra: Taurina de Fogo traz o Fogo; de Terra, a Terra. */
-export function coreCost(essence: Element | null, cfg: PactoConfig): { fogo: number; terra: number; total: number } {
-  const fogo = essence === 'fogo' ? 0 : cfg.coreFee, terra = essence === 'terra' ? 0 : cfg.coreFee;
+export function coreCost(essence: Element | readonly Element[] | null, cfg: PactoConfig): { fogo: number; terra: number; total: number } {
+  const es = Array.isArray(essence) ? essence : essence ? [essence] : [];
+  const fogo = es.includes('fogo') ? 0 : cfg.coreFee, terra = es.includes('terra') ? 0 : cfg.coreFee;
   return { fogo, terra, total: fogo + terra };
 }
 

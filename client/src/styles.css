@@ -920,3 +920,6 @@ html:has(.admin), body:has(.admin), #root:has(.admin) { height: auto; min-height
   .pick-list li { grid-template-columns: 1fr auto auto auto; }
   .pick-list li > small:first-of-type { display: none; }
 }
+.pacto-test { flex-wrap: wrap; }
+.pacto-test label { display: flex; gap: 4px; align-items: center; }
+.pacto-ess { display: flex !important; gap: 8px; flex-wrap: wrap; }

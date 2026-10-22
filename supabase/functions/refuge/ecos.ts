@@ -136,7 +136,7 @@ export async function ecosAction(action: string, body: Record<string, unknown>, 
     if (node.needs === 'ponte' && !(await bridgeDone(db))) throw new EcosError(409, 'Do outro lado do riacho — precisa da ponte.');
     const p = pos(body);
     if (Math.hypot(p.x - node.x, p.z - node.z) > ecfg.reach) throw new EcosError(409, 'Longe demais: chegue mais perto do recurso.');
-    const block = superiorBlock(node.id, (await classInfo(db, c, ctx.admin)).effective);
+    const block = superiorBlock(node.id, (await classInfo(db, c, ctx.admin)).forms);
     if (block) throw new EcosError(403, block);
     if (ap.tool && !(await ownedTools(db, cid)).includes(ap.tool)) throw new EcosError(409, `Precisa de uma ferramenta (${ap.tool}) — só Taurinas forjam ferramentas: peça uma no quadro de encomendas.`);
     const r = await rpc<{ ok: boolean; status: string; started_at: string; result: unknown; reason?: string }>(db, 'ecos_start', { p_request: request, p_cid: cid, p_node: node.id, p_approach: ap.id });
@@ -149,7 +149,7 @@ export async function ecosAction(action: string, body: Record<string, unknown>, 
     const node = nodeById(String(body.node)); if (!node) throw new EcosError(400, 'Recurso inexistente.');
     const ap = approachOf(node, String(body.approach)); if (!ap) throw new EcosError(400, 'Abordagem inexistente.');
     const kind = NODE_KINDS[node.kind];
-    const block = superiorBlock(node.id, (await classInfo(db, c, ctx.admin)).effective);
+    const block = superiorBlock(node.id, (await classInfo(db, c, ctx.admin)).forms);
     if (block) throw new EcosError(403, block);
     const items = rollGather(node, ap, request).map((b) => ({ key: b.key, qty: b.qty }));
     const r = await rpc<{ ok: boolean; reason?: string; items?: { key: string; qty: number }[]; repeat?: boolean; wait?: number }>(db, 'ecos_finish_gather', {

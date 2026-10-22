@@ -4,7 +4,7 @@
  */
 import {
   SPECIES, OFFICES, canCompleteEquipment, transformationById, checkTransformation, blueprintById, forgePreview, DEFAULT_PACTO, coreCost,
-  recycleReturn, REPAIR_KIT_AMOUNT, superiorBlockFor, type ForgePlan, type SpeciesKey, type Element, type ToolKey, type Conduct, type Temper,
+  recycleReturn, REPAIR_KIT_AMOUNT, superiorBlockFor, lineageOf, officesOf, LINEAGE_LIMITS, ELEMENTS, type ForgePlan, type SpeciesKey, type Element, type ToolKey, type Conduct, type Temper,
 } from '@rules';
 import { useGame } from '../store';
 import { localBag, localHooks } from '../ecos/localEcos';
@@ -12,7 +12,7 @@ import type { EquipmentView, JobView, PactoReply, PactoView } from './types';
 
 const KEY = 'companion-core:pacto-local:v1';
 const KIT = 'item:kit-de-reparo';
-interface Save { lumes: number; testClass: SpeciesKey | null; equipment: EquipmentView[]; jobs: (JobView & { plan: Record<string, unknown>; take: { key: string; qty: number }[]; fee: number; done?: Record<string, unknown> })[]; rewards: string[] }
+interface Save { lumes: number; testClass: SpeciesKey | null; lineage?: { forms: string[]; essences: string[] }; equipment: EquipmentView[]; jobs: (JobView & { plan: Record<string, unknown>; take: { key: string; qty: number }[]; fee: number; done?: Record<string, unknown> })[]; rewards: string[] }
 const fresh = (): Save => ({ lumes: DEFAULT_PACTO.starterLumes, testClass: null, equipment: [], jobs: [], rewards: [] });
 let mem: Save | null = null;
 function load(): Save { if (mem) return mem; try { mem = { ...fresh(), ...JSON.parse(localStorage.getItem(KEY) ?? 'null') }; } catch { mem = fresh(); } return mem!; }
@@ -24,18 +24,20 @@ function me() {
   return { id: c?.id ?? 'local', name: c?.discoveries.name ?? 'Companion', real: (c?.identityContract?.species?.family ?? c?.discoveries.form ?? null) as SpeciesKey | null, essence: (c?.discoveries.element ?? null) as Element | null };
 }
 const effective = () => load().testClass ?? me().real;
+const lineage = () => { const m = me(); return lineageOf(m.real, m.essence, load().lineage ?? null); };
+const forms = (): SpeciesKey[] => (load().testClass ? [load().testClass!] : lineage().forms);
 
 // ganchos do Ecos offline: ferramentas forjadas, desgaste, bloqueio superior e Lumes por descoberta/obra
 localHooks.tools = () => [...new Set(load().equipment.filter((e) => e.kind === 'ferramenta' && e.durability > 0 && e.tool).map((e) => e.tool as ToolKey))];
 localHooks.wear = (tool) => { const s = load(); const e = s.equipment.filter((x) => x.tool === tool && x.durability > 0).sort((a, b) => a.durability - b.durability)[0]; if (e) { e.durability -= 1; save(); } };
-localHooks.superior = (node) => superiorBlockFor(node, effective());
+localHooks.superior = (node) => superiorBlockFor(node, forms());
 localHooks.reward = (key, kind) => { const s = load(); if (s.rewards.includes(key)) return; s.rewards.push(key); s.lumes += kind === 'descoberta' ? DEFAULT_PACTO.discoveryLumes : DEFAULT_PACTO.projectStageLumes; save(); };
 
 function view(s: Save): PactoView {
   const m = me();
   return {
     serverNow: Date.now(), me: m.id, lumes: s.lumes, simulated: true,
-    cls: { real: m.real, effective: effective(), test: s.testClass, essence: m.essence, admin: true },
+    cls: { real: m.real, effective: effective(), test: s.testClass, essence: m.essence, admin: true, forms: forms(), essences: lineage().essences, lineage: lineage() },
     equipment: s.equipment, jobs: s.jobs.filter((j) => !j.done).map(({ request, kind, ref, order, startedAt, seconds }) => ({ request, kind, ref, order, startedAt, seconds })),
     orders: { open: [], mine: [] }, board: [], names: { [m.id]: { name: m.name, cls: m.real } }, config: DEFAULT_PACTO,
   };
@@ -45,16 +47,25 @@ class Fail extends Error {}
 
 export async function localPacto(action: string, b: Record<string, unknown> = {}): Promise<PactoReply> {
   const s = load();
-  const m = me(), cls = effective();
+  const m = me(), cls = forms(), essAll = lineage().essences;
   try {
     switch (action) {
       case 'pacto.state': return { pacto: view(s) };
       case 'pacto.testClass': s.testClass = typeof b.cls === 'string' && b.cls in SPECIES ? b.cls as SpeciesKey : null; save(); return { pacto: view(s) };
+      case 'pacto.lineage.set': {
+        const kind = b.kind === 'form' ? 'forms' : 'essences', v = String(b.value);
+        if (kind === 'forms' ? !(v in SPECIES) : !(v in ELEMENTS)) throw new Fail('Valor inválido.');
+        const l = (s.lineage ??= { forms: [], essences: [] });
+        if (b.on === false) l[kind] = l[kind].filter((x) => x !== v);
+        else if (!l[kind].includes(v)) { if (l[kind].length >= (kind === 'forms' ? LINEAGE_LIMITS.forms : LINEAGE_LIMITS.essences) - 1) throw new Fail('Já tem o máximo.'); l[kind].push(v); }
+        save(); return { pacto: view(s) };
+      }
       case 'pacto.office.start': {
         const req = String(b.request); if (s.jobs.some((j) => j.request === req)) return { pacto: view(s) };
         const t = transformationById(String(b.transformation)); if (!t) throw new Fail('Transformação inexistente.');
-        if (!cls || OFFICES[cls].key !== t.office) throw new Fail('Esse ofício é de outra classe.');
-        const chk = checkTransformation(t, (b.picks ?? []) as never, localBag.list(), String(b.choice), m.essence, b.useEssence === true, m.id);
+        if (!officesOf(cls).some((o) => o.key === t.office)) throw new Fail('Esse ofício é de outra classe.');
+        const ess = (typeof b.essence === 'string' && essAll.includes(b.essence as Element) ? b.essence : essAll[0] ?? null) as Element | null;
+        const chk = checkTransformation(t, (b.picks ?? []) as never, localBag.list(), String(b.choice), ess, b.useEssence === true, m.id);
         if (!chk.ok) throw new Fail(chk.reason);
         const r = localBag.apply(chk.consume, []); if (r !== 'ok') throw new Fail('Faltam materiais na mochila.');
         s.jobs.push({ request: req, kind: 'oficio', ref: t.id, order: null, startedAt: Date.now(), seconds: t.seconds, plan: { output: chk.output }, take: chk.consume, fee: 0 });
@@ -66,7 +77,7 @@ export async function localPacto(action: string, b: Record<string, unknown> = {}
         const plan = b.plan as ForgePlan, bp = blueprintById(String(plan?.blueprint)); if (!bp) throw new Fail('Projeto inexistente.');
         if (s.jobs.filter((j) => j.kind === 'forja' && !j.done).length >= DEFAULT_PACTO.perArtisan) throw new Fail('Você já está no limite de trabalhos ao mesmo tempo.');
         const pv = forgePreview(plan, localBag.list()); if (!pv.ok) throw new Fail(pv.reason + (pv.missing ? ': ' + pv.missing.join(', ') : ''));
-        const fee = coreCost(m.essence, DEFAULT_PACTO).total; if (s.lumes < fee) throw new Fail('Lumes insuficientes.');
+        const fee = coreCost(essAll, DEFAULT_PACTO).total; if (s.lumes < fee) throw new Fail('Lumes insuficientes.');
         const r = localBag.apply(pv.consume, []); if (r !== 'ok') throw new Fail('Faltam materiais na mochila.');
         s.lumes -= fee;
         s.jobs.push({ request: req, kind: 'forja', ref: bp.id, order: null, startedAt: Date.now(), seconds: bp.seconds, plan: plan as never, take: pv.consume, fee });

@@ -92,7 +92,7 @@ export function visibleClues(v: EcosView | null): EnvironmentalClue[] {
   return cluesFor(SEIVA_AZUL, st, (id, r) => { const n = nodeById(id); return !!n && (v?.profile.seen.includes(id) || Math.hypot(n.x - companionFocus.x, n.z - companionFocus.z) <= r); });
 }
 /** Classe efetiva (do Pacto) para saber quais fontes superiores o Companion pode extrair. */
-export const classSource = { get: (): SpeciesKey | null => null };
+export const classSource = { get: (): SpeciesKey | SpeciesKey[] | null => null };
 export function suggestionsNow(v: EcosView | null, intent: GatheringIntent): Suggestion[] {
   const cls = classSource.get();
   return suggestGather(intent, {

@@ -154,7 +154,7 @@ function ApproachRow({ node, ap, state }: { node: ResourceNode; ap: Approach; st
 function ContextPanel() {
   const selected = useEcos((s) => s.selected), view = useEcos((s) => s.view), intent = useEcos((s) => s.intent);
   const [more, setMore] = useState(false);
-  const cls = usePacto((s) => s.view?.cls.effective ?? null);
+  const cls = usePacto((s) => (s.view?.cls.forms?.length ? s.view.cls.forms : s.view?.cls.effective ?? null));
   const node = selected ? nodeById(selected) : null;
   const sugg = useMemo(() => (node && view ? suggestionsNow(view, intent ?? { mode: 'abastecer', target: null, risk: 1, reserve: 4, tools: [], prefer: null, gentle: true }).find((x) => x.node.id === node.id && !x.blocked) : null), [node, view, intent]);
   if (!node) return null;
@@ -190,7 +190,7 @@ function ContextPanel() {
       <ul className="ecos-aps">
         {k.approaches.map((ap, i) => <ApproachRow key={ap.id} node={node} ap={ap} state={{ blocked: states[i] }} />)}
       </ul>
-      {superior && cls === 'touro' && !usePacto.getState().view?.simulated && <button type="button" className="ghost" onClick={() => void usePacto.getState().call('pacto.board.post', { kind: 'oportunidade', text: `${nodeName(node)} localizado no Vale dos Ecos (abundância ${Math.floor(amount)}/${k.capacity}).`, node: node.id }).then((r) => r && useGame.getState().toast('Oportunidade anunciada no quadro do Pacto', 'gold'))}>📣 Anunciar oportunidade</button>}
+      {superior && (Array.isArray(cls) ? cls.includes('touro') : cls === 'touro') && !usePacto.getState().view?.simulated && <button type="button" className="ghost" onClick={() => void usePacto.getState().call('pacto.board.post', { kind: 'oportunidade', text: `${nodeName(node)} localizado no Vale dos Ecos (abundância ${Math.floor(amount)}/${k.capacity}).`, node: node.id }).then((r) => r && useGame.getState().toast('Oportunidade anunciada no quadro do Pacto', 'gold'))}>📣 Anunciar oportunidade</button>}
       <button type="button" className="ghost" onClick={() => useEcos.getState().inspect(node.id)}>👁 Observar com calma</button>
     </aside>
   );

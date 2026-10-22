@@ -94,7 +94,7 @@ function syncItems(v: PactoView | null) {
   const same = game.items.filter((i) => i.slug.startsWith('inst-')).map((i) => i.slug + i.description).join() === inst.map((i) => i.slug + i.description).join();
   if (!same) useGame.setState({ items: [...base, ...inst] });
 }
-classSource.get = () => usePacto.getState().view?.cls.effective ?? null;
+classSource.get = () => { const c = usePacto.getState().view?.cls; return c?.forms?.length ? c.forms : c?.effective ?? null; };
 usePacto.subscribe((s, prev) => { if (s.view !== prev.view) syncItems(s.view); });
 
 /** Marca do que está na mão secundária (ex.: Barreira Breve do Guardião). */

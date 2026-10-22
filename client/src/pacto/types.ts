@@ -18,7 +18,7 @@ export interface PactoView {
   serverNow: number;
   me: string;
   lumes: number;
-  cls: { real: SpeciesKey | null; effective: SpeciesKey | null; test: SpeciesKey | null; essence: Element | null; admin: boolean };
+  cls: { real: SpeciesKey | null; effective: SpeciesKey | null; test: SpeciesKey | null; essence: Element | null; admin: boolean; forms?: SpeciesKey[]; essences?: Element[]; lineage?: { forms: SpeciesKey[]; essences: Element[] } };
   equipment: EquipmentView[];
   jobs: JobView[];
   orders: { open: OrderView[]; mine: OrderView[] };

@@ -4,7 +4,7 @@ import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import {
   SPECIES, OFFICES, CLASS_LABEL, canCompleteEquipment, transformationById, checkTransformation, blueprintById, forgePreview, resolvePacto, coreCost,
   meetsRequirements, cancelSettlement, payout, recycleReturn, REPAIR_KIT_AMOUNT, parseComponentKey, COMPONENTS, cleanRequestId, nodeById, NODE_KINDS,
-  superiorBlockFor, type PactoConfig, type ForgePlan, type SpeciesKey, type Element, type IdentityContractV1, type Discoveries,
+  superiorBlockFor, lineageOf, officesOf, LINEAGE_LIMITS, ELEMENTS, type PactoConfig, type ForgePlan, type SpeciesKey, type Element, type IdentityContractV1, type Discoveries,
   type OrderRequirements, type EcosConfig, type Conduct, type Temper,
 } from './rules/index.ts';
 
@@ -46,7 +46,11 @@ export async function classInfo(db: SupabaseClient, c: Record<string, unknown>, 
   const { data } = await db.from('pacto_profile').select('test_class').eq('companion_id', c.id).maybeSingle();
   const test = admin ? ((data?.test_class as SpeciesKey | null) ?? null) : null;
   const essence = ((c.discoveries as Discoveries).element ?? null) as Element | null;
-  return { real, effective: test ?? real, test, essence };
+  // linhagem (late game): formas e essências extras somam à identidade de nascença
+  const { data: lin } = await db.from('companion_lineage').select('forms,essences').eq('companion_id', c.id).maybeSingle();
+  const lineage = lineageOf(real, essence, lin as { forms: string[]; essences: string[] } | null);
+  const forms = test ? [test] : lineage.forms;
+  return { real, effective: test ?? real, test, essence, forms, essences: lineage.essences, lineage };
 }
 
 /** Ferramentas que o Companion tem (forjadas, ativas e com durabilidade). */
@@ -56,7 +60,7 @@ export async function ownedTools(db: SupabaseClient, cid: string): Promise<strin
 }
 export async function wearTool(db: SupabaseClient, cid: string, tool: string) { await rpc(db, 'pacto_equipment_wear', { p_cid: cid, p_tool: tool, p_item: null, p_amount: 1 }).catch(() => null); }
 
-export const superiorBlock = (nodeId: string, effective: SpeciesKey | null) => superiorBlockFor(nodeId, effective);
+export const superiorBlock = (nodeId: string, forms: SpeciesKey[]) => superiorBlockFor(nodeId, forms);
 
 /** UUID determinístico (idempotência de recompensas derivadas de outro evento). */
 export async function stableUuid(s: string) {
@@ -104,7 +108,7 @@ export async function pactoState(db: SupabaseClient, c: Record<string, unknown>,
     serverNow: now,
     me: cid,
     lumes: Number(prof.data?.lumes ?? 0),
-    cls: { real: cls.real, effective: cls.effective, test: cls.test, essence: cls.essence, admin },
+    cls: { real: cls.real, effective: cls.effective, test: cls.test, essence: cls.essence, forms: cls.forms, essences: cls.essences, lineage: cls.lineage, admin },
     equipment: (eq.data ?? []).map((e) => ({ id: e.id, blueprint: e.blueprint, kind: e.kind, tool: e.tool, durability: e.durability, maxDurability: e.max_durability, createdAt: e.created_at, ...(e.data as Record<string, unknown>) })),
     jobs: (jobs.data ?? []).map((j) => ({ request: j.request_id, kind: j.kind, ref: j.ref, order: j.order_id, startedAt: Date.parse(j.started_at as string), seconds: Number(j.seconds) })),
     orders: { open: open.data ?? [], mine: mine.data ?? [] },
@@ -155,19 +159,31 @@ export async function pactoAction(action: string, body: Record<string, unknown>,
     return { pacto: await state() };
   }
 
+  // linhagem: só teste de admin na homologação (as quests de essência e a troca de forma de adulto ainda serão planejadas)
+  if (action === 'pacto.lineage.set') {
+    if (!admin) throw new PactoError(403, 'Só para administradores (teste). Essências e formas extras virão de quests.');
+    const kind = body.kind === 'form' ? 'form' : body.kind === 'essence' ? 'essence' : null;
+    const value = String(body.value ?? '');
+    if (!kind || (kind === 'form' ? !(value in SPECIES) : !(value in ELEMENTS))) throw new PactoError(400, 'Valor inválido.');
+    const r = await rpc<{ ok: boolean; reason?: string }>(db, 'lineage_set', { p_cid: cid, p_kind: kind, p_value: value, p_on: body.on !== false, p_max: (kind === 'form' ? LINEAGE_LIMITS.forms : LINEAGE_LIMITS.essences) - 1, p_source: 'teste-admin' });
+    if (!r.ok) throw new PactoError(409, r.reason === 'limite' ? 'Já tem o máximo.' : 'Não deu certo.');
+    return { pacto: await state() };
+  }
+
   const cls = await classInfo(db, c, admin);
 
   // ---- ofício (transformação)
   if (action === 'pacto.office.start') {
     const request = rid(body.request);
     const t = transformationById(String(body.transformation)); if (!t) throw new PactoError(400, 'Transformação inexistente.');
-    const office = cls.effective ? OFFICES[cls.effective].key : null;
-    if (office !== t.office) throw new PactoError(403, `Só quem tem o ofício ${Object.values(OFFICES).find((o) => o.key === t.office)!.name} faz isso.`);
+    if (!officesOf(cls.forms).some((o) => o.key === t.office)) throw new PactoError(403, `Só quem tem o ofício ${Object.values(OFFICES).find((o) => o.key === t.office)!.name} faz isso.`);
     const picks = Array.isArray(body.picks) ? (body.picks as Record<string, unknown>[]).slice(0, 12).map((p) => ({ slot: Number(p.slot), key: String(p.key), qty: Number(p.qty) })) : [];
-    const chk = checkTransformation(t, picks, await bagOf(db, cid), String(body.choice), cls.essence, body.useEssence === true, cid);
+    // híbridos de essência: escolhe qual essência aplicar (todas valem)
+    const ess = (typeof body.essence === 'string' && cls.essences.includes(body.essence as Element) ? body.essence : cls.essences[0] ?? null) as Element | null;
+    const chk = checkTransformation(t, picks, await bagOf(db, cid), String(body.choice), ess, body.useEssence === true, cid);
     if (!chk.ok) throw new PactoError(409, chk.reason);
     const r = await rpc<{ ok: boolean; reason?: string; started_at?: string; seconds?: number; repeat?: boolean }>(db, 'pacto_job_start', {
-      p_request: request, p_cid: cid, p_kind: 'oficio', p_ref: t.id, p_plan: { output: chk.output, bands: chk.bands, choice: body.choice, essence: body.useEssence === true ? cls.essence : null },
+      p_request: request, p_cid: cid, p_kind: 'oficio', p_ref: t.id, p_plan: { output: chk.output, bands: chk.bands, choice: body.choice, essence: body.useEssence === true ? ess : null },
       p_bag: chk.consume, p_deposit: [], p_order: null, p_fee: 0, p_seconds: t.seconds, p_slots: pcfg.workshopSlots, p_per_artisan: pcfg.perArtisan,
     });
     if (!r.ok) throw new PactoError(409, reason(r.reason));
@@ -177,7 +193,7 @@ export async function pactoAction(action: string, body: Record<string, unknown>,
   // ---- forja (só Taurina)
   if (action === 'pacto.forge.start') {
     const request = rid(body.request);
-    if (!canCompleteEquipment(cls.effective)) throw new PactoError(403, 'Só Taurinas forjam e concluem equipamentos.');
+    if (!canCompleteEquipment(cls.forms)) throw new PactoError(403, 'Só Taurinas forjam e concluem equipamentos.');
     const plan = body.plan as ForgePlan;
     const bp = plan && blueprintById(String(plan.blueprint)); if (!bp) throw new PactoError(400, 'Projeto inexistente.');
     const clean: ForgePlan = { blueprint: bp.id, picks: (Array.isArray(plan.picks) ? plan.picks : []).slice(0, 16).map((p) => ({ slot: Number(p.slot), key: String(p.key), qty: Number(p.qty) })), conduct: plan.conduct === 'leveza' ? 'leveza' : 'resistencia', temper: plan.temper === 'reativa' ? 'reativa' : 'estavel', name: typeof plan.name === 'string' ? plan.name.slice(0, 40) : undefined };
@@ -201,7 +217,7 @@ export async function pactoAction(action: string, body: Record<string, unknown>,
       if (take) fromDeposit.push({ key: k.key, qty: take });
       if (k.qty - take) fromBag.push({ key: k.key, qty: k.qty - take });
     }
-    const fee = coreCost(cls.essence, pcfg).total;
+    const fee = coreCost(cls.essences, pcfg).total;
     const r = await rpc<{ ok: boolean; reason?: string }>(db, 'pacto_job_start', {
       p_request: request, p_cid: cid, p_kind: 'forja', p_ref: bp.id, p_plan: clean, p_bag: fromBag, p_deposit: fromDeposit, p_order: orderId,
       p_fee: fee, p_seconds: bp.seconds, p_slots: pcfg.workshopSlots, p_per_artisan: pcfg.perArtisan,
@@ -270,7 +286,7 @@ export async function pactoAction(action: string, body: Record<string, unknown>,
     return { pacto: await state() };
   }
   if (action === 'pacto.order.accept') {
-    if (!canCompleteEquipment(cls.effective)) throw new PactoError(403, 'Só Taurinas aceitam encomendas de equipamento.');
+    if (!canCompleteEquipment(cls.forms)) throw new PactoError(403, 'Só Taurinas aceitam encomendas de equipamento.');
     const r = await rpc<{ ok: boolean; reason?: string }>(db, 'pacto_order_accept', { p_id: rid(body.id), p_artisan: cid, p_max_active: pcfg.perArtisan * 2 });
     if (!r.ok) throw new PactoError(409, reason(r.reason));
     return { pacto: await state() };
@@ -336,7 +352,7 @@ export async function pactoAction(action: string, body: Record<string, unknown>,
     return { recycled: r.repeat ? [] : give, pacto: await state() };
   }
   if (action === 'pacto.item.reforge') {
-    if (!canCompleteEquipment(cls.effective)) throw new PactoError(403, 'Reforja estrutural é da Taurina.');
+    if (!canCompleteEquipment(cls.forms)) throw new PactoError(403, 'Reforja estrutural é da Taurina.');
     const item = rid(body.item);
     const { data: e } = await db.from('pacto_equipment').select('data,owner,status,blueprint').eq('id', item).maybeSingle();
     if (!e || e.owner !== cid || e.status !== 'ativo') throw new PactoError(409, 'Só dá para reforjar uma peça sua (para a de outra pessoa, use uma encomenda).');

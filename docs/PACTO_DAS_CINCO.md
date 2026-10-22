@@ -146,7 +146,29 @@ O admin vê **🧪 testar como**, só fora de `companion-core-two.vercel.app`. A
   - os baús dão **partes ou componentes** que a Taurina conclui; ou
   - um **estoque finito declarado** (evento) com origem registrada.
   - Nada disso foi implementado.
-- **Mais de uma essência e formas híbridas** (pedido de 22/10, late game, raríssimo): conflita com "uma essência por Companion" (núcleos Fogo+Terra) e com "só a Taurina conclui". Vai precisar de regras próprias antes de implementar.
+- **Mais de uma essência e formas híbridas:** ver a seção Linhagem.
+
+## Linhagem (late game): várias essências e formas
+
+Raríssimo. A identidade de nascença nunca muda: a linhagem **soma**, na ordem da conquista, até 2 formas e 2 essências (`LINEAGE_LIMITS`).
+
+Decisões de 22/10:
+
+- **Híbrido tem os ofícios completos de todas as formas.** Taurina + Dracônica forja e faz Confluência, e extrai as fontes superiores aquáticas.
+- **Todas as essências valem sempre.** Fogo + Terra traz os dois núcleos: a Forja não cobra nenhum. No ofício, escolhe qual essência aplicar.
+- **Essência extra:** quests específicas em locais específicos (a planejar).
+- **Forma extra:** item lendário de quests secretas difíceis + a troca de forma **depois de adulto** (a planejar). O estágio "adulto" ainda não existe no jogo.
+
+Código:
+
+- Regras: `lineageOf`, `canGainForm`, `canGainEssence`, `officesOf`. As regras do Pacto aceitam uma forma ou uma lista (`Forms`).
+- Banco: tabela `companion_lineage` (formas e essências extras, com histórico) e a função `lineage_set`.
+- Por enquanto só há concessão de **teste de admin** na homologação: "🧪 + forma / + essência" na Oficina.
+
+Ainda não feito:
+
+- O combate continua usando só a essência e a forma de nascença.
+- O modelo 3D não muda.
 
 ## Testes críticos
 
