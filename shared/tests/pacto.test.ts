@@ -182,16 +182,17 @@ describe('linhagem (late game): várias formas e essências', () => {
     expect(coreCost(['fogo', 'agua'], DEFAULT_PACTO).total).toBe(DEFAULT_PACTO.coreFee);
     expect(coreCost('luz', DEFAULT_PACTO).total).toBe(DEFAULT_PACTO.coreFee * 2);
   });
-  it('limites e pré-requisitos: forma só depois de adulto e com o lendário', () => {
+  it('limites e pré-requisitos: forma híbrida só depois da forma avançada (4+) e com o lendário', () => {
     const l = lineageOf('felino', 'natureza', null);
-    expect(canGainForm(l, 'awakened', true)).toMatch(/adulto/);
-    expect(canGainForm(l, 'adulto', false)).toMatch(/lendário/);
-    expect(canGainForm(l, 'adulto', true)).toBeNull();
+    expect(canGainForm(l, 3, true)).toMatch(/avançada/);
+    expect(canGainForm(l, 4, false)).toMatch(/lendário/);
+    expect(canGainForm(l, 4, true)).toBeNull();
+    expect(canGainForm(l, 9, true)).toBeNull(); // evolução infinita
     expect(canGainEssence(l, false)).toMatch(/quest/);
     const full = lineageOf('felino', 'natureza', { forms: ['passaro', 'touro'], essences: ['fogo', 'terra'] });
     expect(full.forms.length).toBe(LINEAGE_LIMITS.forms);
     expect(full.essences.length).toBe(LINEAGE_LIMITS.essences);
-    expect(canGainForm(full, 'adulto', true)).toMatch(/máximo/);
+    expect(canGainForm(full, 5, true)).toMatch(/máximo/);
   });
   it('a identidade de nascença vem primeiro e não se repete', () => {
     expect(lineageOf('touro', 'fogo', { forms: ['touro', 'mistica'], essences: ['fogo'] })).toEqual({ forms: ['touro', 'mistica'], essences: ['fogo'] });

@@ -52,25 +52,31 @@ export const canCompleteEquipment = (cls: Forms) => formsOf(cls).includes('touro
  *  - Híbrido tem os ofícios COMPLETOS de todas as suas formas (ex.: Taurina + Dracônica forja e faz Confluência).
  *  - Todas as essências valem SEMPRE (Fogo + Terra: a Forja não cobra nenhum núcleo).
  *  - Essência extra: quests específicas em locais específicos (a planejar).
- *  - Forma extra: item lendário de quests secretas difíceis + troca de forma depois de ADULTO (a planejar).
+ *  - Forma extra: item lendário de quests secretas difíceis, e só DEPOIS da forma avançada (Forma 4+) na evolução
+ *    infinita das formas (Partículas → Forma 1 Infância → 2 Crescimento → 3 Maturidade → 4+ Avançadas). A forma
+ *    híbrida é ela mesma um passo de evolução: cada evolução gera um modelo novo (a planejar).
  * A identidade (forma/essência de nascença) nunca muda: a linhagem SOMA, na ordem em que foi conquistada.
  */
 export interface Lineage { forms: SpeciesKey[]; essences: Element[] }
 export const LINEAGE_LIMITS = { forms: 2, essences: 2 };
+/** Evolução das formas (infinita). 0 = Partículas; 1–3 = Infância, Crescimento, Maturidade; 4+ = Formas avançadas. */
+export const FORM_STAGES = ['Partículas', 'Forma 1 · Infância', 'Forma 2 · Crescimento', 'Forma 3 · Maturidade'] as const;
+export const ADVANCED_FORM = 4;
+export const formStageLabel = (n: number) => (n < ADVANCED_FORM ? FORM_STAGES[Math.max(0, n)] : `Forma ${n} · Avançada`);
 export const LINEAGE_RULES = {
   essence: 'Quests específicas em locais específicos (a planejar).',
-  form: 'Item lendário de quests secretas + troca de forma depois de adulto (a planejar).',
-  formStage: 'adulto',
+  form: 'Item lendário de quests secretas, depois da forma avançada (Forma 4+); a forma híbrida é uma nova evolução, com modelo novo (a planejar).',
+  minFormStage: ADVANCED_FORM,
 } as const;
 export function lineageOf(primaryForm: SpeciesKey | null, primaryEssence: Element | null, extra?: { forms?: string[]; essences?: string[] } | null): Lineage {
   const forms = [...new Set([primaryForm, ...(extra?.forms ?? [])].filter(Boolean))] as SpeciesKey[];
   const essences = [...new Set([primaryEssence, ...(extra?.essences ?? [])].filter(Boolean))] as Element[];
   return { forms: forms.slice(0, LINEAGE_LIMITS.forms), essences: essences.slice(0, LINEAGE_LIMITS.essences) };
 }
-/** Pode ganhar mais uma forma? Só depois de adulto (a troca de forma) e com o item lendário. */
-export function canGainForm(l: Lineage, stage: string | null | undefined, hasLegendary: boolean): string | null {
+/** Pode ganhar mais uma forma? Só a partir da forma avançada (evolução 4+) e com o item lendário. */
+export function canGainForm(l: Lineage, formStage: number, hasLegendary: boolean): string | null {
   if (l.forms.length >= LINEAGE_LIMITS.forms) return 'Já tem o máximo de formas.';
-  if (stage !== LINEAGE_RULES.formStage) return 'A segunda forma só vem na troca de forma, depois de adulto.';
+  if (!(formStage >= LINEAGE_RULES.minFormStage)) return 'A forma híbrida só vem depois da forma avançada (Forma 4+).';
   if (!hasLegendary) return 'Precisa do item lendário das quests secretas.';
   return null;
 }

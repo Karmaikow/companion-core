@@ -157,7 +157,10 @@ Decisões de 22/10:
 - **Híbrido tem os ofícios completos de todas as formas.** Taurina + Dracônica forja e faz Confluência, e extrai as fontes superiores aquáticas.
 - **Todas as essências valem sempre.** Fogo + Terra traz os dois núcleos: a Forja não cobra nenhum. No ofício, escolhe qual essência aplicar.
 - **Essência extra:** quests específicas em locais específicos (a planejar).
-- **Forma extra:** item lendário de quests secretas difíceis + a troca de forma **depois de adulto** (a planejar). O estágio "adulto" ainda não existe no jogo.
+- **Forma extra:** item lendário de quests secretas difíceis, e só **depois da forma avançada** (a planejar).
+  - A evolução das formas é infinita: Partículas → Forma 1 (Infância) → Forma 2 (Crescimento) → Forma 3 (Maturidade) → Forma 4+ (Avançadas).
+  - A forma híbrida é **uma nova evolução** depois da Forma 4+, e cada evolução gera um **modelo novo**.
+  - A evolução das formas ainda não existe no jogo; as regras já exigem a Forma 4+ (`canGainForm`, `ADVANCED_FORM`).
 
 Código:
 
