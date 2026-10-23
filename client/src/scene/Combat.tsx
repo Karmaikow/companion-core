@@ -245,11 +245,11 @@ function AttackReticle({ world }: { world: WorldShape }) {
       if (!tg) return;
       g.position.set(tg.x, world.heightAt(tg.x, tg.z) + 0.06, tg.z);
       g.rotation.y = t * spin;
-      g.scale.setScalar((tg.r * 2.2 + 0.55) * pulse); // o raio de colisão é menor que o corpo visível
+      g.scale.setScalar((tg.r * 1.5 + 0.35) * pulse); // discreto: um pouco maior que o pé do monstro
     };
     const focus = attackPick.focus;
-    place(hoverG.current, hov && hov !== focus ? hov : null, 1.2, 1.15 - 0.12 * Math.abs(Math.sin(t * 5)));
-    place(focusG.current, focus, -2.2, 1 + 0.06 * Math.sin(t * 9));
+    place(hoverG.current, hov && hov !== focus ? hov : null, 0.8, 1 - 0.04 * Math.abs(Math.sin(t * 3)));
+    place(focusG.current, focus, -1.2, 1 + 0.03 * Math.sin(t * 5));
     const g = guard.current;
     if (g) {
       const left = vitals.invulnUntil - performance.now();
@@ -262,23 +262,15 @@ function AttackReticle({ world }: { world: WorldShape }) {
     }
   });
   const arcs = (color: string, opacity: number) => [0, 1, 2, 3].map((i) => (
-    <mesh key={i} rotation={[-Math.PI / 2, 0, 0]}><ringGeometry args={[0.82, 1, 18, 1, i * Math.PI / 2 + 0.22, Math.PI / 2 - 0.44]} /><meshBasicMaterial color={color} transparent opacity={opacity} depthWrite={false} toneMapped={false} side={THREE.DoubleSide} /></mesh>
-  ));
-  const ticks = (color: string) => [0, 1, 2, 3].map((i) => (
-    <mesh key={'t' + i} rotation={[-Math.PI / 2, 0, i * Math.PI / 2]} position={[Math.sin(i * Math.PI / 2) * 1.12, 0, Math.cos(i * Math.PI / 2) * 1.12]}>
-      <circleGeometry args={[0.13, 3, Math.PI / 2]} /><meshBasicMaterial color={color} transparent opacity={0.9} depthWrite={false} toneMapped={false} side={THREE.DoubleSide} />
-    </mesh>
+    <mesh key={i} rotation={[-Math.PI / 2, 0, 0]}><ringGeometry args={[0.9, 1, 18, 1, i * Math.PI / 2 + 0.3, Math.PI / 2 - 0.6]} /><meshBasicMaterial color={color} transparent opacity={opacity} depthWrite={false} toneMapped={false} side={THREE.DoubleSide} /></mesh>
   ));
   return (
     <>
       <group ref={hoverG} visible={false}>
-        {arcs('#ffd77a', 0.85)}
-        <mesh rotation={[-Math.PI / 2, 0, 0]}><ringGeometry args={[0.3, 0.38, 32]} /><meshBasicMaterial color="#fff2c4" transparent opacity={0.7} depthWrite={false} toneMapped={false} /></mesh>
+        {arcs('#ffe7a8', 0.4)}
       </group>
       <group ref={focusG} visible={false}>
-        {arcs('#ff5a5a', 0.9)}
-        {ticks('#ffb04a')}
-        <mesh rotation={[-Math.PI / 2, 0, 0]}><ringGeometry args={[0.25, 0.32, 32]} /><meshBasicMaterial color="#ff8a6a" transparent opacity={0.75} depthWrite={false} toneMapped={false} /></mesh>
+        {arcs('#ff8a70', 0.5)}
       </group>
       <mesh ref={guard} rotation={[-Math.PI / 2, 0, 0]} visible={false}><ringGeometry args={[0.62, 0.78, 48]} /><meshBasicMaterial color="#ffd98a" transparent opacity={0.5} depthWrite={false} toneMapped={false} /></mesh>
     </>
