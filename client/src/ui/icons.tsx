@@ -1,6 +1,7 @@
 import type { Tab } from '../store';
 
 const P: Record<Tab, string> = {
+  attributes: 'M12 3l8 4v5c0 5-8 9-8 9s-8-4-8-9V7l8-4zM12 7v10M8 12h8',
   chat: 'M4 5h16v10H9l-5 4z',
   memories: 'M12 3l2.5 5 5.5.8-4 3.9.9 5.5L12 15.6 7.1 18.2l.9-5.5-4-3.9 5.5-.8z',
   diary: 'M6 3h11a2 2 0 012 2v16H8a2 2 0 01-2-2zM6 19a2 2 0 012-2h11M10 7h6M10 10h5',
@@ -15,7 +16,8 @@ const P: Record<Tab, string> = {
 export function Icon({ tab, size = 22 }: { tab: Tab; size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d={P[tab]} />
+      <path d={tab === 'attributes' ? 'M12 3l8 4v5c0 5-8 9-8 9s-8-4-8-9V7l8-4zM12 7v10M8 12h8' : P[tab]} />
     </svg>
   );
 }
+

@@ -3,7 +3,7 @@ import { DEFAULT_ITEMS, type Equipped, type ItemDef } from '@rules';
 import { QUESTS, QUEST_REWARDS, SECRET_BY_KEY, SECRET_XP, SECRET_BOOST_TURNS, ELEMENTS, type QuestKey, type SecretKey } from '@rules';
 import type { Backend, Snapshot } from './backend/types';
 
-export type Tab = 'chat' | 'memories' | 'diary' | 'quests' | 'inventory' | 'recipes' | 'skills' | 'bond' | 'settings';
+export type Tab = 'chat' | 'memories' | 'diary' | 'quests' | 'inventory' | 'recipes' | 'skills' | 'attributes' | 'bond' | 'settings';
 
 export interface Toast { id: number; text: string; tone: 'gold' | 'soft' | 'warn' }
 
@@ -18,6 +18,8 @@ interface State {
   error: string | null;
   mood: string;
   lastReply: string | null;
+  playerSpeech: { id: number; text: string } | null;
+  sayPlayer(text: string): void;
   pulse: number; // incrementa a cada descoberta — dispara o efeito no núcleo
   burst: number; // incrementa em conquistas grandes (segredo, despertar pronto)
   toasts: Toast[];
@@ -48,11 +50,13 @@ const awakenSeenKey = (id: string) => 'companion-core:awaken-call:' + id;
 export const useGame = create<State>((set, get) => ({
   backend: null,
   snap: null,
-  tab: 'chat',
+  tab: null,
   busy: false,
   error: null,
   mood: 'curiosa',
   lastReply: null,
+  playerSpeech: null,
+  sayPlayer: (text) => set({ playerSpeech: { id: ++seq, text } }),
   pulse: 0,
   burst: 0,
   toasts: [],
@@ -64,7 +68,7 @@ export const useGame = create<State>((set, get) => ({
   equipped: {},
   setItems: (items) => set({ items }),
   setEquipped: (equipped) => set({ equipped }),
-  setBackend: (backend) => set({ backend, snap: null, error: null, lastReply: null, celebrations: [], awakenCall: false }),
+  setBackend: (backend) => set({ backend, snap: null, tab: null, error: null, lastReply: null, playerSpeech: null, celebrations: [], awakenCall: false }),
   setTab: (tab) => set({ tab }),
   toast: (text, tone = 'soft') => {
     const t = { id: ++seq, text, tone };
@@ -139,3 +143,4 @@ export const useGame = create<State>((set, get) => ({
     }
   },
 }));
+

@@ -3,6 +3,7 @@
  * Espaço vazio: toque para escolher a habilidade. Botão direito (ou segurar no celular): tirar da barra.
  * A recarga aparece como um relógio escurecendo o ícone, com os segundos que faltam.
  */
+import { HudGlyph } from './HudGlyph';
 import { useEffect, useRef, useState } from 'react';
 import { ELEMENTS, RANK_COOLDOWN, SHAPES, type SkillDef } from '@rules';
 import { useGame } from '../store';
@@ -90,7 +91,7 @@ export function SkillBar({ color }: { color: string }) {
           {unlocked.length === 0 && <p>Nenhuma habilidade aberta ainda. Distribua pontos na árvore (aba Habilidades).</p>}
           {unlocked.map((u) => (
             <button key={u.skill.slug} className={bar.includes(u.skill.slug) ? 'in' : ''} onClick={() => put(pick, u.skill.slug)}>
-              <span aria-hidden style={{ background: colorOf(u.skill, color) }}>{ICON[u.skill.vfx.style] ?? '✦'}</span>
+              <span aria-hidden style={{ background: colorOf(u.skill, color) }}><HudGlyph kind={u.skill.vfx.style} /></span>
               <b>{u.skill.name}{u.level > 1 ? ` +${u.level - 1}` : ''}</b>
               <small>{SHAPES[u.skill.shape]} · recarga {cooldownOf(u.skill, u.level).toFixed(1).replace('.0', '')}s{bar.includes(u.skill.slug) ? ` · no espaço ${bar.indexOf(u.skill.slug) + 1}` : ''}</small>
             </button>
@@ -114,7 +115,7 @@ export function SkillBar({ color }: { color: string }) {
             onPointerUp={() => { if (hold.current) window.clearTimeout(hold.current); hold.current = null; }}
             onPointerLeave={() => { if (hold.current) window.clearTimeout(hold.current); hold.current = null; }}>
             <kbd>{i + 1}</kbd>
-            {u ? <span className="sb-icon" aria-hidden>{ICON[u.skill.vfx.style] ?? '✦'}</span> : <span className="sb-plus" aria-hidden>{free.length ? '+' : ''}</span>}
+            {u ? <span className="sb-icon" aria-hidden><HudGlyph kind={u.skill.vfx.style} /></span> : <span className="sb-plus" aria-hidden>{free.length ? '+' : ''}</span>}
             {u && u.level > 1 && <em>+{u.level - 1}</em>}
             {left > 0 && <span className="sb-cd" style={{ ['--f' as string]: frac }}><b>{left > 1000 ? Math.ceil(left / 1000) : (left / 1000).toFixed(1)}</b></span>}
           </button>
@@ -123,3 +124,4 @@ export function SkillBar({ color }: { color: string }) {
     </div>
   );
 }
+

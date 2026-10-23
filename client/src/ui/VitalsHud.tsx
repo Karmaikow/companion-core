@@ -19,8 +19,8 @@ export function VitalsBars({ bondRatio, bondLevel }: { bondRatio: number; bondLe
     <div className={'vitals' + (v.down ? ' down' : '')} key={v.hitId ? 'h' + (v.hitId % 2) : 'h'}>
       {row('hp', 'HP', v.hp, v.hpMax, 'Vida: cai com os golpes das criaturas; zerou, desmaia um pouco')}
       {row('sp', 'SP', v.sp, v.spMax, 'Energia das habilidades da barra (1–9)')}
-      {row('st', 'ST', v.st, v.stMax, 'Stamina: pulo, golpe e defesa')}
-      {row('bond', 'VÍN', Math.round(bondRatio * 100), 100, `Vínculo ${bondLevel}: % até o próximo nível`, true)}
+      {row('st', 'Stamina', v.st, v.stMax, 'Stamina: pulo, golpe e defesa')}
+      {row('bond', 'Vínculo', Math.round(bondRatio * 100), 100, `Vínculo ${bondLevel}: % até o próximo nível`, true)}
     </div>
   );
 }
@@ -50,3 +50,4 @@ export function TouchMoves() {
     </div>
   );
 }
+

@@ -41,8 +41,9 @@ export function sendPlayerMessage(text: string) {
   if (!m) return;
   const g = useGame.getState();
   const cmd = skillInput.body ? handleCommand(m) : null;
-  if (cmd && !settings().ordersToChat) return;
+  if (cmd && !settings().ordersToChat) { g.sayPlayer(m); return; }
   if (g.busy) { if (!cmd) g.toast('Espere ela terminar de responder…', 'soft'); return; }
+  g.sayPlayer(m);
   void g.run((b) => b.chat(m));
 }
 
@@ -77,3 +78,4 @@ export function useMic(onFinal: (text: string) => void) {
   const stop = () => { try { rec.current?.stop(); } catch { /* já parou */ } };
   return { listening, heard, start, stop, supported: micSupported() };
 }
+

@@ -64,7 +64,8 @@ export function WorldMap({ world, discovered }: { world: CompanionWorld; discove
 
   const found = world.sites.filter((s) => !s.home && discovered.has(s.name)).length;
   return (
-    <button className={'world-map' + (big ? ' big' : '')} onClick={() => setBig(!big)} aria-label={big ? 'Diminuir o mapa' : 'Ampliar o mapa'} style={{ width: SIZE, height: SIZE }}>
+    <button className={'world-map' + (big ? ' big' : '')} onClick={() => setBig(!big)} aria-label={big ? 'Diminuir o mapa' : 'Ampliar o mapa'} style={{ width: SIZE, height: SIZE }} aria-expanded={big}>
+      <span className="compass-n" aria-hidden="true">N</span><span className="compass-s" aria-hidden="true">S</span><span className="compass-e" aria-hidden="true">L</span><span className="compass-w" aria-hidden="true">O</span>
       <canvas ref={base} width={SIZE} height={SIZE} />
       <canvas ref={top} width={SIZE} height={SIZE} />
       <span className="map-count">{found}/{world.sites.length - 1} lugares</span>
@@ -76,3 +77,4 @@ function hex(h: string): [number, number, number] {
   const n = parseInt(h.slice(1), 16);
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
+

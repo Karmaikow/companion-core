@@ -1,5 +1,5 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { ELEMENTS, derivePalette, refugeFeatures, animKind, sanitizeBiome, sanitizeCreature, makeCompanionWorld, characterSheet, speciesSpeed, sanitizeItem, validateEquipped, equipmentBonus, ITEM_TYPES, sanitizeWeather, weatherAt, WEATHERS, DEFAULT_WEATHER, DEFAULT_BIOME_WEATHER, type ItemDef, type WeatherConfig, WORLD_SEED, REFUGE_BIOME, WORLD_FALLBACK_BIOMES, DEFAULT_CREATURES, type BiomeConfig, type CreatureDef, type WorldSite } from '@rules';
+import { SPECIES, ELEMENTS, derivePalette, refugeFeatures, animKind, sanitizeBiome, sanitizeCreature, makeCompanionWorld, characterSheet, speciesSpeed, sanitizeItem, validateEquipped, equipmentBonus, ITEM_TYPES, sanitizeWeather, weatherAt, WEATHERS, DEFAULT_WEATHER, DEFAULT_BIOME_WEATHER, type ItemDef, type WeatherConfig, WORLD_SEED, REFUGE_BIOME, WORLD_FALLBACK_BIOMES, DEFAULT_CREATURES, type BiomeConfig, type CreatureDef, type WorldSite } from '@rules';
 import { Refuge } from './scene/Refuge';
 import { WorldScene } from './scene/World';
 import { WorldMap } from './ui/WorldMap';
@@ -12,7 +12,11 @@ import { Entry } from './ui/Entry';
 import { Creation } from './ui/Creation';
 import { SkillTreePanel } from './ui/SkillTreePanel';
 import { SettingsPanel } from './ui/SettingsPanel';
-import { speak, sendPlayerMessage, useMic } from './ui/voice';
+import { speak } from './ui/voice';
+import { FloatingConversation } from './ui/FloatingConversation';
+import { LocationHud, QuestTracker, BondTrack } from './ui/GameHud';
+import { AttributesPanel } from './ui/AttributesPanel';
+import { HudGlyph } from './ui/HudGlyph';
 import { brain } from './scene/brain';
 import { SkillBar } from './ui/SkillBar';
 import { VitalsBars, TouchMoves, FaintCounter } from './ui/VitalsHud';
@@ -23,7 +27,8 @@ import { WeatherOverlay } from './ui/WeatherOverlay';
 import { supabase } from './backend/online';
 
 const TABS: { key: Tab; label: string }[] = [
-  { key: 'chat', label: 'Conversa' },
+  { key: 'attributes', label: 'Atributos' },
+  { key: 'chat', label: 'Histórico de conversa' },
   { key: 'memories', label: 'Memórias' },
   { key: 'diary', label: 'Diário' },
   { key: 'quests', label: 'Quests' },
@@ -44,6 +49,13 @@ function quality(): 'high' | 'low' {
 export function App() {
   const { backend, snap, tab, setTab, run, error, toasts, lastReply, pulse, burst, busy, setBackend } = useGame();
   const [bubble, setBubble] = useState<string | null>(null);
+  const [minimized, setMinimized] = useState(false);
+  useEffect(() => setMinimized(false), [tab]);
+  useEffect(() => {
+    const close = (e: KeyboardEvent) => { if (e.key === 'Escape' && !(document.activeElement instanceof HTMLInputElement) && !(document.activeElement instanceof HTMLTextAreaElement)) setTab(null); };
+    window.addEventListener('keydown', close);
+    return () => window.removeEventListener('keydown', close);
+  }, [setTab]);
 
   useEffect(() => {
     if (!backend) return;
@@ -67,17 +79,6 @@ export function App() {
     const t = setTimeout(() => setBubble((b) => (b === barkMsg.text ? null : b)), Math.max(2600, barkMsg.text.length * 75));
     return () => clearTimeout(t);
   }, [barkMsg]);
-  // segure V (fora de campos de texto) para falar com ela
-  const vmic = useMic((t) => sendPlayerMessage(t));
-  const vmicRef = useRef(vmic); vmicRef.current = vmic;
-  useEffect(() => {
-    const typing = () => { const el = document.activeElement; return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || (el as HTMLElement).isContentEditable); };
-    const down = (e: KeyboardEvent) => { if (e.repeat || typing() || e.key.toLowerCase() !== 'v') return; vmicRef.current.start(); };
-    const up = (e: KeyboardEvent) => { if (e.key.toLowerCase() === 'v') vmicRef.current.stop(); };
-    window.addEventListener('keydown', down); window.addEventListener('keyup', up);
-    return () => { window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); };
-  }, []);
-
   // Silêncio: depois de um tempo sem a pessoa responder, o Companion puxa assunto (online, até 3 vezes por sessão).
   const muses = useRef(0);
   const lastEvent = snap?.timeline?.[snap.timeline.length - 1];
@@ -266,11 +267,11 @@ export function App() {
     return () => { window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); window.removeEventListener('blur', releaseAttack); };
   }, []);
 
-  const panel = { chat: ChatPanel, memories: MemoriesPanel, diary: DiaryPanel, quests: QuestsPanel, inventory: InventoryPanel, recipes: RecipesPanel, skills: SkillTreePanel, bond: BondPanel, settings: SettingsPanel };
+  const panel = { attributes: AttributesPanel, chat: ChatPanel, memories: MemoriesPanel, diary: DiaryPanel, quests: QuestsPanel, inventory: InventoryPanel, recipes: RecipesPanel, skills: SkillTreePanel, bond: BondPanel, settings: SettingsPanel };
   const Panel = tab ? panel[tab] : null;
 
   return (
-    <div className={'app' + (tab ? ' has-panel' : '') + (place === 'world' ? ' in-world' : '') + (model ? ' with-vitals' : '')}>
+    <div className={'app game-ui' + (tab && !minimized ? ' has-panel' : '') + (place === 'world' ? ' in-world' : '') + (model ? ' with-vitals' : '')}>
       <div className="stage">
         <Suspense fallback={null}>
           {place === 'world' && model ? (
@@ -285,15 +286,19 @@ export function App() {
 
       {backend && c && (
         <>
+          <LocationHud place={place} region={regionName} now={clock} />
+          <QuestTracker />
+          <FloatingConversation />
           <header className="nameplate">
             {snap?.visualJob?.artUrl
               ? <div className="portrait art" style={{ backgroundImage: `url("${snap.visualJob.artUrl}")` }} role="img" aria-label={`Retrato de ${d.name ?? 'Companion'}`} />
               : <div className="portrait" style={{ background: `radial-gradient(circle at 50% 45%, #fff 0 12%, ${visual.color} 40%, transparent 72%)` }} />}
-            <div>
+            <div className="identity-info">
               <h1>{d.name ?? 'Núcleo sem nome'}</h1>
-              <p>{c.stage === 'awakened' ? 'Primeira forma' : 'Partículas'} · vínculo {c.bond.level}</p>
-              {model ? <VitalsBars bondRatio={c.bond.ratio} bondLevel={c.bond.level} /> : <div className="bar small"><i style={{ width: Math.round(c.bond.ratio * 100) + '%' }} /></div>}
+              <p>{d.form ? SPECIES[d.form].label : 'Partículas'}{d.element ? ' · ' + ELEMENTS[d.element].label : ''}</p>
+              <VitalsBars bondRatio={c.bond.ratio} bondLevel={c.bond.level} />
             </div>
+            <span className="portrait-level">Vínc. {c.bond.level}</span>
             {backend.kind === 'local' && <span className="mode" title="Progresso salvo apenas neste navegador; respostas sem IA">Offline · sem IA</span>}
             <button className="leave" title="Sair" aria-label="Sair" onClick={() => void leave()}>⎋</button>
           </header>
@@ -313,26 +318,25 @@ export function App() {
               )}
             </div>
           )}
-          {model && <SkillBar color={visual.glow} />}
+          {model && <BondTrack />}
           {model && <TouchMoves />}
           {model && <FaintCounter />}
           {model && (
-            <button className={'attack-btn' + (bowEquipped ? ' bow' : '')} aria-label={bowEquipped ? 'Segure para carregar o arco e solte para atirar' : 'Atacar'}
+            <div className="combat-dock"><SkillBar color={visual.glow} /><button className={'attack-btn basic-attack' + (bowEquipped ? ' bow' : '')} aria-label={bowEquipped ? 'Segure para carregar o arco e solte para atirar' : 'Atacar'}
               onPointerDown={(e) => { e.preventDefault(); (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId); pressAttack(); }}
               onPointerUp={() => releaseAttack()} onPointerCancel={() => releaseAttack()} onContextMenu={(e) => e.preventDefault()}>
-              <span aria-hidden>{bowEquipped ? '🏹' : gear.weapon && ITEM_TYPES[gear.weapon.type].weapon?.ranged === 'magic' ? '✦' : '⚔'}</span>
+              <HudGlyph kind={gear.weapon && ITEM_TYPES[gear.weapon.type].weapon?.ranged === 'magic' ? 'sintonia' : 'ataque'} />
               <small>{bowEquipped ? 'segure' : 'F'}</small>
-            </button>
+            </button></div>
           )}
-          {place === 'world' && <WorldMap world={companionWorld} discovered={discovered} />}
+          {model && <WorldMap world={companionWorld} discovered={discovered} />}
           {place === 'world' && regionName && <div className="region-banner" key={regionName}>{regionName}</div>}
           {/* a fala aparece num balão sobre a cabeça do Companion (na cena); aqui só para leitores de tela */}
           {bubble && <div className="sr-only" role="status">{bubble}</div>}
-          {vmic.listening && <div className="listening" role="status"><span>🎙</span>{vmic.heard || 'Ouvindo… pode falar'}</div>}
 
-          <nav className="rail" aria-label="Refúgio">
+          <nav className="rail" aria-label="Menu do Companion">
             {TABS.map((t) => (
-              <button key={t.key} className={tab === t.key ? 'on' : ''} onClick={() => setTab(tab === t.key ? null : t.key)} aria-pressed={tab === t.key}>
+              <button key={t.key} title={t.label} aria-label={t.label} className={tab === t.key ? 'on' : ''} onClick={() => setTab(tab === t.key ? null : t.key)} aria-pressed={tab === t.key}>
                 <Icon tab={t.key} />
                 <span>{t.label}</span>
                 {t.key === 'bond' && snap?.awakening?.ready && c.stage === 'particles' && <em className="dot" aria-label="pronto para despertar" />}
@@ -341,12 +345,12 @@ export function App() {
           </nav>
 
           {Panel && tab && (
-            <section className={'panel panel-' + tab} aria-label={TABS.find((t) => t.key === tab)?.label}>
+            <section className={'panel panel-' + tab + (minimized ? ' is-minimized' : '')} aria-label={TABS.find((t) => t.key === tab)?.label}>
               <header>
                 <h2>{TABS.find((t) => t.key === tab)?.label}</h2>
-                <button className="close" onClick={() => setTab(null)} aria-label="Fechar painel">×</button>
+                <div className="panel-controls"><button className="minimize" onClick={() => setMinimized(!minimized)} aria-expanded={!minimized} aria-label={minimized ? 'Restaurar painel' : 'Minimizar painel'}>{minimized ? '□' : '−'}</button><button className="close" onClick={() => setTab(null)} aria-label="Fechar painel">×</button></div>
               </header>
-              <div className="panel-body"><Panel /></div>
+              <div className="panel-body" hidden={minimized}><Panel /></div>
             </section>
           )}
         </>
@@ -365,3 +369,4 @@ export function App() {
     </div>
   );
 }
+
