@@ -347,3 +347,15 @@ canvas.cursor-attack { cursor: none !important; }
 .soc-items li span, .soc-items li label { flex: 1; }
 .soc-items input[type='number'] { width: 64px; }
 .hint.warn { color: #ffb3a8; }
+
+/* falas junto da caixa de conversa: só no celular (lá os balões flutuantes somem para não cobrir o jogo) */
+.dock-speech { display: none; }
+@media (max-width: 760px) {
+  .game-ui .speech-stack, .game-ui .remote-speech { display: none !important; }
+  .dock-speech { display: grid; gap: 4px; }
+  .dock-line { margin: 0; justify-self: start; max-width: 88%; padding: 6px 12px; border-radius: 4px 14px 4px 14px; background: #0d1638ee; border: 1px solid #d4b57599; color: #f4ead2; font: 0.86rem/1.35 var(--serif); box-shadow: 0 4px 12px #0006; animation: echo-in 0.25s ease-out; }
+  .dock-line b { display: block; font: 600 0.62rem/1 var(--sans, sans-serif); letter-spacing: 0.12em; text-transform: uppercase; color: #f6dfa8; margin-bottom: 3px; }
+  .dock-line.other { border-color: #9fd8ff88; }
+  .dock-line.other b { color: #bfe4ff; }
+}
+@media (max-width: 760px) { .game-ui:has(.dock-line, .player-echo) .quest-tracker { display: none; } }
