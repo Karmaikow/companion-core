@@ -305,7 +305,7 @@ canvas.cursor-attack { cursor: none !important; }
 .attack-cursor .ac-spin path { fill: none; stroke: #ffd77a; stroke-width: 3; stroke-linecap: round; }
 .attack-cursor .ac-core { fill: none; stroke: #fff4cf; stroke-width: 1.5; animation: ac-pulse 0.7s ease-in-out infinite alternate; transform-origin: 0 0; }
 .attack-cursor .ac-dot { fill: #fff; }
-.attack-cursor .ac-sword { position: absolute; left: 8px; top: 6px; overflow: visible; transform-origin: 3px 3px; animation: ac-swing 0.9s ease-in-out infinite; filter: drop-shadow(0 1px 1px #000c); }
+.attack-cursor .ac-sword { position: absolute; left: -3px; top: -3px; overflow: visible; transform-origin: 3px 3px; animation: ac-swing 0.9s ease-in-out infinite; filter: drop-shadow(0 1px 1px #000c); }
 .attack-cursor .ac-blade { stroke: #fff; stroke-width: 1; }
 .attack-cursor .ac-blade-fill { fill: #e8eef8; stroke: #6b7894; stroke-width: 0.8; }
 .attack-cursor .ac-guard { stroke: #d9a63a; stroke-width: 2.6; stroke-linecap: round; }

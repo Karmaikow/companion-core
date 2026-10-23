@@ -13,7 +13,7 @@ import { useSkillData, useSkills, persistAlloc } from './skillState';
 const ATTR_LABEL: Record<string, string> = { vida: 'Vida', energia: 'Energia', poder: 'Poder', defesa: 'Defesa', agilidade: 'Agilidade', sintonia: 'Sintonia' };
 
 export function SkillTreePanel() {
-  const { companion: c, species, essence, bond, points, tree, catalog, alloc } = useSkillData();
+  const { companion: c, species, essence, bond, points, secrets, tree, catalog, alloc } = useSkillData();
   const d = c?.discoveries;
   const saving = useSkills((s) => s.saving);
   const [branch, setBranch] = useState<TreeBranch>('essencia');
@@ -51,7 +51,7 @@ export function SkillTreePanel() {
           <strong>{sp.label}</strong>{essence && <> · {ELEMENTS[essence].label}</>}
           <small>{sp.lineage} · afinidade com {sp.affinities.map((e) => ELEMENTS[e].label).join(' e ')} (−{Math.round(fx.classAffinity * 100)}% de SP) · velocidade {sp.speed.toLocaleString('pt-BR')}×</small>
         </div>
-        <div className={'st-points' + (free > 0 ? ' has' : '')} aria-live="polite"><b>{free}</b><small>ponto{free === 1 ? '' : 's'} livre{free === 1 ? '' : 's'}{saving ? ' · salvando…' : ''}</small></div>
+        <div className={'st-points' + (free > 0 ? ' has' : '')} aria-live="polite"><b>{free}</b><small>ponto{free === 1 ? '' : 's'} livre{free === 1 ? '' : 's'}{secrets ? ` · ${points} no total (+${secrets} de quests secretas)` : ''}{saving ? ' · salvando…' : ''}</small></div>
       </div>
       <nav className="st-tabs" aria-label="Galhos">
         {(Object.keys(tree.branches) as TreeBranch[]).map((b) => {

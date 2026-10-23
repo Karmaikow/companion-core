@@ -121,8 +121,9 @@ export function resolveBalance(raw: unknown): BalanceConfig {
 export const progressionStage = (bondLevel: number) => Math.max(1, Math.floor(bondLevel) || 1);
 
 /** Pontos distribuíveis no estágio. Companions no mesmo estágio têm o mesmo orçamento. */
-export function budget(stage: number, cfg: BalanceConfig = DEFAULT_BALANCE): number {
-  return cfg.basePoints + cfg.pointsPerStage * (progressionStage(stage) - 1);
+export function budget(stage: number, cfg: BalanceConfig = DEFAULT_BALANCE, bonus = 0): number {
+  // bonus: pontos extras (ex.: +10 a cada 10 quests secretas, secretBonus)
+  return cfg.basePoints + cfg.pointsPerStage * (progressionStage(stage) - 1) + Math.max(0, Math.floor(bonus) || 0);
 }
 
 export const emptyAllocation = (): AttributeAllocation => ({ vitalidade: 0, forca: 0, magia: 0, agilidade: 0, destreza: 0, espirito: 0 });
@@ -143,9 +144,9 @@ export function parseAllocation(input: unknown): AttributeAllocation | null {
 }
 
 export type AllocationCheck = { ok: true; used: number; free: number } | { ok: false; reason: string };
-export function checkAllocation(a: AttributeAllocation | null, stage: number, cfg: BalanceConfig = DEFAULT_BALANCE): AllocationCheck {
+export function checkAllocation(a: AttributeAllocation | null, stage: number, cfg: BalanceConfig = DEFAULT_BALANCE, bonus = 0): AllocationCheck {
   if (!a) return { ok: false, reason: 'Valores inválidos: use números inteiros a partir de zero.' };
-  const total = budget(stage, cfg), used = usedPoints(a);
+  const total = budget(stage, cfg, bonus), used = usedPoints(a);
   if (used > total) return { ok: false, reason: `Pontos demais: ${used} de ${total}.` };
   return { ok: true, used, free: total - used };
 }

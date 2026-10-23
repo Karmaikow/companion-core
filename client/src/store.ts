@@ -129,7 +129,7 @@ export const useGame = create<State>((set, get) => ({
       for (const k of [...(t?.secrets ?? []), ...(snap.dream?.secrets ?? [])]) {
         const s = SECRET_BY_KEY[k as SecretKey];
         if (!s) continue;
-        get().celebrate({ kind: 'secret', eyebrow: 'Quest secreta!', title: s.title, subtitle: `${s.story} +${SECRET_XP} de vínculo, e as próximas ${SECRET_BOOST_TURNS} conversas valem o dobro.`, item: s.item.item });
+        get().celebrate({ kind: 'secret', eyebrow: 'Quest secreta!', title: s.title, subtitle: `${s.story} +${SECRET_XP} de vínculo, +1 ponto de habilidade, e as próximas ${SECRET_BOOST_TURNS} conversas valem o dobro.${(snap.secrets?.length ?? 0) > 0 && (snap.secrets?.length ?? 0) % 10 === 0 ? ' E +10 pontos de Constelação!' : ''}`, item: s.item.item });
         set({ burst: get().burst + 1, pulse: get().pulse + 1 });
       }
       if (snap.dream) get().toast(snap.dream.dreamed ? 'Uma nova página no diário' : snap.dream.reason ?? '', snap.dream.dreamed ? 'gold' : 'soft');

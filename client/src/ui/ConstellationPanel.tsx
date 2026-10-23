@@ -43,7 +43,8 @@ export function ConstellationSummary({ onOpen }: { onOpen: () => void }) {
     <div className="cv-summary">
       <div className="cv-mini" aria-hidden><Constellation alloc={view.active.alloc} resonance={view.active.resonance} small /></div>
       <div>
-        <p><b>{free > 0 ? `${free} ponto${free > 1 ? 's' : ''} livre${free > 1 ? 's' : ''}` : 'Todos os pontos distribuídos'}</b> · {view.budget} no estágio {view.stage}</p>
+        <p><b>{free > 0 ? `${free} ponto${free > 1 ? 's' : ''} livre${free > 1 ? 's' : ''}` : 'Todos os pontos distribuídos'}</b> · {view.budget} no estágio {view.stage}{view.bonus?.points ? ` (+${view.bonus.points} das quests secretas)` : ''}</p>
+        {view.bonus && <p className="hint">Quests secretas: {view.bonus.secrets} · a cada 10, +10 pontos de Constelação (faltam {view.bonus.nextIn}).</p>}
         <p className="cv-stats">{STAT_KEYS.map((k) => <span key={k}>{STATS[k].short} <b>{view.active.alloc[k]}</b></span>)}</p>
         <p>HP {d.hpMax} · SP {d.spMax} · Física {fmt(d.physPower)}% · Mágica {fmt(d.magPower)}%{view.active.resonance ? ` · ${RESONANCES[view.active.resonance].name}` : ''}</p>
         {view.pending && <p className="cv-warn" role="status">Troca pendente: {view.pending.reason}</p>}

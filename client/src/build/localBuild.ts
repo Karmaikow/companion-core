@@ -3,7 +3,7 @@
  * Repetir o mesmo pedido devolve o mesmo resultado; a versão impede escrever por cima de uma mudança mais nova.
  */
 import {
-  DEFAULT_BALANCE, MAX_PROFILES, PROFILE_NAME, applyBlockers, budget, checkAllocation, demoProfiles, migrateBuild, parseAllocation, parseResonance, progressionStage,
+  DEFAULT_BALANCE, secretBonus, MAX_PROFILES, PROFILE_NAME, applyBlockers, budget, checkAllocation, demoProfiles, migrateBuild, parseAllocation, parseResonance, progressionStage,
   type BuildProfile, type BuildState, type SpeciesKey,
 } from '@rules';
 import { useGame } from '../store';
@@ -15,7 +15,8 @@ const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xx
 
 function me() {
   const c = useGame.getState().snap?.companion;
-  return { id: c?.id ?? 'local', species: (c?.discoveries.form ?? null) as SpeciesKey | null, stage: progressionStage(c?.bond.level ?? 1) };
+  const sec = secretBonus(useGame.getState().snap?.secrets?.length ?? 0);
+  return { id: c?.id ?? 'local', species: (c?.discoveries.form ?? null) as SpeciesKey | null, stage: progressionStage(c?.bond.level ?? 1), bonus: sec.constellationPoints, sec };
 }
 function load(): Save {
   const m = me();
@@ -27,7 +28,7 @@ function save(s: Save) { try { s.done = Object.fromEntries(Object.entries(s.done
 function view(s: Save, flags: Record<string, unknown> = {}): BuildView {
   const m = me();
   const { done: _d, ...st } = s;
-  return { ...st, stage: m.stage, budget: budget(m.stage), blockers: applyBlockers({ inCombat: flags.inCombat === true, gathering: flags.gathering === true, crafting: flags.crafting === true }), config: DEFAULT_BALANCE, simulated: true };
+  return { ...st, stage: m.stage, budget: budget(m.stage, DEFAULT_BALANCE, m.bonus), bonus: { secrets: useGame.getState().snap?.secrets?.length ?? 0, points: m.bonus, nextIn: m.sec.nextIn }, blockers: applyBlockers({ inCombat: flags.inCombat === true, gathering: flags.gathering === true, crafting: flags.crafting === true }), config: DEFAULT_BALANCE, simulated: true };
 }
 
 export async function localBuild(action: string, body: Record<string, unknown> = {}): Promise<BuildReply> {
@@ -41,7 +42,7 @@ export async function localBuild(action: string, body: Record<string, unknown> =
   const prof = (p: unknown, keep?: string): BuildProfile => {
     const o = (p ?? {}) as Record<string, unknown>, name = String(o.name ?? '').trim().slice(0, 24);
     if (!PROFILE_NAME.test(name)) throw new Error('Nome do perfil inválido (até 24 letras, números e espaços).');
-    const alloc = parseAllocation(o.alloc), chk = checkAllocation(alloc, m.stage);
+    const alloc = parseAllocation(o.alloc), chk = checkAllocation(alloc, m.stage, DEFAULT_BALANCE, m.bonus);
     if (!chk.ok) throw new Error(chk.reason);
     const resonance = parseResonance(o.resonance);
     if (resonance === undefined) throw new Error('Ressonância indisponível.');
@@ -49,7 +50,7 @@ export async function localBuild(action: string, body: Record<string, unknown> =
   };
 
   if (action === 'build.apply') {
-    const alloc = parseAllocation(body.alloc), chk = checkAllocation(alloc, m.stage);
+    const alloc = parseAllocation(body.alloc), chk = checkAllocation(alloc, m.stage, DEFAULT_BALANCE, m.bonus);
     if (!chk.ok) throw new Error(chk.reason);
     const resonance = parseResonance(body.resonance);
     if (resonance === undefined) throw new Error('Ressonância indisponível.');

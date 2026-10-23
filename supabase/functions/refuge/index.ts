@@ -6,7 +6,7 @@ import {
   offlineTurn, assistDiscoveries, buildDreamPrompt, parseDream, checkAwakening, buildIdentityContract, gameTime, companionDay, clampText,
   QUESTS, QUEST_REWARDS, validateSetup, evaluateSecrets, isQuestionAboutCompanion, buildMusePrompt,
   SECRET_BY_KEY, SECRET_XP, SECRET_BOOST_TURNS, buildArtPrompt, ANIM_KINDS, SPECIES, DEFAULT_CREATURES, sanitizeCreature, recordKill, combatMemoryLines, combatMemoryText,
-  masculinize, resolveBalance, type BalanceConfig, budget, deriveStats, progressionStage,
+  masculinize, secretBonus, resolveBalance, type BalanceConfig, budget, deriveStats, progressionStage,
   BANK_EVENTS, MOMENT_EVENTS, withXpMultiplier, combatXp, resolveEcos, type EcosConfig, resolvePacto, type PactoConfig, buildBarkBankPrompt, parseBarkBank, buildMomentPrompt, parseMoment, dossier, type BarkEvent,
   type BestiaryEntry, type CreatureDef, type SecretKey, type GameConfig, type IdentityContractV1, type QuestState, type Discoveries, type MemoryLite, type ChatLine,
 } from './rules/index.ts';
@@ -200,7 +200,7 @@ async function adminCompanion(db: SupabaseClient, cfg: GameConfig & { constellat
       techniques: (ecosProf.data?.techniques as string[] | undefined) ?? [],
     },
     pacto: { lumes: Number(pacto.data?.lumes ?? 0), testClass: pacto.data?.test_class ?? null, equipment: equip.data ?? [] },
-    build: build ? { ...build, stage, budget: budget(stage, cfg.constellation), derived } : null,
+    build: build ? { ...build, stage, budget: budget(stage, cfg.constellation, secretBonus(secrets).constellationPoints), derived } : null,
     jobs,
   };
 }

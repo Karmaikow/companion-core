@@ -4,7 +4,7 @@
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import {
   levelForXp, budget, checkAllocation, parseAllocation, parseResonance, migrateBuild, demoProfiles, applyBlockers, cleanRequestId, clampText,
-  progressionStage, MAX_PROFILES, PROFILE_NAME, type BalanceConfig, type BuildProfile, type BuildState, type GameConfig, type SpeciesKey, type Discoveries,
+  progressionStage, secretBonus, MAX_PROFILES, PROFILE_NAME, type BalanceConfig, type BuildProfile, type BuildState, type GameConfig, type SpeciesKey, type Discoveries,
 } from './rules/index.ts';
 
 export class BuildError extends Error { constructor(public status: number, msg: string) { super(msg); } }
@@ -51,19 +51,26 @@ async function blockers(db: SupabaseClient, cid: string, bcfg: BalanceConfig, cl
   return applyBlockers({ inCombat: clientSaysCombat || !!kill.data?.length, gathering: !!gather.data?.length, crafting: !!craft.data?.length });
 }
 
+/** Pontos extras de Constelação pelas quests secretas (+10 a cada 10). */
+export async function secretPoints(db: SupabaseClient, cid: string) {
+  const { count } = await db.from('companion_secrets').select('companion_id', { count: 'exact', head: true }).eq('companion_id', cid);
+  return { count: count ?? 0, ...secretBonus(count ?? 0) };
+}
+
 export async function buildView(ctx: Ctx, clientSaysCombat = false) {
   const { db, c, cfg, bcfg } = ctx;
   const state = await loadBuild(db, c, cfg, bcfg);
   const stage = stageOf(c, cfg);
-  return { build: { ...state, stage, budget: budget(stage, bcfg), blockers: await blockers(db, c.id as string, bcfg, clientSaysCombat), config: bcfg } };
+  const sec = await secretPoints(db, c.id as string);
+  return { build: { ...state, stage, budget: budget(stage, bcfg, sec.constellationPoints), bonus: { secrets: sec.count, points: sec.constellationPoints, nextIn: sec.nextIn }, blockers: await blockers(db, c.id as string, bcfg, clientSaysCombat), config: bcfg } };
 }
 
-function validProfile(p: unknown, stage: number, bcfg: BalanceConfig, keepId?: string): BuildProfile {
+function validProfile(p: unknown, stage: number, bcfg: BalanceConfig, bonus: number, keepId?: string): BuildProfile {
   const o = (p ?? {}) as Record<string, unknown>;
   const name = clampText(o.name, 24).trim();
   if (!PROFILE_NAME.test(name)) throw new BuildError(400, 'Nome do perfil inválido (até 24 letras, números e espaços).');
   const alloc = parseAllocation(o.alloc);
-  const chk = checkAllocation(alloc, stage, bcfg);
+  const chk = checkAllocation(alloc, stage, bcfg, bonus);
   if (!chk.ok) throw new BuildError(400, chk.reason);
   const resonance = parseResonance(o.resonance);
   if (resonance === undefined) throw new BuildError(400, 'Ressonância indisponível.');
@@ -79,6 +86,7 @@ export async function buildAction(action: string, body: Record<string, unknown>,
   const state = await loadBuild(db, c, cfg, bcfg);
   const version = Number.isInteger(body.version) ? Number(body.version) : state.version;
   const stage = stageOf(c, cfg);
+  const bonus = (await secretPoints(db, cid)).constellationPoints;
   const write = async (kind: string, patch: Record<string, unknown>) => {
     const r = await rpc<{ ok: boolean; reason?: string; repeat?: boolean; version?: number }>(db, 'build_write', { p_cid: cid, p_request: request, p_kind: kind, p_version: version, p_patch: patch });
     if (!r.ok && r.reason === 'versao') throw new BuildError(409, 'A build mudou em outro lugar. Recarreguei a versão atual.');
@@ -88,7 +96,7 @@ export async function buildAction(action: string, body: Record<string, unknown>,
 
   if (action === 'build.apply') {
     const alloc = parseAllocation(body.alloc);
-    const chk = checkAllocation(alloc, stage, bcfg);
+    const chk = checkAllocation(alloc, stage, bcfg, bonus);
     if (!chk.ok) throw new BuildError(400, chk.reason);
     const resonance = parseResonance(body.resonance);
     if (resonance === undefined) throw new BuildError(400, 'Ressonância indisponível.');
@@ -99,7 +107,7 @@ export async function buildAction(action: string, body: Record<string, unknown>,
       return { ...(await buildView(ctx, body.inCombat === true)), applied: false, pending: true, reason: why[0], repeat: !!r.repeat };
     }
     const r = await write('apply', { alloc, ...(resonance ? { resonance } : { resonance_clear: true }), pending_clear: true, applied: true });
-    if (!r.repeat) await ctx.event('build.applied', { alloc, resonance, stage, budget: budget(stage, bcfg), version: r.version });
+    if (!r.repeat) await ctx.event('build.applied', { alloc, resonance, stage, budget: budget(stage, bcfg, bonus), version: r.version });
     return { ...(await buildView(ctx)), applied: true, repeat: !!r.repeat };
   }
   if (action === 'build.cancelPending') {
@@ -109,7 +117,7 @@ export async function buildAction(action: string, body: Record<string, unknown>,
   if (action === 'build.profile.save') {
     const id = typeof (body.profile as Record<string, unknown> | undefined)?.id === 'string' ? String((body.profile as Record<string, unknown>).id) : undefined;
     const exists = id ? state.profiles.find((p) => p.id === id) : undefined;
-    const prof = validProfile(body.profile, stage, bcfg, exists?.id);
+    const prof = validProfile(body.profile, stage, bcfg, bonus, exists?.id);
     const profiles = exists ? state.profiles.map((p) => (p.id === prof.id ? prof : p)) : [...state.profiles, prof];
     if (profiles.length > MAX_PROFILES) throw new BuildError(400, `No máximo ${MAX_PROFILES} perfis.`);
     await write('profile.save', { profiles });

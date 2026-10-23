@@ -63,7 +63,8 @@ export function useSkillData() {
   const snap = useGame((s) => s.snap);
   const c = snap?.companion;
   const species = c?.discoveries.form ?? null, essence = c?.discoveries.element ?? null;
-  const bond = c?.bond.level ?? 1, points = skillPoints(bond);
+  const secrets = snap?.secrets?.length ?? 0;
+  const bond = c?.bond.level ?? 1, points = skillPoints(bond, 0, secrets);
   const catalog = useSkills((s) => s.catalog), alloc = useSkills((s) => s.alloc);
   const tree: SkillTree | null = useMemo(() => (species ? buildSkillTree(catalog, { essence, species }) : null), [catalog, essence, species]);
   const fx = useMemo(() => (tree ? treeEffects(tree, alloc) : null), [tree, alloc]);
@@ -72,7 +73,7 @@ export function useSkillData() {
     if (!fx) return [] as { skill: SkillDef; level: number }[];
     return [...fx.skills.entries()].map(([slug, level]) => ({ skill: catalog.find((s) => s.slug === slug)!, level })).filter((x) => !!x.skill);
   }, [fx, catalog]);
-  return { companion: c ?? null, species, essence, bond, points, tree, fx, unlocked, catalog, alloc };
+  return { companion: c ?? null, species, essence, bond, points, secrets, tree, fx, unlocked, catalog, alloc };
 }
 
 /** Grava a distribuição (online ou neste navegador). */
