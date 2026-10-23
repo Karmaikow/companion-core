@@ -40,8 +40,9 @@ export const TIER_BOND: Record<number, number> = { 1: 1, 2: 2, 3: 3, 4: 5, 5: 8 
 export const RANK_POWER = 0.15, RANK_COOLDOWN = 0.08;
 
 /** Pontos ganhos até agora. */
-export function skillPoints(bondLevel: number, combatLevel = 0): number {
-  return Math.max(1, Math.floor(bondLevel)) + Math.max(0, Math.floor(combatLevel));
+export function skillPoints(bondLevel: number, combatLevel = 0, secrets = 0): number {
+  // + 1 por quest secreta conquistada (secretBonus)
+  return Math.max(1, Math.floor(bondLevel)) + Math.max(0, Math.floor(combatLevel)) + Math.max(0, Math.floor(secrets));
 }
 
 const SPECIES_PASSIVES: Record<SpeciesKey, [{ name: string; description: string; bonus: Partial<Record<AttrKey, number>> }, { name: string; description: string; bonus: Partial<Record<AttrKey, number>> }]> = {

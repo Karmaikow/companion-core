@@ -385,6 +385,13 @@ Os efeitos deixaram de ser pontos com textura e passaram a usar um motor própri
 - **Entrada**: "Criar conta e começar" é o botão principal; entrar, experimentar sem conta e jogar offline vêm depois.
 
 
+## Quests secretas dão pontos (v1.23)
+
+Cada quest secreta conquistada soma **+1 ponto de habilidade** (árvore; `skillPoints(vínculo, combate, secretas)`) e
+cada **10** somam **+10 pontos de Constelação** (`secretBonus` em `shared/rules/secrets.ts`; o servidor conta
+`companion_secrets` e passa o bônus para `budget`/`checkAllocation`). A Constelação mostra quantas faltam para os
+próximos 10; a árvore mostra o total com o bônus.
+
 ## MMO social: encontros, amizade, grupo e troca (v1.22)
 
 Tudo em **docs/MMO_SOCIAL.md** ("O que já está no jogo"). Resumo: quando dois Companions ficam perto no Companion

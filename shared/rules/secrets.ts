@@ -38,6 +38,16 @@ export const SECRET_BY_KEY = Object.fromEntries(SECRETS.map((s) => [s.key, s])) 
 export const SECRET_XP = 25;
 export const SECRET_BOOST_TURNS = 5;
 
+/**
+ * Bônus permanentes das quests secretas: cada uma dá +1 ponto de habilidade (árvore) e cada 10 conquistadas dão
+ * +10 pontos de Constelação (atributos).
+ */
+export const SECRET_SKILL_POINT = 1, SECRET_CONSTELLATION_STEP = 10, SECRET_CONSTELLATION_POINTS = 10;
+export function secretBonus(count: number): { skillPoints: number; constellationPoints: number; nextIn: number } {
+  const n = Math.max(0, Math.floor(count) || 0);
+  return { skillPoints: n * SECRET_SKILL_POINT, constellationPoints: Math.floor(n / SECRET_CONSTELLATION_STEP) * SECRET_CONSTELLATION_POINTS, nextIn: SECRET_CONSTELLATION_STEP - (n % SECRET_CONSTELLATION_STEP) };
+}
+
 export interface SecretContext {
   /** Mensagem do jogador neste turno (vazia em ações sem conversa). */
   message?: string;

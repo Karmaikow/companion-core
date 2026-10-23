@@ -230,3 +230,17 @@ describe('concentrar a habilidade (Shift + número)', () => {
     expect(skillCharge(2)).toBeLessThan(skillCharge(2.4));
   });
 });
+
+describe('quests secretas dão pontos', () => {
+  it('+1 de habilidade por secreta e +10 de Constelação a cada 10', async () => {
+    const { secretBonus, skillPoints, budget, checkAllocation, DEFAULT_BALANCE } = await import('../rules/index.ts');
+    expect(secretBonus(3)).toMatchObject({ skillPoints: 3, constellationPoints: 0, nextIn: 7 });
+    expect(secretBonus(10).constellationPoints).toBe(10);
+    expect(secretBonus(25).constellationPoints).toBe(20);
+    expect(skillPoints(4, 0, 3)).toBe(7);
+    expect(budget(1, DEFAULT_BALANCE, 10)).toBe(budget(1) + 10);
+    const alloc = { vitalidade: budget(1) + 10, forca: 0, magia: 0, agilidade: 0, destreza: 0, espirito: 0 };
+    expect(checkAllocation(alloc, 1).ok).toBe(false);
+    expect(checkAllocation(alloc, 1, DEFAULT_BALANCE, 10).ok).toBe(true);
+  });
+});
