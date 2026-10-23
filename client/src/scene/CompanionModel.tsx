@@ -340,7 +340,7 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
     const conf = settings(), ai = cs.ai, order0 = brain.order;
     if (order0 && 'until' in order0 && performance.now() > order0.until) brain.order = null;
     const order = brain.order;
-    const driving = [...keys.current].some((k2) => k2 !== 'shift') || s.click; // andando por clique: a ordem do jogador vale até chegar
+    const driving = [...keys.current].some((k2) => k2 !== 'shift') || s.click || moveInput.stick.on; // andando por clique: a ordem do jogador vale até chegar
     ai.think -= dt; ai.skillT -= dt;
     if (vitals.hitId !== ai.hitSeen) { ai.hitSeen = vitals.hitId; say('hurt', {}, { chance: 0.35 }); }
     const hpR = vitals.hp / Math.max(1, vitals.hpMax);
@@ -532,8 +532,9 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
     }
     // controle pelo teclado
     const k = keys.current;
-    const ix = (k.has('d') || k.has('arrowright') ? 1 : 0) - (k.has('a') || k.has('arrowleft') ? 1 : 0);
-    const iz = (k.has('w') || k.has('arrowup') ? 1 : 0) - (k.has('s') || k.has('arrowdown') ? 1 : 0);
+    const js = moveInput.stick, stickOn = js.on && Math.hypot(js.x, js.y) > 0.12;
+    const ix = stickOn ? js.x : (k.has('d') || k.has('arrowright') ? 1 : 0) - (k.has('a') || k.has('arrowleft') ? 1 : 0);
+    const iz = stickOn ? js.y : (k.has('w') || k.has('arrowup') ? 1 : 0) - (k.has('s') || k.has('arrowdown') ? 1 : 0);
     if (ix || iz) {
       s.click = false; attackPick.focus = null;
       state.camera.getWorldDirection(fwd); fwd.y = 0; fwd.normalize();
@@ -542,7 +543,7 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
       s.target.set(r.position.x + (dx / n) * 0.8, 0, r.position.z + (dz / n) * 0.8);
       const rr = Math.hypot(s.target.x, s.target.z);
       if (rr > roam.limit) s.target.multiplyScalar(roam.limit / rr);
-      s.player = true; s.running = !k.has('shift'); s.wait = 12; s.sitting = false; // passeio sozinho só depois de um tempo parado
+      s.player = true; s.running = stickOn ? Math.hypot(js.x, js.y) > 0.6 : !k.has('shift'); s.wait = 12; s.sitting = false; // passeio sozinho só depois de um tempo parado
     } else if (s.player) { s.player = false; s.running = false; s.target.copy(r.position); }
 
     const to = new THREE.Vector3(s.target.x - r.position.x, 0, s.target.z - r.position.z);

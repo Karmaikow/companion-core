@@ -385,6 +385,16 @@ Os efeitos deixaram de ser pontos com textura e passaram a usar um motor própri
 - **Entrada**: "Criar conta e começar" é o botão principal; entrar, experimentar sem conta e jogar offline vêm depois.
 
 
+## Celular deitado: joystick e atalhos (v1.25)
+
+- Celular em pé: tela "Gire o celular" com **Jogar deitado** (tela cheia + trava em paisagem no Android; no iPhone só
+  pede para girar) ou **Continuar em pé** (layout antigo, vale para a sessão).
+- Celular deitado (`useTouchLandscape`, classe `.touch-land`): **joystick** que aparece onde o dedo toca na metade
+  esquerda (`moveInput.stick`; perto do centro anda, perto da borda corre; câmera como o WASD), botão de **ataque**
+  redondo embaixo à direita com as **habilidades em dois arcos** em volta (5 + 4; espaços vazios somem), pular/defender/
+  sentar embaixo no meio, **☰** abre o menu numa coluna e o botão de conversa abre a caixa no meio, embaixo. Viagem
+  (Companion World/Refúgio) no topo, ao centro. Lembrete de quest e dicas de teclado escondidos.
+
 ## Animações por papel, campo de treino e iluminação (v1.24)
 
 - **O Administrador → Animações** (`ui/AnimStudio.tsx`): para cada Companion com modelo, a lista de papéis

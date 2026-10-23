@@ -359,3 +359,62 @@ canvas.cursor-attack { cursor: none !important; }
   .dock-line.other b { color: #bfe4ff; }
 }
 @media (max-width: 760px) { .game-ui:has(.dock-line, .player-echo) .quest-tracker { display: none; } }
+
+
+/* ---------- celular deitado: joystick à esquerda, ataque e atalhos em arco à direita ---------- */
+.joy-zone { display: none; }
+.touch-quick { display: none; }
+.game-ui.touch-land .joy-zone { display: block; position: absolute; left: 0; bottom: 0; width: 42vw; height: 58vh; z-index: 4; touch-action: none; }
+.joy-base { position: absolute; width: 112px; height: 112px; margin: -56px 0 0 -56px; border-radius: 50%; background: radial-gradient(circle, #0d163855 40%, #0d163899); border: 2px solid #dcbc7a88; box-shadow: 0 0 0 4px #0b133055, inset 0 0 18px #0007; opacity: 0.55; transition: opacity 0.15s; pointer-events: none; }
+.joy-base.on { opacity: 1; }
+.joy-knob { position: absolute; left: 50%; top: 50%; width: 50px; height: 50px; margin: -25px 0 0 -25px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #fff2c9, #dcbc7a 60%, #a07c3c); border: 2px solid #fff3cf; box-shadow: 0 4px 12px #0008; }
+.game-ui.touch-land .attack-btn { display: grid; right: 24px; bottom: 20px; width: 80px; height: 80px; border-radius: 50%; z-index: 5; }
+.game-ui.touch-land .skill-bar { position: absolute; left: auto; right: 0; bottom: 0; transform: none; width: 250px; height: 250px; padding: 0; gap: 0; background: none; border: 0; box-shadow: none; backdrop-filter: none; pointer-events: none; z-index: 5; display: block; }
+.game-ui.touch-land .skill-bar .sb-slot { position: absolute; width: 48px; height: 48px; border-radius: 50%; pointer-events: auto; }
+.game-ui.touch-land .skill-bar .sb-slot:nth-child(n+6) { width: 42px; height: 42px; }
+.game-ui.touch-land .skill-bar .sb-slot kbd { display: none; }
+.game-ui.touch-land .skill-bar .sb-slot:nth-child(1) { right: 144px; bottom: 36px; }
+.game-ui.touch-land .skill-bar .sb-slot:nth-child(2) { right: 136px; bottom: 76px; }
+.game-ui.touch-land .skill-bar .sb-slot:nth-child(3) { right: 114px; bottom: 110px; }
+.game-ui.touch-land .skill-bar .sb-slot:nth-child(4) { right: 80px; bottom: 132px; }
+.game-ui.touch-land .skill-bar .sb-slot:nth-child(5) { right: 40px; bottom: 140px; }
+.game-ui.touch-land .skill-bar .sb-slot:nth-child(6) { right: 201px; bottom: 73px; }
+.game-ui.touch-land .skill-bar .sb-slot:nth-child(7) { right: 177px; bottom: 130px; }
+.game-ui.touch-land .skill-bar .sb-slot:nth-child(8) { right: 134px; bottom: 173px; }
+.game-ui.touch-land .skill-bar .sb-slot:nth-child(9) { right: 77px; bottom: 197px; }
+.game-ui.touch-land .touch-moves { flex-direction: row; right: 258px; bottom: 12px; gap: 8px; z-index: 5; }
+.game-ui.touch-land .touch-moves button { width: 46px; height: 46px; }
+.game-ui.touch-land .touch-quick { display: flex; gap: 6px; position: absolute; left: var(--hud-edge); top: calc(var(--hud-top) + 150px); z-index: 7; }
+.game-ui.touch-land .touch-quick button { width: 42px; height: 42px; border-radius: 50%; border: 1px solid #b79d61; background: #0d1638e6; color: #f6dfa8; font-size: 1.1rem; display: grid; place-items: center; box-shadow: 0 4px 10px #0007; }
+.game-ui.touch-land .touch-quick button.on { background: #2a3570; border-color: #ffd77a; }
+.game-ui.touch-land .touch-quick .hud-glyph { width: 20px; height: 20px; }
+/* menu recolhido: abre pelo ☰ ao lado (coluna rolável) */
+.game-ui.touch-land .rail { display: none; }
+.game-ui.touch-land.rail-open .rail { display: flex; top: calc(var(--hud-top) + 198px); left: var(--hud-edge); bottom: auto; right: auto; width: 54px; max-height: calc(100dvh - 206px); flex-direction: column; overflow-y: auto; z-index: 8; }
+.game-ui.touch-land.rail-open .rail-group { flex-direction: column; }
+/* conversa recolhida: abre pelo botão; aparece no meio, embaixo */
+.game-ui.touch-land .composer-world { display: none; }
+.game-ui.touch-land.chat-open .composer-world { display: flex; left: 50%; right: auto; transform: translateX(-50%); bottom: 10px; width: min(420px, 46vw); z-index: 6; }
+.game-ui.touch-land .quest-tracker, .game-ui.touch-land .key-hint, .game-ui.touch-land .location-crest, .game-ui.touch-land .portrait { display: none; }
+.game-ui.touch-land .nameplate { width: 236px; padding: 6px 10px; }
+.game-ui.touch-land .world-map { width: 96px !important; height: 96px !important; top: calc(var(--hud-top) + 40px); }
+.game-ui.touch-land .travel { top: var(--hud-top); bottom: auto; left: 50%; right: auto; transform: translateX(-50%); flex-direction: row; }
+.game-ui.touch-land .weather-chip { top: calc(var(--hud-top) + 2px); right: calc(var(--hud-edge) + 104px); }
+.game-ui.touch-land.in-world .weather-chip { top: calc(var(--hud-top) + 2px); }
+/* espaços vazios da barra somem no celular (monta-se pela aba Habilidades) */
+.game-ui.touch-land .skill-bar .sb-slot.empty { visibility: hidden; }
+.game-ui.touch-land .panel { top: var(--hud-top); bottom: var(--hud-bottom); left: auto; right: var(--hud-edge); width: min(58vw, 460px); z-index: 9; }
+.game-ui.touch-land .awaken-float { bottom: 12px; left: 50%; right: auto; transform: translateX(-50%); }
+.game-ui.touch-land.has-panel .joy-zone, .game-ui.touch-land.has-panel .skill-bar, .game-ui.touch-land.has-panel .attack-btn, .game-ui.touch-land.has-panel .touch-moves { display: none; }
+
+/* celular em pé: convite para deitar o celular */
+.rotate-hint { position: fixed; inset: 0; z-index: 60; display: grid; place-content: center; justify-items: center; gap: 16px; padding: 24px; text-align: center; background: radial-gradient(circle at 50% 40%, #1a2350f2, #070b1cf8); color: #f4ead2; }
+.rotate-hint p { margin: 0; max-width: 300px; font: 0.95rem/1.4 var(--serif); }
+.rotate-hint p b { display: block; font-size: 1.3rem; color: #f6dfa8; margin-bottom: 4px; }
+.rotate-phone { width: 56px; height: 96px; border: 3px solid #f6dfa8; border-radius: 12px; position: relative; animation: rot 2.4s ease-in-out infinite; box-shadow: 0 0 20px #ffd77a44; }
+.rotate-phone::after { content: ''; position: absolute; left: 50%; bottom: 6px; width: 14px; height: 3px; margin-left: -7px; border-radius: 2px; background: #f6dfa8; }
+@keyframes rot { 0%, 25% { transform: rotate(0); } 55%, 90% { transform: rotate(-90deg); } 100% { transform: rotate(0); } }
+.rotate-actions { display: grid; gap: 8px; width: min(280px, 80vw); }
+.rotate-actions button { min-height: 44px; border-radius: 4px 14px 4px 14px; border: 1px solid #b79d61; background: linear-gradient(#1b2452, #0e1638); color: #fff2d8; font: 1rem var(--serif); }
+.rotate-actions button.primary { background: linear-gradient(#e8c776, #b88d3c); color: #1b1430; font-weight: 600; }
+@media (prefers-reduced-motion: reduce) { .rotate-phone { animation: none; transform: rotate(-90deg); } }
