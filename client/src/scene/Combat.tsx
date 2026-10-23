@@ -245,7 +245,7 @@ function AttackReticle({ world }: { world: WorldShape }) {
       if (!tg) return;
       g.position.set(tg.x, world.heightAt(tg.x, tg.z) + 0.06, tg.z);
       g.rotation.y = t * spin;
-      g.scale.setScalar((tg.r * 1.5 + 0.35) * pulse); // discreto: um pouco maior que o pé do monstro
+      g.scale.setScalar(Math.min(1.1, tg.r * 1.1 + 0.22) * pulse); // discreto: só um pouco maior que o pé do alvo
     };
     const focus = attackPick.focus;
     place(hoverG.current, hov && hov !== focus ? hov : null, 0.8, 1 - 0.04 * Math.abs(Math.sin(t * 3)));
@@ -262,7 +262,7 @@ function AttackReticle({ world }: { world: WorldShape }) {
     }
   });
   const arcs = (color: string, opacity: number) => [0, 1, 2, 3].map((i) => (
-    <mesh key={i} rotation={[-Math.PI / 2, 0, 0]}><ringGeometry args={[0.9, 1, 18, 1, i * Math.PI / 2 + 0.3, Math.PI / 2 - 0.6]} /><meshBasicMaterial color={color} transparent opacity={opacity} depthWrite={false} toneMapped={false} side={THREE.DoubleSide} /></mesh>
+    <mesh key={i} rotation={[-Math.PI / 2, 0, 0]}><ringGeometry args={[0.93, 1, 18, 1, i * Math.PI / 2 + 0.3, Math.PI / 2 - 0.6]} /><meshBasicMaterial color={color} transparent opacity={opacity} depthWrite={false} toneMapped={false} side={THREE.DoubleSide} /></mesh>
   ));
   return (
     <>
