@@ -334,7 +334,7 @@ export function App() {
             <button className="leave" title="Sair" aria-label="Sair" onClick={() => void leave()}>⎋</button>
           </header>
 
-          {model && !tab && <div className="key-hint">{place === 'world' ? 'Clique ou WASD para andar · Shift corre · pise no portal para voltar' : 'Clique ou WASD para andar · Shift corre · arraste para girar a câmera'}</div>}
+          {model && !tab && <div className="key-hint">{place === 'world' ? 'Clique ou WASD para andar (corre sozinho) · Shift anda devagar · Shift + 1–9 concentra a habilidade · pise no portal para voltar' : 'Clique ou WASD para andar (corre sozinho) · Shift anda devagar · Shift + 1–9 concentra a habilidade · arraste para girar a câmera'}</div>}
           {model && (
             <div className="travel">
               {place === 'refuge' ? (

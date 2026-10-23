@@ -17,7 +17,7 @@ import { K } from './vfx/engine';
 import { healCompanion, hurtCompanion, vitals } from './vitals';
 import type { HitInfo, SkillDef } from '@rules';
 import { markCombat } from '../build/combatStats';
-import type { WorldShape } from './world';
+import { companionFocus, type WorldShape } from './world';
 
 /** Entrada: apertar começa (o arco carrega enquanto segura), soltar termina. */
 export const combatInput = { holding: false, pressId: 0, releaseId: 0 };
@@ -36,6 +36,8 @@ if (typeof window !== 'undefined') window.addEventListener('pointermove', (e) =>
 if (typeof window !== 'undefined') window.addEventListener('pointerdown', (e) => { aim.mouse = e.pointerType === 'mouse'; }, { passive: true });
 
 /** Carga do arco agora (para o efeito e para a corda). */
+/** Concentração de habilidade (Shift + 1–9): a barra escreve aqui, a cena mostra o brilho crescendo no Companion. */
+export const skillChargeState = { active: false, charge: 0, perfect: false, color: '#ffd56b' };
 export const chargeState = { active: false, charge: 0, perfect: false, pos: new THREE.Vector3(), yaw: 0, range: 0, color: '#ffd56b' };
 
 export type FxEvent =
@@ -75,6 +77,8 @@ export function CombatFx({ world }: { world: WorldShape }) {
   const line = useRef<THREE.Mesh>(null);
   const tip = useRef<THREE.Mesh>(null);
   const charger = useMemo(() => new Charge(gameVfx), []);
+  const skillCharger = useMemo(() => new Charge(gameVfx), []);
+  const skillRing = useRef<THREE.Mesh>(null);
   // Ajustes: clique esquerdo ataca (segurar carrega o arco); o direito anda e não abre o menu do navegador
   const { gl } = useThree();
   useEffect(() => {
@@ -100,6 +104,15 @@ export function CombatFx({ world }: { world: WorldShape }) {
       live.current.push(L); force((x) => x + 1);
     }
     while (numQueue.length) { const n = numQueue.shift()!; pop(n.pos, n.text, n.kind); }
+    // concentração de habilidade: brilho no peito do Companion e anel no chão que crescem até 2,5 s
+    {
+      const sc = skillChargeState, ringM = skillRing.current;
+      if (sc.active) {
+        const at = new THREE.Vector3(companionFocus.x, companionFocus.y + 0.9, companionFocus.z);
+        skillCharger.update(at, sc.color, sc.charge, sc.perfect, dt);
+        if (ringM) { ringM.visible = true; ringM.position.set(companionFocus.x, world.heightAt(companionFocus.x, companionFocus.z) + 0.05, companionFocus.z); ringM.scale.setScalar(0.5 + sc.charge * 1.1 + (sc.perfect ? Math.sin(t * 22) * 0.06 : 0)); (ringM.material as THREE.MeshBasicMaterial).color.set(sc.perfect ? '#ffffff' : sc.color); (ringM.material as THREE.MeshBasicMaterial).opacity = 0.35 + sc.charge * 0.5; }
+      } else { skillCharger.stop(); if (ringM) ringM.visible = false; }
+    }
     // carga do arco: faíscas girando para a ponta da flecha, traço no chão até onde vai, anel que cresce
     const c = chargeState;
     const fw = new THREE.Vector3(Math.sin(c.yaw), 0, Math.cos(c.yaw));
@@ -167,6 +180,7 @@ export function CombatFx({ world }: { world: WorldShape }) {
 
   return (
     <group>
+      <mesh ref={skillRing} rotation={[-Math.PI / 2, 0, 0]} visible={false}><ringGeometry args={[0.7, 0.82, 48]} /><meshBasicMaterial transparent opacity={0.6} depthWrite={false} toneMapped={false} /></mesh>
       <mesh ref={ring} rotation={[-Math.PI / 2, 0, 0]} visible={false}><ringGeometry args={[0.85, 1, 40]} /><meshBasicMaterial transparent opacity={0.7} depthWrite={false} toneMapped={false} /></mesh>
       <mesh ref={line} visible={false}><planeGeometry args={[0.12, 1]} /><meshBasicMaterial transparent depthWrite={false} toneMapped={false} side={THREE.DoubleSide} /></mesh>
       <mesh ref={tip} rotation={[-Math.PI / 2, 0, 0]} visible={false}><ringGeometry args={[0.6, 1, 24]} /><meshBasicMaterial transparent opacity={0.8} depthWrite={false} toneMapped={false} /></mesh>

@@ -1,31 +1,26 @@
 /**
- * Caixa de conversa (no painel e flutuando no mundo) com microfone e, na forma de alma, as dicas da quest da vez:
- * respostas prontas que a pessoa toca para mandar (ou editar antes, segurando). A conversa aparece nos balões sobre o
- * Companion; o histórico fica na aba Conversa.
+ * Caixa de conversa (no painel e flutuando no mundo) com microfone. A fala do Companion aparece no balão sobre ele; a
+ * da pessoa aparece aqui, junto da caixa. O histórico fica na aba Conversa. As dicas de quest ficam só na aba Quests,
+ * discretas: quem puxa o assunto é o Companion.
  */
 import { useEffect, useRef, useState } from 'react';
 import { useGame } from '../store';
 import { useSettings } from '../settings';
 import { sendPlayerMessage, toggleConversation, useConversation, useMic } from './voice';
-import { useQuestHelp } from './GameHud';
 import { HudGlyph } from './HudGlyph';
 
-export function QuickReplies({ onPick }: { onPick: (text: string, edit: boolean) => void }) {
-  const c = useGame((s) => s.snap?.companion);
-  const busy = useGame((s) => s.busy);
-  const help = useQuestHelp();
-  const [hidden, setHidden] = useState(false);
-  if (!c || c.stage !== 'particles' || !help || hidden) return null;
-  return (
-    <div className="quick-replies" role="group" aria-label={'Dicas para a quest ' + help.title}>
-      <p>Sugestões para <b>◆ {help.title}</b> <button type="button" className="link" onClick={() => setHidden(true)} aria-label="Esconder as dicas">esconder</button></p>
-      <div className="qr-list">
-        {help.replies.map((r) => (
-          <button key={r} type="button" disabled={busy} onClick={() => onPick(r, false)} onContextMenu={(e) => { e.preventDefault(); onPick(r, true); }} title="Tocar envia · botão direito põe na caixa para editar">{r}</button>
-        ))}
-      </div>
-    </div>
-  );
+/** A última fala da pessoa, junto da caixa de conversa (e não sobre o Companion), por alguns segundos. */
+function PlayerEcho() {
+  const said = useGame((s) => s.playerSpeech);
+  const [text, setText] = useState<string | null>(null);
+  useEffect(() => {
+    setText(said?.text ?? null);
+    if (!said) return;
+    const t = window.setTimeout(() => setText(null), Math.min(10000, Math.max(4000, said.text.length * 60)));
+    return () => window.clearTimeout(t);
+  }, [said]);
+  if (!text) return null;
+  return <div className="player-echo" key={said?.id} role="status"><b>Você</b>{text}</div>;
 }
 
 export function ChatComposer({ variant }: { variant: 'panel' | 'world' }) {
@@ -53,7 +48,7 @@ export function ChatComposer({ variant }: { variant: 'panel' | 'world' }) {
   const ph = conv.on ? (conv.listening ? 'Conversa por voz ligada… pode falar' : `${name} está ${he ? 'falando' : 'falando'}…`) : mic.listening ? 'Ouvindo… pode falar' : variant === 'world' ? `Falar com ${name}… (Enter)` : `Escreva ou fale com ${name}…`;
   return (
     <div className={'composer composer-' + variant}>
-      <QuickReplies onPick={(r, edit) => { if (edit) { setText(r); input.current?.focus(); } else send(r); }} />
+      {variant === 'world' && <PlayerEcho />}
       <form className={variant === 'world' ? 'world-composer deco' : 'chat-input'} onSubmit={(e) => { e.preventDefault(); send(); }} onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Escape') input.current?.blur(); }}>
         <input ref={input} value={value} onChange={(e) => setText(e.target.value)} placeholder={ph} maxLength={1000} aria-label={'Mensagem para ' + name} />
         {mic.supported && (

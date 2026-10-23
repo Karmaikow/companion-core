@@ -218,7 +218,7 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
 
   const start = roam.start ?? [1.6, 1.4];
   const st = useRef({ target: new THREE.Vector3(start[0], 0, start[1]), wait: 2, act: '' as string, yaw: 0, burst: burstKey, once: 0, player: false, running: false, req: moveRequest.id, tp: teleport.id, blocked: 0, lift: 0, stuck: false, jumpT: -1, jumpId: moveInput.jumpId, sitId: moveInput.sitId, sitting: false, guarding: false, click: false });
-  // WASD / setas: a pessoa conduz o Companion (relativo à câmera); Shift corre. Digitando no chat, as teclas são ignoradas.
+  // WASD / setas: a pessoa conduz o Companion (relativo à câmera); corre por padrão, Shift anda devagar. Digitando no chat, as teclas são ignoradas.
   const keys = useRef(new Set<string>());
   useEffect(() => {
     const typing = () => { const el = document.activeElement; return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || (el as HTMLElement).isContentEditable); };

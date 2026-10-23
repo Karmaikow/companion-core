@@ -20,7 +20,7 @@ export function clipKinds(clips: THREE.AnimationClip[]) {
   return clips.map((c) => ({ name: c.name, kind: animKind(c.name) ?? 'special' }));
 }
 
-export function TrainingModel({ url, cue, items, modelKey, charge }: { url: string; cue: Cue | null; items?: ItemDef[]; modelKey?: string | null; charge?: { current: number } }) {
+export function TrainingModel({ url, cue, items, modelKey, charge, showSocket }: { url: string; cue: Cue | null; items?: ItemDef[]; modelKey?: string | null; charge?: { current: number }; showSocket?: boolean }) {
   const gltf = useLoader(GLTFLoader, url, (l) => { (l as GLTFLoader).setMeshoptDecoder(MeshoptDecoder); });
   const root = useRef<THREE.Group>(null);
   const { model, scale, mixer, actions, bones } = useMemo(() => {
@@ -69,7 +69,7 @@ export function TrainingModel({ url, cue, items, modelKey, charge }: { url: stri
       <group ref={root}>
         <group scale={scale}><primitive object={model} /></group>
       </group>
-      {items && items.length > 0 && <EquipmentLayer items={items} bones={bones} root={root} charge={charge} modelKey={modelKey} />}
+      {items && items.length > 0 && <EquipmentLayer items={items} bones={bones} root={root} charge={charge} modelKey={modelKey} showSocket={showSocket} />}
     </>
   );
 }

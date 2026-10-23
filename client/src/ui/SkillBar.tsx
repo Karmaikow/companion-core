@@ -4,10 +4,10 @@
  * A recarga aparece como um relógio escurecendo o ícone, com os segundos que faltam.
  */
 import { useEffect, useRef, useState } from 'react';
-import { ELEMENTS, RANK_COOLDOWN, RANK_POWER, SHAPES, type SkillDef } from '@rules';
+import { ELEMENTS, RANK_COOLDOWN, RANK_POWER, SHAPES, SKILL_CHARGE_MAX, skillCharge, skillChargeMultiplier, type SkillDef } from '@rules';
 import { castSkill } from '../build/combatStats';
 import { useGame } from '../store';
-import { requestSkill, skillInput } from '../scene/Combat';
+import { requestSkill, skillChargeState, skillInput } from '../scene/Combat';
 import { BAR_SIZE, saveBar, useSkillData, useSkills } from './skillState';
 import { canAct, spendSp, useVitals } from '../scene/vitals';
 
@@ -44,7 +44,8 @@ export function SkillBar({ color }: { color: string }) {
 
   const info = (slug: string | null) => (slug ? unlocked.find((u) => u.skill.slug === slug) ?? null : null);
 
-  const cast = (i: number) => {
+  /** `held`: segundos segurando Shift + número (concentração: dano extra até 2,5 s). */
+  const cast = (i: number, held = 0) => {
     const slug = useSkills.getState().bar[i];
     const u = info(slug);
     if (!u) { setPick(i); return; }
@@ -54,23 +55,68 @@ export function SkillBar({ color }: { color: string }) {
     if (!canAct()) return;
     // Constelação Viva: custo (afinidade, Canal Profundo) e preparação (Agilidade, Ressonância) congelados agora
     const frozen = castSkill(u.skill, 1 + RANK_POWER * (u.level - 1));
+    const mult = skillChargeMultiplier(held);
+    if (mult > 1 && frozen.damage > 0) { frozen.damage = Math.round(frozen.damage * mult); toast(`${u.skill.name} concentrada: ×${mult.toFixed(2).replace('.', ',')} de dano`, 'gold'); }
     if (!spendSp(frozen.cost)) { setShort(i); window.setTimeout(() => setShort((f) => (f === i ? null : f)), 500); return; }
     requestSkill({ skill: u.skill, level: u.level, color: colorOf(u.skill, color), frozen });
     useSkills.getState().setReady(u.skill.slug, t + (cooldownOf(u.skill, u.level) + frozen.windup) * 1000);
     setNow(t); setFlash(i); window.setTimeout(() => setFlash((f) => (f === i ? null : f)), 180);
   };
   const castRef = useRef(cast); castRef.current = cast;
+  // concentração (Shift + número)
+  const charging = useRef<{ slot: number; t0: number } | null>(null);
+  const [chargingView, setCharging] = useState<{ slot: number; k: number } | null>(null);
+  const readyRef = useRef<(i: number) => { color: string } | null>(() => null);
+  readyRef.current = (i: number) => {
+    const u = info(useSkills.getState().bar[i]);
+    if (!u || !skillInput.body || !canAct()) return null;
+    if ((useSkills.getState().ready[u.skill.slug] ?? 0) > performance.now()) return null;
+    if (castSkill(u.skill, 1).cost > useVitals.getState().sp) return null;
+    return { color: colorOf(u.skill, color) };
+  };
+  const readyToCast = (i: number) => readyRef.current(i);
 
   useEffect(() => {
     const typing = () => { const el = document.activeElement; return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || (el as HTMLElement).isContentEditable); };
+    const slotOf = (e: KeyboardEvent) => { const n = /^Digit([1-9])$/.exec(e.code)?.[1] ?? /^Numpad([1-9])$/.exec(e.code)?.[1] ?? (/^[1-9]$/.test(e.key) ? e.key : null); return n ? Number(n) - 1 : null; };
+    let raf = 0;
+    const stopCharge = () => { cancelAnimationFrame(raf); charging.current = null; skillChargeState.active = false; setCharging(null); };
     const down = (e: KeyboardEvent) => {
-      if (typing() || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
-      const n = /^Digit([1-9])$/.exec(e.code)?.[1] ?? (/^[1-9]$/.test(e.key) ? e.key : null);
-      if (!n) return;
-      e.preventDefault(); castRef.current(Number(n) - 1);
+      if (typing() || e.ctrlKey || e.metaKey || e.altKey) return;
+      const i = slotOf(e);
+      if (i === null) return;
+      e.preventDefault();
+      if (e.repeat) return;
+      // Shift + número: concentra enquanto o número estiver apertado; solta para lançar com dano extra
+      if (e.shiftKey) {
+        const ok = readyToCast(i);
+        if (!ok) { castRef.current(i); return; }
+        charging.current = { slot: i, t0: performance.now() };
+        skillChargeState.active = true; skillChargeState.color = ok.color; skillChargeState.charge = 0; skillChargeState.perfect = false;
+        setCharging({ slot: i, k: 0 });
+        const tick = () => {
+          const c = charging.current; if (!c) return;
+          const sec = (performance.now() - c.t0) / 1000, k = skillCharge(sec);
+          skillChargeState.charge = k; skillChargeState.perfect = sec >= SKILL_CHARGE_MAX;
+          if (!canAct()) { stopCharge(); return; }
+          setCharging({ slot: c.slot, k });
+          raf = requestAnimationFrame(tick);
+        };
+        raf = requestAnimationFrame(tick);
+        return;
+      }
+      castRef.current(i);
     };
-    window.addEventListener('keydown', down);
-    return () => window.removeEventListener('keydown', down);
+    const up = (e: KeyboardEvent) => {
+      const i = slotOf(e), c = charging.current;
+      if (i === null || !c || c.slot !== i) return;
+      const sec = (performance.now() - c.t0) / 1000;
+      stopCharge();
+      castRef.current(i, sec);
+    };
+    const blur = () => { if (charging.current) stopCharge(); };
+    window.addEventListener('keydown', down); window.addEventListener('keyup', up); window.addEventListener('blur', blur);
+    return () => { window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); window.removeEventListener('blur', blur); stopCharge(); };
   }, []);
 
   if (!companion) return null;
@@ -107,7 +153,7 @@ export function SkillBar({ color }: { color: string }) {
         const total = u ? (cooldownOf(u.skill, u.level) + u.skill.windup) * 1000 : 1;
         const frac = Math.min(1, left / total);
         return (
-          <button key={i} className={'sb-slot' + (u ? '' : ' empty') + (left > 0 ? ' cd' : '') + (flash === i ? ' fire' : '') + (pick === i ? ' sel' : '') + (short === i ? ' short' : '') + (u && u.skill.energy > sp ? ' nosp' : '')}
+          <button key={i} className={'sb-slot' + (u ? '' : ' empty') + (left > 0 ? ' cd' : '') + (flash === i ? ' fire' : '') + (pick === i ? ' sel' : '') + (short === i ? ' short' : '') + (chargingView?.slot === i ? ' charging' : '') + (u && u.skill.energy > sp ? ' nosp' : '')}
             title={u ? `${u.skill.name} — ${u.skill.description} (SP ${castSkill(u.skill, 1).cost})` : free.length ? 'Escolher habilidade' : 'Espaço livre'}
             aria-label={u ? `${i + 1}: ${u.skill.name}${left > 0 ? `, recarregando ${Math.ceil(left / 1000)} s` : ''}` : `${i + 1}: vazio`}
             style={u ? { ['--sk' as string]: colorOf(u.skill, color) } : undefined}
@@ -119,6 +165,7 @@ export function SkillBar({ color }: { color: string }) {
             <kbd>{i + 1}</kbd>
             {u ? <span className="sb-icon" aria-hidden>{ICON[u.skill.vfx.style] ?? '✦'}</span> : <span className="sb-plus" aria-hidden>{free.length ? '+' : ''}</span>}
             {u && u.level > 1 && <em>+{u.level - 1}</em>}
+            {chargingView?.slot === i && <span className="sb-charge" style={{ ['--k' as string]: chargingView.k }} aria-hidden><b>{chargingView.k >= 1 ? 'MÁX' : `×${(1 + chargingView.k).toFixed(1).replace('.', ',')}`}</b></span>}
             {left > 0 && <span className="sb-cd" style={{ ['--f' as string]: frac }}><b>{left > 1000 ? Math.ceil(left / 1000) : (left / 1000).toFixed(1)}</b></span>}
           </button>
         );

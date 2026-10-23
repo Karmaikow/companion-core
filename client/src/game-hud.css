@@ -181,19 +181,10 @@
 .game-ui .world-composer button:hover:not(:disabled) { background: #ffffff12; }
 .game-ui .world-composer .mic.on { color: #ff9db3; background: #8c2b4150; }
 .game-ui .world-thinking { position: absolute; left: 14px; top: -24px; padding: 2px 10px; background: #0b1330d0; color: #e5d7bb; font: italic 0.82rem var(--serif); border-radius: 12px; pointer-events: none; }
-.game-ui .composer-world:has(.quick-replies) .world-thinking { top: auto; bottom: 54px; }
 .game-ui.has-panel .composer-world { display: none; }
 @media (min-width: 761px) { .game-ui.has-panel .composer-world { display: flex; } .game-ui.has-panel:has(.panel-pacto, .panel-forja) .composer-world { display: none; } }
 
 /* dicas da quest (forma de alma) */
-.quick-replies { padding: 8px 10px 10px; border-radius: 10px; background: #0d1638e0; border: 1px solid #8d744988; box-shadow: 0 6px 18px #0007; color: #ece3d0; font: 0.82rem/1.35 var(--serif); }
-.quick-replies p { margin: 0 0 6px; }
-.quick-replies p b { color: #f6dfa8; font-weight: 600; }
-.quick-replies .link { font-size: 0.72rem; color: var(--hud-soft, #b9c2d8); padding: 0 4px; }
-.qr-list { display: flex; flex-wrap: wrap; gap: 6px; }
-.qr-list button { min-height: 36px; padding: 6px 12px; border-radius: 4px 12px 4px 12px; border: 1px solid #b79d6188; background: linear-gradient(#1b2452, #0e1638); color: #fff2d8; font: 0.86rem var(--serif); text-align: left; }
-.qr-list button:hover:not(:disabled), .qr-list button:focus-visible { border-color: var(--hud-gold, #dcbc7a); box-shadow: 0 0 10px #ffd98a33; }
-.composer-panel .quick-replies { margin: 6px 0; }
 .quest-help { margin-top: 6px; padding: 6px 8px; border-left: 2px solid var(--brass); background: #ffffff08; display: grid; gap: 3px; }
 
 /* ---------- balões sobre o Companion (a fala dele e a da pessoa) ---------- */
@@ -204,9 +195,6 @@
   border: 1px solid #d4b575; box-shadow: inset 0 0 0 3px #0b1330, 0 6px 18px #0007; font: 1rem/1.4 var(--serif); overflow-wrap: anywhere; max-height: 180px; overflow-y: auto;
 }
 .game-ui .speech::after { border-top-color: #d4b575; }
-.game-ui .speech-player { align-self: flex-start; margin-left: -18px; background: #173426ee; color: #eef7dd; border-color: #aac785; font-size: 0.88rem; padding: 6px 13px; border-radius: 4px 14px 4px 14px; }
-.game-ui .speech-player b { display: block; font: 600 0.68rem var(--sans); text-transform: uppercase; letter-spacing: 0.08em; color: #c8e7a8; }
-.game-ui .speech-player::after { display: none; }
 
 /* ---------- barra de habilidades e ataque ---------- */
 .game-ui .skill-bar { border: 1px solid #9d844b; border-radius: 6px; background: #0d1638b3; box-shadow: inset 0 0 0 2px #0b1330, 0 6px 20px #0007; }
@@ -254,7 +242,6 @@
   .game-ui .quest-tracker { top: auto; bottom: calc(var(--rail-h) + 116px + env(safe-area-inset-bottom)); left: var(--hud-edge); width: calc(100vw - 20px); max-width: none; padding: 6px 10px; }
   .game-ui .quest-tracker small { display: none; }
   .game-ui .composer-world { left: var(--hud-edge); width: calc(100vw - 20px); bottom: calc(var(--rail-h) + 14px + env(safe-area-inset-bottom)); }
-  .game-ui .composer-world:has(.quick-replies) ~ .quest-tracker, .game-ui:has(.quick-replies) .quest-tracker { display: none; }
   .game-ui .panel { top: calc(var(--hud-top) + 96px); bottom: calc(var(--rail-h) + 14px + env(safe-area-inset-bottom)); left: var(--hud-edge); right: var(--hud-edge); width: auto; height: auto; }
   .game-ui .panel.panel-pacto, .game-ui .panel.panel-forja { left: var(--hud-edge); }
   .game-ui .world-map { width: 92px !important; height: 92px !important; top: calc(var(--hud-top) + 44px); }
@@ -278,3 +265,14 @@
   .game-ui .composer-world { left: calc(var(--hud-edge) + 70px); bottom: var(--hud-bottom); width: 300px; }
 }
 @media (prefers-reduced-motion: reduce) { .game-ui *, .game-ui *::before, .game-ui *::after { transition: none !important; } }
+
+/* concentração (Shift + número): o espaço enche de baixo para cima e mostra o multiplicador */
+.sb-slot.charging { border-color: #fff1c0 !important; box-shadow: 0 0 14px #ffd98a88, inset 0 0 0 2px #0b1330 !important; }
+.sb-charge { position: absolute; inset: 0; border-radius: inherit; pointer-events: none; background: linear-gradient(to top, color-mix(in srgb, var(--sk, #ffd56b) 70%, transparent) calc(var(--k) * 100%), transparent 0); display: grid; place-items: center; }
+.sb-charge b { font: 700 0.72rem var(--sans); color: #fff; text-shadow: 0 1px 2px #000; }
+
+/* a fala da pessoa fica junto da caixa de conversa, alinhada à direita, nunca sobre o Companion */
+.player-echo { align-self: flex-end; max-width: min(78%, 420px); margin-bottom: 6px; padding: 6px 12px; border-radius: 14px 4px 14px 4px; background: #173426e8; border: 1px solid #aac78599; color: #eef7dd; font: 0.86rem/1.35 var(--serif); box-shadow: 0 4px 12px #0006; animation: echo-in 0.25s ease-out; }
+.player-echo b { display: block; font: 600 0.62rem/1 var(--sans, sans-serif); letter-spacing: 0.12em; text-transform: uppercase; color: #bfe0a0; margin-bottom: 3px; }
+@keyframes echo-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.quest-idea { font-style: italic; opacity: 0.8; }

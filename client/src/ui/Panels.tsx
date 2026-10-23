@@ -131,8 +131,8 @@ export function QuestsPanel() {
               {!done && q.key === 'bond' && <small>Requer vínculo nível {snap?.config?.firstBondLevel ?? 2}</small>}
               {!done && help?.quest === q.key && (
                 <div className="quest-help">
-                  <small>Dica: {help.hint}</small>
-                  <small>Tente dizer: {help.replies.map((r) => `“${r}”`).join(' · ')}</small>
+                  <small>{help.hint}</small>
+                  <small className="quest-idea">Se ficar com curiosidade: “{help.replies[0]}”</small>
                   <button className="link" onClick={() => setTab('chat')}>Conversar agora</button>
                 </div>
               )}

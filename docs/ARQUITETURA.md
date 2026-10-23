@@ -385,6 +385,14 @@ Os efeitos deixaram de ser pontos com textura e passaram a usar um motor própri
   masculino. Só troca depois de um verbo de estado, para não mexer em "a sopa ficou pronta".
 - **Entrada**: "Criar conta e começar" é o botão principal; entrar, experimentar sem conta e jogar offline vêm depois.
 
+
+## Armas no osso, habilidade carregada e o Companion que escolhe (v1.19)
+
+- **Armas presas ao osso da mão**: `Equipment.tsx` põe o item como filho do osso (`createPortal`). A orientação base vem da pose de bind do SkinnedMesh (`boneInverses` + `bindMatrix`), então a pegada é a mesma em qualquer modelo/animação; a escala do osso é compensada. No Arsenal, "mostrar o ponto do osso" desenha os eixos do encaixe.
+- **Shift + 1–9 concentra a habilidade**: enquanto segura, um anel cresce em volta do Companion; ao soltar, o dano é multiplicado por `skillChargeMultiplier(s)` (×1 → ×2, máximo em 2,5 s; abaixo de 0,15 s não conta). Regras em `shared/rules/combat/skills.ts`. Shift sozinho continua andando devagar (o texto de ajuda foi corrigido).
+- **Quests de conversa sem formulário**: cor, essência, apelido e primeiro sonho são escolhas DO Companion. Ele puxa uma historinha ("uma luz atravessou as runas… acho que sei minha cor, quer adivinhar?") e, quando a pessoa pergunta ou dá um palpite, conta a escolha dele (`companionPick`, determinístico pelo nome; a essência segue as afinidades da forma). No caminho com IA, vale a cor/essência que a fala do Companion disse. As respostas prontas saíram da caixa de conversa; a aba Quests mostra só uma dica discreta e uma pergunta curiosa.
+- **Fala da pessoa fora do Companion**: o balão sobre o Companion mostra só a fala dele (e some quando a pessoa fala, até ele responder); a fala da pessoa aparece junto da caixa de conversa, à direita, marcada "Você".
+
 ## Constelação Viva, quest da classe, galeria do ADM e clique para andar (v1.17)
 
 - **Constelação Viva** (atributos distribuíveis): seis atributos (Vitalidade, Força, Magia, Agilidade, Destreza, Espírito),

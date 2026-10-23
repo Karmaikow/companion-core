@@ -196,3 +196,19 @@ export function kitFor(catalog: SkillDef[], c: { essence: Element | null; body: 
   }
   return kit;
 }
+
+// ---------------------------------------------------------------------------
+// Concentrar a habilidade (Shift + 1–9): segurar acumula até 2,5 s e solta com dano extra
+// ---------------------------------------------------------------------------
+
+export const SKILL_CHARGE_MAX = 2.5;     // s: depois disso não acumula mais
+export const SKILL_CHARGE_MIN = 0.15;    // s: menos que isso conta como lançamento normal
+export const SKILL_CHARGE_BONUS = 1;     // dano extra com a carga cheia (+100% → ×2)
+
+/** Carga de 0 a 1 pelo tempo segurado (até SKILL_CHARGE_MAX). */
+export const skillCharge = (seconds: number) => (seconds < SKILL_CHARGE_MIN ? 0 : Math.min(1, seconds / SKILL_CHARGE_MAX));
+
+/** Multiplicador de dano da habilidade concentrada: ×1 sem carga até ×2 com 2,5 s (cura não muda). */
+export function skillChargeMultiplier(seconds: number): number {
+  return 1 + SKILL_CHARGE_BONUS * skillCharge(seconds);
+}

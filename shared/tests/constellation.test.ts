@@ -218,3 +218,15 @@ describe('perfis de demonstração (Dracônico) e builds alternativas', () => {
     expect(lines.join(' ')).toMatch(/magia|Conjuro|HP efetivo/);
   });
 });
+
+import { skillChargeMultiplier, skillCharge, SKILL_CHARGE_MAX } from '../rules/index.ts';
+describe('concentrar a habilidade (Shift + número)', () => {
+  it('cresce com o tempo e para em 2,5 s', () => {
+    expect(skillChargeMultiplier(0)).toBe(1);
+    expect(skillChargeMultiplier(0.1)).toBe(1);                    // toque rápido: lançamento normal
+    expect(skillChargeMultiplier(1.25)).toBeCloseTo(1.5, 5);
+    expect(skillChargeMultiplier(SKILL_CHARGE_MAX)).toBe(2);
+    expect(skillChargeMultiplier(10)).toBe(2);                     // segurar mais não passa do máximo
+    expect(skillCharge(2)).toBeLessThan(skillCharge(2.4));
+  });
+});

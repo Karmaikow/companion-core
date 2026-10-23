@@ -31,7 +31,7 @@ export function SettingsPanel() {
       <Choice k="click" label="Clique esquerdo no chão" options={[['andar', 'Anda até lá'], ['atacar', 'Ataca']]} hint={s.click === 'atacar' ? 'Com o clique atacando, o clique direito anda.' : 'Ataque com F (segure para carregar o arco).'} />
       <Choice k="attackAim" label="Mira do ataque (PC)" options={[['mouse', 'Para onde o mouse aponta'], ['alvo', 'Monstro mais perto']]} />
       <Choice k="skillAim" label="Mira das habilidades (1–9)" options={[['mouse', 'Para onde o mouse aponta'], ['alvo', 'Monstro mais perto']]} />
-      <small className="hint">Teclado: WASD anda (corre; Shift anda devagar) · F ataca · Espaço pula · E defende · C senta · 1–9 habilidades · segure V para falar.</small>
+      <small className="hint">Teclado: WASD anda (corre; Shift anda devagar) · F ataca · Espaço pula · E defende · C senta · 1–9 habilidades (Shift + 1–9 segura para concentrar: até 2,5 s, dano até ×2) · segure V para falar.</small>
 
       <h3>Ela sozinha</h3>
       <Choice k="posture" label="Explorando sozinha, ela…" options={[['pacifica', 'Só passeia'], ['defensiva', 'Se defende'], ['cacadora', 'Caça monstros']]} hint="Ela sempre obedece às ordens no chat: “ataque!”, “fuja!”, “mate 10 monstros na Floresta Densa”, “vá até a Montanha Azul e me chame quando chegar”." />

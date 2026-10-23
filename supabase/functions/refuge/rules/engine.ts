@@ -4,7 +4,7 @@
  * É usado tanto pela Edge Function (servidor autoritativo) quanto pelo modo local.
  */
 import { type GameConfig } from './config.ts';
-import { type Discoveries, FORM_FAMILIES, ELEMENTS } from './identity.ts';
+import { type Discoveries, FORM_FAMILIES, ELEMENTS, resolveColor, resolveElement } from './identity.ts';
 import { QUESTS, QUEST_BY_KEY, type QuestKey, type QuestState, validateDiscovery, nextCuriosity, type DiscoveryProposal } from './quests.ts';
 import { computeTurnXp, levelForXp, type TurnXp } from './bond.ts';
 import { clampText, normalize, similarity } from './text.ts';
@@ -474,8 +474,15 @@ export function parseDream(raw: string, validIds: Set<number>): DreamOutput {
  * As regras de validateDiscovery continuam decidindo depois.
  */
 export function assistDiscoveries(message: string, model: ModelTurn, d: Discoveries, quests: QuestState[], recentPlayer: string[] = [], lastCompanion = ''): ModelTurn {
-  if (message.trim().endsWith('?') && !/\b(seja|chamar|nome)\b/i.test(message)) return model;
-  const det = offlineTurn(message, d, quests, 0, recentPlayer, lastCompanion).discoveries;
+  const isQuestion = message.trim().endsWith('?') && !/\b(seja|chamar|nome)\b/i.test(message);
+  const det = offlineTurn(message, d, quests, 0, recentPlayer, lastCompanion).discoveries
+    .filter((p) => !isQuestion || p.evidence === 'o Companion escolheu') // perguntar "qual a sua cor?" é o caminho certo
+    .map((p) => {
+    // cor e essência são escolhas do Companion: vale o que ELE disse na fala, não o palpite da pessoa
+    if (p.quest === 'color') { const c = resolveColor(model.reply); return c ? { ...p, value: c.name } : p; }
+    if (p.quest === 'essence') { const e = resolveElement(model.reply); return e ? { ...p, value: e } : p; }
+    return p;
+  });
   const reply = ' ' + normalize(model.reply) + ' ';
   const extra = det.filter((p) => {
     if (model.discoveries.some((m) => m.quest === p.quest)) return false;
