@@ -15,10 +15,10 @@ export function LocationHud({ place, region, now }: { place: 'refuge' | 'world';
 export function QuestTracker() {
   const quests = useGame((s) => s.snap?.quests);
   const setTab = useGame((s) => s.setTab);
-  const next = quests?.find((q) => q.status !== 'completed');
+  const next = quests?.find((q) => q.status !== 'done');
   const def = QUESTS.find((q) => q.key === next?.key);
   if (!def) return null;
-  const done = quests?.filter((q) => q.status === 'completed').length ?? 0;
+  const done = quests?.filter((q) => q.status === 'done').length ?? 0;
   return <button className="quest-tracker" onClick={() => setTab('quests')} aria-label={'Abrir missão: ' + def.title}>
     <span className="quest-diamond" aria-hidden="true">◇</span><span><strong>{def.title}</strong><small>{def.discovery} · {done}/{QUESTS.length}</small></span>
   </button>;
