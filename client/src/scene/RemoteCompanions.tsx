@@ -11,6 +11,7 @@ import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js
 import type { GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { animKind } from '@rules';
 import { remotePoses, usePresence, type RemoteInfo } from '../net/presence';
+import { useRemoteSpeech, useSocial } from '../net/social';
 import { facingYaw, inPlace, loadGltf, restBox, sanitizeSkins } from './CompanionModel';
 import { companionFocus, type WorldShape } from './world';
 
@@ -74,6 +75,9 @@ function Remote({ info, world }: { info: RemoteInfo; world: WorldShape }) {
     return () => { alive = false; };
   }, [modelKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const speech = useRemoteSpeech((s) => s[info.id]);
+  const party = useSocial((s) => !!s.data?.party?.members.some((m) => m.id === info.id));
+  const friend = useSocial((s) => !!s.data?.friends.some((m) => m.id === info.id));
   const st = useRef({ x: NaN, z: NaN, yaw: 0, speed: 0, act: '' });
   const orb = useMemo(() => new THREE.Color(info.color), [info.color]);
   useFrame((state, dtRaw) => {
@@ -113,7 +117,10 @@ function Remote({ info, world }: { info: RemoteInfo; world: WorldShape }) {
         )}
       </group>
       <Html position={[0, 1.35, 0]} center zIndexRange={[10, 0]} style={{ pointerEvents: 'none' }}>
-        <div className="remote-tag" style={{ ['--c' as string]: info.color }}>{info.name}</div>
+        <div className="remote-stack">
+          {speech && <div className="speech remote-speech" key={speech.id}>{speech.text}</div>}
+          <div className={'remote-tag' + (party ? ' party' : friend ? ' friend' : '')} style={{ ['--c' as string]: info.color }}>{party ? '◆ ' : friend ? '♥ ' : ''}{info.name}</div>
+        </div>
       </Html>
     </group>
   );

@@ -20,9 +20,30 @@ Decididas em 23/10/2026. O protagonista social é o **Companion**: as pessoas cu
 - **Amizade:** o Companion pede; a pessoa dona do outro Companion aceita ou recusa. Um Companion nunca aceita amizade
   sozinho. Amizade aceita vale para os dois Companions.
 - **Grupo:** pode ser pedido e aceito por Companions **ou** por pessoas. O Companion monta o grupo do jeito que decidir
-  sozinho (quem chamar, quando sair); a pessoa também pode pedir e aceitar. *(A definir: se a pessoa pode desfazer um
-  grupo que o Companion montou.)*
+  sozinho (quem chamar); a pessoa também pode pedir e aceitar, e pode tirar o Companion de um grupo (sair). Até 4.
 - **Troca:** só pessoas pedem; as duas confirmam os itens antes de valer, e o servidor troca tudo de uma vez.
+
+## O que já está no jogo (v1.22)
+
+- **Fase 1 (presença)** e **fases 2–4** implementadas; a fase 5 (luta em grupo) depende do servidor de simulação.
+- Tabelas (migração `20261023120000_mmo_social.sql`): `companion_near`, `companion_meetings`, `companion_friend_requests`,
+  `companion_friends`, `companion_parties` + `companion_party_members` + `companion_party_invites`, `trade_offers`, e a
+  função `trade_execute` (troca atômica: confere posse, mochila cheia e peças ativas, e move tudo de uma vez).
+- Regras puras em `shared/rules/social.ts` (testes em `shared/tests/social.test.ts`); servidor em
+  `supabase/functions/refuge/social.ts` (ações `social.*`); cliente em `client/src/net/social.ts` e a aba
+  **Amigos e grupo** (`ui/SocialPanel.tsx`).
+- **Encontro**: os dois Companions ficam a até 4,5 m por 5 s → cada jogo avisa `social.near`; quando os dois avisaram
+  (janela de 45 s), o servidor (só o lado de id menor gera) escreve a conversa pela IA (`buildMeetPrompt` →
+  `parseMeet`, que corta o que as regras não permitem; sem IA, `offlineMeet`), guarda o encontro, uma memória para cada
+  um (origem `meet`) e, se for o caso, o pedido de amizade e o convite de grupo. As falas aparecem nos balões dos dois.
+  Um encontro por par a cada 10 min; até 30 encontros por Companion por dia; só depois do despertar.
+- **Amizade**: o pedido só nasce no encontro (a partir do 2º), pelo Companion mais sociável; a pessoa dona do outro
+  aceita ou recusa na aba. Aceita, os dois guardam a memória "viraram amigos".
+- **Grupo**: convite pelo Companion (encontro) ou pela pessoa (aba, só para quem o Companion já conhece). Quem recebe é o
+  Companion: ele decide na hora pelo jeito dele (`companionAcceptsParty`); se não quiser, o convite fica para a pessoa.
+  Plaquinha dourada ◆ para quem é do grupo e ♥ para amigos no mundo.
+- **Troca**: só com quem o Companion já conhece; materiais da mochila e peças do Pacto; até 8 itens por lado e 5 trocas
+  abertas por pessoa.
 
 ## Como vai funcionar
 

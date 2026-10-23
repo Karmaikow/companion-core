@@ -320,3 +320,30 @@ canvas.cursor-attack { cursor: none !important; }
 
 /* outros Companions no mundo (presença): plaquinha com o nome na cor dele */
 .remote-tag { padding: 2px 9px; border-radius: 3px 10px 3px 10px; background: #0d1638d9; border: 1px solid color-mix(in srgb, var(--c, #9fd8ff) 70%, #fff 10%); color: #f4ead2; font: 600 0.74rem var(--serif); white-space: nowrap; box-shadow: 0 0 10px color-mix(in srgb, var(--c, #9fd8ff) 40%, transparent); }
+.remote-stack { display: flex; flex-direction: column; align-items: center; gap: 6px; transform: translateY(-50%); }
+.remote-speech { max-width: 240px; }
+.remote-tag.friend { border-color: #ff9fb8; }
+.remote-tag.party { border-color: #ffd77a; box-shadow: 0 0 12px #ffd77a88; }
+
+/* Amigos e grupo */
+.social { display: grid; gap: 14px; }
+.social section { display: grid; gap: 8px; }
+.social h3 { margin: 0; font: 600 0.95rem var(--serif); color: #f6dfa8; letter-spacing: 0.03em; }
+.soc-card { padding: 8px 10px; border-radius: 4px 12px 4px 12px; border: 1px solid #8d744966; background: #ffffff08; display: grid; gap: 6px; }
+.soc-card.glow { border-color: #ffd77a99; box-shadow: 0 0 12px #ffd77a22; }
+.soc-card p { margin: 0; font-size: 0.86rem; }
+.soc-who { display: flex; align-items: center; gap: 8px; }
+.soc-who small { color: var(--hud-soft); font-size: 0.72rem; }
+.soc-actions { margin-left: auto; display: flex; gap: 6px; }
+.soc-dot { width: 12px; height: 12px; border-radius: 50%; box-shadow: 0 0 8px currentColor; flex: none; }
+.soc-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.soc-row button { min-height: 34px; }
+.soc-meet { all: unset; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 0.86rem; }
+.soc-meet:focus-visible { outline: 2px solid var(--hud-gold); outline-offset: 2px; }
+.soc-lines { margin: 0; padding-left: 18px; display: grid; gap: 4px; font-size: 0.84rem; }
+.soc-lines li.mine b { color: #bfe0a0; }
+.soc-items { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-height: 220px; overflow: auto; }
+.soc-items li { display: flex; align-items: center; gap: 8px; font-size: 0.84rem; }
+.soc-items li span, .soc-items li label { flex: 1; }
+.soc-items input[type='number'] { width: 64px; }
+.hint.warn { color: #ffb3a8; }

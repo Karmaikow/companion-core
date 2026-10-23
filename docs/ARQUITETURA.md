@@ -385,6 +385,14 @@ Os efeitos deixaram de ser pontos com textura e passaram a usar um motor própri
 - **Entrada**: "Criar conta e começar" é o botão principal; entrar, experimentar sem conta e jogar offline vêm depois.
 
 
+## MMO social: encontros, amizade, grupo e troca (v1.22)
+
+Tudo em **docs/MMO_SOCIAL.md** ("O que já está no jogo"). Resumo: quando dois Companions ficam perto no Companion
+World, os dois jogos avisam o servidor e ele escreve a conversa entre eles pela IA (balões nos dois, memória para os
+dois). O pedido de amizade nasce do Companion; a pessoa aceita ou recusa na aba **Amigos e grupo**. Grupo de até 4:
+o Companion convida e aceita sozinho, ou a pessoa convida e aceita. Troca de itens só entre pessoas, com as duas
+confirmações e a troca atômica no banco (`trade_execute`).
+
 ## MMO fase 1: ver outros Companions (v1.21)
 
 Regras sociais do MMO e as fases em **docs/MMO_SOCIAL.md** (amizade só entre Companions: eles pedem, as pessoas

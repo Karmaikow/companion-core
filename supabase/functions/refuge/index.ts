@@ -14,6 +14,7 @@ import { complete, providerName } from './llm.ts';
 import { ecosAction, EcosError } from './ecos.ts';
 import { pactoAction, PactoError } from './pacto.ts';
 import { buildAction, BuildError, loadBuild } from './build.ts';
+import { socialAction, SocialError } from './social.ts';
 
 const URL_ = Deno.env.get('SUPABASE_URL')!;
 const SERVICE = (() => {
@@ -696,6 +697,9 @@ Deno.serve(async (req) => {
       const cc = c;
       return json(200, await buildAction(action, body, { db, c: cc, cfg, bcfg: cfg.constellation, event: (kind, payload) => event(db, cc.id as string, 'system', kind, payload) }));
     }
+    if (action.startsWith('social.')) {
+      return json(200, await socialAction(action, body, { db, c, bagCap: cfg.ecos.bag, event: (cid, kind, payload) => event(db, cid, 'system', kind, payload) }));
+    }
     if (action === 'awaken') {
       await actAwaken(db, c, cfg);
       const fresh = await getCompanion(db, userId, c.id);
@@ -703,7 +707,7 @@ Deno.serve(async (req) => {
     }
     return json(404, { error: 'Ação desconhecida.' });
   } catch (e) {
-    if (e instanceof HttpError || e instanceof EcosError || e instanceof PactoError || e instanceof BuildError) return json(e.status, { error: e.message });
+    if (e instanceof HttpError || e instanceof EcosError || e instanceof PactoError || e instanceof BuildError || e instanceof SocialError) return json(e.status, { error: e.message });
     console.error('refuge', (e as Error).message);
     return json(500, { error: 'O Refúgio está instável agora. Tente de novo.' });
   }
