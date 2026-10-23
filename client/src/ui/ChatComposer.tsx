@@ -8,6 +8,8 @@ import { useGame } from '../store';
 import { useSettings } from '../settings';
 import { sendPlayerMessage, toggleConversation, useConversation, useMic } from './voice';
 import { HudGlyph } from './HudGlyph';
+import { useRemoteSpeech } from '../net/social';
+import { usePresence } from '../net/presence';
 
 /** A última fala da pessoa, junto da caixa de conversa (e não sobre o Companion), por alguns segundos. */
 function PlayerEcho() {
@@ -23,7 +25,32 @@ function PlayerEcho() {
   return <div className="player-echo" key={said?.id} role="status"><b>Você</b>{text}</div>;
 }
 
-export function ChatComposer({ variant }: { variant: 'panel' | 'world' }) {
+/**
+ * No celular, os balões flutuantes sobre os Companions somem (cobriam o jogo); as falas aparecem aqui, junto da caixa:
+ * a do seu Companion e a do outro Companion num encontro. No PC isto fica escondido (CSS) e valem os balões.
+ */
+function DockSpeech({ speech }: { speech: string | null }) {
+  const name = useGame((s) => s.snap?.companion?.discoveries.name ?? 'Companion');
+  const said = useGame((s) => s.playerSpeech);
+  const speeches = useRemoteSpeech();
+  const remote = Object.entries(speeches).sort((x, y) => y[1].id - x[1].id)[0] ?? null;
+  const others = usePresence((s) => s.others);
+  // a fala antiga do Companion some quando a pessoa fala (até ele responder), como no balão
+  const [stale, setStale] = useState<string | null>(null);
+  const ref = useRef(speech); ref.current = speech;
+  useEffect(() => { if (said) setStale(ref.current); }, [said]);
+  const own = speech && speech !== stale ? speech : null;
+  if (!own && !remote) return null;
+  const rName = remote ? others.find((o) => o.id === remote[0])?.name ?? 'Companion' : '';
+  return (
+    <div className="dock-speech" role="status" aria-live="polite">
+      {remote && <p className="dock-line other" key={'r' + remote[1].id}><b>{rName}</b>{remote[1].text}</p>}
+      {own && <p className="dock-line" key={own}><b>{name}</b>{own}</p>}
+    </div>
+  );
+}
+
+export function ChatComposer({ variant, speech = null }: { variant: 'panel' | 'world'; speech?: string | null }) {
   const busy = useGame((s) => s.busy);
   const name = useGame((s) => s.snap?.companion?.discoveries.name ?? 'seu Companion');
   const he = useGame((s) => s.snap?.companion?.discoveries.pronoun === 'ele');
@@ -48,6 +75,7 @@ export function ChatComposer({ variant }: { variant: 'panel' | 'world' }) {
   const ph = conv.on ? (conv.listening ? 'Conversa por voz ligada… pode falar' : `${name} está ${he ? 'falando' : 'falando'}…`) : mic.listening ? 'Ouvindo… pode falar' : variant === 'world' ? `Falar com ${name}… (Enter)` : `Escreva ou fale com ${name}…`;
   return (
     <div className={'composer composer-' + variant}>
+      {variant === 'world' && <DockSpeech speech={speech} />}
       {variant === 'world' && <PlayerEcho />}
       <form className={variant === 'world' ? 'world-composer deco' : 'chat-input'} onSubmit={(e) => { e.preventDefault(); send(); }} onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Escape') input.current?.blur(); }}>
         <input ref={input} value={value} onChange={(e) => setText(e.target.value)} placeholder={ph} maxLength={1000} aria-label={'Mensagem para ' + name} />

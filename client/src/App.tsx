@@ -338,7 +338,7 @@ export function App() {
         <>
           <LocationHud place={place} region={hereRegion} />
           {c.stage === 'particles' && <QuestTracker />}
-          {tab !== 'chat' && <ChatComposer variant="world" />}
+          {tab !== 'chat' && <ChatComposer variant="world" speech={bubble} />}
           <header className="nameplate deco">
             {snap?.visualJob?.artUrl
               ? <div className="portrait art" style={{ backgroundImage: `url("${snap.visualJob.artUrl}")` }} role="img" aria-label={`Retrato de ${d.name ?? 'Companion'}`} />
