@@ -87,14 +87,22 @@ export const moveRequest = { id: 0, point: new THREE.Vector3() };
  * Os handlers ficam no chão (onPointerDown/onPointerMove do R3F) e o soltar é ouvido na janela, então o clique vale
  * mesmo que o pedaço de chão embaixo do cursor mude enquanto a câmera segue o Companion.
  */
-export const groundPointer = { down: null as null | { x: number; y: number; id: number; at: THREE.Vector3; timer: number }, hold: false, point: new THREE.Vector3(), last: 0 };
+export const groundPointer = { down: null as null | { x: number; y: number; id: number; at: THREE.Vector3; timer: number; attack?: string }, hold: false, point: new THREE.Vector3(), last: 0 };
+/**
+ * Clique no monstro = ataque básico: o Companion vai até ele e golpeia até ele cair (ou até a pessoa mandar andar).
+ * `pick` (preenchido pela cena de combate) diz qual alvo está sob o cursor/dedo; `hover` é o alvo sob o mouse agora
+ * (cursor de ataque e mira no chão); `focus` é o alvo travado.
+ */
+export const attackPick = { pick: null as null | ((clientX: number, clientY: number) => string | null), hover: null as string | null, focus: null as string | null };
+export const attackRequest = { id: 0, key: '' };
+export function requestAttackOn(key: string) { attackRequest.key = key; attackRequest.id++; attackPick.focus = key; }
 const DRAG_PX = 8, HOLD_MS = 300;
-export function requestMove(p: THREE.Vector3) { moveRequest.point.set(p.x, 0, p.z); moveRequest.id++; }
+export function requestMove(p: THREE.Vector3) { moveRequest.point.set(p.x, 0, p.z); moveRequest.id++; attackPick.focus = null; }
 function endGround(e: PointerEvent) {
   const d = groundPointer.down;
   if (!d || e.pointerId !== d.id) return;
   clearTimeout(d.timer);
-  if (!groundPointer.hold && Math.hypot(e.clientX - d.x, e.clientY - d.y) <= DRAG_PX) requestMove(d.at);
+  if (!groundPointer.hold && Math.hypot(e.clientX - d.x, e.clientY - d.y) <= DRAG_PX) { if (d.attack) requestAttackOn(d.attack); else requestMove(d.at); }
   groundPointer.down = null; groundPointer.hold = false;
 }
 if (typeof window !== 'undefined') {
@@ -111,8 +119,10 @@ export function groundDown(e: { point: THREE.Vector3; nativeEvent: PointerEvent 
   if (ne.button !== walkButton || groundPointer.down) return;
   const at = e.point.clone();
   groundPointer.point.copy(at);
-  const timer = window.setTimeout(() => { if (groundPointer.down?.id === ne.pointerId) { groundPointer.hold = true; requestMove(groundPointer.point); } }, HOLD_MS);
-  groundPointer.down = { x: ne.clientX, y: ne.clientY, id: ne.pointerId, at, timer };
+  // em cima de um monstro (com o botão que anda): vira ordem de ataque, não de andar
+  const attack = walkButton === 0 ? attackPick.pick?.(ne.clientX, ne.clientY) ?? undefined : undefined;
+  const timer = attack ? 0 : window.setTimeout(() => { if (groundPointer.down?.id === ne.pointerId) { groundPointer.hold = true; requestMove(groundPointer.point); } }, HOLD_MS);
+  groundPointer.down = { x: ne.clientX, y: ne.clientY, id: ne.pointerId, at, timer, attack };
 }
 export function groundMove(e: { point: THREE.Vector3 }) {
   groundPointer.point.copy(e.point);

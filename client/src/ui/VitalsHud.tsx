@@ -1,5 +1,5 @@
 /** Barras de HP, SP, Stamina e Vínculo sob o nome do Companion, e os botões de pulo/defesa/sentar no celular. */
-import { useVitals } from '../scene/vitals';
+import { reviveCompanion, useVitals, INVULN_SECONDS } from '../scene/vitals';
 import { moveInput } from '../scene/Combat';
 
 export function VitalsBars({ bondRatio, bondLevel }: { bondRatio: number; bondLevel: number }) {
@@ -17,21 +17,37 @@ export function VitalsBars({ bondRatio, bondLevel }: { bondRatio: number; bondLe
       {row('sp', 'SP', v.sp, v.spMax, 'Energia das habilidades da barra (1–9)')}
       {row('st', 'ST', v.st, v.stMax, 'Stamina: pulo, golpe e defesa')}
       {(v.shield > 0 || v.shieldCd > 0) && <div className={'vshield' + (v.shield > 0 ? ' on' : '')} role="status">{v.shield > 0 ? `🛡 Barreira Breve · ${v.shield}s` : `Barreira em recarga · ${v.shieldCd}s`}</div>}
+      {v.invuln > 0 && <div className="vshield on invuln" role="status">✦ Invencível · {v.invuln}s</div>}
       {row('bond', 'VÍN', Math.round(bondRatio * 100), 100, `Vínculo ${bondLevel}: % até o próximo nível`, true)}
     </div>
   );
 }
 
-/** Desmaiado: aviso no centro com a contagem até levantar (quando a stamina encher). */
-export function FaintCounter() {
-  const down = useVitals((v) => v.down), wake = useVitals((v) => v.wake), st = useVitals((v) => v.st), stMax = useVitals((v) => v.stMax);
+/**
+ * Desmaiado: aviso no centro com a contagem (a stamina enchendo). Terminada, ele continua deitado e a pessoa escolhe:
+ * levantar ali mesmo (metade da vida) ou voltar ao Refúgio (vida cheia). Nos dois casos fica invencível por um tempo.
+ */
+export function FaintCounter({ onReturn }: { onReturn?: () => void }) {
+  const down = useVitals((v) => v.down), wake = useVitals((v) => v.wake), st = useVitals((v) => v.st), stMax = useVitals((v) => v.stMax), ready = useVitals((v) => v.ready);
   if (!down) return null;
   return (
-    <div className="faint-counter" role="status" aria-live="polite">
+    <div className={'faint-counter' + (ready ? ' ready' : '')} role={ready ? 'dialog' : 'status'} aria-live="polite" aria-label="Desmaiou">
       <b>Desmaiou</b>
-      <span className="faint-num">{wake}</span>
-      <small>levanta quando a stamina encher</small>
-      <div className="bar"><i style={{ width: Math.round((st / Math.max(1, stMax)) * 100) + '%' }} /></div>
+      {ready ? (
+        <>
+          <small>Os monstros se afastaram. Ao levantar, fica {INVULN_SECONDS}s invencível.</small>
+          <div className="faint-actions">
+            <button className="primary" autoFocus onClick={() => reviveCompanion(false)}>Levantar e continuar</button>
+            {onReturn && <button onClick={() => { if (reviveCompanion(true)) onReturn(); }}>Retornar para o Refúgio</button>}
+          </div>
+        </>
+      ) : (
+        <>
+          <span className="faint-num">{wake}</span>
+          <small>recuperando as forças…</small>
+          <div className="bar"><i style={{ width: Math.round((st / Math.max(1, stMax)) * 100) + '%' }} /></div>
+        </>
+      )}
     </div>
   );
 }

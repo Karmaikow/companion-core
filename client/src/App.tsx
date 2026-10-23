@@ -18,6 +18,7 @@ import { EcosPanel } from './ui/EcosPanel';
 import { PactoPanel } from './ui/PactoPanel';
 import { LocationHud, QuestTracker } from './ui/GameHud';
 import { ChatComposer } from './ui/ChatComposer';
+import { AttackCursor } from './ui/AttackCursor';
 import { HudGlyph } from './ui/HudGlyph';
 import { usePacto } from './pacto/pactoStore';
 import { EcosHud } from './ui/EcosHud';
@@ -351,7 +352,8 @@ export function App() {
           )}
           {model && <SkillBar color={visual.glow} />}
           {model && <TouchMoves />}
-          {model && <FaintCounter />}
+          {model && <AttackCursor />}
+          {model && <FaintCounter onReturn={place === 'world' ? goHome : undefined} />}
           {model && (
             <button className={'attack-btn' + (bowEquipped ? ' bow' : '')} aria-label={bowEquipped ? 'Segure para carregar o arco e solte para atirar' : 'Atacar'}
               onPointerDown={(e) => { e.preventDefault(); (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId); pressAttack(); }}

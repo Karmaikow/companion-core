@@ -11,7 +11,7 @@ import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.j
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { animKind, attackVariant, strideSpeed, gameTime, type AnimKind } from '@rules';
 import type { CompanionModelFiles } from '../backend/types';
-import { CLEAR_R, companionFocus, moveRequest, teleport, resolveCollisions, platformHeight, type WorldShape } from './world';
+import { CLEAR_R, companionFocus, moveRequest, attackRequest, attackPick, teleport, resolveCollisions, platformHeight, type WorldShape } from './world';
 import { work } from '../ecos/ecosStore';
 import { SpeechBubble } from './SpeechBubble';
 import { Appendages, findAnchors, type AppendageSpec } from './Appendages';
@@ -258,7 +258,7 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
 
   // ---- ataque: golpe/magia ao apertar; arco carrega enquanto segura e atira ao soltar
   const charge = useRef(0);
-  const cb = useRef({ press: combatInput.pressId, release: combatInput.releaseId, charging: false, held: 0, cd: 0, lunge: 0, want: 0, skill: skillInput.id, ai: { think: 0, skillT: 1, target: null as Target | null, engaged: null as Target | null, fleeFrom: null as Target | null, fleeing: false, hitSeen: 0, lowSaid: 0 }, move: null as null | { from: THREE.Vector3; to: THREE.Vector3; t: number; dur: number; arc: number } });
+  const cb = useRef({ press: combatInput.pressId, release: combatInput.releaseId, charging: false, held: 0, cd: 0, lunge: 0, want: 0, skill: skillInput.id, ai: { think: 0, skillT: 1, target: null as Target | null, engaged: null as Target | null, fleeFrom: null as Target | null, fleeing: false, hitSeen: 0, lowSaid: 0 }, move: null as null | { from: THREE.Vector3; to: THREE.Vector3; t: number; dur: number; arc: number }, atkReq: attackRequest.id });
   useEffect(() => { skillInput.body = true; return () => { skillInput.body = false; }; }, []);
   const prof = useMemo(() => basicAttack(gear?.weapon ?? null, gear?.species), [gear?.weapon, gear?.species]);
   const ESSENCE_FX: Record<string, string> = { fogo: 'chamas', agua: 'gotas', terra: 'pedras', vento: 'vento', luz: 'luz', sombra: 'sombra', gelo: 'gelo', raio: 'raios', natureza: 'folhas', veneno: 'veneno' };
@@ -324,9 +324,14 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
     ai.think -= dt; ai.skillT -= dt;
     if (vitals.hitId !== ai.hitSeen) { ai.hitSeen = vitals.hitId; say('hurt', {}, { chance: 0.35 }); }
     const hpR = vitals.hp / Math.max(1, vitals.hpMax);
+    // clique no monstro: ordem de ataque (vai até ele e golpeia até ele cair, ou até a pessoa mandar andar)
+    if (attackRequest.id !== cs.atkReq) { cs.atkReq = attackRequest.id; s.click = false; s.player = false; s.sitting = false; ai.think = 0; ai.engaged = null; }
+    let focusT = attackPick.focus ? targets.get(attackPick.focus) ?? null : null;
+    if (focusT && (focusT.r < 0 || (focusT.creature && focusT.creature.hp() <= 0) || Math.hypot(focusT.x - r.position.x, focusT.z - r.position.z) > 30)) { attackPick.focus = null; focusT = null; }
     if (ai.think <= 0) {
       ai.think = 0.25; ai.target = null; ai.fleeFrom = null;
-      if (!driving && !cs.charging) {
+      if (focusT && !cs.charging && order?.kind !== 'flee') ai.target = focusT;
+      else if (!driving && !cs.charging) {
         let threat: Target | null = null, td = Infinity, prey: Target | null = null, pd = Infinity;
         const huntR = order?.kind === 'hunt' ? 18 : 12;
         targets.forEach((tg) => {
@@ -375,7 +380,7 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
         }
       }
       // habilidades da barra, quando dá (SP, recarga, alcance)
-      if (ai.skillT <= 0 && s.once <= 0) {
+      if (ai.skillT <= 0 && s.once <= 0 && !focusT) { // na ordem de ataque da pessoa, só o golpe básico
         ai.skillT = 1.4 + Math.random() * 1.2;
         const used = aiCast(dd, { x: tg.x, z: tg.z }, gear?.color ?? '#ffd56b', hpR, vitals.sp, spendSp, (c) => requestSkill(c));
         if (used) say('skill', {}, { chance: 0.45 });
@@ -510,7 +515,7 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
     const ix = (k.has('d') || k.has('arrowright') ? 1 : 0) - (k.has('a') || k.has('arrowleft') ? 1 : 0);
     const iz = (k.has('w') || k.has('arrowup') ? 1 : 0) - (k.has('s') || k.has('arrowdown') ? 1 : 0);
     if (ix || iz) {
-      s.click = false;
+      s.click = false; attackPick.focus = null;
       state.camera.getWorldDirection(fwd); fwd.y = 0; fwd.normalize();
       const rx = -fwd.z, rz = fwd.x; // direita da câmera no chão
       const dx = fwd.x * iz + rx * ix, dz = fwd.z * iz + rz * ix, n = Math.hypot(dx, dz) || 1;

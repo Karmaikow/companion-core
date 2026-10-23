@@ -17,7 +17,7 @@ import { K } from './vfx/engine';
 import { healCompanion, hurtCompanion, vitals } from './vitals';
 import type { HitInfo, SkillDef } from '@rules';
 import { markCombat } from '../build/combatStats';
-import { companionFocus, type WorldShape } from './world';
+import { attackPick, companionFocus, type WorldShape } from './world';
 
 /** Entrada: apertar começa (o arco carrega enquanto segura), soltar termina. */
 export const combatInput = { holding: false, pressId: 0, releaseId: 0 };
@@ -184,6 +184,7 @@ export function CombatFx({ world }: { world: WorldShape }) {
       <mesh ref={ring} rotation={[-Math.PI / 2, 0, 0]} visible={false}><ringGeometry args={[0.85, 1, 40]} /><meshBasicMaterial transparent opacity={0.7} depthWrite={false} toneMapped={false} /></mesh>
       <mesh ref={line} visible={false}><planeGeometry args={[0.12, 1]} /><meshBasicMaterial transparent depthWrite={false} toneMapped={false} side={THREE.DoubleSide} /></mesh>
       <mesh ref={tip} rotation={[-Math.PI / 2, 0, 0]} visible={false}><ringGeometry args={[0.6, 1, 24]} /><meshBasicMaterial transparent opacity={0.8} depthWrite={false} toneMapped={false} /></mesh>
+      <AttackReticle world={world} />
       <VfxLayer store={gameVfx} />
       {live.current.map((L) => <FxView key={L.id} L={L} />)}
       {nums.map((n) => (
@@ -192,6 +193,95 @@ export function CombatFx({ world }: { world: WorldShape }) {
         </Html>
       ))}
     </group>
+  );
+}
+
+/** Último ponto do mouse na tela (para o cursor de ataque). */
+export const mousePx = { x: -1, y: -1, inside: false };
+if (typeof window !== 'undefined') {
+  window.addEventListener('pointermove', (e) => { if (e.pointerType === 'mouse') { mousePx.x = e.clientX; mousePx.y = e.clientY; mousePx.inside = true; } }, { passive: true });
+  document.addEventListener('mouseleave', () => { mousePx.inside = false; });
+}
+
+/**
+ * Clique no monstro para atacar: descobre qual alvo está sob o cursor (pela posição na tela, então vale para o corpo
+ * todo e não só para o pé), troca o cursor por uma espadinha e desenha um alvo animado no chão do monstro: dourado
+ * quando o mouse passa por cima, vermelho girando quando é o alvo travado. Depois de levantar de um desmaio, um anel
+ * dourado pulsa em volta do Companion enquanto ele está invencível.
+ */
+function AttackReticle({ world }: { world: WorldShape }) {
+  const { camera, gl } = useThree();
+  const hoverG = useRef<THREE.Group>(null), focusG = useRef<THREE.Group>(null), guard = useRef<THREE.Mesh>(null);
+  const v = useMemo(() => new THREE.Vector3(), []);
+  const pick = useMemo(() => (cx: number, cy: number): string | null => {
+    const rect = gl.domElement.getBoundingClientRect();
+    const fov = ((camera as THREE.PerspectiveCamera).fov ?? 40) * Math.PI / 180;
+    let best: string | null = null, bestScore = 1;
+    targets.forEach((t, key) => {
+      if (t.r < 0 || (t.creature && t.creature.hp() <= 0)) return;
+      const gy = world.heightAt(t.x, t.z);
+      v.set(t.x, gy + 0.55, t.z);
+      const dist = camera.position.distanceTo(v);
+      v.project(camera);
+      if (v.z > 1) return;
+      const sx = rect.left + (v.x * 0.5 + 0.5) * rect.width, sy = rect.top + (-v.y * 0.5 + 0.5) * rect.height;
+      const px = rect.height / (2 * Math.tan(fov / 2) * Math.max(0.5, dist)); // pixels por metro
+      const rx = (t.r + 0.35) * px + 10, ry = rx * 1.5;
+      const score = Math.hypot((cx - sx) / rx, (cy - sy) / ry);
+      if (score < bestScore) { bestScore = score; best = key; }
+    });
+    return best;
+  }, [camera, gl, world, v]);
+  useEffect(() => { attackPick.pick = pick; return () => { if (attackPick.pick === pick) attackPick.pick = null; attackPick.hover = null; gl.domElement.classList.remove('cursor-attack'); }; }, [pick, gl]);
+  useFrame((st) => {
+    const t = st.clock.elapsedTime;
+    // o que está sob o mouse (só com mouse e quando o clique esquerdo anda; no modo "atacar" o cursor já é de ataque)
+    const hov = mousePx.inside && aim.mouse && skillInput.body && settings().click !== 'atacar' ? pick(mousePx.x, mousePx.y) : null;
+    if (hov !== attackPick.hover) { attackPick.hover = hov; gl.domElement.classList.toggle('cursor-attack', !!hov); }
+    const place = (g: THREE.Group | null, key: string | null, spin: number, pulse: number) => {
+      if (!g) return;
+      const tg = key ? targets.get(key) : undefined;
+      g.visible = !!tg;
+      if (!tg) return;
+      g.position.set(tg.x, world.heightAt(tg.x, tg.z) + 0.06, tg.z);
+      g.rotation.y = t * spin;
+      g.scale.setScalar((tg.r * 2.2 + 0.55) * pulse); // o raio de colisão é menor que o corpo visível
+    };
+    const focus = attackPick.focus;
+    place(hoverG.current, hov && hov !== focus ? hov : null, 1.2, 1.15 - 0.12 * Math.abs(Math.sin(t * 5)));
+    place(focusG.current, focus, -2.2, 1 + 0.06 * Math.sin(t * 9));
+    const g = guard.current;
+    if (g) {
+      const left = vitals.invulnUntil - performance.now();
+      g.visible = left > 0 && vitals.down <= 0;
+      if (g.visible) {
+        g.position.set(companionFocus.x, world.heightAt(companionFocus.x, companionFocus.z) + 0.05, companionFocus.z);
+        g.scale.setScalar(0.9 + 0.12 * Math.sin(t * 6));
+        (g.material as THREE.MeshBasicMaterial).opacity = (left < 2500 ? 0.25 + 0.35 * Math.abs(Math.sin(t * 12)) : 0.55);
+      }
+    }
+  });
+  const arcs = (color: string, opacity: number) => [0, 1, 2, 3].map((i) => (
+    <mesh key={i} rotation={[-Math.PI / 2, 0, 0]}><ringGeometry args={[0.82, 1, 18, 1, i * Math.PI / 2 + 0.22, Math.PI / 2 - 0.44]} /><meshBasicMaterial color={color} transparent opacity={opacity} depthWrite={false} toneMapped={false} side={THREE.DoubleSide} /></mesh>
+  ));
+  const ticks = (color: string) => [0, 1, 2, 3].map((i) => (
+    <mesh key={'t' + i} rotation={[-Math.PI / 2, 0, i * Math.PI / 2]} position={[Math.sin(i * Math.PI / 2) * 1.12, 0, Math.cos(i * Math.PI / 2) * 1.12]}>
+      <circleGeometry args={[0.13, 3, Math.PI / 2]} /><meshBasicMaterial color={color} transparent opacity={0.9} depthWrite={false} toneMapped={false} side={THREE.DoubleSide} />
+    </mesh>
+  ));
+  return (
+    <>
+      <group ref={hoverG} visible={false}>
+        {arcs('#ffd77a', 0.85)}
+        <mesh rotation={[-Math.PI / 2, 0, 0]}><ringGeometry args={[0.3, 0.38, 32]} /><meshBasicMaterial color="#fff2c4" transparent opacity={0.7} depthWrite={false} toneMapped={false} /></mesh>
+      </group>
+      <group ref={focusG} visible={false}>
+        {arcs('#ff5a5a', 0.9)}
+        {ticks('#ffb04a')}
+        <mesh rotation={[-Math.PI / 2, 0, 0]}><ringGeometry args={[0.25, 0.32, 32]} /><meshBasicMaterial color="#ff8a6a" transparent opacity={0.75} depthWrite={false} toneMapped={false} /></mesh>
+      </group>
+      <mesh ref={guard} rotation={[-Math.PI / 2, 0, 0]} visible={false}><ringGeometry args={[0.62, 0.78, 48]} /><meshBasicMaterial color="#ffd98a" transparent opacity={0.5} depthWrite={false} toneMapped={false} /></mesh>
+    </>
   );
 }
 
@@ -274,4 +364,4 @@ function runSkill(ev: Extract<FxEvent, { kind: 'skill' }>, world: WorldShape, po
 
 const devLog: { kind: string; yaw: number; x: number; z: number; t: number }[] = [];
 // testes no navegador (só no dev)
-if (import.meta.env.DEV && typeof window !== 'undefined') (window as unknown as { __combat: unknown }).__combat = { combatInput, chargeState, targets, fxQueue, vfx: gameVfx, skillInput, requestSkill, aim, devLog, hurt: hurtCompanion, vitals };
+if (import.meta.env.DEV && typeof window !== 'undefined') (window as unknown as { __combat: unknown }).__combat = { combatInput, chargeState, targets, fxQueue, vfx: gameVfx, skillInput, requestSkill, aim, devLog, hurt: hurtCompanion, vitals, attackPick };

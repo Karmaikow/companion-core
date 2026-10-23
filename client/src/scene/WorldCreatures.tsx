@@ -14,7 +14,7 @@ import { AssetBoundary } from './Biome';
 import { numQueue, skillInput, targets } from './Combat';
 import { gameVfx } from './vfx/engine';
 import { burst } from './vfx/recipes';
-import { hurtCompanion } from './vitals';
+import { hurtCompanion, vitals, companionResting } from './vitals';
 import { brain, onKill, say, sayMoment } from './brain';
 import { useGame } from '../store';
 
@@ -48,7 +48,7 @@ function WorldCreature({ cw, def, spawn }: { cw: CompanionWorld; def: CreatureDe
   const R = Math.max(0.25, def.size * 0.35);
   // vida no nível dela; os golpes do Companion descontam a defesa. Zerou: explode em névoa e volta depois de um tempo.
   const stats = useMemo(() => creatureStatsAt(def, spawn.level), [def, spawn.level]);
-  const life = useRef({ hp: stats.vida, dead: 0, provoked: false, atk: 0.8, swing: -1, engaged: false, returning: false, dots: [] as { key: string; left: number; dps: number; stacks: number; tick: number }[] });
+  const life = useRef({ hp: stats.vida, dead: 0, provoked: false, atk: 0.8, swing: -1, engaged: false, returning: false, faint: vitals.faintId, dots: [] as { key: string; left: number; dps: number; stacks: number; tick: number }[] });
   const [hpPct, setHpPct] = useState(1);
   const [dead, setDead] = useState(false);
   const hurt = useRef(0);
@@ -136,6 +136,10 @@ function WorldCreature({ cw, def, spawn }: { cw: CompanionWorld; def: CreatureDe
     if (def.temperament === 'medroso' && dC < def.aggroRange) mode = 'flee';
     if (def.temperament === 'passivo' && dC < 2.5) mode = 'face';
     if (L.provoked && dC < def.aggroRange * 1.6 && def.temperament !== 'medroso') mode = 'chase'; // provocado: vem brigar
+    // o Companion desmaiou: todo mundo se dispersa e volta para casa (não fica esperando ele levantar). Logo depois de
+    // levantar (invencível), ninguém vem brigar por conta própria; só quem for provocado de novo.
+    if (L.faint !== vitals.faintId) { L.faint = vitals.faintId; L.engaged = false; L.provoked = false; L.returning = true; L.swing = -1; }
+    if (companionResting() && (vitals.down > 0 || !L.provoked)) { if (mode === 'chase') mode = 'wander'; L.engaged = false; }
     // Perseguição sem coleira: quem começou a brigar segue o Companion para onde for (inclusive para fora do bioma) e só
     // desiste quando ele se afasta bem; aí volta para casa recuperando a vida. Antes ficava parado a 14 m de casa
     // apanhando no limite.

@@ -38,7 +38,7 @@ export function ChatComposer({ variant }: { variant: 'panel' | 'world' }) {
   // no mundo, Enter foca a caixa (fora de outros campos)
   useEffect(() => {
     if (variant !== 'world') return;
-    const typing = () => { const el = document.activeElement as HTMLElement | null; return !!el && (['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName) || el.isContentEditable); };
+    const typing = () => { const el = document.activeElement as HTMLElement | null; return !!el && (['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON'].includes(el.tagName) || el.isContentEditable); };
     const down = (e: KeyboardEvent) => { if (e.key === 'Enter' && !typing() && !e.repeat) { e.preventDefault(); input.current?.focus(); } };
     window.addEventListener('keydown', down);
     return () => window.removeEventListener('keydown', down);

@@ -198,6 +198,18 @@
 
 /* ---------- barra de habilidades e ataque ---------- */
 .game-ui .skill-bar { border: 1px solid #9d844b; border-radius: 6px; background: #0d1638b3; box-shadow: inset 0 0 0 2px #0b1330, 0 6px 20px #0007; }
+/* a barra fica no espaço livre entre a caixa de conversa (esquerda) e a janela aberta (direita), nunca por baixo delas */
+@media (min-width: 761px) {
+  .game-ui { --composer-w: min(380px, calc(100vw - 32px)); --panel-w: min(400px, calc(100vw - 32px)); }
+  .game-ui .skill-bar { z-index: 5; --sb-l: calc(var(--hud-edge) + 72px + var(--composer-w) + 12px); --sb-r: calc(100vw - var(--hud-edge)); left: calc((var(--sb-l) + var(--sb-r)) / 2); }
+  .game-ui.has-panel .skill-bar { --sb-r: calc(100vw - var(--hud-edge) - var(--panel-w) - 12px); gap: 4px; padding: 4px; }
+  .game-ui.has-panel .sb-slot { width: 40px; height: 40px; }
+  .game-ui.has-panel .sb-icon { font-size: 1.15rem; }
+  .game-ui.has-panel .sb-icon .hud-glyph { width: 22px; height: 22px; }
+  .game-ui.has-panel:has(.panel-pacto, .panel-forja) .skill-bar { display: none; }
+}
+@media (max-width: 1250px) and (min-width: 761px) { .game-ui { --composer-w: 320px; --panel-w: min(360px, calc(100vw - 32px)); } }
+@media (max-width: 1180px) and (min-width: 761px) { .game-ui.has-panel .skill-bar { display: none; } }
 .game-ui .sb-slot { border-color: #c9ab6c; border-radius: 6px; box-shadow: inset 0 0 0 2px #0b1330; }
 .game-ui .sb-icon .hud-glyph { width: 30px; height: 30px; color: var(--sk, #8bceff); }
 .game-ui .attack-btn { border-radius: 10px; border: 2px solid #eed38f; background: linear-gradient(135deg, #b38f43, #2d2517 48%, #6b4f25); box-shadow: inset 0 0 0 3px #141b1e, 0 6px 16px #0008; color: #fff1ce; }
@@ -276,3 +288,32 @@
 .player-echo b { display: block; font: 600 0.62rem/1 var(--sans, sans-serif); letter-spacing: 0.12em; text-transform: uppercase; color: #bfe0a0; margin-bottom: 3px; }
 @keyframes echo-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 .quest-idea { font-style: italic; opacity: 0.8; }
+/* desmaio: terminada a contagem, a escolha (levantar ou voltar ao Refúgio) */
+.faint-counter.ready { pointer-events: auto; z-index: 16777272; /* acima das plaquinhas dos monstros (drei <Html>) */ gap: 8px; max-width: min(360px, calc(100vw - 32px)); text-align: center; }
+.faint-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 4px; }
+.faint-actions button { min-height: 40px; padding: 8px 16px; border-radius: 4px 14px 4px 14px; border: 1px solid #b79d61; background: linear-gradient(#1b2452, #0e1638); color: #fff2d8; font: 0.95rem var(--serif); cursor: pointer; }
+.faint-actions button.primary { background: linear-gradient(#e8c776, #b88d3c); color: #1b1430; border-color: #ffe7a8; font-weight: 600; }
+.faint-actions button:hover, .faint-actions button:focus-visible { filter: brightness(1.12); box-shadow: 0 0 12px #ffd98a55; }
+.vshield.invuln { background: rgba(255, 214, 120, 0.4); color: #fff8e0; box-shadow: 0 0 12px #ffd98a; animation: invuln-pulse 0.9s ease-in-out infinite alternate; }
+@keyframes invuln-pulse { to { box-shadow: 0 0 4px #ffd98a66; } }
+
+/* cursor de ataque: alvo girando + espadinha balançando (a seta some sobre o monstro) */
+canvas.cursor-attack { cursor: none !important; }
+.attack-cursor { position: fixed; left: 0; top: 0; z-index: 50; pointer-events: none; opacity: 0; transition: opacity 0.12s; will-change: transform; }
+.attack-cursor .ac-target { position: absolute; left: -20px; top: -20px; overflow: visible; filter: drop-shadow(0 0 4px #ffcf6a) drop-shadow(0 1px 1px #000a); }
+.attack-cursor .ac-spin { animation: ac-spin 1.6s linear infinite; transform-origin: 0 0; }
+.attack-cursor .ac-spin path { fill: none; stroke: #ffd77a; stroke-width: 3; stroke-linecap: round; }
+.attack-cursor .ac-core { fill: none; stroke: #fff4cf; stroke-width: 1.5; animation: ac-pulse 0.7s ease-in-out infinite alternate; transform-origin: 0 0; }
+.attack-cursor .ac-dot { fill: #fff; }
+.attack-cursor .ac-sword { position: absolute; left: 8px; top: 6px; overflow: visible; transform-origin: 3px 3px; animation: ac-swing 0.9s ease-in-out infinite; filter: drop-shadow(0 1px 1px #000c); }
+.attack-cursor .ac-blade { stroke: #fff; stroke-width: 1; }
+.attack-cursor .ac-blade-fill { fill: #e8eef8; stroke: #6b7894; stroke-width: 0.8; }
+.attack-cursor .ac-guard { stroke: #d9a63a; stroke-width: 2.6; stroke-linecap: round; }
+.attack-cursor .ac-grip { stroke: #7a4a22; stroke-width: 2.4; stroke-linecap: round; }
+.attack-cursor .ac-pommel { fill: #ffd77a; }
+.attack-cursor.locked .ac-spin path { stroke: #ff6a5a; }
+.attack-cursor.locked .ac-target { filter: drop-shadow(0 0 5px #ff5a4a) drop-shadow(0 1px 1px #000a); }
+@keyframes ac-spin { to { transform: rotate(360deg); } }
+@keyframes ac-pulse { from { transform: scale(0.8); opacity: 0.6; } to { transform: scale(1.25); opacity: 1; } }
+@keyframes ac-swing { 0%, 100% { transform: rotate(-8deg); } 50% { transform: rotate(14deg); } }
+@media (prefers-reduced-motion: reduce) { .attack-cursor .ac-spin, .attack-cursor .ac-core, .attack-cursor .ac-sword { animation: none; } }
