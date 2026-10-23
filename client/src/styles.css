@@ -1052,3 +1052,11 @@ html:has(.admin), body:has(.admin), #root:has(.admin) { height: auto; min-height
 .adm-derived { margin: 0; font-size: 0.86rem; color: var(--mist); }
 .entry-alt { display: flex; flex-direction: column; gap: 2px; margin-top: 6px; padding-top: 8px; border-top: 1px solid #2a3a5c; }
 .entry-alt .link { font-size: 0.85rem; color: var(--mist); }
+
+/* /#/admin sem permissão: só a partícula e o título, no preto */
+.admin-void { position: fixed; inset: 0; background: #000; overflow: hidden; touch-action: none; user-select: none; }
+.admin-void canvas { position: absolute; inset: 0; display: block; }
+.admin-void h1 { position: absolute; left: 0; right: 0; top: max(7vh, 28px); margin: 0; text-align: center; font: 500 clamp(1.6rem, 4.5vw, 3rem) var(--serif); letter-spacing: 0.22em; color: #eaf5ff; text-transform: uppercase; pointer-events: none; }
+.admin-void-login { position: absolute; left: 50%; bottom: max(4vh, 18px); transform: translateX(-50%); background: none; border: 0; color: #ffffff33; font: 0.8rem var(--sans, sans-serif); letter-spacing: 0.2em; cursor: pointer; padding: 8px 14px; }
+.admin-void-login:hover, .admin-void-login:focus-visible { color: #ffffff99; }
+.admin-void-form { position: fixed; left: 50%; bottom: max(4vh, 18px); transform: translateX(-50%); z-index: 2; display: grid; gap: 8px; width: min(300px, calc(100vw - 32px)); background: #000c; padding: 14px; border-radius: 10px; border: 1px solid #9fd8ff33; }

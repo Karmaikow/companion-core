@@ -13,6 +13,7 @@ import { ArsenalStudio } from './ArsenalStudio';
 import { ServerStudio } from './ServerStudio';
 import { SkillAnimPicker } from './SkillAnimPicker';
 import { CompanionsAdmin } from './AdminCompanions';
+import { AdminVoid } from './AdminVoid';
 
 type View = 'companions' | 'biomas' | 'forja' | 'invocador' | 'arsenal' | 'servidor';
 const VIEWS: { key: View; label: string; hash: string; title: string; hint: string }[] = [
@@ -52,6 +53,9 @@ export function AdminPanel() {
   const [jobs, setJobs] = useState<Job[] | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  /** o servidor diz se a conta é administradora; sem isso, nenhuma aba aparece (só a tela da partícula) */
+  const [admin, setAdmin] = useState<boolean | null>(null);
+  const [showLogin, setShowLogin] = useState(false);
   const [view, setView] = useState<View>(() => VIEWS.find((v) => v.key !== 'companions' && location.hash.includes(v.hash.split('/').pop()!))?.key ?? 'companions');
   const V = VIEWS.find((v) => v.key === view)!;
 
@@ -61,7 +65,9 @@ export function AdminPanel() {
 
   const load = useCallback(async () => {
     setBusy(true); setMsg(null);
-    try { setJobs(withPrompt((await call('admin.jobs')).jobs)); } catch (e) { setMsg((e as Error).message); setJobs(null); } finally { setBusy(false); }
+    try { setJobs(withPrompt((await call('admin.jobs')).jobs)); setAdmin(true); }
+    catch (e) { const m = (e as Error).message; if (/administrador/i.test(m)) setAdmin(false); else { setMsg(m); setAdmin((a) => a ?? true); } setJobs(null); }
+    finally { setBusy(false); }
   }, []);
   useEffect(() => { if (session) void load(); }, [session, load]);
 
@@ -198,13 +204,30 @@ export function AdminPanel() {
           </article>
   );
 
+  // sem permissão (ou sem login): só a tela genérica com a partícula — nada do painel
+  if (session === null || (session && admin === null)) return <div className="admin-void" aria-busy="true" />;
+  if (session && admin === false) return <AdminVoid />;
+  if (session === false) return (
+    <>
+      <AdminVoid onLogin={showLogin ? undefined : () => setShowLogin(true)} />
+      {showLogin && (
+        <form className="admin-login admin-void-form" onSubmit={login}>
+          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="e-mail" autoComplete="email" required aria-label="E-mail" />
+          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="senha" autoComplete="current-password" required aria-label="Senha" />
+          <button className="primary" disabled={busy}>Entrar</button>
+          {msg && <p className="msg err">{msg}</p>}
+        </form>
+      )}
+    </>
+  );
+
   return (
     <div className="admin">
       <header className="admin-head">
         <div>
           <h1>O Administrador</h1>
           <p><b>{V.title}</b> · {V.hint}</p>
-          {session && (
+          {(
             <nav className="admin-tabs" aria-label="Seções">
               {VIEWS.map((v) => <button key={v.key} className={view === v.key ? 'on' : ''} onClick={() => { setView(v.key); history.replaceState(null, '', v.hash); }}>{v.label}</button>)}
             </nav>
@@ -216,14 +239,6 @@ export function AdminPanel() {
         </div>
       </header>
 
-      {session === false && (
-        <form className="admin-login" onSubmit={login}>
-          <h2>Entrar como ADM</h2>
-          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="e-mail" autoComplete="email" required />
-          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="senha" autoComplete="current-password" required />
-          <button className="primary" disabled={busy}>Entrar</button>
-        </form>
-      )}
 
       {msg && <p className="msg err">{msg}</p>}
 
