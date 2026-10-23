@@ -19,6 +19,7 @@ import { PactoPanel } from './ui/PactoPanel';
 import { LocationHud, QuestTracker } from './ui/GameHud';
 import { ChatComposer } from './ui/ChatComposer';
 import { AttackCursor } from './ui/AttackCursor';
+import { Joystick, RotateHint, useTouchLandscape } from './ui/TouchControls';
 import { useSkills } from './ui/skillState';
 import { joinWorld, type RemoteInfo } from './net/presence';
 import { SocialPanel } from './ui/SocialPanel';
@@ -313,6 +314,11 @@ export function App() {
   const pactoView = usePacto((s) => s.view);
   const pactoForms = pactoView ? (pactoView.cls.forms?.length ? pactoView.cls.forms : pactoView.cls.effective ? [pactoView.cls.effective] : []) : [];
   const [minimized, setMinimized] = useState(false);
+  // celular deitado: joystick, atalhos em volta do ataque, menu e conversa recolhidos atrás de botões
+  const touchLand = useTouchLandscape();
+  const [railOpen, setRailOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
+  useEffect(() => { if (tab) setRailOpen(false); }, [tab]);
   // Taurina (classe real, de teste ou linhagem): a Oficina vira a Forja Primordial, com menu próprio
   const taurina = canCompleteEquipment(pactoForms.length ? pactoForms : d.form ? [d.form] : []);
   const hiddenTab = (k: Tab) => (k === 'forja' ? !taurina : k === 'pacto' ? taurina : false);
@@ -322,7 +328,7 @@ export function App() {
   const Panel = tab ? panel[tab] : null;
 
   return (
-    <div className={'app game-ui' + (tab && !minimized ? ' has-panel' : '') + (place === 'world' ? ' in-world' : '') + (model ? ' with-vitals' : '')}>
+    <div className={'app game-ui' + (tab && !minimized ? ' has-panel' : '') + (place === 'world' ? ' in-world' : '') + (model ? ' with-vitals' : '') + (touchLand ? ' touch-land' : '') + (railOpen ? ' rail-open' : '') + (chatOpen ? ' chat-open' : '')}>
       <div className="stage">
         <Suspense fallback={null}>
           {place === 'world' && model ? (
@@ -370,6 +376,13 @@ export function App() {
           )}
           {model && <SkillBar color={visual.glow} />}
           {model && <TouchMoves />}
+          {model && touchLand && <Joystick />}
+          {touchLand && (
+            <div className="touch-quick" role="group" aria-label="Atalhos">
+              <button className={railOpen ? 'on' : ''} onClick={() => setRailOpen(!railOpen)} aria-expanded={railOpen} aria-label="Menu">☰</button>
+              <button className={chatOpen ? 'on' : ''} onClick={() => setChatOpen(!chatOpen)} aria-expanded={chatOpen} aria-label="Conversar"><HudGlyph kind="send" /></button>
+            </div>
+          )}
           {model && <AttackCursor />}
           {model && <FaintCounter onReturn={place === 'world' ? goHome : undefined} />}
           {model && (
@@ -424,6 +437,7 @@ export function App() {
         </>
       )}
 
+      {backend && c && <RotateHint />}
       {backend && c && <Celebration tint={visual.color} />}
       {backend && c && !tab && <AwakenButton />}
       {backend && c && <AwakenCall name={d.name ?? 'Seu Companion'} he={d.pronoun === 'ele'} />}

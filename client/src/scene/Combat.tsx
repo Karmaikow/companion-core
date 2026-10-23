@@ -28,7 +28,8 @@ export function releaseAttack() { if (!combatInput.holding) return; combatInput.
 export const numQueue: { pos: THREE.Vector3; text: string; kind: 'hurt' | 'drop' | 'heal' | 'poison' | 'burn' }[] = [];
 
 /** Pulo, sentar e defesa (teclado: Espaço, C, segurar E; celular: botões). */
-export const moveInput = { jumpId: 0, sitId: 0, block: false };
+/** `stick`: joystick virtual do celular (x direita, y para frente; tamanho 0–1 — perto da borda corre). */
+export const moveInput = { jumpId: 0, sitId: 0, block: false, stick: { x: 0, y: 0, on: false } };
 
 /** Mira pelo mouse: vale quando a última interação foi com mouse (no celular, a mira é automática). */
 export const aim = { mouse: false };
