@@ -42,7 +42,11 @@ export function voiceFor(he: boolean): { voice: SpeechSynthesisVoice | null; pit
 /** A Companion é "ele"? (voz de menino) */
 const isHe = () => useGame.getState().snap?.companion?.discoveries.pronoun === 'ele';
 
+/** Resposta por voz desligada por enquanto (a voz do navegador ficou estranha); o microfone continua. Para voltar: true. */
+export const VOICE_OUT_ENABLED = false;
+
 export function speak(text: string, opts: { force?: boolean; he?: boolean } = {}) {
+  if (!VOICE_OUT_ENABLED) return;
   const s = settings();
   if ((!s.voiceOut && !opts.force) || typeof speechSynthesis === 'undefined' || !text) return;
   const clean = text.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, '').replace(/[*_~#>]/g, '').replace(/\s+/g, ' ').trim();

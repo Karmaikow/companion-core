@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useSettings, type Settings } from '../settings';
 import { useGame } from '../store';
-import { micSupported, speak, voiceGender, voicesPtBr } from './voice';
+import { VOICE_OUT_ENABLED, micSupported, speak, voiceGender, voicesPtBr } from './voice';
 
 function Choice<K extends keyof Settings>({ k, label, options, hint }: { k: K; label: string; options: [Settings[K], string][]; hint?: string }) {
   const v = useSettings((s) => s[k]), set = useSettings((s) => s.set);
@@ -41,6 +41,7 @@ export function SettingsPanel() {
       <Choice k="ordersToChat" label="Ordens no chat também vão para a conversa" options={[[true, 'Sim (ela responde do jeito dela)'], [false, 'Não (só obedece)']]} />
 
       <h3>Voz</h3>
+      {VOICE_OUT_ENABLED && (<>
       <Choice k="voiceOut" label="Ouvir a voz dela (respostas e falas no jogo)" options={[[true, 'Ligado'], [false, 'Desligado']]} hint={he ? 'Voz de menino.' : 'Voz de menina.'} />
       {s.voiceOut && (
         <fieldset className="set-row">
@@ -55,6 +56,7 @@ export function SettingsPanel() {
           <small className="hint">As vozes são as do seu navegador/sistema. Sem uma voz masculina em português no aparelho, a voz de menino usa a feminina num tom mais grave (no Edge há vozes melhores, como Antonio e Francisca).</small>
         </fieldset>
       )}
+      </>)}
       <Choice k="micMode" label="Microfone (🎙 da conversa)" options={[['sempre', 'Fica ligado (conversa por voz)'], ['uma', 'Ouve uma frase só']]} hint={micSupported() ? 'Ligado, ele escuta sem parar e envia cada frase; pausa enquanto ela fala. Segure V em qualquer lugar para falar uma frase.' : 'Este navegador não reconhece fala (use Chrome ou Edge).'} />
       {s.micMode === 'uma' && <Choice k="voiceAutoSend" label="Ao terminar a frase" options={[[true, 'Envia sozinho'], [false, 'Deixa na caixa']]} />}
 

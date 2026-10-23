@@ -34,7 +34,7 @@ export interface Settings {
 
 export const DEFAULT_SETTINGS: Settings = {
   click: 'andar', attackAim: 'mouse', skillAim: 'mouse', posture: 'defensiva', fleeAt: 0.3, chatter: 'normal', barkSource: 'ia',
-  voiceOut: true, voiceName: '', voiceAutoSend: true, micMode: 'sempre', ordersToChat: true, damageNumbers: true,
+  voiceOut: false, voiceName: '', voiceAutoSend: true, micMode: 'sempre', ordersToChat: true, damageNumbers: true,
 };
 
 const KEY = 'companion-core:settings:v2';
@@ -43,9 +43,9 @@ function load(): Settings {
   try {
     const v = JSON.parse(localStorage.getItem(KEY) ?? 'null');
     if (v && typeof v === 'object') return { ...DEFAULT_SETTINGS, ...v };
-    // v1 → v2: mantém os ajustes, mas a voz dela passa a vir ligada
+    // v1 → v2: mantém os ajustes
     const old = JSON.parse(localStorage.getItem(OLD) ?? 'null');
-    if (old && typeof old === 'object') return { ...DEFAULT_SETTINGS, ...old, voiceOut: true };
+    if (old && typeof old === 'object') return { ...DEFAULT_SETTINGS, ...old };
   } catch { /* padrão */ }
   return DEFAULT_SETTINGS;
 }
