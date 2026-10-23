@@ -43,7 +43,7 @@ function Mannequin({ item, charge }: { item: ItemDef; charge: number }) {
 const ESSENCE_STYLE: Record<string, string> = { fogo: 'chamas', agua: 'gotas', terra: 'pedras', vento: 'vento', luz: 'luz', sombra: 'sombra', gelo: 'gelo', raio: 'raios', natureza: 'folhas', veneno: 'veneno' };
 
 /** Campo de treino: o Companion escolhido segura o item e golpeia no ritmo da arma, de lado para a câmera. */
-function Trainer({ item, body, charge }: { item: ItemDef; body: { url: string; companionId: string; swing: boolean }; charge: number }) {
+function Trainer({ item, body, charge }: { item: ItemDef; body: { url: string; companionId: string; swing: boolean; socket?: boolean }; charge: number }) {
   const store = useMemo(() => new VfxStore(), []);
   const charger = useMemo(() => new Charge(store), [store]);
   const prof = useMemo(() => (ITEM_TYPES[item.type].weapon ? basicAttack(item) : null), [item]);
@@ -71,14 +71,14 @@ function Trainer({ item, body, charge }: { item: ItemDef; body: { url: string; c
   return (
     <>
       <group rotation={[0, Math.PI / 2, 0]}>
-        <AssetBoundary><Suspense fallback={null}><TrainingModel url={body.url} cue={cue} items={[item]} modelKey={body.companionId} charge={ch} /></Suspense></AssetBoundary>
+        <AssetBoundary><Suspense fallback={null}><TrainingModel url={body.url} cue={cue} items={[item]} modelKey={body.companionId} charge={ch} showSocket={body.socket} /></Suspense></AssetBoundary>
       </group>
       <VfxLayer store={store} />
     </>
   );
 }
 
-export function ItemPreview({ item, charge, body }: { item: ItemDef; charge: number; body?: { url: string; companionId: string; swing: boolean } | null }) {
+export function ItemPreview({ item, charge, body }: { item: ItemDef; charge: number; body?: { url: string; companionId: string; swing: boolean; socket?: boolean } | null }) {
   return (
     <Canvas shadows dpr={[1, 1.5]} camera={body ? { position: [0.6, 1.1, 2.9], fov: 38 } : { position: [0.2, 1.1, 2.6], fov: 38 }} onCreated={({ camera }) => camera.lookAt(body ? 0.6 : 0.2, 0.55, 0)}>
       <color attach="background" args={['#cfe9ff']} />

@@ -15,8 +15,9 @@ import { VfxLayer } from './vfx/VfxLayer';
 import { area, aura, beam, burst, Charge, cone, Missile, missile, slash } from './vfx/recipes';
 import { K } from './vfx/engine';
 import { healCompanion, hurtCompanion, vitals } from './vitals';
-import type { SkillDef } from '@rules';
-import type { WorldShape } from './world';
+import type { HitInfo, SkillDef } from '@rules';
+import { markCombat } from '../build/combatStats';
+import { companionFocus, type WorldShape } from './world';
 
 /** Entrada: apertar começa (o arco carrega enquanto segura), soltar termina. */
 export const combatInput = { holding: false, pressId: 0, releaseId: 0 };
@@ -35,29 +36,32 @@ if (typeof window !== 'undefined') window.addEventListener('pointermove', (e) =>
 if (typeof window !== 'undefined') window.addEventListener('pointerdown', (e) => { aim.mouse = e.pointerType === 'mouse'; }, { passive: true });
 
 /** Carga do arco agora (para o efeito e para a corda). */
+/** Concentração de habilidade (Shift + 1–9): a barra escreve aqui, a cena mostra o brilho crescendo no Companion. */
+export const skillChargeState = { active: false, charge: 0, perfect: false, color: '#ffd56b' };
 export const chargeState = { active: false, charge: 0, perfect: false, pos: new THREE.Vector3(), yaw: 0, range: 0, color: '#ffd56b' };
 
 export type FxEvent =
-  | { kind: 'slash'; pos: THREE.Vector3; yaw: number; range: number; damage: number; color: string; heavy: boolean }
-  | { kind: 'magic'; pos: THREE.Vector3; yaw: number; range: number; damage: number; color: string; style?: string }
-  | { kind: 'arrow'; pos: THREE.Vector3; yaw: number; range: number; speed: number; damage: number; color: string; perfect: boolean }
-  | { kind: 'skill'; pos: THREE.Vector3; yaw: number; target: THREE.Vector3; skill: SkillDef; damage: number; heal: number; color: string };
+  | { kind: 'slash'; pos: THREE.Vector3; yaw: number; range: number; damage: number; color: string; heavy: boolean; info?: HitInfo }
+  | { kind: 'magic'; pos: THREE.Vector3; yaw: number; range: number; damage: number; color: string; style?: string; info?: HitInfo }
+  | { kind: 'arrow'; pos: THREE.Vector3; yaw: number; range: number; speed: number; damage: number; color: string; perfect: boolean; info?: HitInfo }
+  | { kind: 'skill'; pos: THREE.Vector3; yaw: number; target: THREE.Vector3; skill: SkillDef; damage: number; heal: number; color: string; info?: HitInfo };
 export const fxQueue: FxEvent[] = [];
 
 /** Habilidade pedida pela barra de atalhos (1–9); o Companion lê, vira para o alvo, anima e dispara. */
-export interface SkillCast { skill: SkillDef; level: number; color: string; /** mira num ponto (a Companion lutando sozinha, ou mira no monstro mais perto) */ aimAt?: { x: number; z: number } }
+export interface SkillCast { skill: SkillDef; level: number; color: string; /** custo, preparação e dano congelados no lançamento (Constelação Viva) */ frozen?: { cost: number; windup: number; damage: number; heal: number; info: HitInfo }; /** mira num ponto (a Companion lutando sozinha, ou mira no monstro mais perto) */ aimAt?: { x: number; z: number } }
 export const skillInput = { id: 0, req: null as SkillCast | null, /** há um corpo 3D para lançar */ body: false };
 export function requestSkill(c: SkillCast) { skillInput.req = c; skillInput.id++; }
 
 /** Alvos que podem ser acertados (bonecos, criaturas). */
 /** `hit` devolve o dano que entrou (com a defesa), se o alvo tiver vida. */
-export interface Target { x: number; z: number; r: number; hit: (damage: number) => number | void; /** criatura do mundo (para a Companion escolher alvos) */ creature?: { slug: string; name: string; level: number; hostile: () => boolean; hp: () => number }; /** estado com dano por segundo (envenenado, queimando) */ afflict?: (key: string, seconds: number, dps: number) => void }
+export interface Target { x: number; z: number; r: number; hit: (damage: number, info?: HitInfo) => number | void; /** criatura do mundo (para a Companion escolher alvos) */ creature?: { slug: string; name: string; level: number; hostile: () => boolean; hp: () => number }; /** estado com dano por segundo (envenenado, queimando) */ afflict?: (key: string, seconds: number, dps: number) => void }
 export const targets = new Map<string, Target>();
 
 /** Acerta tudo no círculo; devolve o maior dano que entrou (-1 = ninguém). */
-function hitAt(x: number, z: number, radius: number, damage: number): number {
+function hitAt(x: number, z: number, radius: number, damage: number, info?: HitInfo): number {
   let best = -1;
-  targets.forEach((t) => { if (Math.hypot(t.x - x, t.z - z) <= t.r + radius) { const d = t.hit(damage); best = Math.max(best, typeof d === 'number' ? d : damage); } });
+  targets.forEach((t) => { if (Math.hypot(t.x - x, t.z - z) <= t.r + radius) { const d = t.hit(damage, info); best = Math.max(best, typeof d === 'number' ? d : damage); } });
+  if (best >= 0) markCombat();
   return best;
 }
 
@@ -73,6 +77,8 @@ export function CombatFx({ world }: { world: WorldShape }) {
   const line = useRef<THREE.Mesh>(null);
   const tip = useRef<THREE.Mesh>(null);
   const charger = useMemo(() => new Charge(gameVfx), []);
+  const skillCharger = useMemo(() => new Charge(gameVfx), []);
+  const skillRing = useRef<THREE.Mesh>(null);
   // Ajustes: clique esquerdo ataca (segurar carrega o arco); o direito anda e não abre o menu do navegador
   const { gl } = useThree();
   useEffect(() => {
@@ -98,6 +104,15 @@ export function CombatFx({ world }: { world: WorldShape }) {
       live.current.push(L); force((x) => x + 1);
     }
     while (numQueue.length) { const n = numQueue.shift()!; pop(n.pos, n.text, n.kind); }
+    // concentração de habilidade: brilho no peito do Companion e anel no chão que crescem até 2,5 s
+    {
+      const sc = skillChargeState, ringM = skillRing.current;
+      if (sc.active) {
+        const at = new THREE.Vector3(companionFocus.x, companionFocus.y + 0.9, companionFocus.z);
+        skillCharger.update(at, sc.color, sc.charge, sc.perfect, dt);
+        if (ringM) { ringM.visible = true; ringM.position.set(companionFocus.x, world.heightAt(companionFocus.x, companionFocus.z) + 0.05, companionFocus.z); ringM.scale.setScalar(0.5 + sc.charge * 1.1 + (sc.perfect ? Math.sin(t * 22) * 0.06 : 0)); (ringM.material as THREE.MeshBasicMaterial).color.set(sc.perfect ? '#ffffff' : sc.color); (ringM.material as THREE.MeshBasicMaterial).opacity = 0.35 + sc.charge * 0.5; }
+      } else { skillCharger.stop(); if (ringM) ringM.visible = false; }
+    }
     // carga do arco: faíscas girando para a ponta da flecha, traço no chão até onde vai, anel que cresce
     const c = chargeState;
     const fw = new THREE.Vector3(Math.sin(c.yaw), 0, Math.cos(c.yaw));
@@ -138,7 +153,7 @@ export function CombatFx({ world }: { world: WorldShape }) {
         L.at.y = world.heightAt(L.at.x, L.at.z) + 0.6 + (ev.kind === 'arrow' ? Math.sin(u * Math.PI) * ev.range * 0.08 : 0.1);
         if (L.fx && !L.hit) L.fx.update(L.at, dt);
         const gy = world.heightAt(L.at.x, L.at.z);
-        const dealt = L.hit ? -1 : hitAt(L.at.x, L.at.z, 0.35, ev.damage);
+        const dealt = L.hit ? -1 : hitAt(L.at.x, L.at.z, 0.35, ev.damage, ev.info);
         if (dealt >= 0) {
           L.hit = true; pop(L.at, String(dealt), ev.kind === 'arrow' && ev.perfect); L.t = Math.max(L.t, ev.range / speed);
           L.fx?.end(); burst(gameVfx, ev.kind === 'magic' ? ev.style ?? 'luz' : 'faiscas', L.at.clone(), ev.color, ev.kind === 'arrow' && !ev.perfect ? 0.45 : 0.75, gy);
@@ -149,7 +164,7 @@ export function CombatFx({ world }: { world: WorldShape }) {
         if (!L.hit && L.t > 0.12) {
           L.hit = true;
           const f = new THREE.Vector3(Math.sin(ev.yaw), 0, Math.cos(ev.yaw)), p = ev.pos.clone().addScaledVector(f, ev.range * 0.7);
-          const dealt = hitAt(p.x, p.z, ev.range * 0.55, ev.damage);
+          const dealt = hitAt(p.x, p.z, ev.range * 0.55, ev.damage, ev.info);
           if (dealt >= 0) {
             const gy = world.heightAt(p.x, p.z);
             burst(gameVfx, 'impacto', p.clone().setY(gy + 0.7), ev.color, ev.heavy ? 0.8 : 0.55, gy);
@@ -165,6 +180,7 @@ export function CombatFx({ world }: { world: WorldShape }) {
 
   return (
     <group>
+      <mesh ref={skillRing} rotation={[-Math.PI / 2, 0, 0]} visible={false}><ringGeometry args={[0.7, 0.82, 48]} /><meshBasicMaterial transparent opacity={0.6} depthWrite={false} toneMapped={false} /></mesh>
       <mesh ref={ring} rotation={[-Math.PI / 2, 0, 0]} visible={false}><ringGeometry args={[0.85, 1, 40]} /><meshBasicMaterial transparent opacity={0.7} depthWrite={false} toneMapped={false} /></mesh>
       <mesh ref={line} visible={false}><planeGeometry args={[0.12, 1]} /><meshBasicMaterial transparent depthWrite={false} toneMapped={false} side={THREE.DoubleSide} /></mesh>
       <mesh ref={tip} rotation={[-Math.PI / 2, 0, 0]} visible={false}><ringGeometry args={[0.6, 1, 24]} /><meshBasicMaterial transparent opacity={0.8} depthWrite={false} toneMapped={false} /></mesh>
@@ -216,7 +232,7 @@ function runSkill(ev: Extract<FxEvent, { kind: 'skill' }>, world: WorldShape, po
   };
   const strike = (list: Target[], delay: number) => V.after(delay, () => {
     const dot = s.status && (s.status.key === 'envenenado' || s.status.key === 'queimando') ? s.status : null;
-    for (const t of list) { if (dot && Math.random() < dot.chance) t.afflict?.(dot.key, dot.seconds, Math.max(2, Math.round(ev.damage * 0.15))); if (ev.damage > 0) { const d = t.hit(ev.damage); pop(at(t).setY(at(t).y + 0.4), String(typeof d === 'number' ? d : ev.damage), false); } burst(V, st, at(t), col, 0.5, gy(t.x, t.z)); }
+    for (const t of list) { if (dot && Math.random() < dot.chance) t.afflict?.(dot.key, dot.seconds, Math.max(2, Math.round(ev.damage * 0.15))); if (ev.damage > 0) { markCombat(); const d = t.hit(ev.damage, ev.info); pop(at(t).setY(at(t).y + 0.4), String(typeof d === 'number' ? d : ev.damage), false); } burst(V, st, at(t), col, 0.5, gy(t.x, t.z)); }
   });
   const inside = () => { const l: Target[] = []; targets.forEach((t) => { if (inShape(t)) l.push(t); }); return l; };
   // aviso: onde vai cair (área, salto, aura)
@@ -238,7 +254,7 @@ function runSkill(ev: Extract<FxEvent, { kind: 'skill' }>, world: WorldShape, po
         missile(V, { style: st, color: col, from: chest.clone().addScaledVector(fw, 0.4), to, duration: Math.max(0.15, chest.distanceTo(to) / 14), arc: 0.3, size: Math.max(0.55, s.radius * 1.3), onArrive: (p) => {
           burst(V, st, p, col, 0.85, gy(p.x, p.z));
           if (hit && s.status && (s.status.key === 'envenenado' || s.status.key === 'queimando') && Math.random() < s.status.chance) hit.afflict?.(s.status.key, s.status.seconds, Math.max(2, Math.round(ev.damage * 0.15)));
-          if (hit && ev.damage > 0) { const d = hit.hit(ev.damage); pop(p.clone().setY(p.y + 0.4), String(typeof d === 'number' ? d : ev.damage), false); }
+          if (hit && ev.damage > 0) { markCombat(); const d = hit.hit(ev.damage, ev.info); pop(p.clone().setY(p.y + 0.4), String(typeof d === 'number' ? d : ev.damage), false); }
         } });
         break;
       }

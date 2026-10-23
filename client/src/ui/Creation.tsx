@@ -70,7 +70,7 @@ export function Creation() {
           <form onSubmit={(e) => { e.preventDefault(); if (okName) setStep(2); }}>
             <h2>Um nome para a luz</h2>
             <label>Como seu Companion vai se chamar?
-              <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex.: Lumi, Aurora, Kai" maxLength={24} autoFocus />
+              <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex.: Bele, Maya, Luna" maxLength={24} autoFocus />
             </label>
             <fieldset className="pronoun">
               <legend>Ao falar de si, usa</legend>

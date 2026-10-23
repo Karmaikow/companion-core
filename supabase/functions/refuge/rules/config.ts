@@ -26,6 +26,14 @@ export interface GameConfig {
   /** Curva de níveis: limiar(L) = levelBase * (L-1)^levelExp. Sem nível máximo. */
   levelBase: number;
   levelExp: number;
+  /** Multiplicador de todo o XP de vínculo (mensagens, descobertas, memórias e combate). 1 = normal. */
+  xpMultiplier: number;
+  /** XP por criatura derrotada (mais 1 a cada 3 níveis da criatura). */
+  killXp: number;
+  /** XP extra na primeira vez que derrota uma espécie (Memória de Combate). */
+  firstKillXp: number;
+  /** XP extra ao completar a Análise de Partículas de uma espécie. */
+  analysisXp: number;
 }
 
 export const DEFAULT_CONFIG: GameConfig = {
@@ -41,7 +49,24 @@ export const DEFAULT_CONFIG: GameConfig = {
   maxMemoryXpPerTurn: 2,
   levelBase: 60,
   levelExp: 1.6,
+  xpMultiplier: 1,
+  killXp: 4,
+  firstKillXp: 15,
+  analysisXp: 30,
 };
+
+/** Valores de XP já com o multiplicador aplicado (o servidor usa estes; o Admin edita os valores base). */
+export function withXpMultiplier(cfg: GameConfig): GameConfig {
+  const m = Math.min(20, Math.max(0, Number.isFinite(cfg.xpMultiplier) ? cfg.xpMultiplier : 1));
+  const k = (v: number) => Math.round(v * m * 10) / 10;
+  return { ...cfg, xpMultiplier: 1, messageXp: k(cfg.messageXp), discoveryXp: k(cfg.discoveryXp), memoryXp: k(cfg.memoryXp), killXp: k(cfg.killXp), firstKillXp: k(cfg.firstKillXp), analysisXp: k(cfg.analysisXp) };
+}
+
+/** XP de vínculo por uma criatura derrotada (cfg já com o multiplicador). */
+export function combatXp(cfg: GameConfig, level: number, first: boolean, analyzed: boolean): number {
+  const base = cfg.killXp > 0 ? cfg.killXp + Math.floor(Math.max(0, level) / 3) * Math.max(1, cfg.killXp / 4) : 0;
+  return Math.round(base + (first ? cfg.firstKillXp : 0) + (analyzed ? cfg.analysisXp : 0));
+}
 
 export function resolveConfig(overrides: Partial<GameConfig> | null | undefined): GameConfig {
   const out: GameConfig = { ...DEFAULT_CONFIG };

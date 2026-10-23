@@ -169,14 +169,14 @@ futuro sistema de pets).
 - As famílias descobertas na conversa viram **Classes** (`shared/rules/species.ts`), mantendo as chaves antigas nos
   contratos: serpente → **Dracônica**, passaro → **Alada**, felino → **Feral**, touro → **Taurina**, mistica → **Feérica**.
   Cada uma tem traços que vão no modelo (chifres, orelhas, escamas, penas no cabelo, orelhas pontudas), duas essências
-  afins (+10%), habilidade de forma (Chicote de Cauda, Rasante, Bote, Investida, Guarda) e tendências de atributo.
+  afins (−10% de SP, Constelação Viva), habilidade de forma (Chicote de Cauda, Rasante, Bote, Investida, Guarda) e tendências de atributo.
 - **Cauda e asas não vão no modelo 3D**: o jogo desenha e anima por código (`client/src/scene/Appendages.tsx`),
   presas ao osso do quadril/peito. Cauda = corrente com física de mola (balança, arrasta, enrola a ponta, não atravessa
   o chão): escamosa com barbatana (dracônica), peluda (feral), fina com tufo (taurina), de penas, de luz. Asas de pena,
   de dragão ou de fada batem devagar paradas e mais rápido andando. A descrição do jogador ajusta ("dragão com asas"
   ganha asas de dragão; "sem cauda" tira). Lab: `client/forge-lab.html?cauda`. Teste no jogo: `?cauda=scaly&asas=dragon`.
-- **Velocidade por classe** (`speed`, `speciesSpeed`): Feral 1,25× · Alada 1,15× · Feérica 1,05× · Dracônica 1× ·
-  Taurina 0,88×. O Companion anda no dobro do passo natural da animação × a classe; a animação acelera junto
+- **Velocidade por classe** (`speed`, `speciesSpeed`): Feral 1,10× · Alada 1,06× · Feérica 1,03× · Dracônica 1× ·
+  Taurina 0,95× (v1.17; antes 1,25/1,15/1,05/1/0,88 — a mobilidade forte ficou nas habilidades de forma).
   (`timeScale`), então os pés não patinam. A Agilidade da árvore pode somar aqui quando os atributos existirem.
 - **Ficha do personagem** (`characterSheet`): o JSON que a Fábrica mostra — humanoide, classe, traços, cauda/asas.
   Dois prompts: **referência do modelo 3D** (A-pose, roupa justa, sem cauda e sem asas; a folha de vistas sai dela) e
@@ -196,7 +196,7 @@ Aba **Habilidades** no jogo (`client/src/ui/SkillTreePanel.tsx`; regras em `shar
 - **Árvore** montada do catálogo publicado na Forja, da essência e da classe: três galhos (Essência, Classe, Vínculo),
   5 fileiras cada (vínculo 1, 2, 3, 5, 8). Nós de habilidade (abrem), de melhoria (até 3 níveis: +15% de efeito e
   –8% de recarga por nível) e passivas (% em atributos). No fim: segunda habilidade da essência, "Linhagem" (afinidade da
-  classe de +10% para +20%) e a Sintonia suprema.
+  classe: −10% → −20% de SP) e a Sintonia suprema.
 - `canSpend` explica por que um ponto não entra; `validateAllocation` refaz a distribuição na ordem das fileiras (ao
   carregar e, no futuro, no servidor antes da luta); `treeEffects` dá habilidades com nível e bônus.
 - Guardado em `companion_skill_alloc` (dono grava; ainda sem validação no servidor — entra com `battle.resolve`);
@@ -367,6 +367,63 @@ Os efeitos deixaram de ser pontos com textura e passaram a usar um motor própri
   - Cada monstro colide com o próprio tamanho (`resolveCollisions(p, raio)`) e é empurrado para fora dos obstáculos em todo quadro, inclusive parado ou recém-nascido.
 - **Cauda e asas:** as desenhadas por código ficam desligadas no jogo; só o modelo 3D aparece. O código continua, para testes (`?cauda=`, `?asas=`) e para uma versão futura, como cauda no próprio rig.
 
+## HUD Art Deco, conversa no mundo e dicas das quests (v1.18)
+
+- **HUD** (`client/src/game-hud.css`, a partir do `feature/game-ui-lab`): molduras `.deco` (azul-noite, filete de ouro
+  duplo, cantos em colchete e losango no topo, sem imagens), brasão do lugar no topo, relógio do jogo, minimapa redondo
+  com bússola. Menu lateral só com ícones em grupos (Companion · Jornada · Bolsa · Ofícios · Sistema), rótulo dourado ao
+  passar o mouse; no celular vira uma fileira rolável embaixo. Painéis podem ser minimizados.
+- **Forja Primordial**: para Taurinas (classe real, de teste ou linhagem) o menu mostra a Forja, com ícone de bigorna,
+  no lugar da Oficina.
+- **Conversa no mundo** (`ChatComposer`): a caixa fica no canto de baixo; a fala da pessoa aparece junto dela (v1.19;
+  antes ficava sob o balão do Companion e parecia fala dele). O histórico continua na aba Conversa.
+- **Dicas das quests** (`questHelp`, forma de alma): a quest da vez aparece sob a placa de nome e a
+  aba Quests repete a dica. (v1.19: as respostas prontas saíram; ficou uma dica discreta e uma pergunta curiosa.)
+- **Companion "ele"**: `masculinize` troca o que ele fala de si ("estou pronta" → "estou pronto", "Obrigada" →
+  "Obrigado") nas falas prontas, no respondedor offline, nas falas curtas e nas respostas da IA; o prompt também pede o
+  masculino. Só troca depois de um verbo de estado, para não mexer em "a sopa ficou pronta".
+- **Entrada**: "Criar conta e começar" é o botão principal; entrar, experimentar sem conta e jogar offline vêm depois.
+
+
+## Armas no osso, habilidade carregada e o Companion que escolhe (v1.19)
+
+- **Armas presas ao osso da mão**: `Equipment.tsx` põe o item como filho do osso (`createPortal`). A orientação base vem da pose de bind do SkinnedMesh (`boneInverses` + `bindMatrix`), então a pegada é a mesma em qualquer modelo/animação; a escala do osso é compensada. No Arsenal, "mostrar o ponto do osso" desenha os eixos do encaixe.
+- **Shift + 1–9 concentra a habilidade**: enquanto segura, um anel cresce em volta do Companion; ao soltar, o dano é multiplicado por `skillChargeMultiplier(s)` (×1 → ×2, máximo em 2,5 s; abaixo de 0,15 s não conta). Regras em `shared/rules/combat/skills.ts`. Shift sozinho continua andando devagar (o texto de ajuda foi corrigido).
+- **Quests de conversa sem formulário**: cor, essência, apelido e primeiro sonho são escolhas DO Companion. Ele puxa uma historinha ("uma luz atravessou as runas… acho que sei minha cor, quer adivinhar?") e, quando a pessoa pergunta ou dá um palpite, conta a escolha dele (`companionPick`, determinístico pelo nome; a essência segue as afinidades da forma). No caminho com IA, vale a cor/essência que a fala do Companion disse. As respostas prontas saíram da caixa de conversa; a aba Quests mostra só uma dica discreta e uma pergunta curiosa.
+- **Fala da pessoa fora do Companion**: o balão sobre o Companion mostra só a fala dele (e some quando a pessoa fala, até ele responder); a fala da pessoa aparece junto da caixa de conversa, à direita, marcada "Você".
+
+## Constelação Viva, quest da classe, galeria do ADM e clique para andar (v1.17)
+
+- **Constelação Viva** (atributos distribuíveis): seis atributos (Vitalidade, Força, Magia, Agilidade, Destreza, Espírito),
+  uma Ressonância opcional, perfis salvos e troca gratuita aplicada só fora de combate, coleta e oficina. Substitui os
+  bônus raciais fixos (viram sugestão inicial) e passa a definir HP/SP/Stamina, potência física e mágica, defesa e
+  resistência, velocidades e precisão no jogo. A afinidade da classe virou −10% de SP. Tudo em **docs/CONSTELACAO_VIVA.md**.
+- **"Que criatura serei?"**: o Companion sugere uma das cinco linhagens de cada vez ("Que tal eu me parecer um touro?"),
+  na ordem que combina com os traços (`classSuggestionOrder`); o "sim" da pessoa conclui a quest
+  (`suggestedClass` + `isAffirmative`, também com IA via `assistDiscoveries`). Recusou, vem a próxima.
+- **Despertar**: botão fixo "✨ Despertar a primeira forma" enquanto o Companion estiver pronto; no celular a barra de
+  abas rola de lado (com 11 abas, Vínculo, Expedição, Oficina e Ajustes saíam da tela).
+- **Clicar para andar**: o pedido sai no soltar do clique (ouvido na janela), então um clique novo no meio do caminho
+  troca o destino na hora; segurar ~0,3 s faz o Companion seguir o cursor/dedo; arrastar de lado gira a câmera. A ordem
+  de clique vale até chegar (a IA não a sobrepõe).
+- **Forja só para Taurinas**: a aba Forja do equipamento e as encomendas abertas do quadro só aparecem para Taurinas.
+- **O Administrador → Companions**: todos os Companions como ícones redondos (imagem e nome), com busca e filtros. A ficha
+  mostra progressão (nível, XP, quests, memórias, combate), coleta (materiais da mochila do Ecos, ferramentas, Lumes,
+  peças), identidade, Constelação e, na aba Fábrica, os pedidos de arte (ações `admin.companions` e `admin.companion`).
+
+## Ecos da Terra (v1.16)
+
+Coleta com escolhas no **Vale dos Ecos** (bosque, riacho e afloramento ao norte do Portal). Inclui:
+
+- materiais com propriedades em faixas;
+- 2–3 abordagens por recurso;
+- a cadeia de descoberta "A Seiva Azul" e o Jardim da Nascente;
+- receitas que valorizam propriedades;
+- a obra comunitária Ponte do Riacho;
+- a Companion coletando por intenção.
+
+Detalhes, o que é simulado e o que está implementado, parâmetros, testes e limitações: **docs/ECOS_DA_TERRA.md**.
+
 ## Memórias de Combate, ordens, falas e voz (v1.15)
 
 - **Ela sabe que tem corpo:** depois do despertar, o prompt (`PromptContext.body`) diz que ela não é mais uma esfera de luz e descreve a forma dela. A regra de "não pode sair do Refúgio" deixa de valer.
@@ -383,13 +440,22 @@ Os efeitos deixaram de ser pontos com textura e passaram a usar um motor própri
   - coletar (ainda responde que não sabe).
   - A ordem vira ação na hora e, se o ajuste permitir, também vai para a conversa com a IA.
 - **Falas** (`shared/rules/barks.ts`): frases curtas, sem IA, para ver uma criatura nova ou conhecida, atacar, apanhar, ficar com pouca vida ("Socorro, me ajuda!"), fugir, derrotar, analisar, responder a ordens e passear. O tom muda com os traços (brincalhona, corajosa, serena) e a frequência segue o ajuste "Quanto ela comenta".
+- **XP de vínculo pelo combate** (`combatXp`, config `killXp` 4, `firstKillXp` 15, `analysisXp` 30): cada criatura derrotada dá XP (+1 a cada 3 níveis dela). A primeira vez contra uma espécie e a análise completa dão bônus. Aparece "+N vínculo" sobre a criatura.
+- **Multiplicador de XP** (`xpMultiplier`, Admin → Servidor, até 10×): o servidor aplica sobre os valores base (`withXpMultiplier` no `loadConfig`), para conversa, descobertas, memórias e combate. Antes ele só era salvo e não valia.
+- **Falas pela IA** (`barks.ts`: `buildBarkBankPrompt`/`buildMomentPrompt`; ação `barks`; `brain.ts`). Ajuste "As falas dela no jogo" = IA (padrão) ou prontas.
+  - Estoque: a IA escreve 5 falas por evento (golpe, apanhar, pouca vida, ordens, passeio…) no jeito dela. Fica no navegador, por Companion, e é renovado em lotes quando acaba; as já usadas vão como "evite repetir". Sai na hora, sem esperar a IA no meio da luta.
+  - Momento: ver uma criatura nova, a primeira derrota, a análise completa, missão cumprida, chegar num lugar. A fala é escrita na hora com o que ela sabe da criatura (dossiê). Se passar de 4,5 s, sai uma do estoque ou pronta.
+  - Freio: 8 pedidos de estoque a cada 10 min e 10 momentos por minuto (eventos `barks.ai`). Offline ou sem IA, usa as frases prontas.
 - **IA no mundo** (`CompanionModel`, bloco "cérebro"): a postura vem dos Ajustes (só passeia / se defende / caça). Ela escolhe a ameaça ou a presa, se aproxima, ataca e usa habilidades (`aiCast`), e foge quando a vida cai abaixo do limite.
 - **Ajustes** (`client/src/settings.ts`, salvo no navegador):
   - clique esquerdo anda ou ataca (no modo ataque, o clique direito anda);
   - mira do ataque e das habilidades pelo mouse ou no monstro mais perto;
   - postura, limite de fuga, frequência das falas;
   - voz das respostas, envio automático do microfone, números de dano.
-- **Voz** (`client/src/ui/voice.ts`): usa o navegador, sem custo. A leitura em voz alta usa SpeechSynthesis pt-BR; o microfone usa SpeechRecognition (botão 🎙 na conversa ou segurar V). Funciona no Chrome e no Edge; o Firefox não reconhece fala.
+- **Voz** (`client/src/ui/voice.ts`): usa o navegador, sem custo. Funciona no Chrome e no Edge; o Firefox não reconhece fala.
+  - Ela fala com voz de menina (Companion "ela") ou de menino ("ele"). Sem uma voz masculina pt-BR no aparelho, usa a feminina em tom grave. A voz vem ligada por padrão; os ajustes antigos (v1) migram com ela ligada.
+  - Conversa por voz: o 🎙 fica ligado, escuta sem parar e envia cada frase. Ele pausa enquanto ela fala, para não ouvir a própria voz.
+  - Segurar V ouve uma frase só.
 
 ## Veneno (v1.14)
 

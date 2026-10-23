@@ -1,11 +1,10 @@
 /**
- * Equipamento visível no Companion: cada item preso a um osso (mão direita, mão esquerda, cabeça, peito) do rig
- * humanoide. A posição vem do osso; a orientação vem do corpo, mais o quanto o osso girou desde a pose de descanso —
- * assim a espada acompanha o golpe sem depender de como cada rig orienta os ossos. Sem osso (manequim, rig sem nome
+ * Equipamento visível no Companion: cada item é FILHO do osso (mão direita, mão esquerda, cabeça, peito) do rig
+ * humanoide e acompanha a animação sozinho. O encaixe parte da pose de ligação (A-pose), igual para todo rig. Sem osso (manequim, rig sem nome
  * padrão), usa pontos fixos no corpo de 1 m. O ajuste fino de cada item fica na "pegada" (Arsenal).
  */
 import { Suspense, useMemo, useRef } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { createPortal, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { ITEM_TYPES, SLOTS_EQ, gripFor, type Bone, type ItemDef } from '@rules';
 import { ItemModel } from './ItemModel';
@@ -42,34 +41,75 @@ export function boneFor(item: ItemDef): Bone {
   return SLOTS_EQ[ITEM_TYPES[item.type].slot].bone;
 }
 
-const v = new THREE.Vector3(), q = new THREE.Quaternion(), rq = new THREE.Quaternion(), rel = new THREE.Quaternion();
+const v = new THREE.Vector3(), q = new THREE.Quaternion(), rq = new THREE.Quaternion(), sc = new THREE.Vector3(), m4 = new THREE.Matrix4();
 
-function Attached({ item, bones, root, charge }: { item: ItemDef; bones: GearBones | null; root: React.RefObject<THREE.Group | null>; charge?: { current: number } }) {
+/**
+ * Giro do osso na pose de ligação (bind pose / A-pose do Tripo-Mixamo), no espaço do corpo. É fixo para cada rig, então
+ * a pegada não depende da animação que estava tocando quando o item apareceu. Sem SkinnedMesh, devolve null.
+ */
+function bindRel(bone: THREE.Object3D, root: THREE.Object3D): THREE.Quaternion | null {
+  let found: THREE.Quaternion | null = null;
+  root.updateWorldMatrix(true, true);
+  root.traverse((o) => {
+    const sm = o as THREE.SkinnedMesh;
+    if (found || !sm.isSkinnedMesh || !sm.skeleton) return;
+    const i = sm.skeleton.bones.indexOf(bone as THREE.Bone);
+    if (i < 0) return;
+    // osso no mundo na pose de ligação = malha agora × (malha na ligação)⁻¹ × (inversa do osso)⁻¹
+    m4.copy(sm.skeleton.boneInverses[i]).invert().premultiply(sm.bindMatrixInverse).premultiply(sm.matrixWorld);
+    const bq = new THREE.Quaternion(); m4.decompose(v, bq, sc);
+    root.getWorldQuaternion(rq);
+    found = rq.clone().invert().multiply(bq);
+  });
+  return found;
+}
+
+/**
+ * Item preso DIRETO no osso (filho do osso na cena): acompanha a mão em toda animação, sem cálculo por quadro.
+ * O encaixe ("socket") desfaz o giro do osso na pose de ligação e aplica a orientação base do tipo de item, então a
+ * pegada (Arsenal) fica no espaço da mão em A-pose: igual para todo rig humanoide. A escala do osso é compensada para
+ * o item ter o tamanho de mundo dele. O ajuste fino continua na pegada (posição, giro, tamanho).
+ */
+function Attached({ item, bones, root, charge, showSocket }: { item: ItemDef; bones: GearBones | null; root: React.RefObject<THREE.Group | null>; charge?: { current: number }; showSocket?: boolean }) {
   const g = useRef<THREE.Group>(null);
   const bone = boneFor(item);
   const base = useMemo(() => new THREE.Quaternion().setFromEuler(baseRotation(item)), [item]);
-  const rest = useRef<THREE.Quaternion | null>(null);
+  const b = bone === 'nenhum' ? null : bones?.[bone] ?? null;
+  const local = useRef<THREE.Quaternion | null>(null);
+  const firstRel = useRef<THREE.Quaternion | null>(null);
   useFrame(() => {
     const r = root.current, grp = g.current; if (!r || !grp || bone === 'nenhum') return;
-    r.getWorldQuaternion(rq);
-    const b = bones?.[bone] ?? null;
     if (b) {
-      b.getWorldPosition(grp.position);
-      if (bone === 'cabeca') grp.position.add(v.set(0, 0.3, 0).applyQuaternion(rq));
-      // quanto o osso girou desde a pose de descanso (no espaço do corpo)
-      b.getWorldQuaternion(q); rel.copy(rq).invert().multiply(q);
-      if (!rest.current) rest.current = rel.clone().invert();
-      const delta = rel.multiply(rest.current);
-      grp.quaternion.copy(rq).multiply(bone === 'cabeca' || bone === 'peito' ? base : delta.multiply(base));
+      if (!local.current) {
+        // pose de ligação; sem ela (rig sem pele), o primeiro quadro serve de descanso
+        let rest = bindRel(b, r);
+        if (!rest) { r.getWorldQuaternion(rq); b.getWorldQuaternion(q); firstRel.current ??= rq.clone().invert().multiply(q); rest = firstRel.current; }
+        local.current = rest.clone().invert().multiply(base);
+      }
+      grp.quaternion.copy(local.current);
+      b.getWorldScale(sc);
+      const k = 1 / Math.max(1e-4, (Math.abs(sc.x) + Math.abs(sc.y) + Math.abs(sc.z)) / 3);
+      grp.scale.setScalar(k);
+      // chapéu e coroa: um pouco acima do osso da cabeça (no espaço do corpo em A-pose)
+      if (bone === 'cabeca') grp.position.copy(v.set(0, 0.3 * k, 0).applyQuaternion(local.current.clone().multiply(base.clone().invert())));
+      else grp.position.set(0, 0, 0);
     } else {
+      r.getWorldQuaternion(rq);
       r.getWorldPosition(grp.position).add(v.set(...FALLBACK[bone]).applyQuaternion(rq));
       grp.quaternion.copy(rq).multiply(base);
+      grp.scale.setScalar(1);
     }
   });
-  return <group ref={g}><AssetBoundary><Suspense fallback={null}><ItemModel item={item} charge={item.type === 'arco' ? charge : undefined} /></Suspense></AssetBoundary></group>;
+  const body = (
+    <group ref={g}>
+      {showSocket && <axesHelper args={[0.12]} />}
+      <AssetBoundary><Suspense fallback={null}><ItemModel item={item} charge={item.type === 'arco' ? charge : undefined} /></Suspense></AssetBoundary>
+    </group>
+  );
+  return b ? createPortal(body, b) : body;
 }
 
 /** `modelKey`: id do Companion — usa a pegada ajustada para aquele modelo no Arsenal, se houver. */
-export function EquipmentLayer({ items, bones, root, charge, modelKey }: { items: ItemDef[]; bones: GearBones | null; root: React.RefObject<THREE.Group | null>; charge?: { current: number }; modelKey?: string | null }) {
-  return <>{items.filter((i) => boneFor(i) !== 'nenhum').map((i) => { const it = { ...i, grip: gripFor(i, modelKey) }; return <Attached key={i.slug + JSON.stringify(it.grip)} item={it} bones={bones} root={root} charge={charge} />; })}</>;
+export function EquipmentLayer({ items, bones, root, charge, modelKey, showSocket }: { items: ItemDef[]; bones: GearBones | null; root: React.RefObject<THREE.Group | null>; charge?: { current: number }; modelKey?: string | null; showSocket?: boolean }) {
+  return <>{items.filter((i) => boneFor(i) !== 'nenhum').map((i) => { const it = { ...i, grip: gripFor(i, modelKey) }; return <Attached key={i.slug + JSON.stringify(it.grip)} item={it} bones={bones} root={root} charge={charge} showSocket={showSocket} />; })}</>;
 }

@@ -3,7 +3,7 @@ import { DEFAULT_ITEMS, type Equipped, type ItemDef } from '@rules';
 import { QUESTS, QUEST_REWARDS, SECRET_BY_KEY, SECRET_XP, SECRET_BOOST_TURNS, ELEMENTS, type QuestKey, type SecretKey } from '@rules';
 import type { Backend, Snapshot } from './backend/types';
 
-export type Tab = 'chat' | 'memories' | 'diary' | 'quests' | 'inventory' | 'recipes' | 'skills' | 'bond' | 'settings';
+export type Tab = 'chat' | 'memories' | 'diary' | 'quests' | 'inventory' | 'recipes' | 'skills' | 'bond' | 'ecos' | 'pacto' | 'forja' | 'settings';
 
 export interface Toast { id: number; text: string; tone: 'gold' | 'soft' | 'warn' }
 
@@ -18,6 +18,9 @@ interface State {
   error: string | null;
   mood: string;
   lastReply: string | null;
+  /** última fala da pessoa (aparece num balão perto do Companion) */
+  playerSpeech: { id: number; text: string } | null;
+  sayPlayer(text: string): void;
   pulse: number; // incrementa a cada descoberta — dispara o efeito no núcleo
   burst: number; // incrementa em conquistas grandes (segredo, despertar pronto)
   toasts: Toast[];
@@ -40,6 +43,7 @@ interface State {
   recordKill(slug: string, level: number): Promise<import('./backend/types').CombatResult | null>;
   dismissCelebration(): void;
   dismissAwakenCall(): void;
+  openAwakenCall(): void;
 }
 
 let seq = 0;
@@ -48,11 +52,13 @@ const awakenSeenKey = (id: string) => 'companion-core:awaken-call:' + id;
 export const useGame = create<State>((set, get) => ({
   backend: null,
   snap: null,
-  tab: 'chat',
+  tab: null,
   busy: false,
   error: null,
   mood: 'curiosa',
   lastReply: null,
+  playerSpeech: null,
+  sayPlayer: (text) => set({ playerSpeech: { id: ++seq, text } }),
   pulse: 0,
   burst: 0,
   toasts: [],
@@ -62,9 +68,9 @@ export const useGame = create<State>((set, get) => ({
   awakenCall: false,
   items: DEFAULT_ITEMS,
   equipped: {},
-  setItems: (items) => set({ items }),
+  setItems: (items) => set((s) => ({ items: [...items.filter((i) => !i.slug.startsWith('inst-')), ...s.items.filter((i) => i.slug.startsWith('inst-'))] })),
   setEquipped: (equipped) => set({ equipped }),
-  setBackend: (backend) => set({ backend, snap: null, error: null, lastReply: null, celebrations: [], awakenCall: false }),
+  setBackend: (backend) => set({ backend, snap: null, tab: null, error: null, lastReply: null, playerSpeech: null, celebrations: [], awakenCall: false }),
   setTab: (tab) => set({ tab }),
   toast: (text, tone = 'soft') => {
     const t = { id: ++seq, text, tone };
@@ -79,8 +85,10 @@ export const useGame = create<State>((set, get) => ({
       const snap = await b.combatKill(slug, level);
       // mantém a resposta da conversa em andamento; só troca bestiário e memórias
       const cur = get().snap;
-      set({ snap: cur ? { ...cur, bestiary: snap.bestiary, memories: snap.memories } : snap });
+      // mantém a conversa; troca bestiário, memórias, vínculo (XP da luta) e o progresso do despertar
+      set({ snap: cur ? { ...cur, bestiary: snap.bestiary, memories: snap.memories, companion: snap.companion ?? cur.companion, awakening: snap.awakening ?? cur.awakening } : snap });
       const r = snap.combat ?? null;
+      if (r?.levelUp) get().toast(`Vínculo nível ${r.levelUp}`, 'gold');
       if (r?.first) get().toast(`Memória de Combate: ${r.entry.name}`, 'soft');
       if (r?.analyzed) get().celebrate({ kind: 'quest', eyebrow: 'Análise de Partículas', title: r.entry.name, subtitle: 'Análise completa: fraquezas, atributos e o que solta estão no Bestiário (Memórias).' });
       if (r?.milestone) get().celebrate({ kind: 'secret', eyebrow: 'Quest: Análise de Partículas', title: `${r.milestone} espécie${r.milestone > 1 ? 's' : ''} analisada${r.milestone > 1 ? 's' : ''}`, subtitle: 'As partículas da Bruma contam quem são as criaturas do mundo.' });
@@ -93,6 +101,7 @@ export const useGame = create<State>((set, get) => ({
     if (id) try { localStorage.setItem(awakenSeenKey(id), '1'); } catch { /* sem armazenamento */ }
     set({ awakenCall: false });
   },
+  openAwakenCall: () => set({ awakenCall: true }),
   run: async (fn) => {
     const b = get().backend;
     if (!b || get().busy) return;

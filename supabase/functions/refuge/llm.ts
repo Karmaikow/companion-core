@@ -6,12 +6,14 @@ const ANTHROPIC = Deno.env.get('ANTHROPIC_API_KEY') ?? '';
 const GROQ = Deno.env.get('GROQ_API_KEY') ?? '';
 const ANTHROPIC_MODEL = Deno.env.get('ANTHROPIC_MODEL') ?? 'claude-haiku-4-5';
 const GROQ_MODEL = Deno.env.get('GROQ_MODEL') ?? 'openai/gpt-oss-20b';
+// falas curtas no jogo: modelo maior (português mais natural); rápido no Groq
+const GROQ_MODEL_HQ = Deno.env.get('GROQ_MODEL_HQ') ?? 'openai/gpt-oss-120b';
 
 export function providerName(): 'anthropic' | 'groq' | 'offline' {
   return ANTHROPIC ? 'anthropic' : GROQ ? 'groq' : 'offline';
 }
 
-export async function complete(system: string, history: ChatLine[], user: string): Promise<string | null> {
+export async function complete(system: string, history: ChatLine[], user: string, opts: { maxTokens?: number; timeoutMs?: number; quality?: boolean } = {}): Promise<string | null> {
   const msgs = history.slice(-12).map((h) => ({ role: h.role === 'player' ? 'user' : 'assistant', content: h.text || '…' }));
   if (ANTHROPIC) {
     // Mensagens precisam alternar e começar com user.
@@ -24,9 +26,9 @@ export async function complete(system: string, history: ChatLine[], user: string
     while (merged.length && merged[0].role !== 'user') merged.shift();
     const r = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      signal: AbortSignal.timeout(25_000),
+      signal: AbortSignal.timeout(opts.timeoutMs ?? 25_000),
       headers: { 'content-type': 'application/json', 'x-api-key': ANTHROPIC, 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify({ model: ANTHROPIC_MODEL, max_tokens: 700, system, messages: merged }),
+      body: JSON.stringify({ model: ANTHROPIC_MODEL, max_tokens: opts.maxTokens ?? 700, system, messages: merged }),
     });
     if (!r.ok) throw new Error('anthropic ' + r.status);
     const data = await r.json();
@@ -35,10 +37,10 @@ export async function complete(system: string, history: ChatLine[], user: string
   if (GROQ) {
     const call = (json: boolean) => fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
-      signal: AbortSignal.timeout(25_000),
+      signal: AbortSignal.timeout(opts.timeoutMs ?? 25_000),
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${GROQ}` },
       body: JSON.stringify({
-        model: GROQ_MODEL, reasoning_effort: 'low', include_reasoning: false, max_completion_tokens: 1200,
+        model: opts.quality ? GROQ_MODEL_HQ : GROQ_MODEL, reasoning_effort: 'low', include_reasoning: false, max_completion_tokens: opts.maxTokens ?? 1200,
         ...(json ? { response_format: { type: 'json_object' } } : {}),
         messages: [{ role: 'system', content: system }, ...msgs, { role: 'user', content: user }],
       }),

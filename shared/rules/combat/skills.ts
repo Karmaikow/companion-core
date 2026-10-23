@@ -36,6 +36,8 @@ export interface SkillDef {
   anim: AnimKind;
   vfx: { style: VfxStyle; color: 'essence' | 'companion' | string; ground: boolean };
   unlockBond: number;            // nível de vínculo para entrar no kit
+  /** modalidade do dano (Constelação Viva): física usa Força e a defesa física; mágica, Magia e a resistência; híbrida divide 50/50. Sem o campo, vale a regra pela forma (inferModality). */
+  modality?: 'fisica' | 'magica' | 'hibrida';
 }
 
 export const SLOTS: Record<SkillSlot, string> = { basic: 'Golpe básico', essence: 'Habilidade de essência', form: 'Habilidade de forma', supreme: 'Sintonia suprema' };
@@ -159,6 +161,7 @@ export function sanitizeSkill(input: unknown): SkillDef | null {
     anim: typeof s.anim === 'string' ? s.anim : 'attack',
     vfx: { style: v.style && v.style in VFX_STYLES ? v.style : 'impacto', color: v.color === 'essence' || v.color === 'companion' || (typeof v.color === 'string' && /^#[0-9a-f]{6}$/i.test(v.color)) ? v.color : 'essence', ground: !!v.ground },
     unlockBond: Math.round(n(s.unlockBond, 1, 20, 1)),
+    ...(s.modality === 'fisica' || s.modality === 'magica' || s.modality === 'hibrida' ? { modality: s.modality } : {}),
   };
 }
 
@@ -192,4 +195,20 @@ export function kitFor(catalog: SkillDef[], c: { essence: Element | null; body: 
     else if (s.slot === 'supreme' && !kit.supreme) kit.supreme = s;
   }
   return kit;
+}
+
+// ---------------------------------------------------------------------------
+// Concentrar a habilidade (Shift + 1–9): segurar acumula até 2,5 s e solta com dano extra
+// ---------------------------------------------------------------------------
+
+export const SKILL_CHARGE_MAX = 2.5;     // s: depois disso não acumula mais
+export const SKILL_CHARGE_MIN = 0.15;    // s: menos que isso conta como lançamento normal
+export const SKILL_CHARGE_BONUS = 1;     // dano extra com a carga cheia (+100% → ×2)
+
+/** Carga de 0 a 1 pelo tempo segurado (até SKILL_CHARGE_MAX). */
+export const skillCharge = (seconds: number) => (seconds < SKILL_CHARGE_MIN ? 0 : Math.min(1, seconds / SKILL_CHARGE_MAX));
+
+/** Multiplicador de dano da habilidade concentrada: ×1 sem carga até ×2 com 2,5 s (cura não muda). */
+export function skillChargeMultiplier(seconds: number): number {
+  return 1 + SKILL_CHARGE_BONUS * skillCharge(seconds);
 }

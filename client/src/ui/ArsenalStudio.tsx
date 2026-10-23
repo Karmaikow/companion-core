@@ -28,6 +28,7 @@ export function ArsenalStudio() {
   const [trainer, setTrainer] = useState('');
   const trainerModel = models?.find((m) => m.companionId === trainer) ?? null;
   const [swing, setSwing] = useState(true);
+  const [socket, setSocket] = useState(false);
 
   const run = async (f: () => Promise<unknown>, ok: string) => { setBusy(true); setMsg(null); try { await f(); setMsg({ ok: true, text: ok }); } catch (e) { setMsg({ text: (e as Error).message }); } finally { setBusy(false); } };
   const pick = (slug: string) => {
@@ -91,13 +92,14 @@ export function ArsenalStudio() {
       {!draft || !clean ? <section className="biome-empty"><p>Escolha um item ou crie um novo.</p></section> : (
         <section className="biome-editor">
           <div className="biome-preview">
-            <Suspense fallback={<div className="art-empty">Carregando prévia…</div>}><ItemPreview item={clean} charge={charge} body={trainerModel ? { url: trainerModel.url, companionId: trainerModel.companionId, swing } : null} /></Suspense>
+            <Suspense fallback={<div className="art-empty">Carregando prévia…</div>}><ItemPreview item={clean} charge={charge} body={trainerModel ? { url: trainerModel.url, companionId: trainerModel.companionId, swing, socket } : null} /></Suspense>
             <div className="preview-tools">
               <label>Campo de treino <select value={trainer} onChange={(e) => setTrainer(e.target.value)} aria-label="Modelo que segura o item">
                 <option value="">manequim</option>
                 {(models ?? []).map((m) => <option key={m.companionId} value={m.companionId}>{m.name}</option>)}
               </select></label>
               {trainerModel && ITEM_TYPES[clean.type].weapon && <label><input type="checkbox" checked={swing} onChange={(e) => setSwing(e.target.checked)} /> golpear em loop</label>}
+              {trainerModel && <label title="Mostra os eixos do encaixe preso ao osso (vermelho = x, verde = y, azul = z)"><input type="checkbox" checked={socket} onChange={(e) => setSocket(e.target.checked)} /> mostrar o ponto do osso</label>}
               {clean.type === 'arco' && <label>Carga do arco <input type="range" min={0} max={1} step={0.05} value={charge} onChange={(e) => setCharge(Number(e.target.value))} /></label>}
             </div>
           </div>
@@ -115,7 +117,7 @@ export function ArsenalStudio() {
                 {ownGrip && <button className="link" onClick={() => { const m = { ...(draft.gripByModel ?? {}) }; delete m[trainer]; edit({ gripByModel: m }); }}>voltar à pegada padrão neste modelo</button>}
                 {trainerModel && !ownGrip && <button className="link" onClick={() => putGrip(structuredClone(draft.grip))}>criar ajuste só para {trainerModel.name}</button>}
               </div>
-              <small className="hint">Escolha um Companion no campo de treino para ver a arma na mão dele, golpeando. Modelos de tamanhos diferentes podem ter a pegada ajustada um a um; salve o item para valer no jogo.{draft.gripByModel && Object.keys(draft.gripByModel).length ? ` Ajustes por modelo: ${Object.keys(draft.gripByModel).map((k) => models?.find((m) => m.companionId === k)?.name ?? k.slice(0, 6)).join(', ')}.` : ''}</small>
+              <small className="hint">A peça fica presa direto no osso (mão, cabeça ou peito) e acompanha toda animação. A pegada parte da pose de ligação (A-pose), igual para todo rig: em geral basta o Tamanho e um pouco de Posição. Pegadas salvas antes desta versão podem precisar de “zerar pegada”. Escolha um Companion no campo de treino para ver a arma na mão dele, golpeando. Modelos de tamanhos diferentes podem ter a pegada ajustada um a um; salve o item para valer no jogo.{draft.gripByModel && Object.keys(draft.gripByModel).length ? ` Ajustes por modelo: ${Object.keys(draft.gripByModel).map((k) => models?.find((m) => m.companionId === k)?.name ?? k.slice(0, 6)).join(', ')}.` : ''}</small>
             </fieldset>
 
             <div className="row-3">

@@ -3,8 +3,8 @@ import { useEffect, useRef, useState } from 'react';
 import { QUESTS, QUEST_REWARDS, FORM_FAMILIES, ELEMENTS, SECRETS, SECRET_BY_KEY, type SecretKey } from '@rules';
 import { ItemIcon } from './itemIcons';
 import { useGame } from '../store';
-import { sendPlayerMessage, useMic } from './voice';
-import { useSettings } from '../settings';
+import { ChatComposer } from './ChatComposer';
+import { useQuestHelp } from './GameHud';
 import { BestiaryPanel } from './Bestiary';
 
 const QUEST_FIELD: Record<string, (d: Record<string, unknown>) => string | null> = {
@@ -26,21 +26,11 @@ export function ChatPanel() {
   const snap = useGame((s) => s.snap);
   const busy = useGame((s) => s.busy);
   const run = useGame((s) => s.run);
-  const [text, setText] = useState('');
   const list = useRef<HTMLDivElement>(null);
   const lines = (snap?.timeline ?? []).filter((e) => ['chat.player', 'chat.companion', 'quest.completed', 'identity.renamed', 'secret.found', 'recipe.added'].includes(e.kind));
   const online = useGame((s) => s.backend?.kind === 'online');
   const name = snap?.companion?.discoveries.name ?? 'Núcleo';
   useEffect(() => { list.current?.scrollTo({ top: list.current.scrollHeight, behavior: 'smooth' }); }, [lines.length, busy]);
-  const autoSend = useSettings((s) => s.voiceAutoSend);
-  const send = () => {
-    const m = text.trim();
-    if (!m || busy) return;
-    setText('');
-    sendPlayerMessage(m);
-  };
-  // microfone: o que ouvir vai para a caixa (e é enviado sozinho, se ligado nos Ajustes)
-  const mic = useMic((t) => { if (autoSend) sendPlayerMessage(t); else setText(t); });
   void run;
   return (
     <div className="chat">
@@ -64,11 +54,7 @@ export function ChatPanel() {
         )}
         {busy && <div className="line them typing" aria-label="pensando"><span /><span /><span /></div>}
       </div>
-      <form className="chat-input" onSubmit={(e) => { e.preventDefault(); send(); }}>
-        <input value={mic.listening ? mic.heard : text} onChange={(e) => setText(e.target.value)} placeholder={mic.listening ? 'Ouvindo… pode falar' : 'Escreva ou fale com o seu Companion…'} maxLength={1000} aria-label="Mensagem" />
-        {mic.supported && <button type="button" className={'mic' + (mic.listening ? ' on' : '')} onClick={() => (mic.listening ? mic.stop() : mic.start())} aria-label={mic.listening ? 'Parar de ouvir' : 'Falar pelo microfone'} title="Falar (ou segure V)">🎙</button>}
-        <button type="submit" disabled={busy || !text.trim()}>Enviar</button>
-      </form>
+      <ChatComposer variant="panel" />
     </div>
   );
 }
@@ -128,6 +114,8 @@ export function QuestsPanel() {
   const snap = useGame((s) => s.snap);
   const quests = snap?.quests ?? [];
   const d = (snap?.companion?.discoveries ?? {}) as Record<string, unknown>;
+  const help = useQuestHelp();
+  const setTab = useGame((s) => s.setTab);
   return (
     <ol className="quests">
       {QUESTS.map((q) => {
@@ -141,6 +129,13 @@ export function QuestsPanel() {
               <strong>{q.title}</strong>
               <p>{done && value ? value : q.discovery}</p>
               {!done && q.key === 'bond' && <small>Requer vínculo nível {snap?.config?.firstBondLevel ?? 2}</small>}
+              {!done && help?.quest === q.key && (
+                <div className="quest-help">
+                  <small>{help.hint}</small>
+                  <small className="quest-idea">Se ficar com curiosidade: “{help.replies[0]}”</small>
+                  <button className="link" onClick={() => setTab('chat')}>Conversar agora</button>
+                </div>
+              )}
             </div>
           </li>
         );

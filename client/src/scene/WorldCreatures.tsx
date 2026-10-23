@@ -7,7 +7,7 @@ import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 import * as THREE from 'three';
-import { chunkSpawns, CHUNK, ARCHETYPES, creatureStatsAt, mitigate, rollDrops, type CompanionWorld, type CreatureDef, type Spawn } from '@rules';
+import { chunkSpawns, CHUNK, ARCHETYPES, creatureStatsAt, mitigate, rollDrops, resolveHit, affinity, type CompanionWorld, type CreatureDef, type Spawn } from '@rules';
 import { companionFocus, resolveCollisions } from './world';
 import { CreatureBody, type CreatureAct } from './Creature';
 import { AssetBoundary } from './Biome';
@@ -15,7 +15,7 @@ import { numQueue, skillInput, targets } from './Combat';
 import { gameVfx } from './vfx/engine';
 import { burst } from './vfx/recipes';
 import { hurtCompanion } from './vitals';
-import { brain, onKill, say } from './brain';
+import { brain, onKill, say, sayMoment } from './brain';
 import { useGame } from '../store';
 
 const ESSENCE_STYLE: Record<string, string> = { fogo: 'chamas', agua: 'gotas', terra: 'pedras', vento: 'vento', luz: 'luz', sombra: 'sombra', gelo: 'gelo', raio: 'raios', natureza: 'folhas', veneno: 'veneno' };
@@ -65,10 +65,14 @@ function WorldCreature({ cw, def, spawn }: { cw: CompanionWorld; def: CreatureDe
         else L.dots.push({ key, left: seconds, dps, stacks: 1, tick: 1 });
         L.provoked = true;
       },
-      hit: (damage) => {
+      hit: (damage, info) => {
         const L = life.current;
         if (L.dead > 0) return 0;
-        const dealt = mitigate(damage, stats.defesa);
+        // Constelação Viva: física passa pela defesa; mágica pela resistência (sem campo próprio, a criatura usa a
+        // defesa — pendência de balanceamento); afinidade da essência e precisão nas fraquezas
+        const dealt = info
+          ? resolveHit(damage, info, { essence: def.essence, physDefense: stats.defesa, magResist: (stats as { resistencia?: number }).resistencia ?? null }, affinity(info.essence, def.essence), Math.random())
+          : mitigate(damage, stats.defesa);
         L.hp -= dealt; L.provoked = true; hurt.current = 0.45;
         setHpPct(Math.max(0, L.hp / stats.vida));
         if (L.hp <= 0) {
@@ -82,8 +86,9 @@ function WorldCreature({ cw, def, spawn }: { cw: CompanionWorld; def: CreatureDe
           // bestiário (Análise de Partículas), caçada e fala
           onKill(def.slug, def.name);
           void useGame.getState().recordKill(def.slug, spawn.level).then((r) => {
-            if (r?.analyzed) say('analyzed', { m: def.name }, { force: true });
-            else if (r?.first) say('first-kill', { m: def.name }, { force: true });
+            if (r?.xp) numQueue.push({ pos: at.clone().setY(at.y + 1.1), text: `+${r.xp} vínculo`, kind: 'drop' });
+            if (r?.analyzed) sayMoment('analyzed', { m: def.name }, def.slug);
+            else if (r?.first) sayMoment('first-kill', { m: def.name }, def.slug);
             else say('kill', { m: def.name }, { chance: 0.6 });
           });
           const tg = targets.get(id); if (tg) tg.r = -99; // fora do alcance enquanto não volta
@@ -212,7 +217,7 @@ function WorldCreature({ cw, def, spawn }: { cw: CompanionWorld; def: CreatureDe
     if (dC < 7 && !brain.seen.has(def.slug)) {
       brain.seen.add(def.slug);
       const known = useGame.getState().snap?.bestiary?.some((e) => e.slug === def.slug);
-      say(known ? 'see-known' : 'see-new', { m: def.name }, { chance: known ? 0.5 : 1 });
+      if (known) say('see-known', { m: def.name }, { chance: 0.5 }); else sayMoment('see-new', { m: def.name }, def.slug);
     }
     if (nr !== s.near) { s.near = nr; setNear(nr); }
   });

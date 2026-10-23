@@ -9,7 +9,7 @@ import * as THREE from 'three';
 import { BIOME_ROLES, type ModelLook, type BiomeAsset, type BiomeConfig, type BiomePalette, type BiomeZone } from '@rules';
 import { lookUniforms, setLook, withLook } from './look';
 import { settings } from '../settings';
-import { mulberry32, smooth, angDiff, withWind, windTime, companionFocus, moveRequest, colliders, CLEAR_R, RIM_R, type WorldShape } from './world';
+import { mulberry32, smooth, angDiff, withWind, windTime, companionFocus, moveRequest, groundDown, groundMove, groundPointer, colliders, CLEAR_R, RIM_R, type WorldShape } from './world';
 
 const C = (h: string) => new THREE.Color(h);
 
@@ -36,10 +36,11 @@ export function Terrain({ world, palette, walkable = false }: { world: WorldShap
   useEffect(() => () => geo.dispose(), [geo]);
   // clique/toque no chão (sem arrastar): pede para o Companion andar até lá
   // clique esquerdo anda (ou ataca, nos Ajustes — aí o direito anda)
-  const onClick = walkable ? (e: ThreeEvent<MouseEvent>) => { if (e.delta > 6 || settings().click === 'atacar') return; moveRequest.point.copy(e.point); moveRequest.id++; } : undefined;
-  const onContextMenu = walkable ? (e: ThreeEvent<MouseEvent>) => { if (settings().click !== 'atacar') return; e.nativeEvent.preventDefault(); moveRequest.point.copy(e.point); moveRequest.id++; } : undefined;
+  const onPointerDown = walkable ? (e: ThreeEvent<PointerEvent>) => groundDown(e, settings().click === 'atacar' ? 2 : 0) : undefined;
+  const onPointerMove = walkable ? (e: ThreeEvent<PointerEvent>) => groundMove(e) : undefined;
+  const onContextMenu = walkable ? (e: ThreeEvent<MouseEvent>) => { if (settings().click === 'atacar') e.nativeEvent.preventDefault(); } : undefined;
   return (
-    <mesh geometry={geo} receiveShadow onClick={onClick} onContextMenu={onContextMenu}>
+    <mesh geometry={geo} receiveShadow onPointerDown={onPointerDown} onPointerMove={onPointerMove} onContextMenu={onContextMenu}>
       <meshLambertMaterial vertexColors />
     </mesh>
   );
@@ -348,6 +349,7 @@ export function CameraRig({ ground }: { /** mundo aberto: a câmera nunca entra 
     const move = (e: PointerEvent) => {
       if (!ptrs.has(e.pointerId)) return; ptrs.set(e.pointerId, [e.clientX, e.clientY]);
       if (ptrs.size === 2 && s.pinch) { const [a, b] = [...ptrs.values()]; s.dist = Math.min(8, Math.max(-6, s.d0 + (s.pinch - Math.hypot(a[0] - b[0], a[1] - b[1])) * 0.03)); return; }
+      if (groundPointer.hold) { if (s.drag) s.drag.x = e.clientX; return; } // segurando no chão: o Companion segue, a câmera não gira
       if (s.drag) { s.az -= (e.clientX - s.drag.x) * 0.006; s.drag.x = e.clientX; }
     };
     const up = (e: PointerEvent) => { ptrs.delete(e.pointerId); if (!ptrs.size) { s.drag = null; s.pinch = 0; } };

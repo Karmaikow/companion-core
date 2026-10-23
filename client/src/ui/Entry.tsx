@@ -96,13 +96,13 @@ export function Entry() {
         {mode === 'start' && (
           <>
             <p className="lede">No centro do Refúgio, um núcleo de luz acabou de nascer. Ele vai descobrir quem é conversando com você.</p>
-            <button className="primary" disabled={busy} onClick={guest}>Começar agora</button>
-            <small className="note">Sem cadastro: o progresso fica guardado neste aparelho. Com conta, você entra de qualquer lugar.</small>
-            <div className="row">
-              <button className="ghost" onClick={() => { setMode('signin'); setMsg(null); }}>Entrar</button>
-              <button className="ghost" onClick={() => { setMode('signup'); setMsg(null); }}>Criar conta</button>
+            <button className="primary" onClick={() => { setMode('signup'); setMsg(null); }}>Criar conta e começar</button>
+            <small className="note">Com conta, o seu Companion fica salvo e você entra de qualquer aparelho.</small>
+            <button className="ghost" onClick={() => { setMode('signin'); setMsg(null); }}>Já tenho conta · Entrar</button>
+            <div className="entry-alt">
+              <button className="link" disabled={busy} onClick={guest}>Experimentar sem conta (o progresso fica só neste aparelho)</button>
+              <button className="link" onClick={() => setBackend(new LocalBackend())}>Jogar offline (respostas simples, sem IA)</button>
             </div>
-            <button className="link" onClick={() => setBackend(new LocalBackend())}>Jogar offline neste aparelho (respostas simples, sem IA)</button>
           </>
         )}
 

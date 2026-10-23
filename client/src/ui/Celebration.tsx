@@ -45,3 +45,13 @@ export function AwakenCall({ name, he }: { name: string; he: boolean }) {
     </div>
   );
 }
+
+/** Botão fixo na tela enquanto o Companion está pronto para despertar (a chamada grande pode ter sido dispensada). */
+export function AwakenButton() {
+  const snap = useGame((s) => s.snap);
+  const open = useGame((s) => s.awakenCall);
+  const show = useGame((s) => s.openAwakenCall);
+  const c = snap?.companion;
+  if (!c || c.stage !== 'particles' || !snap?.awakening?.ready || open) return null;
+  return <button className="awaken-float" onClick={show}>✨ Despertar a primeira forma</button>;
+}

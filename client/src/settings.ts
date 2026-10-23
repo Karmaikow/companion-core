@@ -17,25 +17,36 @@ export interface Settings {
   fleeAt: number;
   /** quanto ela comenta sozinha (ao ver monstros, lutando, passeando) */
   chatter: 'muito' | 'normal' | 'pouco' | 'nunca';
+  /** falas dela no jogo: escritas pela IA no jeito dela (online) ou as prontas */
+  barkSource: 'ia' | 'prontas';
   /** ler em voz alta as respostas e as falas dela */
   voiceOut: boolean;
   /** nome da voz do navegador (vazio = automática em português) */
   voiceName: string;
   /** microfone: enviar sozinho quando terminar de falar */
   voiceAutoSend: boolean;
+  /** botão 🎙: fica ligado (modo conversa, escuta sem parar) ou ouve uma frase só */
+  micMode: 'sempre' | 'uma';
   /** ordens no chat ("ataque!", "fuja!") também vão para a conversa com a IA (ela responde do jeito dela) */
   ordersToChat: boolean;
   damageNumbers: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
-  click: 'andar', attackAim: 'mouse', skillAim: 'mouse', posture: 'defensiva', fleeAt: 0.3, chatter: 'normal',
-  voiceOut: false, voiceName: '', voiceAutoSend: true, ordersToChat: true, damageNumbers: true,
+  click: 'andar', attackAim: 'mouse', skillAim: 'mouse', posture: 'defensiva', fleeAt: 0.3, chatter: 'normal', barkSource: 'ia',
+  voiceOut: false, voiceName: '', voiceAutoSend: true, micMode: 'sempre', ordersToChat: true, damageNumbers: true,
 };
 
-const KEY = 'companion-core:settings:v1';
+const KEY = 'companion-core:settings:v2';
+const OLD = 'companion-core:settings:v1';
 function load(): Settings {
-  try { const v = JSON.parse(localStorage.getItem(KEY) ?? 'null'); if (v && typeof v === 'object') return { ...DEFAULT_SETTINGS, ...v }; } catch { /* padrão */ }
+  try {
+    const v = JSON.parse(localStorage.getItem(KEY) ?? 'null');
+    if (v && typeof v === 'object') return { ...DEFAULT_SETTINGS, ...v };
+    // v1 → v2: mantém os ajustes
+    const old = JSON.parse(localStorage.getItem(OLD) ?? 'null');
+    if (old && typeof old === 'object') return { ...DEFAULT_SETTINGS, ...old };
+  } catch { /* padrão */ }
   return DEFAULT_SETTINGS;
 }
 

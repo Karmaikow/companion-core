@@ -10,6 +10,7 @@ import { ToneMappingMode } from 'postprocessing';
 import * as THREE from 'three';
 import { gameTime, CHUNK, WORLD_R, WORLD_ROLE, layerRole, type CompanionWorld, type WorldSite, type BiomePalette, type CreatureDef } from '@rules';
 import { WorldCreatures } from './WorldCreatures';
+import { Vale } from './Vale';
 import type { AppendageSpec } from './Appendages';
 import type { Gear } from './CompanionModel';
 import { WeatherFx } from './Weather';
@@ -17,10 +18,10 @@ import type { WeatherKind } from '@rules';
 import { CombatFx } from './Combat';
 import type { CompanionModelFiles } from '../backend/types';
 import { CompanionModel, type Roam } from './CompanionModel';
-import { brain, notifyPlayer, say, type Place } from './brain';
+import { brain, notifyPlayer, primeBarks, sayMoment, type Place } from './brain';
 import { useGame } from '../store';
 import { settings } from '../settings';
-import { companionFocus, moveRequest, colliders, smooth, type WorldShape } from './world';
+import { companionFocus, groundDown, groundMove, colliders, smooth, type WorldShape } from './world';
 import { GrassBlades, GlbInstances, AssetBoundary, Sky, CameraRig, WindClock, ClickMarker, Ambient, type Spot } from './Biome';
 import { runeTexture } from './textures';
 
@@ -94,9 +95,10 @@ function TerrainChunk({ cw, pals, cx, cz, walkable }: { cw: CompanionWorld; pals
   }, [cw, pals, cx, cz]);
   useEffect(() => () => geo.dispose(), [geo]);
   // clique esquerdo anda (ou ataca, nos Ajustes — aí o direito anda)
-  const onClick = walkable ? (e: ThreeEvent<MouseEvent>) => { if (e.delta > 6 || settings().click === 'atacar') return; moveRequest.point.copy(e.point); moveRequest.id++; } : undefined;
-  const onContextMenu = walkable ? (e: ThreeEvent<MouseEvent>) => { if (settings().click !== 'atacar') return; e.nativeEvent.preventDefault(); moveRequest.point.copy(e.point); moveRequest.id++; } : undefined;
-  return <mesh geometry={geo} receiveShadow onClick={onClick} onContextMenu={onContextMenu}><meshLambertMaterial vertexColors /></mesh>;
+  const onPointerDown = walkable ? (e: ThreeEvent<PointerEvent>) => groundDown(e, settings().click === 'atacar' ? 2 : 0) : undefined;
+  const onPointerMove = walkable ? (e: ThreeEvent<PointerEvent>) => groundMove(e) : undefined;
+  const onContextMenu = walkable ? (e: ThreeEvent<MouseEvent>) => { if (settings().click === 'atacar') e.nativeEvent.preventDefault(); } : undefined;
+  return <mesh geometry={geo} receiveShadow onPointerDown={onPointerDown} onPointerMove={onPointerMove} onContextMenu={onContextMenu}><meshLambertMaterial vertexColors /></mesh>;
 }
 
 // ---------------------------------------------------------------------------
@@ -216,6 +218,7 @@ function WorldLogic(p: { cw: CompanionWorld; discovered: Set<string>; explore: b
       if (best && !out.some((o) => o.name === b.name)) out.push({ name: b.name, x: best.x, z: best.z });
     });
     brain.places = out;
+    primeBarks(); // estoque de falas pela IA (se ligado)
     return () => { brain.places = []; };
   }, [p.cw]);
   useFrame((_, dt) => {
@@ -240,10 +243,10 @@ function WorldLogic(p: { cw: CompanionWorld; discovered: Set<string>; explore: b
       if (Math.hypot(dest.x - f.x, dest.z - f.z) < 6) {
         if (o?.kind === 'goto') {
           brain.order = null;
-          say('arrive', { p: dest.name }, { force: true });
+          sayMoment('arrive', { p: dest.name });
           useGame.getState().toast(`${useGame.getState().snap?.companion?.discoveries.name ?? 'Ela'} chegou em ${dest.name}!`, 'gold');
           if (o.call) notifyPlayer('Cheguei!', `Estou em ${dest.name}.`);
-        } else if (o?.kind === 'hunt') { o.arrived = true; say('region', { p: dest.name }, { force: true }); }
+        } else if (o?.kind === 'hunt') { o.arrived = true; sayMoment('region', { p: dest.name }); }
         P.goal.current = null;
       } else { if (!P.goal.current) P.goal.current = new THREE.Vector3(); P.goal.current.set(dest.x, 0, dest.z); }
       return;
@@ -304,6 +307,7 @@ export function WorldScene(props: WorldSceneProps) {
       <Vegetation cw={cw} shape={shape} center={center} high={high} />
       <Portal color={props.color} />
       <Waystones cw={cw} discovered={props.discovered} center={center} />
+      <Vale height={cw.heightAt} />
       <WorldCreatures cw={cw} creatures={props.creatures} center={center} night={daylight < 0.35} high={high} />
       <Suspense fallback={null}>
         <CompanionModel files={props.model} world={shape} burstKey={props.burstKey} speech={props.speech} onFail={props.onHome} roam={roam} appendages={props.appendages} speed={props.speed} gear={props.gear} />

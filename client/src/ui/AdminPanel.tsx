@@ -12,10 +12,11 @@ import { SummonerStudio } from './SummonerStudio';
 import { ArsenalStudio } from './ArsenalStudio';
 import { ServerStudio } from './ServerStudio';
 import { SkillAnimPicker } from './SkillAnimPicker';
+import { CompanionsAdmin } from './AdminCompanions';
 
 type View = 'companions' | 'biomas' | 'forja' | 'invocador' | 'arsenal' | 'servidor';
 const VIEWS: { key: View; label: string; hash: string; title: string; hint: string }[] = [
-  { key: 'companions', label: 'Companions', hash: '#/admin', title: 'Fábrica de Companions', hint: 'Pedidos de arte gerados quando um Companion desperta. O jogador nunca vê este painel.' },
+  { key: 'companions', label: 'Companions', hash: '#/admin', title: 'Companions', hint: 'Todos os Companions: ficha, progressão, coleta, build e os pedidos de arte da Fábrica. O jogador nunca vê este painel.' },
   { key: 'biomas', label: 'Biomas', hash: '#/admin/biomas', title: 'Estúdio de Biomas', hint: 'Refúgios e regiões do Companion World: cores, modelos e a aparência de cada modelo, com prévia 3D.' },
   { key: 'forja', label: 'Forja de Batalha', hash: '#/admin/forja', title: 'Forja de Batalha', hint: 'Habilidades genéricas que qualquer Companion daquela essência e corpo pode usar.' },
   { key: 'invocador', label: 'Invocador de Monstros', hash: '#/admin/invocador', title: 'Invocador de Monstros', hint: 'O catálogo de criaturas: corpo, jeito de lutar, onde aparecem e o que soltam.' },
@@ -23,7 +24,7 @@ const VIEWS: { key: View; label: string; hash: string; title: string; hint: stri
   { key: 'servidor', label: 'Servidor', hash: '#/admin/servidor', title: 'Servidor', hint: 'XP de vínculo e clima — vale na hora para todos os jogadores.' },
 ];
 
-interface Job {
+export interface Job {
   id: string; companionId: string; status: string; createdAt: string; updatedAt: string; contractVersion: number;
   name: string; contract: IdentityContractV1; prompt: ArtPrompt; artUrl?: string; artPath: string | null; error?: string | null;
   model?: { url: string }; modelPath: string | null; animPaths: { path: string; kind: string; name: string }[];
@@ -51,7 +52,6 @@ export function AdminPanel() {
   const [jobs, setJobs] = useState<Job[] | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [filter, setFilter] = useState<'open' | 'all'>('open');
   const [view, setView] = useState<View>(() => VIEWS.find((v) => v.key !== 'companions' && location.hash.includes(v.hash.split('/').pop()!))?.key ?? 'companions');
   const V = VIEWS.find((v) => v.key === view)!;
 
@@ -121,46 +121,7 @@ export function AdminPanel() {
     await update(job, 'review', { artPath: path });
   }
 
-  const shown = (jobs ?? []).filter((j) => filter === 'all' || j.status !== 'approved');
-
-  return (
-    <div className="admin">
-      <header className="admin-head">
-        <div>
-          <h1>O Administrador</h1>
-          <p><b>{V.title}</b> · {V.hint}</p>
-          {session && (
-            <nav className="admin-tabs" aria-label="Seções">
-              {VIEWS.map((v) => <button key={v.key} className={view === v.key ? 'on' : ''} onClick={() => { setView(v.key); history.replaceState(null, '', v.hash); }}>{v.label}</button>)}
-            </nav>
-          )}
-        </div>
-        <div className="admin-actions">
-          {session && view === 'companions' && <select value={filter} onChange={(e) => setFilter(e.target.value as 'open' | 'all')} aria-label="Filtro"><option value="open">Pendentes</option><option value="all">Todos</option></select>}
-          {session && view === 'companions' && <button className="ghost" disabled={busy} onClick={() => void load()}>Atualizar</button>}
-          <a className="link" href="#/">Voltar ao jogo</a>
-        </div>
-      </header>
-
-      {session === false && (
-        <form className="admin-login" onSubmit={login}>
-          <h2>Entrar como ADM</h2>
-          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="e-mail" autoComplete="email" required />
-          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="senha" autoComplete="current-password" required />
-          <button className="primary" disabled={busy}>Entrar</button>
-        </form>
-      )}
-
-      {msg && <p className="msg err">{msg}</p>}
-      {view === 'companions' && jobs && !shown.length && <p className="empty">Nenhum pedido {filter === 'open' ? 'pendente' : ''}. Eles aparecem aqui quando um Companion desperta.</p>}
-
-      {session && view === 'biomas' && <BiomeStudio />}
-      {session && view === 'forja' && <ForgeStudio />}
-      {session && view === 'invocador' && <SummonerStudio />}
-      {session && view === 'arsenal' && <ArsenalStudio />}
-      {session && view === 'servidor' && <ServerStudio />}
-      {view === 'companions' && <div className="jobs">
-        {shown.map((j) => (
+  const renderJob = (j: Job) => (
           <article key={j.id} className={'job ' + j.status}>
             <header>
               <div>
@@ -235,8 +196,45 @@ export function AdminPanel() {
               </div>
             </div>
           </article>
-        ))}
-      </div>}
+  );
+
+  return (
+    <div className="admin">
+      <header className="admin-head">
+        <div>
+          <h1>O Administrador</h1>
+          <p><b>{V.title}</b> · {V.hint}</p>
+          {session && (
+            <nav className="admin-tabs" aria-label="Seções">
+              {VIEWS.map((v) => <button key={v.key} className={view === v.key ? 'on' : ''} onClick={() => { setView(v.key); history.replaceState(null, '', v.hash); }}>{v.label}</button>)}
+            </nav>
+          )}
+        </div>
+        <div className="admin-actions">
+                    {session && view === 'companions' && <button className="ghost" disabled={busy} onClick={() => void load()}>Atualizar</button>}
+          <a className="link" href="#/">Voltar ao jogo</a>
+        </div>
+      </header>
+
+      {session === false && (
+        <form className="admin-login" onSubmit={login}>
+          <h2>Entrar como ADM</h2>
+          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="e-mail" autoComplete="email" required />
+          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="senha" autoComplete="current-password" required />
+          <button className="primary" disabled={busy}>Entrar</button>
+        </form>
+      )}
+
+      {msg && <p className="msg err">{msg}</p>}
+
+      {session && view === 'biomas' && <BiomeStudio />}
+      {session && view === 'forja' && <ForgeStudio />}
+      {session && view === 'invocador' && <SummonerStudio />}
+      {session && view === 'arsenal' && <ArsenalStudio />}
+      {session && view === 'servidor' && <ServerStudio />}
+      {session && view === 'companions' && (
+        <CompanionsAdmin jobs={jobs ?? []} renderJob={renderJob} reloadKey={jobs} />
+      )}
     </div>
   );
 }

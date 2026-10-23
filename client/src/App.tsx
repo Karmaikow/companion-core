@@ -1,5 +1,5 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { ELEMENTS, derivePalette, refugeFeatures, animKind, sanitizeBiome, sanitizeCreature, makeCompanionWorld, characterSheet, speciesSpeed, sanitizeItem, validateEquipped, equipmentBonus, ITEM_TYPES, sanitizeWeather, weatherAt, WEATHERS, DEFAULT_WEATHER, DEFAULT_BIOME_WEATHER, type ItemDef, type WeatherConfig, WORLD_SEED, REFUGE_BIOME, WORLD_FALLBACK_BIOMES, DEFAULT_CREATURES, type BiomeConfig, type CreatureDef, type WorldSite } from '@rules';
+import { canCompleteEquipment, masculinize, ELEMENTS, derivePalette, refugeFeatures, animKind, sanitizeBiome, sanitizeCreature, makeCompanionWorld, characterSheet, sanitizeItem, validateEquipped, equipmentBonus, ITEM_TYPES, sanitizeWeather, weatherAt, WEATHERS, DEFAULT_WEATHER, DEFAULT_BIOME_WEATHER, type ItemDef, type WeatherConfig, WORLD_SEED, REFUGE_BIOME, WORLD_FALLBACK_BIOMES, DEFAULT_CREATURES, type BiomeConfig, type CreatureDef, type WorldSite } from '@rules';
 import { Refuge } from './scene/Refuge';
 import { WorldScene } from './scene/World';
 import { WorldMap } from './ui/WorldMap';
@@ -7,12 +7,21 @@ import { stableSeed } from './scene/world';
 import { useGame, type Tab } from './store';
 import { Icon } from './ui/icons';
 import { ChatPanel, MemoriesPanel, DiaryPanel, QuestsPanel, InventoryPanel, RecipesPanel, BondPanel } from './ui/Panels';
-import { Celebration, AwakenCall } from './ui/Celebration';
+import { Celebration, AwakenCall, AwakenButton } from './ui/Celebration';
+import { SkillsPanel } from './ui/ConstellationPanel';
+import { useBuildSync } from './build/buildStore';
 import { Entry } from './ui/Entry';
 import { Creation } from './ui/Creation';
 import { SkillTreePanel } from './ui/SkillTreePanel';
 import { SettingsPanel } from './ui/SettingsPanel';
-import { speak, sendPlayerMessage, useMic } from './ui/voice';
+import { EcosPanel } from './ui/EcosPanel';
+import { PactoPanel } from './ui/PactoPanel';
+import { LocationHud, QuestTracker } from './ui/GameHud';
+import { ChatComposer } from './ui/ChatComposer';
+import { HudGlyph } from './ui/HudGlyph';
+import { usePacto } from './pacto/pactoStore';
+import { EcosHud } from './ui/EcosHud';
+import { speak, sendPlayerMessage, stopConversation, useConversation, useMic } from './ui/voice';
 import { brain } from './scene/brain';
 import { SkillBar } from './ui/SkillBar';
 import { VitalsBars, TouchMoves, FaintCounter } from './ui/VitalsHud';
@@ -22,17 +31,15 @@ import { ownsItem } from './ui/EquipmentPanel';
 import { WeatherOverlay } from './ui/WeatherOverlay';
 import { supabase } from './backend/online';
 
-const TABS: { key: Tab; label: string }[] = [
-  { key: 'chat', label: 'Conversa' },
-  { key: 'memories', label: 'Memórias' },
-  { key: 'diary', label: 'Diário' },
-  { key: 'quests', label: 'Quests' },
-  { key: 'inventory', label: 'Inventário' },
-  { key: 'recipes', label: 'Receitas' },
-  { key: 'skills', label: 'Habilidades' },
-  { key: 'bond', label: 'Vínculo' },
-  { key: 'settings', label: 'Ajustes' },
+/** Menu lateral em grupos: o Companion, a jornada, a bolsa, os ofícios e os ajustes. A Forja só aparece para Taurinas. */
+const TAB_GROUPS: { label: string; tabs: { key: Tab; label: string }[] }[] = [
+  { label: 'Companion', tabs: [{ key: 'chat', label: 'Conversa' }, { key: 'bond', label: 'Vínculo' }, { key: 'skills', label: 'Habilidades' }] },
+  { label: 'Jornada', tabs: [{ key: 'quests', label: 'Quests' }, { key: 'diary', label: 'Diário' }, { key: 'memories', label: 'Memórias' }] },
+  { label: 'Bolsa', tabs: [{ key: 'inventory', label: 'Inventário' }, { key: 'recipes', label: 'Receitas' }, { key: 'ecos', label: 'Expedição' }] },
+  { label: 'Ofícios', tabs: [{ key: 'pacto', label: 'Oficina' }, { key: 'forja', label: 'Forja Primordial' }] },
+  { label: 'Sistema', tabs: [{ key: 'settings', label: 'Ajustes' }] },
 ];
+const TABS = TAB_GROUPS.flatMap((g) => g.tabs);
 
 function quality(): 'high' | 'low' {
   const q = new URLSearchParams(location.search).get('q');
@@ -40,6 +47,8 @@ function quality(): 'high' | 'low' {
   const mobile = matchMedia('(pointer: coarse)').matches;
   return mobile && (navigator.hardwareConcurrency ?? 8) <= 6 ? 'low' : 'high';
 }
+
+const SkillsTab = () => <SkillsPanel Tree={SkillTreePanel} />;
 
 export function App() {
   const { backend, snap, tab, setTab, run, error, toasts, lastReply, pulse, burst, busy, setBackend } = useGame();
@@ -62,13 +71,17 @@ export function App() {
   const barkMsg = useGame((s) => s.bark);
   useEffect(() => {
     if (!barkMsg) return;
-    setBubble(barkMsg.text);
-    speak(barkMsg.text);
-    const t = setTimeout(() => setBubble((b) => (b === barkMsg.text ? null : b)), Math.max(2600, barkMsg.text.length * 75));
+    const he = useGame.getState().snap?.companion?.discoveries.pronoun === 'ele';
+    const line = he ? masculinize(barkMsg.text) : barkMsg.text; // "ele": fala de si no masculino (também as falas da IA)
+    setBubble(line);
+    speak(line);
+    const t = setTimeout(() => setBubble((b) => (b === line ? null : b)), Math.max(2600, barkMsg.text.length * 75));
     return () => clearTimeout(t);
   }, [barkMsg]);
   // segure V (fora de campos de texto) para falar com ela
   const vmic = useMic((t) => sendPlayerMessage(t));
+  const conv = useConversation();
+  useEffect(() => () => stopConversation(), []);
   const vmicRef = useRef(vmic); vmicRef.current = vmic;
   useEffect(() => {
     const typing = () => { const el = document.activeElement; return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || (el as HTMLElement).isContentEditable); };
@@ -148,6 +161,7 @@ export function App() {
   const [place, setPlace] = useState<'refuge' | 'world'>('refuge');
   const [explore, setExplore] = useState(false);
   const [regionName, setRegionName] = useState<string | null>(null);
+  const [hereRegion, setHereRegion] = useState<string | null>(null); // fica no brasão (o banner some sozinho)
   const toast = useGame((s) => s.toast);
   const companionWorld = useMemo(() => {
     // regiões: os biomas publicados com "aparece no mundo"; com poucos, entram as regiões de reserva
@@ -208,7 +222,7 @@ export function App() {
   const enterRegion = (s: WorldSite) => {
     setRegionBiome(companionWorld.biomes[s.biome].slug);
     const label = s.home ? 'Portal do Refúgio' : companionWorld.biomes[s.biome].name;
-    setRegionName(label);
+    setRegionName(label); setHereRegion(label);
   };
   useEffect(() => { if (!regionName) return; const t = setTimeout(() => setRegionName(null), 3200); return () => clearTimeout(t); }, [regionName]);
   const goWorld = () => { setPlace('world'); setExplore(false); };
@@ -228,6 +242,14 @@ export function App() {
     const pal = contract?.palette ?? { primary: visual.color, secondary: visual.color, accent: '#9e6bc7', glow: visual.glow };
     return { tail, wings, palette: { primary: pal.primary, secondary: pal.secondary, accent: pal.accent, glow: pal.glow } };
   }, [c?.identityContract, visual.color, visual.glow]);
+
+  // ---- Pacto das Cinco: peças forjadas, trabalhos em andamento (terminam sozinhos, mesmo com o painel fechado)
+  useEffect(() => {
+    if (!c?.id || c.stage !== 'awakened' || !backend) return;
+    void usePacto.getState().refresh();
+    const t = setInterval(() => usePacto.getState().tick(), 1000);
+    return () => clearInterval(t);
+  }, [c?.id, c?.stage, backend]);
 
   // ---- armas e equipamentos: arsenal publicado (ou o inicial) + o que está equipado
   const items = useGame((s) => s.items);
@@ -256,6 +278,9 @@ export function App() {
     const weapon = list.find((i) => ITEM_TYPES[i.type].slot === 'weapon') ?? null;
     return { items: list, weapon, species: d.form ?? null, color: visual.color, poder: equipmentBonus(equipped, items).poder ?? 0, modelKey: c?.id ?? null };
   }, [equipped, items, d.form, visual.color, c?.id]);
+  // Constelação Viva: números de combate da build ativa (+ árvore e equipamento); HP/SP/ST máximos sem curar na troca
+  const equipBonus = useMemo(() => equipmentBonus(equipped, items), [equipped, items]);
+  const built = useBuildSync(equipBonus);
   const bowEquipped = gear.weapon?.type === 'arco';
   // teclado: F ataca (segurar carrega o arco); Espaço pula, E defende e C senta ficam no Companion; ignorado enquanto digita
   useEffect(() => {
@@ -266,16 +291,24 @@ export function App() {
     return () => { window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); window.removeEventListener('blur', releaseAttack); };
   }, []);
 
-  const panel = { chat: ChatPanel, memories: MemoriesPanel, diary: DiaryPanel, quests: QuestsPanel, inventory: InventoryPanel, recipes: RecipesPanel, skills: SkillTreePanel, bond: BondPanel, settings: SettingsPanel };
+  const pactoView = usePacto((s) => s.view);
+  const pactoForms = pactoView ? (pactoView.cls.forms?.length ? pactoView.cls.forms : pactoView.cls.effective ? [pactoView.cls.effective] : []) : [];
+  const [minimized, setMinimized] = useState(false);
+  // Taurina (classe real, de teste ou linhagem): a Oficina vira a Forja Primordial, com menu próprio
+  const taurina = canCompleteEquipment(pactoForms.length ? pactoForms : d.form ? [d.form] : []);
+  const hiddenTab = (k: Tab) => (k === 'forja' ? !taurina : k === 'pacto' ? taurina : false);
+  useEffect(() => setMinimized(false), [tab]);
+  useEffect(() => { if ((tab === 'forja' && !taurina) || (tab === 'pacto' && taurina)) setTab(taurina ? 'forja' : 'pacto'); }, [tab, taurina]); // eslint-disable-line react-hooks/exhaustive-deps
+  const panel = { chat: ChatPanel, memories: MemoriesPanel, diary: DiaryPanel, quests: QuestsPanel, inventory: InventoryPanel, recipes: RecipesPanel, skills: SkillsTab, bond: BondPanel, ecos: EcosPanel, pacto: PactoPanel, forja: PactoPanel, settings: SettingsPanel };
   const Panel = tab ? panel[tab] : null;
 
   return (
-    <div className={'app' + (tab ? ' has-panel' : '') + (place === 'world' ? ' in-world' : '') + (model ? ' with-vitals' : '')}>
+    <div className={'app game-ui' + (tab && !minimized ? ' has-panel' : '') + (place === 'world' ? ' in-world' : '') + (model ? ' with-vitals' : '')}>
       <div className="stage">
         <Suspense fallback={null}>
           {place === 'world' && model ? (
-            <WorldScene world={companionWorld} creatures={creatures} model={model} appendages={appendages} speed={speciesSpeed(d.form)} gear={gear} weather={weather} speech={bubble} burstKey={burst} color={visual.color} quality={quality()} discovered={discovered} explore={explore} onRegion={enterRegion} onDiscover={discover} onHome={goHome} />
-          ) : <Refuge color={visual.color} glow={visual.glow} element={d.element} energy={energy} pulseKey={pulse} burstKey={burst} features={passage && !features.window ? { ...features, window: true } : features} contract={c?.stage === 'awakened' ? c.identityContract : null} speech={bubble} model={model} seed={seed} biome={biome} quality={quality()} appendages={appendages} speed={speciesSpeed(d.form)} gear={gear} weather={weather} />}
+            <WorldScene world={companionWorld} creatures={creatures} model={model} appendages={appendages} speed={built.moveSpeed} gear={gear} weather={weather} speech={bubble} burstKey={burst} color={visual.color} quality={quality()} discovered={discovered} explore={explore} onRegion={enterRegion} onDiscover={discover} onHome={goHome} />
+          ) : <Refuge color={visual.color} glow={visual.glow} element={d.element} energy={energy} pulseKey={pulse} burstKey={burst} features={passage && !features.window ? { ...features, window: true } : features} contract={c?.stage === 'awakened' ? c.identityContract : null} speech={bubble} model={model} seed={seed} biome={biome} quality={quality()} appendages={appendages} speed={built.moveSpeed} gear={gear} weather={weather} />}
         </Suspense>
       </div>
 
@@ -285,7 +318,10 @@ export function App() {
 
       {backend && c && (
         <>
-          <header className="nameplate">
+          <LocationHud place={place} region={hereRegion} />
+          {c.stage === 'particles' && <QuestTracker />}
+          {tab !== 'chat' && <ChatComposer variant="world" />}
+          <header className="nameplate deco">
             {snap?.visualJob?.artUrl
               ? <div className="portrait art" style={{ backgroundImage: `url("${snap.visualJob.artUrl}")` }} role="img" aria-label={`Retrato de ${d.name ?? 'Companion'}`} />
               : <div className="portrait" style={{ background: `radial-gradient(circle at 50% 45%, #fff 0 12%, ${visual.color} 40%, transparent 72%)` }} />}
@@ -298,7 +334,7 @@ export function App() {
             <button className="leave" title="Sair" aria-label="Sair" onClick={() => void leave()}>⎋</button>
           </header>
 
-          {model && !tab && <div className="key-hint">{place === 'world' ? 'Clique ou WASD para andar · Shift corre · pise no portal para voltar' : 'Clique ou WASD para andar · Shift corre · arraste para girar a câmera'}</div>}
+          {model && !tab && <div className="key-hint">{place === 'world' ? 'Clique ou WASD para andar (corre sozinho) · Shift anda devagar · Shift + 1–9 concentra a habilidade · pise no portal para voltar' : 'Clique ou WASD para andar (corre sozinho) · Shift anda devagar · Shift + 1–9 concentra a habilidade · arraste para girar a câmera'}</div>}
           {model && (
             <div className="travel">
               {place === 'refuge' ? (
@@ -320,39 +356,55 @@ export function App() {
             <button className={'attack-btn' + (bowEquipped ? ' bow' : '')} aria-label={bowEquipped ? 'Segure para carregar o arco e solte para atirar' : 'Atacar'}
               onPointerDown={(e) => { e.preventDefault(); (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId); pressAttack(); }}
               onPointerUp={() => releaseAttack()} onPointerCancel={() => releaseAttack()} onContextMenu={(e) => e.preventDefault()}>
-              <span aria-hidden>{bowEquipped ? '🏹' : gear.weapon && ITEM_TYPES[gear.weapon.type].weapon?.ranged === 'magic' ? '✦' : '⚔'}</span>
+              {bowEquipped ? <span aria-hidden>🏹</span> : <HudGlyph kind={gear.weapon && ITEM_TYPES[gear.weapon.type].weapon?.ranged === 'magic' ? 'sintonia' : 'ataque'} />}
               <small>{bowEquipped ? 'segure' : 'F'}</small>
             </button>
           )}
           {place === 'world' && <WorldMap world={companionWorld} discovered={discovered} />}
+          {place === 'world' && c.stage === 'awakened' && <EcosHud panelOpen={!!tab} />}
           {place === 'world' && regionName && <div className="region-banner" key={regionName}>{regionName}</div>}
           {/* a fala aparece num balão sobre a cabeça do Companion (na cena); aqui só para leitores de tela */}
           {bubble && <div className="sr-only" role="status">{bubble}</div>}
           {vmic.listening && <div className="listening" role="status"><span>🎙</span>{vmic.heard || 'Ouvindo… pode falar'}</div>}
+          {conv.on && !vmic.listening && (
+            <div className={'listening conv' + (conv.listening ? '' : ' paused')} role="status">
+              <span>🎙</span>{conv.listening ? conv.heard || 'Conversa por voz ligada — pode falar' : 'Ela está falando…'}
+              <button type="button" onClick={stopConversation} aria-label="Desligar a conversa por voz">desligar</button>
+            </div>
+          )}
 
-          <nav className="rail" aria-label="Refúgio">
-            {TABS.map((t) => (
-              <button key={t.key} className={tab === t.key ? 'on' : ''} onClick={() => setTab(tab === t.key ? null : t.key)} aria-pressed={tab === t.key}>
-                <Icon tab={t.key} />
-                <span>{t.label}</span>
-                {t.key === 'bond' && snap?.awakening?.ready && c.stage === 'particles' && <em className="dot" aria-label="pronto para despertar" />}
-              </button>
+          <nav className="rail deco" aria-label="Menu do Companion">
+            {TAB_GROUPS.map((g, gi) => (
+              <div className="rail-group" role="group" aria-label={g.label} key={g.label}>
+                {gi > 0 && <i className="rail-sep" aria-hidden="true" />}
+                {g.tabs.filter((t) => !hiddenTab(t.key)).map((t) => (
+                  <button key={t.key} className={(tab === t.key ? 'on' : '') + (t.key === 'forja' ? ' forge' : '')} onClick={() => setTab(tab === t.key ? null : t.key)} aria-pressed={tab === t.key} aria-label={t.label} data-tip={t.label}>
+                    <Icon tab={t.key} />
+                    <span>{t.label}</span>
+                    {t.key === 'bond' && snap?.awakening?.ready && c.stage === 'particles' && <em className="dot" aria-label="pronto para despertar" />}
+                  </button>
+                ))}
+              </div>
             ))}
           </nav>
 
           {Panel && tab && (
-            <section className={'panel panel-' + tab} aria-label={TABS.find((t) => t.key === tab)?.label}>
+            <section className={'panel deco panel-' + tab + (minimized ? ' is-minimized' : '')} aria-label={TABS.find((t) => t.key === tab)?.label}>
               <header>
                 <h2>{TABS.find((t) => t.key === tab)?.label}</h2>
-                <button className="close" onClick={() => setTab(null)} aria-label="Fechar painel">×</button>
+                <div className="panel-controls">
+                  <button className="minimize" onClick={() => setMinimized(!minimized)} aria-expanded={!minimized} aria-label={minimized ? 'Restaurar painel' : 'Minimizar painel'}>{minimized ? '▢' : '−'}</button>
+                  <button className="close" onClick={() => setTab(null)} aria-label="Fechar painel">×</button>
+                </div>
               </header>
-              <div className="panel-body"><Panel /></div>
+              <div className="panel-body" hidden={minimized}><Panel /></div>
             </section>
           )}
         </>
       )}
 
       {backend && c && <Celebration tint={visual.color} />}
+      {backend && c && !tab && <AwakenButton />}
       {backend && c && <AwakenCall name={d.name ?? 'Seu Companion'} he={d.pronoun === 'ele'} />}
       {backend && snap && !c && <Creation />}
       {backend && !c && busy && !snap && <div className="loading">Abrindo o Refúgio…</div>}

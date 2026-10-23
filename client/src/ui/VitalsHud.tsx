@@ -1,13 +1,9 @@
 /** Barras de HP, SP, Stamina e Vínculo sob o nome do Companion, e os botões de pulo/defesa/sentar no celular. */
-import { useEffect } from 'react';
-import { useSkillData } from './skillState';
-import { setMaxima, useVitals } from '../scene/vitals';
+import { useVitals } from '../scene/vitals';
 import { moveInput } from '../scene/Combat';
 
 export function VitalsBars({ bondRatio, bondLevel }: { bondRatio: number; bondLevel: number }) {
   const v = useVitals();
-  const { species, fx, bond } = useSkillData();
-  useEffect(() => { setMaxima(species, fx?.bonus ?? {}, bond); }, [species, fx, bond]);
   const row = (cls: string, label: string, cur: number, max: number, title: string, pct = false) => (
     <div className={'vbar ' + cls} title={title}>
       <span>{label}</span>
@@ -20,6 +16,7 @@ export function VitalsBars({ bondRatio, bondLevel }: { bondRatio: number; bondLe
       {row('hp', 'HP', v.hp, v.hpMax, 'Vida: cai com os golpes das criaturas; zerou, desmaia um pouco')}
       {row('sp', 'SP', v.sp, v.spMax, 'Energia das habilidades da barra (1–9)')}
       {row('st', 'ST', v.st, v.stMax, 'Stamina: pulo, golpe e defesa')}
+      {(v.shield > 0 || v.shieldCd > 0) && <div className={'vshield' + (v.shield > 0 ? ' on' : '')} role="status">{v.shield > 0 ? `🛡 Barreira Breve · ${v.shield}s` : `Barreira em recarga · ${v.shieldCd}s`}</div>}
       {row('bond', 'VÍN', Math.round(bondRatio * 100), 100, `Vínculo ${bondLevel}: % até o próximo nível`, true)}
     </div>
   );
