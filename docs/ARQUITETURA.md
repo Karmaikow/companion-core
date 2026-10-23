@@ -385,6 +385,21 @@ Os efeitos deixaram de ser pontos com textura e passaram a usar um motor própri
 - **Entrada**: "Criar conta e começar" é o botão principal; entrar, experimentar sem conta e jogar offline vêm depois.
 
 
+## Clique para atacar, desmaio com escolha e barra fora do chat (v1.20)
+
+- **Clique no monstro = ataque básico** (com "clique esquerdo anda", o padrão): o alvo sob o cursor é achado pela
+  posição na tela (`attackPick.pick` em `Combat.tsx`, vale para o corpo todo e para toque). O Companion vai até ele e
+  golpeia até ele cair, até a pessoa mandar andar (clique no chão ou WASD) ou ele se afastar 30 m; só o golpe básico
+  (a IA não lança habilidades nessa ordem). Sobre o monstro, a seta vira um alvo girando com uma espadinha
+  (`ui/AttackCursor.tsx`) e aparece um alvo dourado no chão; o alvo travado fica vermelho e gira ao contrário.
+- **Desmaio**: os monstros se dispersam na hora e voltam para casa (`vitals.faintId`). Terminada a contagem, o Companion
+  continua deitado e a tela oferece **Levantar e continuar** (metade da vida) ou **Retornar para o Refúgio** (vida e SP
+  cheios; só no mundo). Ao levantar fica 10 s **invencível** (`INVULN_SECONDS`): anel dourado em volta dele, aviso nas
+  barras, e nenhum monstro vem brigar por conta própria (só quem for provocado de novo).
+- **Barra de habilidades** fica no espaço livre entre a caixa de conversa e a janela aberta (antes ficava por trás do
+  chat em telas menores); com janela aberta os espaços encolhem, e abaixo de 1180 px ela some enquanto a janela estiver
+  aberta.
+
 ## Armas no osso, habilidade carregada e o Companion que escolhe (v1.19)
 
 - **Armas presas ao osso da mão**: `Equipment.tsx` põe o item como filho do osso (`createPortal`). A orientação base vem da pose de bind do SkinnedMesh (`boneInverses` + `bindMatrix`), então a pegada é a mesma em qualquer modelo/animação; a escala do osso é compensada. No Arsenal, "mostrar o ponto do osso" desenha os eixos do encaixe.
