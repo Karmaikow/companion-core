@@ -18,6 +18,7 @@ import type { WeatherKind } from '@rules';
 import { CombatFx } from './Combat';
 import type { CompanionModelFiles } from '../backend/types';
 import { CompanionModel, type Roam } from './CompanionModel';
+import { RemoteCompanions } from './RemoteCompanions';
 import { brain, notifyPlayer, primeBarks, sayMoment, type Place } from './brain';
 import { useGame } from '../store';
 import { settings } from '../settings';
@@ -308,6 +309,7 @@ export function WorldScene(props: WorldSceneProps) {
       <Portal color={props.color} />
       <Waystones cw={cw} discovered={props.discovered} center={center} />
       <Vale height={cw.heightAt} />
+      <RemoteCompanions world={shape} />
       <WorldCreatures cw={cw} creatures={props.creatures} center={center} night={daylight < 0.35} high={high} />
       <Suspense fallback={null}>
         <CompanionModel files={props.model} world={shape} burstKey={props.burstKey} speech={props.speech} onFail={props.onHome} roam={roam} appendages={props.appendages} speed={props.speed} gear={props.gear} />

@@ -19,6 +19,7 @@ import { PactoPanel } from './ui/PactoPanel';
 import { LocationHud, QuestTracker } from './ui/GameHud';
 import { ChatComposer } from './ui/ChatComposer';
 import { AttackCursor } from './ui/AttackCursor';
+import { joinWorld, type RemoteInfo } from './net/presence';
 import { HudGlyph } from './ui/HudGlyph';
 import { usePacto } from './pacto/pactoStore';
 import { EcosHud } from './ui/EcosHud';
@@ -228,6 +229,16 @@ export function App() {
   useEffect(() => { if (!regionName) return; const t = setTimeout(() => setRegionName(null), 3200); return () => clearTimeout(t); }, [regionName]);
   const goWorld = () => { setPlace('world'); setExplore(false); };
   const goHome = () => { setPlace('refuge'); setExplore(false); toast('De volta ao Refúgio.', 'soft'); };
+
+  // presença (MMO fase 1): no Companion World, os Companions de outros jogadores aparecem na mesma tela.
+  // Online: canal do Supabase Realtime; no dev, `?eco` testa entre abas com um BroadcastChannel.
+  const presenceKey = place === 'world' && c?.id && (backend?.kind === 'online' || (import.meta.env.DEV && new URLSearchParams(location.search).has('eco'))) ? c.id + '|' + (model?.url.split('?')[0] ?? '') + '|' + c.discoveries.name : '';
+  const presenceMe = useRef<RemoteInfo | null>(null);
+  presenceMe.current = c ? { id: import.meta.env.DEV && new URLSearchParams(location.search).get('eco') ? c.id + ':' + new URLSearchParams(location.search).get('eco') : c.id, name: c.discoveries.name ?? 'Companion', color: visual.glow, model: model ?? null, pronoun: c.discoveries.pronoun } : null;
+  useEffect(() => {
+    if (!presenceKey || !presenceMe.current) return;
+    return joinWorld(presenceMe.current, backend?.kind !== 'online');
+  }, [presenceKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useSkillSync();
 

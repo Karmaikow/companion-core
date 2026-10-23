@@ -317,3 +317,6 @@ canvas.cursor-attack { cursor: none !important; }
 @keyframes ac-pulse { from { transform: scale(0.8); opacity: 0.6; } to { transform: scale(1.25); opacity: 1; } }
 @keyframes ac-swing { 0%, 100% { transform: rotate(-8deg); } 50% { transform: rotate(14deg); } }
 @media (prefers-reduced-motion: reduce) { .attack-cursor .ac-spin, .attack-cursor .ac-core, .attack-cursor .ac-sword { animation: none; } }
+
+/* outros Companions no mundo (presença): plaquinha com o nome na cor dele */
+.remote-tag { padding: 2px 9px; border-radius: 3px 10px 3px 10px; background: #0d1638d9; border: 1px solid color-mix(in srgb, var(--c, #9fd8ff) 70%, #fff 10%); color: #f4ead2; font: 600 0.74rem var(--serif); white-space: nowrap; box-shadow: 0 0 10px color-mix(in srgb, var(--c, #9fd8ff) 40%, transparent); }

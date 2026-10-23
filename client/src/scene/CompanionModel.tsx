@@ -11,7 +11,7 @@ import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.j
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { animKind, attackVariant, strideSpeed, gameTime, type AnimKind } from '@rules';
 import type { CompanionModelFiles } from '../backend/types';
-import { CLEAR_R, companionFocus, moveRequest, attackRequest, attackPick, teleport, resolveCollisions, platformHeight, type WorldShape } from './world';
+import { CLEAR_R, companionFocus, companionPose, moveRequest, attackRequest, attackPick, teleport, resolveCollisions, platformHeight, type WorldShape } from './world';
 import { work } from '../ecos/ecosStore';
 import { SpeechBubble } from './SpeechBubble';
 import { Appendages, findAnchors, type AppendageSpec } from './Appendages';
@@ -34,7 +34,8 @@ export interface Gear { items: ItemDef[]; weapon: ItemDef | null; species: Speci
 
 const loader = new GLTFLoader();
 loader.setMeshoptDecoder(MeshoptDecoder);
-const load = (url: string) => new Promise<GLTF>((ok, bad) => loader.load(url, ok, undefined, bad));
+export const loadGltf = (url: string) => new Promise<GLTF>((ok, bad) => loader.load(url, ok, undefined, bad));
+const load = loadGltf;
 
 interface Loaded { gltf: GLTF; clips: { clip: THREE.AnimationClip; kind: AnimKind | string; stride: number }[] }
 
@@ -290,6 +291,7 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
   useFrame((state, dt) => {
     const s = st.current, r = root.current, p = pose.current;
     if (!r || !p) return;
+    companionPose.yaw = s.yaw; companionPose.down = vitals.down > 0; // para os outros jogadores verem (presença)
     const t = state.clock.elapsedTime;
     const cs = cb.current;
     cs.cd -= dt;

@@ -385,6 +385,19 @@ Os efeitos deixaram de ser pontos com textura e passaram a usar um motor própri
 - **Entrada**: "Criar conta e começar" é o botão principal; entrar, experimentar sem conta e jogar offline vêm depois.
 
 
+## MMO fase 1: ver outros Companions (v1.21)
+
+Regras sociais do MMO e as fases em **docs/MMO_SOCIAL.md** (amizade só entre Companions: eles pedem, as pessoas
+aceitam; grupo pedido e aceito por Companions ou pessoas; troca de itens só entre pessoas; sem chat entre pessoas).
+
+- **Presença** (`client/src/net/presence.ts`): no Companion World, cada jogo entra no canal de broadcast `mundo` do
+  Supabase Realtime e manda ~4×/s a posição, a direção e se está caído (`companionPose`); a ficha (nome, cor, modelo com
+  parado/andando/correndo) vai na entrada, a cada 10 s e quando alguém novo aparece. Quem fica 8 s quieto some.
+- **Desenho** (`scene/RemoteCompanions.tsx`): até 24 Companions num raio de 70 m, com o modelo e as animações de
+  andar/correr pela velocidade, ou uma esfera de luz na cor dele; plaquinha com o nome. Só visual, sem colisão.
+- Teste no dev sem servidor: duas abas com `?mundo&eco=a` e `?mundo&eco=b` (BroadcastChannel).
+- Canal público na fase 1 (posição falsa só afeta o visual); vira privado com RLS antes das fases sociais.
+
 ## Clique para atacar, desmaio com escolha e barra fora do chat (v1.20)
 
 - **Clique no monstro = ataque básico** (com "clique esquerdo anda", o padrão): o alvo sob o cursor é achado pela

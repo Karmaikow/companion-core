@@ -76,6 +76,8 @@ export function withWind<T extends THREE.Material>(m: T, opts: { height: number;
 
 /** Onde está o Companion (a câmera segue). Quem anda escreve aqui; sem corpo, fica no altar. */
 export const companionFocus = new THREE.Vector3();
+/** Para onde o Companion olha e se está caído (a presença manda isso para os outros jogadores). */
+export const companionPose = { yaw: 0, down: false };
 
 /** Pedido de "anda até aqui" (clique/toque no chão). O id muda a cada clique. */
 export const moveRequest = { id: 0, point: new THREE.Vector3() };
