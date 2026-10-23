@@ -36,6 +36,8 @@ export interface SkillDef {
   anim: AnimKind;
   vfx: { style: VfxStyle; color: 'essence' | 'companion' | string; ground: boolean };
   unlockBond: number;            // nível de vínculo para entrar no kit
+  /** modalidade do dano (Constelação Viva): física usa Força e a defesa física; mágica, Magia e a resistência; híbrida divide 50/50. Sem o campo, vale a regra pela forma (inferModality). */
+  modality?: 'fisica' | 'magica' | 'hibrida';
 }
 
 export const SLOTS: Record<SkillSlot, string> = { basic: 'Golpe básico', essence: 'Habilidade de essência', form: 'Habilidade de forma', supreme: 'Sintonia suprema' };
@@ -159,6 +161,7 @@ export function sanitizeSkill(input: unknown): SkillDef | null {
     anim: typeof s.anim === 'string' ? s.anim : 'attack',
     vfx: { style: v.style && v.style in VFX_STYLES ? v.style : 'impacto', color: v.color === 'essence' || v.color === 'companion' || (typeof v.color === 'string' && /^#[0-9a-f]{6}$/i.test(v.color)) ? v.color : 'essence', ground: !!v.ground },
     unlockBond: Math.round(n(s.unlockBond, 1, 20, 1)),
+    ...(s.modality === 'fisica' || s.modality === 'magica' || s.modality === 'hibrida' ? { modality: s.modality } : {}),
   };
 }
 

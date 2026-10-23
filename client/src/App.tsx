@@ -1,5 +1,5 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { ELEMENTS, derivePalette, refugeFeatures, animKind, sanitizeBiome, sanitizeCreature, makeCompanionWorld, characterSheet, speciesSpeed, sanitizeItem, validateEquipped, equipmentBonus, ITEM_TYPES, sanitizeWeather, weatherAt, WEATHERS, DEFAULT_WEATHER, DEFAULT_BIOME_WEATHER, type ItemDef, type WeatherConfig, WORLD_SEED, REFUGE_BIOME, WORLD_FALLBACK_BIOMES, DEFAULT_CREATURES, type BiomeConfig, type CreatureDef, type WorldSite } from '@rules';
+import { ELEMENTS, derivePalette, refugeFeatures, animKind, sanitizeBiome, sanitizeCreature, makeCompanionWorld, characterSheet, sanitizeItem, validateEquipped, equipmentBonus, ITEM_TYPES, sanitizeWeather, weatherAt, WEATHERS, DEFAULT_WEATHER, DEFAULT_BIOME_WEATHER, type ItemDef, type WeatherConfig, WORLD_SEED, REFUGE_BIOME, WORLD_FALLBACK_BIOMES, DEFAULT_CREATURES, type BiomeConfig, type CreatureDef, type WorldSite } from '@rules';
 import { Refuge } from './scene/Refuge';
 import { WorldScene } from './scene/World';
 import { WorldMap } from './ui/WorldMap';
@@ -7,7 +7,9 @@ import { stableSeed } from './scene/world';
 import { useGame, type Tab } from './store';
 import { Icon } from './ui/icons';
 import { ChatPanel, MemoriesPanel, DiaryPanel, QuestsPanel, InventoryPanel, RecipesPanel, BondPanel } from './ui/Panels';
-import { Celebration, AwakenCall } from './ui/Celebration';
+import { Celebration, AwakenCall, AwakenButton } from './ui/Celebration';
+import { SkillsPanel } from './ui/ConstellationPanel';
+import { useBuildSync } from './build/buildStore';
 import { Entry } from './ui/Entry';
 import { Creation } from './ui/Creation';
 import { SkillTreePanel } from './ui/SkillTreePanel';
@@ -46,6 +48,8 @@ function quality(): 'high' | 'low' {
   const mobile = matchMedia('(pointer: coarse)').matches;
   return mobile && (navigator.hardwareConcurrency ?? 8) <= 6 ? 'low' : 'high';
 }
+
+const SkillsTab = () => <SkillsPanel Tree={SkillTreePanel} />;
 
 export function App() {
   const { backend, snap, tab, setTab, run, error, toasts, lastReply, pulse, burst, busy, setBackend } = useGame();
@@ -272,6 +276,9 @@ export function App() {
     const weapon = list.find((i) => ITEM_TYPES[i.type].slot === 'weapon') ?? null;
     return { items: list, weapon, species: d.form ?? null, color: visual.color, poder: equipmentBonus(equipped, items).poder ?? 0, modelKey: c?.id ?? null };
   }, [equipped, items, d.form, visual.color, c?.id]);
+  // Constelação Viva: números de combate da build ativa (+ árvore e equipamento); HP/SP/ST máximos sem curar na troca
+  const equipBonus = useMemo(() => equipmentBonus(equipped, items), [equipped, items]);
+  const built = useBuildSync(equipBonus);
   const bowEquipped = gear.weapon?.type === 'arco';
   // teclado: F ataca (segurar carrega o arco); Espaço pula, E defende e C senta ficam no Companion; ignorado enquanto digita
   useEffect(() => {
@@ -282,7 +289,7 @@ export function App() {
     return () => { window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); window.removeEventListener('blur', releaseAttack); };
   }, []);
 
-  const panel = { chat: ChatPanel, memories: MemoriesPanel, diary: DiaryPanel, quests: QuestsPanel, inventory: InventoryPanel, recipes: RecipesPanel, skills: SkillTreePanel, bond: BondPanel, ecos: EcosPanel, pacto: PactoPanel, settings: SettingsPanel };
+  const panel = { chat: ChatPanel, memories: MemoriesPanel, diary: DiaryPanel, quests: QuestsPanel, inventory: InventoryPanel, recipes: RecipesPanel, skills: SkillsTab, bond: BondPanel, ecos: EcosPanel, pacto: PactoPanel, settings: SettingsPanel };
   const Panel = tab ? panel[tab] : null;
 
   return (
@@ -290,8 +297,8 @@ export function App() {
       <div className="stage">
         <Suspense fallback={null}>
           {place === 'world' && model ? (
-            <WorldScene world={companionWorld} creatures={creatures} model={model} appendages={appendages} speed={speciesSpeed(d.form)} gear={gear} weather={weather} speech={bubble} burstKey={burst} color={visual.color} quality={quality()} discovered={discovered} explore={explore} onRegion={enterRegion} onDiscover={discover} onHome={goHome} />
-          ) : <Refuge color={visual.color} glow={visual.glow} element={d.element} energy={energy} pulseKey={pulse} burstKey={burst} features={passage && !features.window ? { ...features, window: true } : features} contract={c?.stage === 'awakened' ? c.identityContract : null} speech={bubble} model={model} seed={seed} biome={biome} quality={quality()} appendages={appendages} speed={speciesSpeed(d.form)} gear={gear} weather={weather} />}
+            <WorldScene world={companionWorld} creatures={creatures} model={model} appendages={appendages} speed={built.moveSpeed} gear={gear} weather={weather} speech={bubble} burstKey={burst} color={visual.color} quality={quality()} discovered={discovered} explore={explore} onRegion={enterRegion} onDiscover={discover} onHome={goHome} />
+          ) : <Refuge color={visual.color} glow={visual.glow} element={d.element} energy={energy} pulseKey={pulse} burstKey={burst} features={passage && !features.window ? { ...features, window: true } : features} contract={c?.stage === 'awakened' ? c.identityContract : null} speech={bubble} model={model} seed={seed} biome={biome} quality={quality()} appendages={appendages} speed={built.moveSpeed} gear={gear} weather={weather} />}
         </Suspense>
       </div>
 
@@ -376,6 +383,7 @@ export function App() {
       )}
 
       {backend && c && <Celebration tint={visual.color} />}
+      {backend && c && !tab && <AwakenButton />}
       {backend && c && <AwakenCall name={d.name ?? 'Seu Companion'} he={d.pronoun === 'ele'} />}
       {backend && snap && !c && <Creation />}
       {backend && !c && busy && !snap && <div className="loading">Abrindo o Refúgio…</div>}

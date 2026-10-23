@@ -4,7 +4,8 @@
  * A recarga aparece como um relógio escurecendo o ícone, com os segundos que faltam.
  */
 import { useEffect, useRef, useState } from 'react';
-import { ELEMENTS, RANK_COOLDOWN, SHAPES, type SkillDef } from '@rules';
+import { ELEMENTS, RANK_COOLDOWN, RANK_POWER, SHAPES, type SkillDef } from '@rules';
+import { castSkill } from '../build/combatStats';
 import { useGame } from '../store';
 import { requestSkill, skillInput } from '../scene/Combat';
 import { BAR_SIZE, saveBar, useSkillData, useSkills } from './skillState';
@@ -51,9 +52,11 @@ export function SkillBar({ color }: { color: string }) {
     if (at > t) return;
     if (!skillInput.body) { toast('As habilidades precisam do corpo 3D do Companion (a Fábrica cria o modelo).', 'warn'); return; }
     if (!canAct()) return;
-    if (!spendSp(u.skill.energy)) { setShort(i); window.setTimeout(() => setShort((f) => (f === i ? null : f)), 500); return; }
-    requestSkill({ skill: u.skill, level: u.level, color: colorOf(u.skill, color) });
-    useSkills.getState().setReady(u.skill.slug, t + (cooldownOf(u.skill, u.level) + u.skill.windup) * 1000);
+    // Constelação Viva: custo (afinidade, Canal Profundo) e preparação (Agilidade, Ressonância) congelados agora
+    const frozen = castSkill(u.skill, 1 + RANK_POWER * (u.level - 1));
+    if (!spendSp(frozen.cost)) { setShort(i); window.setTimeout(() => setShort((f) => (f === i ? null : f)), 500); return; }
+    requestSkill({ skill: u.skill, level: u.level, color: colorOf(u.skill, color), frozen });
+    useSkills.getState().setReady(u.skill.slug, t + (cooldownOf(u.skill, u.level) + frozen.windup) * 1000);
     setNow(t); setFlash(i); window.setTimeout(() => setFlash((f) => (f === i ? null : f)), 180);
   };
   const castRef = useRef(cast); castRef.current = cast;
@@ -105,7 +108,7 @@ export function SkillBar({ color }: { color: string }) {
         const frac = Math.min(1, left / total);
         return (
           <button key={i} className={'sb-slot' + (u ? '' : ' empty') + (left > 0 ? ' cd' : '') + (flash === i ? ' fire' : '') + (pick === i ? ' sel' : '') + (short === i ? ' short' : '') + (u && u.skill.energy > sp ? ' nosp' : '')}
-            title={u ? `${u.skill.name} — ${u.skill.description} (SP ${u.skill.energy})` : free.length ? 'Escolher habilidade' : 'Espaço livre'}
+            title={u ? `${u.skill.name} — ${u.skill.description} (SP ${castSkill(u.skill, 1).cost})` : free.length ? 'Escolher habilidade' : 'Espaço livre'}
             aria-label={u ? `${i + 1}: ${u.skill.name}${left > 0 ? `, recarregando ${Math.ceil(left / 1000)} s` : ''}` : `${i + 1}: vazio`}
             style={u ? { ['--sk' as string]: colorOf(u.skill, color) } : undefined}
             onClick={() => { if (longPress.current) { longPress.current = false; return; } cast(i); }}

@@ -34,6 +34,7 @@ export class OnlineBackend implements Backend {
   combatKill(slug: string, level: number) { return this.call('combat.kill', { slug, level }); }
   ecos(action: string, body: Record<string, unknown> = {}) { return this.call(action, body) as unknown as Promise<import('../ecos/types').EcosReply>; }
   pacto(action: string, body: Record<string, unknown> = {}) { return this.call(action, body) as unknown as Promise<import('../pacto/types').PactoReply>; }
+  build(action: string, body: Record<string, unknown> = {}) { return this.call(action, body) as unknown as Promise<import('../build/types').BuildReply>; }
   barks(req: BarksRequest) { return this.call('barks', req as unknown as Record<string, unknown>) as unknown as Promise<{ lines?: Record<string, string[]>; line?: string | null }>; }
   async signOut() { await supabase().auth.signOut(); }
 }

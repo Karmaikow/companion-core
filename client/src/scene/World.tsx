@@ -21,7 +21,7 @@ import { CompanionModel, type Roam } from './CompanionModel';
 import { brain, notifyPlayer, primeBarks, sayMoment, type Place } from './brain';
 import { useGame } from '../store';
 import { settings } from '../settings';
-import { companionFocus, moveRequest, colliders, smooth, type WorldShape } from './world';
+import { companionFocus, groundDown, groundMove, colliders, smooth, type WorldShape } from './world';
 import { GrassBlades, GlbInstances, AssetBoundary, Sky, CameraRig, WindClock, ClickMarker, Ambient, type Spot } from './Biome';
 import { runeTexture } from './textures';
 
@@ -95,9 +95,10 @@ function TerrainChunk({ cw, pals, cx, cz, walkable }: { cw: CompanionWorld; pals
   }, [cw, pals, cx, cz]);
   useEffect(() => () => geo.dispose(), [geo]);
   // clique esquerdo anda (ou ataca, nos Ajustes — aí o direito anda)
-  const onClick = walkable ? (e: ThreeEvent<MouseEvent>) => { if (e.delta > 6 || settings().click === 'atacar') return; moveRequest.point.copy(e.point); moveRequest.id++; } : undefined;
-  const onContextMenu = walkable ? (e: ThreeEvent<MouseEvent>) => { if (settings().click !== 'atacar') return; e.nativeEvent.preventDefault(); moveRequest.point.copy(e.point); moveRequest.id++; } : undefined;
-  return <mesh geometry={geo} receiveShadow onClick={onClick} onContextMenu={onContextMenu}><meshLambertMaterial vertexColors /></mesh>;
+  const onPointerDown = walkable ? (e: ThreeEvent<PointerEvent>) => groundDown(e, settings().click === 'atacar' ? 2 : 0) : undefined;
+  const onPointerMove = walkable ? (e: ThreeEvent<PointerEvent>) => groundMove(e) : undefined;
+  const onContextMenu = walkable ? (e: ThreeEvent<MouseEvent>) => { if (settings().click === 'atacar') e.nativeEvent.preventDefault(); } : undefined;
+  return <mesh geometry={geo} receiveShadow onPointerDown={onPointerDown} onPointerMove={onPointerMove} onContextMenu={onContextMenu}><meshLambertMaterial vertexColors /></mesh>;
 }
 
 // ---------------------------------------------------------------------------

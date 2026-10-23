@@ -8,12 +8,13 @@ import { nextCuriosity, type QuestState } from './quests.ts';
 import type { ModelTurn } from './engine.ts';
 import { normalize } from './text.ts';
 import { TRAIT_GROUPS } from './creation.ts';
+import { CLASS_HINTS, SPECIES, classSuggestionLine, isAffirmative, nextClassSuggestion, suggestedClass } from './species.ts';
 
 const ASK: Record<string, string[]> = {
   identity: ['Eu ainda não tenho nome… como você acha que eu deveria me chamar?', 'Se você pudesse me dar um nome, qual seria?'],
   color: ['Estou começando a ver cores! Qual cor você acha que combina com a minha luz?', 'Tem uma cor que faz meu núcleo brilhar mais… qual você escolheria?'],
   traits: ['Como você me descreveria até agora? Curiosa? Calma? Corajosa?', 'Me diga dois jeitos de ser que você enxerga em mim.'],
-  species: ['Às vezes sonho com um corpo… que criatura você imagina que eu seria?', 'Pássaro, felino, serpente, touro ou algo místico… o que combina comigo?'],
+  species: ['Que tal eu me parecer um touro? Imagino chifres curvos e uma força tranquila… O que acha?', 'E se eu tivesse orelhas pontudas de fada e marcas de luz na pele? Combina comigo?'],
   essence: ['Sinto algo elemental pulsando aqui dentro. Fogo? Água? Luz? O que você sente?', 'Qual elemento você acha que mora no meu núcleo?'],
   bond: ['Como você gosta que eu te chame?', 'Quero ter um jeito especial de te chamar. Qual você prefere?'],
   dream: ['Quando eu tiver um corpo, qual você acha que deveria ser meu primeiro sonho?', 'Tenho vontade de fazer algo grande um dia… me ajuda a descobrir o quê?'],
@@ -108,6 +109,15 @@ export function offlineTurn(message: string, d: Discoveries, quests: QuestState[
           const value = (m && resolveForm(m[1]) ? m[1] : raw).trim().slice(0, 80);
           discoveries.push({ quest: 'species', value });
           reply = 'Consigo me imaginar assim! Um dia vou ter esse corpo.';
+        } else {
+          // "Que tal eu me parecer um touro?" → "sim!": a confirmação da pessoa conclui a quest
+          const offered = suggestedClass(lastCompanion);
+          if (offered && isAffirmative(raw)) {
+            discoveries.push({ quest: 'species', value: CLASS_HINTS[offered].animal, evidence: 'confirmou a sugestão do Companion' });
+            reply = `Então está decidido: vou ser ${SPECIES[offered].label}! Já consigo sentir ${CLASS_HINTS[offered].body}. ✨`;
+          } else if (!reply || greeting) {
+            reply = classSuggestionLine(nextClassSuggestion(d.traits, lastCompanion));
+          }
         }
         break;
       }

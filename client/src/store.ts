@@ -40,6 +40,7 @@ interface State {
   recordKill(slug: string, level: number): Promise<import('./backend/types').CombatResult | null>;
   dismissCelebration(): void;
   dismissAwakenCall(): void;
+  openAwakenCall(): void;
 }
 
 let seq = 0;
@@ -95,6 +96,7 @@ export const useGame = create<State>((set, get) => ({
     if (id) try { localStorage.setItem(awakenSeenKey(id), '1'); } catch { /* sem armazenamento */ }
     set({ awakenCall: false });
   },
+  openAwakenCall: () => set({ awakenCall: true }),
   run: async (fn) => {
     const b = get().backend;
     if (!b || get().busy) return;

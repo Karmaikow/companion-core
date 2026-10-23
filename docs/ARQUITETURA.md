@@ -169,14 +169,14 @@ futuro sistema de pets).
 - As famílias descobertas na conversa viram **Classes** (`shared/rules/species.ts`), mantendo as chaves antigas nos
   contratos: serpente → **Dracônica**, passaro → **Alada**, felino → **Feral**, touro → **Taurina**, mistica → **Feérica**.
   Cada uma tem traços que vão no modelo (chifres, orelhas, escamas, penas no cabelo, orelhas pontudas), duas essências
-  afins (+10%), habilidade de forma (Chicote de Cauda, Rasante, Bote, Investida, Guarda) e tendências de atributo.
+  afins (−10% de SP, Constelação Viva), habilidade de forma (Chicote de Cauda, Rasante, Bote, Investida, Guarda) e tendências de atributo.
 - **Cauda e asas não vão no modelo 3D**: o jogo desenha e anima por código (`client/src/scene/Appendages.tsx`),
   presas ao osso do quadril/peito. Cauda = corrente com física de mola (balança, arrasta, enrola a ponta, não atravessa
   o chão): escamosa com barbatana (dracônica), peluda (feral), fina com tufo (taurina), de penas, de luz. Asas de pena,
   de dragão ou de fada batem devagar paradas e mais rápido andando. A descrição do jogador ajusta ("dragão com asas"
   ganha asas de dragão; "sem cauda" tira). Lab: `client/forge-lab.html?cauda`. Teste no jogo: `?cauda=scaly&asas=dragon`.
-- **Velocidade por classe** (`speed`, `speciesSpeed`): Feral 1,25× · Alada 1,15× · Feérica 1,05× · Dracônica 1× ·
-  Taurina 0,88×. O Companion anda no dobro do passo natural da animação × a classe; a animação acelera junto
+- **Velocidade por classe** (`speed`, `speciesSpeed`): Feral 1,10× · Alada 1,06× · Feérica 1,03× · Dracônica 1× ·
+  Taurina 0,95× (v1.17; antes 1,25/1,15/1,05/1/0,88 — a mobilidade forte ficou nas habilidades de forma).
   (`timeScale`), então os pés não patinam. A Agilidade da árvore pode somar aqui quando os atributos existirem.
 - **Ficha do personagem** (`characterSheet`): o JSON que a Fábrica mostra — humanoide, classe, traços, cauda/asas.
   Dois prompts: **referência do modelo 3D** (A-pose, roupa justa, sem cauda e sem asas; a folha de vistas sai dela) e
@@ -196,7 +196,7 @@ Aba **Habilidades** no jogo (`client/src/ui/SkillTreePanel.tsx`; regras em `shar
 - **Árvore** montada do catálogo publicado na Forja, da essência e da classe: três galhos (Essência, Classe, Vínculo),
   5 fileiras cada (vínculo 1, 2, 3, 5, 8). Nós de habilidade (abrem), de melhoria (até 3 níveis: +15% de efeito e
   –8% de recarga por nível) e passivas (% em atributos). No fim: segunda habilidade da essência, "Linhagem" (afinidade da
-  classe de +10% para +20%) e a Sintonia suprema.
+  classe: −10% → −20% de SP) e a Sintonia suprema.
 - `canSpend` explica por que um ponto não entra; `validateAllocation` refaz a distribuição na ordem das fileiras (ao
   carregar e, no futuro, no servidor antes da luta); `treeEffects` dá habilidades com nível e bônus.
 - Guardado em `companion_skill_alloc` (dono grava; ainda sem validação no servidor — entra com `battle.resolve`);
@@ -366,6 +366,25 @@ Os efeitos deixaram de ser pontos com textura e passaram a usar um motor própri
   - O centro do círculo é a média dos vértices da base, e não o meio da caixa (troncos fora do centro), e gira junto com cada cópia.
   - Cada monstro colide com o próprio tamanho (`resolveCollisions(p, raio)`) e é empurrado para fora dos obstáculos em todo quadro, inclusive parado ou recém-nascido.
 - **Cauda e asas:** as desenhadas por código ficam desligadas no jogo; só o modelo 3D aparece. O código continua, para testes (`?cauda=`, `?asas=`) e para uma versão futura, como cauda no próprio rig.
+
+## Constelação Viva, quest da classe, galeria do ADM e clique para andar (v1.17)
+
+- **Constelação Viva** (atributos distribuíveis): seis atributos (Vitalidade, Força, Magia, Agilidade, Destreza, Espírito),
+  uma Ressonância opcional, perfis salvos e troca gratuita aplicada só fora de combate, coleta e oficina. Substitui os
+  bônus raciais fixos (viram sugestão inicial) e passa a definir HP/SP/Stamina, potência física e mágica, defesa e
+  resistência, velocidades e precisão no jogo. A afinidade da classe virou −10% de SP. Tudo em **docs/CONSTELACAO_VIVA.md**.
+- **"Que criatura serei?"**: o Companion sugere uma das cinco linhagens de cada vez ("Que tal eu me parecer um touro?"),
+  na ordem que combina com os traços (`classSuggestionOrder`); o "sim" da pessoa conclui a quest
+  (`suggestedClass` + `isAffirmative`, também com IA via `assistDiscoveries`). Recusou, vem a próxima.
+- **Despertar**: botão fixo "✨ Despertar a primeira forma" enquanto o Companion estiver pronto; no celular a barra de
+  abas rola de lado (com 11 abas, Vínculo, Expedição, Oficina e Ajustes saíam da tela).
+- **Clicar para andar**: o pedido sai no soltar do clique (ouvido na janela), então um clique novo no meio do caminho
+  troca o destino na hora; segurar ~0,3 s faz o Companion seguir o cursor/dedo; arrastar de lado gira a câmera. A ordem
+  de clique vale até chegar (a IA não a sobrepõe).
+- **Forja só para Taurinas**: a aba Forja do equipamento e as encomendas abertas do quadro só aparecem para Taurinas.
+- **O Administrador → Companions**: todos os Companions como ícones redondos (imagem e nome), com busca e filtros. A ficha
+  mostra progressão (nível, XP, quests, memórias, combate), coleta (materiais da mochila do Ecos, ferramentas, Lumes,
+  peças), identidade, Constelação e, na aba Fábrica, os pedidos de arte (ações `admin.companions` e `admin.companion`).
 
 ## Ecos da Terra (v1.16)
 

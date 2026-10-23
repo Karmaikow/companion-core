@@ -390,16 +390,18 @@ function Orders({ view, bag, onForge }: { view: PactoView; bag: { key: string; q
       <ul className="order-list">
         {view.orders.mine.map((o) => <OrderItem key={o.id} o={o} view={view} onForge={onForge} />)}
       </ul>
-      <h3>Abertas no quadro {taurina ? '' : <small>(só Taurinas aceitam)</small>}</h3>
-      {!others.length && <p className="empty">Nenhuma encomenda aberta agora.</p>}
-      <ul className="order-list">
-        {others.map((o) => (
-          <li key={o.id} className="order">
-            <OrderSummary o={o} view={view} />
-            {taurina && <button className="primary" onClick={() => void call('pacto.order.accept', { id: o.id })}>Aceitar</button>}
-          </li>
-        ))}
-      </ul>
+      {taurina && (<>
+        <h3>Abertas no quadro</h3>
+        {!others.length && <p className="empty">Nenhuma encomenda aberta agora.</p>}
+        <ul className="order-list">
+          {others.map((o) => (
+            <li key={o.id} className="order">
+              <OrderSummary o={o} view={view} />
+              <button className="primary" onClick={() => void call('pacto.order.accept', { id: o.id })}>Aceitar</button>
+            </li>
+          ))}
+        </ul>
+      </>)}
       <Board view={view} />
     </div>
   );

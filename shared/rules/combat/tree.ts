@@ -83,7 +83,7 @@ export function buildSkillTree(catalog: SkillDef[], c: { essence: Element | null
     add({ id: 'c3', branch: 'classe', tier: 3, kind: 'rank', name: `${form.name}+`, description: `+${RANK_POWER * 100}% de efeito e –${RANK_COOLDOWN * 100}% de recarga por nível.`, skill: form.slug, maxRank: 3, requires: ['c2'] });
   }
   add({ id: 'c4', branch: 'classe', tier: 4, kind: 'passive', name: p2.name, description: p2.description, bonus: p2.bonus, maxRank: 3, requires: [form ? 'c2' : 'c1'] });
-  add({ id: 'c5', branch: 'classe', tier: 5, kind: 'passive', name: `Linhagem ${sp.label}`, description: `Afinidade da classe (${sp.affinities.map((e) => ELEMENTS[e].label).join(' e ')}) sobe de +10% para +20%.`, bonus: {}, requires: ['c4'] });
+  add({ id: 'c5', branch: 'classe', tier: 5, kind: 'passive', name: `Linhagem ${sp.label}`, description: `Afinidade da classe (${sp.affinities.map((e) => ELEMENTS[e].label).join(' e ')}): as habilidades dessas essências custam 20% menos SP (em vez de 10%).`, bonus: {}, requires: ['c4'] });
 
   // Vínculo
   if (basic) add({ id: 'v1', branch: 'vinculo', tier: 1, kind: 'rank', name: `${basic.name}+`, description: `O golpe básico: +${RANK_POWER * 100}% de dano por nível.`, skill: basic.slug, maxRank: 3 });
@@ -139,5 +139,6 @@ export function treeEffects(tree: SkillTree, alloc: Allocation) {
     for (const [k, v] of Object.entries(n.bonus ?? {})) bonus[k as AttrKey] = (bonus[k as AttrKey] ?? 0) + (v as number) * r;
     if (n.id === 'c5') lineage = true;
   }
-  return { skills, bonus, classAffinity: lineage ? 1.2 : 1.1 };
+  // afinidade da classe = redução no custo de SP da essência afim (Constelação Viva), não mais bônus de dano
+  return { skills, bonus, lineage, classAffinity: lineage ? 0.2 : 0.1 };
 }

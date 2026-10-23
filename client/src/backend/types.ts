@@ -57,6 +57,8 @@ export interface Backend {
   ecos?(action: string, body?: Record<string, unknown>): Promise<import('../ecos/types').EcosReply>;
   /** Pacto das Cinco: ofícios, forja, encomendas e ciclo de vida das peças (online: servidor; offline: simulado) */
   pacto?(action: string, body?: Record<string, unknown>): Promise<import('../pacto/types').PactoReply>;
+  /** Constelação Viva: atributos, Ressonância e perfis (online: servidor; offline: simulado) */
+  build?(action: string, body?: Record<string, unknown>): Promise<import('../build/types').BuildReply>;
   reset?(): Promise<void>;
   signOut?(): Promise<void>;
 }

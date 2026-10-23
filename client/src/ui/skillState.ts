@@ -8,10 +8,11 @@
 import { useEffect, useMemo } from 'react';
 import { create } from 'zustand';
 import {
-  DEFAULT_SKILLS, ELEMENTS, RANK_COOLDOWN, buildSkillTree, validateAllocation, treeEffects, skillPoints, sanitizeSkill,
+  DEFAULT_SKILLS, ELEMENTS, RANK_COOLDOWN, RANK_POWER, buildSkillTree, validateAllocation, treeEffects, skillPoints, sanitizeSkill,
   type Allocation, type SkillDef, type SkillTree,
 } from '@rules';
 import { useGame } from '../store';
+import { castSkill } from '../build/combatStats';
 import { supabase } from '../backend/online';
 
 export const BAR_SIZE = 9;
@@ -168,15 +169,17 @@ export const skillCooldown = (s: SkillDef, level: number) => Math.max(0.3, s.coo
  * A Companion lutando sozinha: usa uma habilidade da barra que esteja pronta, caiba no SP e alcance o alvo
  * (as de cura só com a vida abaixo de 60%). Mesmas regras de SP e recarga do jogador.
  */
-export function aiCast(dist: number, aimAt: { x: number; z: number }, companionColor: string, hpRatio: number, sp: number, spend: (n: number) => boolean, request: (c: { skill: SkillDef; level: number; color: string; aimAt: { x: number; z: number } }) => void): SkillDef | null {
+export function aiCast(dist: number, aimAt: { x: number; z: number }, companionColor: string, hpRatio: number, sp: number, spend: (n: number) => boolean, request: (c: { skill: SkillDef; level: number; color: string; aimAt: { x: number; z: number }; frozen: ReturnType<typeof castSkill> }) => void): SkillDef | null {
   const st = useSkills.getState(), now = performance.now();
   const options = st.bar.map((slug) => st.unlocked.find((u) => u.skill.slug === slug)).filter((u): u is { skill: SkillDef; level: number } => !!u)
-    .filter(({ skill: s }) => (st.ready[s.slug] ?? 0) <= now && s.energy <= sp)
+    .filter(({ skill: s }) => (st.ready[s.slug] ?? 0) <= now && castSkill(s, 1).cost <= sp)
     .filter(({ skill: s }) => (s.heal > 0 && s.power <= 0 ? hpRatio < 0.6 : s.shape === 'aura' ? dist <= s.radius + 0.6 : dist <= Math.max(s.range, 1.2) + 0.6))
     .sort((a, b) => (b.skill.heal > 0 && hpRatio < 0.4 ? 1 : 0) - (a.skill.heal > 0 && hpRatio < 0.4 ? 1 : 0) || b.skill.power - a.skill.power);
   const pick = options[0];
-  if (!pick || !spend(pick.skill.energy)) return null;
-  st.setReady(pick.skill.slug, now + (skillCooldown(pick.skill, pick.level) + pick.skill.windup) * 1000);
-  request({ skill: pick.skill, level: pick.level, color: skillColor(pick.skill, companionColor), aimAt });
+  if (!pick) return null;
+  const frozen = castSkill(pick.skill, 1 + RANK_POWER * (pick.level - 1));
+  if (!spend(frozen.cost)) return null;
+  st.setReady(pick.skill.slug, now + (skillCooldown(pick.skill, pick.level) + frozen.windup) * 1000);
+  request({ skill: pick.skill, level: pick.level, color: skillColor(pick.skill, companionColor), aimAt, frozen });
   return pick.skill;
 }

@@ -46,10 +46,10 @@ export function EquipmentPanel() {
     <div className="equip">
       <nav className="st-tabs" aria-label="Equipamento">
         <button className={tab === 'equip' ? 'on' : ''} onClick={() => setTab('equip')}>Equipamento</button>
-        <button className={tab === 'forja' ? 'on' : ''} onClick={() => setTab('forja')}>Forja{canForge(species) ? '' : ' 🔒'}</button>
+        {canForge(species) && <button className={tab === 'forja' ? 'on' : ''} onClick={() => setTab('forja')}>Forja</button>}
       </nav>
 
-      {tab === 'equip' ? (
+      {tab === 'equip' || !canForge(species) ? (
         <>
           <div className="eq-slots">
             {(Object.keys(SLOTS_EQ) as EquipSlot[]).map((k) => {

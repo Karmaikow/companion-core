@@ -6,12 +6,14 @@ import {
   offlineTurn, assistDiscoveries, buildDreamPrompt, parseDream, checkAwakening, buildIdentityContract, gameTime, companionDay, clampText,
   QUESTS, QUEST_REWARDS, validateSetup, evaluateSecrets, isQuestionAboutCompanion, buildMusePrompt,
   SECRET_BY_KEY, SECRET_XP, SECRET_BOOST_TURNS, buildArtPrompt, ANIM_KINDS, SPECIES, DEFAULT_CREATURES, sanitizeCreature, recordKill, combatMemoryLines, combatMemoryText,
+  resolveBalance, type BalanceConfig, budget, deriveStats, progressionStage,
   BANK_EVENTS, MOMENT_EVENTS, withXpMultiplier, combatXp, resolveEcos, type EcosConfig, resolvePacto, type PactoConfig, buildBarkBankPrompt, parseBarkBank, buildMomentPrompt, parseMoment, dossier, type BarkEvent,
   type BestiaryEntry, type CreatureDef, type SecretKey, type GameConfig, type IdentityContractV1, type QuestState, type Discoveries, type MemoryLite, type ChatLine,
 } from './rules/index.ts';
 import { complete, providerName } from './llm.ts';
 import { ecosAction, EcosError } from './ecos.ts';
 import { pactoAction, PactoError } from './pacto.ts';
+import { buildAction, BuildError, loadBuild } from './build.ts';
 
 const URL_ = Deno.env.get('SUPABASE_URL')!;
 const SERVICE = (() => {
@@ -33,10 +35,10 @@ const json = (status: number, body: unknown) =>
 
 class HttpError extends Error { constructor(public status: number, msg: string) { super(msg); } }
 
-async function loadConfig(db: SupabaseClient): Promise<GameConfig & { dailyChatLimit: number; maxCompanions: number; ecos: EcosConfig; pacto: PactoConfig }> {
+async function loadConfig(db: SupabaseClient): Promise<GameConfig & { dailyChatLimit: number; maxCompanions: number; ecos: EcosConfig; pacto: PactoConfig; constellation: BalanceConfig }> {
   const { data } = await db.from('game_config').select('values').eq('id', 1).maybeSingle();
   const v = (data?.values ?? {}) as Record<string, number>;
-  return { ...withXpMultiplier(resolveConfig(v)), ecos: resolveEcos((data?.values as Record<string, unknown> | undefined)?.ecos), pacto: resolvePacto((data?.values as Record<string, unknown> | undefined)?.pacto), dailyChatLimit: Number(v.dailyChatLimit) > 0 ? Number(v.dailyChatLimit) : 300, maxCompanions: Number(v.maxCompanions) > 0 ? Number(v.maxCompanions) : 1 };
+  return { ...withXpMultiplier(resolveConfig(v)), ecos: resolveEcos((data?.values as Record<string, unknown> | undefined)?.ecos), pacto: resolvePacto((data?.values as Record<string, unknown> | undefined)?.pacto), constellation: resolveBalance((data?.values as Record<string, unknown> | undefined)?.constellation), dailyChatLimit: Number(v.dailyChatLimit) > 0 ? Number(v.dailyChatLimit) : 300, maxCompanions: Number(v.maxCompanions) > 0 ? Number(v.maxCompanions) : 1 };
 }
 
 async function event(db: SupabaseClient, companionId: string, actor: 'player' | 'companion' | 'system', kind: string, payload: unknown): Promise<number> {
@@ -122,6 +124,84 @@ async function adminJobs(db: SupabaseClient) {
     });
   }
   return { jobs: out };
+}
+
+/** O Administrador: todos os Companions (para a galeria de ícones). */
+async function adminCompanions(db: SupabaseClient, cfg: GameConfig) {
+  const { data: comps } = await db.from('companions').select('id,owner_id,stage,discoveries,bond_xp,identity_contract,created_at,updated_at').order('created_at', { ascending: false }).limit(300);
+  const ids = (comps ?? []).map((c) => c.id as string);
+  const { data: jobs } = ids.length ? await db.from('visual_jobs').select('companion_id,status,result,created_at').in('companion_id', ids).order('created_at', { ascending: false }) : { data: [] };
+  const lastJob = new Map<string, { status: string; art?: string }>();
+  for (const j of jobs ?? []) if (!lastJob.has(j.companion_id as string)) lastJob.set(j.companion_id as string, { status: j.status as string, art: (j.result as StudioResult | null)?.art?.path });
+  const paths = [...lastJob.values()].map((j) => j.art).filter((x): x is string => !!x);
+  const signed = new Map<string, string>();
+  if (paths.length) {
+    const { data } = await db.storage.from(ART_BUCKET).createSignedUrls(paths, 3600);
+    for (const d of data ?? []) if (d.path && d.signedUrl) signed.set(d.path, d.signedUrl);
+  }
+  return {
+    companions: (comps ?? []).map((c) => {
+      const d = (c.discoveries ?? {}) as Discoveries, j = lastJob.get(c.id as string);
+      const p = levelProgress(Number(c.bond_xp) || 0, cfg);
+      return {
+        id: c.id, owner: String(c.owner_id).slice(0, 8), name: d.name ?? (c.identity_contract as IdentityContractV1 | null)?.identity?.name ?? 'Sem nome', stage: c.stage,
+        form: d.form ?? null, element: d.element ?? null, color: d.color ?? '#9fb4ff', pronoun: d.pronoun ?? 'ela',
+        level: p.level, xp: p.xp, createdAt: c.created_at, updatedAt: c.updated_at,
+        job: j ? j.status : null, artUrl: j?.art ? signed.get(j.art) ?? null : null,
+      };
+    }),
+  };
+}
+
+/** Ficha de um Companion: identidade, progressão, coleta (Ecos), Pacto, build e os pedidos de arte. */
+async function adminCompanion(db: SupabaseClient, cfg: GameConfig & { constellation: BalanceConfig }, cid: string) {
+  if (!/^[0-9a-f-]{36}$/i.test(cid)) throw new HttpError(400, 'Companion inválido.');
+  const { data: c } = await db.from('companions').select('*').eq('id', cid).maybeSingle();
+  if (!c) throw new HttpError(404, 'Companion não encontrado.');
+  const count = async (table: string, status?: string) => {
+    let q = db.from(table).select('*', { count: 'exact', head: true }).eq('companion_id', cid);
+    if (status) q = q.eq('status', status);
+    return (await q).count ?? 0;
+  };
+  const [quests, memories, diary, recipes, secrets, best, bag, ecosProf, pacto, equip, lastEv, events, build] = await Promise.all([
+    loadQuests(db, cid),
+    count('companion_memories', 'active'),
+    count('companion_diary'), count('companion_recipes'), count('companion_secrets'),
+    db.from('companion_bestiary').select('name,kills,particles').eq('companion_id', cid).order('kills', { ascending: false }),
+    db.from('ecos_bag').select('batch_key,qty').eq('companion_id', cid).gt('qty', 0).order('qty', { ascending: false }),
+    db.from('ecos_profile').select('tools,known_materials,techniques').eq('companion_id', cid).maybeSingle(),
+    db.from('pacto_profile').select('lumes,test_class').eq('companion_id', cid).maybeSingle(),
+    db.from('pacto_equipment').select('blueprint,kind,durability,max_durability,status').eq('owner', cid),
+    db.from('companion_events').select('kind,created_at').eq('companion_id', cid).order('id', { ascending: false }).limit(1),
+    count('companion_events'),
+    loadBuild(db, c, cfg, cfg.constellation).catch(() => null),
+  ]);
+  const d = (c.discoveries ?? {}) as Discoveries;
+  const p = levelProgress(Number(c.bond_xp) || 0, cfg);
+  const stage = progressionStage(p.level);
+  const bagRows = (bag.data ?? []) as { batch_key: string; qty: number }[];
+  const derived = build ? deriveStats({ alloc: build.active.alloc, stage, species: (d.form ?? null) as never, resonance: build.active.resonance, cfg: cfg.constellation }) : null;
+  const jobs = (await adminJobs(db)).jobs.filter((j) => j.companionId === cid);
+  return {
+    companion: {
+      id: c.id, owner: String(c.owner_id).slice(0, 8), stage: c.stage, discoveries: d, contract: c.identity_contract, createdAt: c.created_at, awakenedAt: c.awakened_at, updatedAt: c.updated_at,
+      lastActivity: lastEv.data?.[0]?.created_at ?? null, lastEvent: lastEv.data?.[0]?.kind ?? null,
+    },
+    progress: {
+      level: p.level, xp: p.xp, from: p.from, to: p.to, boost: c.xp_boost ?? 0,
+      questsDone: quests.filter((q) => q.status === 'done').length, questsTotal: quests.length, quests,
+      memories, diary, recipes, secrets, events,
+      kills: ((best.data ?? []) as { kills: number }[]).reduce((t, b) => t + (b.kills ?? 0), 0), species: (best.data ?? []).length,
+    },
+    gathering: {
+      totalItems: bagRows.reduce((t, b) => t + b.qty, 0), stacks: bagRows.length, bag: bagRows,
+      tools: (ecosProf.data?.tools as string[] | undefined) ?? [], knownMaterials: (ecosProf.data?.known_materials as string[] | undefined)?.length ?? 0,
+      techniques: (ecosProf.data?.techniques as string[] | undefined) ?? [],
+    },
+    pacto: { lumes: Number(pacto.data?.lumes ?? 0), testClass: pacto.data?.test_class ?? null, equipment: equip.data ?? [] },
+    build: build ? { ...build, stage, budget: budget(stage, cfg.constellation), derived } : null,
+    jobs,
+  };
 }
 
 const JOB_STATUSES = new Set(['queued', 'generating', 'review', 'approved', 'failed']);
@@ -568,6 +648,8 @@ Deno.serve(async (req) => {
       if (!(await isAdmin(db, userId))) return json(403, { error: 'Esta conta não é administradora.' });
       if (action === 'admin.jobs') return json(200, await adminJobs(db));
       if (action === 'admin.update') return json(200, await adminUpdate(db, body));
+      if (action === 'admin.companions') return json(200, await adminCompanions(db, cfg));
+      if (action === 'admin.companion') return json(200, await adminCompanion(db, cfg, String(body.companionId ?? '')));
       return json(404, { error: 'Ação desconhecida.' });
     }
     let c = await getCompanion(db, userId, typeof body.companionId === 'string' ? body.companionId : undefined);
@@ -608,6 +690,10 @@ Deno.serve(async (req) => {
       const cc = c;
       return json(200, await pactoAction(action, body, { db, c: cc, admin: await isAdmin(db, userId), pcfg: cfg.pacto, ecfg: cfg.ecos, event: (kind, payload) => event(db, cc.id as string, 'system', kind, payload) }));
     }
+    if (action.startsWith('build.')) {
+      const cc = c;
+      return json(200, await buildAction(action, body, { db, c: cc, cfg, bcfg: cfg.constellation, event: (kind, payload) => event(db, cc.id as string, 'system', kind, payload) }));
+    }
     if (action === 'awaken') {
       await actAwaken(db, c, cfg);
       const fresh = await getCompanion(db, userId, c.id);
@@ -615,7 +701,7 @@ Deno.serve(async (req) => {
     }
     return json(404, { error: 'Ação desconhecida.' });
   } catch (e) {
-    if (e instanceof HttpError || e instanceof EcosError || e instanceof PactoError) return json(e.status, { error: e.message });
+    if (e instanceof HttpError || e instanceof EcosError || e instanceof PactoError || e instanceof BuildError) return json(e.status, { error: e.message });
     console.error('refuge', (e as Error).message);
     return json(500, { error: 'O Refúgio está instável agora. Tente de novo.' });
   }

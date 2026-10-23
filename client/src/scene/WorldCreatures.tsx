@@ -7,7 +7,7 @@ import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 import * as THREE from 'three';
-import { chunkSpawns, CHUNK, ARCHETYPES, creatureStatsAt, mitigate, rollDrops, type CompanionWorld, type CreatureDef, type Spawn } from '@rules';
+import { chunkSpawns, CHUNK, ARCHETYPES, creatureStatsAt, mitigate, rollDrops, resolveHit, affinity, type CompanionWorld, type CreatureDef, type Spawn } from '@rules';
 import { companionFocus, resolveCollisions } from './world';
 import { CreatureBody, type CreatureAct } from './Creature';
 import { AssetBoundary } from './Biome';
@@ -65,10 +65,14 @@ function WorldCreature({ cw, def, spawn }: { cw: CompanionWorld; def: CreatureDe
         else L.dots.push({ key, left: seconds, dps, stacks: 1, tick: 1 });
         L.provoked = true;
       },
-      hit: (damage) => {
+      hit: (damage, info) => {
         const L = life.current;
         if (L.dead > 0) return 0;
-        const dealt = mitigate(damage, stats.defesa);
+        // Constelação Viva: física passa pela defesa; mágica pela resistência (sem campo próprio, a criatura usa a
+        // defesa — pendência de balanceamento); afinidade da essência e precisão nas fraquezas
+        const dealt = info
+          ? resolveHit(damage, info, { essence: def.essence, physDefense: stats.defesa, magResist: (stats as { resistencia?: number }).resistencia ?? null }, affinity(info.essence, def.essence), Math.random())
+          : mitigate(damage, stats.defesa);
         L.hp -= dealt; L.provoked = true; hurt.current = 0.45;
         setHpPct(Math.max(0, L.hp / stats.vida));
         if (L.hp <= 0) {

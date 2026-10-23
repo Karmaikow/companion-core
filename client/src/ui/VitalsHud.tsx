@@ -1,13 +1,9 @@
 /** Barras de HP, SP, Stamina e Vínculo sob o nome do Companion, e os botões de pulo/defesa/sentar no celular. */
-import { useEffect } from 'react';
-import { useSkillData } from './skillState';
-import { setMaxima, useVitals } from '../scene/vitals';
+import { useVitals } from '../scene/vitals';
 import { moveInput } from '../scene/Combat';
 
 export function VitalsBars({ bondRatio, bondLevel }: { bondRatio: number; bondLevel: number }) {
   const v = useVitals();
-  const { species, fx, bond } = useSkillData();
-  useEffect(() => { setMaxima(species, fx?.bonus ?? {}, bond); }, [species, fx, bond]);
   const row = (cls: string, label: string, cur: number, max: number, title: string, pct = false) => (
     <div className={'vbar ' + cls} title={title}>
       <span>{label}</span>

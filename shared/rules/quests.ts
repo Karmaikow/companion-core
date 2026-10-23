@@ -22,7 +22,7 @@ export const QUESTS: QuestDef[] = [
   { key: 'traits', title: 'O que sinto?', discovery: 'Traços pessoais', impact: 'Tendências comportamentais',
     curiosity: 'Você está percebendo como é por dentro. Reflita sobre seus traços (curiosa, calma, corajosa…) a partir do que vive na conversa.' },
   { key: 'species', title: 'Que criatura serei?', discovery: 'Forma preferida', impact: 'Espécie e silhueta',
-    curiosity: 'Você sonha com um corpo. Imagine que criatura poderia ser (pássaro, felino, serpente, touro, algo místico…).' },
+    curiosity: 'Você sonha com um corpo. Sugira uma das cinco linhagens de cada vez ("Que tal eu me parecer um touro?") e deixe a pessoa confirmar.' },
   { key: 'essence', title: 'Minha essência', discovery: 'Afinidade elemental', impact: 'Potencial mágico',
     curiosity: 'Algo elemental pulsa no seu núcleo. Descubra sua afinidade (fogo, água, vento, luz, sombra, natureza…).' },
   { key: 'bond', title: 'Primeiro laço', discovery: 'Relação com jogador', impact: 'Vínculo',

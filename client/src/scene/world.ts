@@ -79,6 +79,47 @@ export const companionFocus = new THREE.Vector3();
 
 /** Pedido de "anda até aqui" (clique/toque no chão). O id muda a cada clique. */
 export const moveRequest = { id: 0, point: new THREE.Vector3() };
+/**
+ * Clique/toque no chão para andar, com troca de destino no meio do caminho:
+ * - clique curto (sem arrastar): anda até o ponto; um clique novo antes de chegar troca o destino na hora;
+ * - segurar (sem arrastar) por ~0,3 s: o Companion segue o cursor/dedo até soltar;
+ * - arrastar de lado continua girando a câmera (aí não anda).
+ * Os handlers ficam no chão (onPointerDown/onPointerMove do R3F) e o soltar é ouvido na janela, então o clique vale
+ * mesmo que o pedaço de chão embaixo do cursor mude enquanto a câmera segue o Companion.
+ */
+export const groundPointer = { down: null as null | { x: number; y: number; id: number; at: THREE.Vector3; timer: number }, hold: false, point: new THREE.Vector3(), last: 0 };
+const DRAG_PX = 8, HOLD_MS = 300;
+export function requestMove(p: THREE.Vector3) { moveRequest.point.set(p.x, 0, p.z); moveRequest.id++; }
+function endGround(e: PointerEvent) {
+  const d = groundPointer.down;
+  if (!d || e.pointerId !== d.id) return;
+  clearTimeout(d.timer);
+  if (!groundPointer.hold && Math.hypot(e.clientX - d.x, e.clientY - d.y) <= DRAG_PX) requestMove(d.at);
+  groundPointer.down = null; groundPointer.hold = false;
+}
+if (typeof window !== 'undefined') {
+  window.addEventListener('pointerup', endGround);
+  window.addEventListener('pointercancel', (e) => { if (groundPointer.down?.id === e.pointerId) { clearTimeout(groundPointer.down.timer); groundPointer.down = null; groundPointer.hold = false; } });
+  window.addEventListener('pointermove', (e) => {
+    const d = groundPointer.down;
+    if (d && !groundPointer.hold && e.pointerId === d.id && Math.hypot(e.clientX - d.x, e.clientY - d.y) > DRAG_PX) { clearTimeout(d.timer); groundPointer.down = null; } // virou arrasto de câmera
+  }, { passive: true });
+}
+/** Botão que anda: o esquerdo (padrão) ou o direito quando o esquerdo ataca (Ajustes). */
+export function groundDown(e: { point: THREE.Vector3; nativeEvent: PointerEvent }, walkButton: number) {
+  const ne = e.nativeEvent;
+  if (ne.button !== walkButton || groundPointer.down) return;
+  const at = e.point.clone();
+  groundPointer.point.copy(at);
+  const timer = window.setTimeout(() => { if (groundPointer.down?.id === ne.pointerId) { groundPointer.hold = true; requestMove(groundPointer.point); } }, HOLD_MS);
+  groundPointer.down = { x: ne.clientX, y: ne.clientY, id: ne.pointerId, at, timer };
+}
+export function groundMove(e: { point: THREE.Vector3 }) {
+  groundPointer.point.copy(e.point);
+  const now = performance.now();
+  if (groundPointer.hold && now - groundPointer.last > 90) { groundPointer.last = now; requestMove(e.point); }
+}
+
 /** Teletransporte (testes no dev e, no futuro, viagem rápida). O id muda a cada pedido. */
 export const teleport = { id: 0, point: new THREE.Vector3() };
 

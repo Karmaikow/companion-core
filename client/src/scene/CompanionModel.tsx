@@ -26,7 +26,8 @@ import { spendSp } from './vitals';
 import type { Target } from './Combat';
 import { gameVfx } from './vfx/engine';
 import { Shield } from './vfx/recipes';
-import { basicAttack, bowShot, ELEMENTS, expectedDamage, RANK_POWER, type ItemDef, type SpeciesKey } from '@rules';
+import { basicAttack, bowShot, ELEMENTS, RANK_POWER, type ItemDef, type SpeciesKey } from '@rules';
+import { basicHit, castSkill, combat } from '../build/combatStats';
 
 /** O que o Companion carrega: itens visíveis, a arma (escolhe o ataque) e o que muda o dano. */
 export interface Gear { items: ItemDef[]; weapon: ItemDef | null; species: SpeciesKey | null; color: string; poder: number; /** id do Companion: pegada ajustada para este modelo */ modelKey?: string | null }
@@ -216,7 +217,7 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
   }, [actions, mul]);
 
   const start = roam.start ?? [1.6, 1.4];
-  const st = useRef({ target: new THREE.Vector3(start[0], 0, start[1]), wait: 2, act: '' as string, yaw: 0, burst: burstKey, once: 0, player: false, running: false, req: moveRequest.id, tp: teleport.id, blocked: 0, lift: 0, stuck: false, jumpT: -1, jumpId: moveInput.jumpId, sitId: moveInput.sitId, sitting: false, guarding: false });
+  const st = useRef({ target: new THREE.Vector3(start[0], 0, start[1]), wait: 2, act: '' as string, yaw: 0, burst: burstKey, once: 0, player: false, running: false, req: moveRequest.id, tp: teleport.id, blocked: 0, lift: 0, stuck: false, jumpT: -1, jumpId: moveInput.jumpId, sitId: moveInput.sitId, sitting: false, guarding: false, click: false });
   // WASD / setas: a pessoa conduz o Companion (relativo à câmera); Shift corre. Digitando no chat, as teclas são ignoradas.
   const keys = useRef(new Set<string>());
   useEffect(() => {
@@ -262,7 +263,10 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
   const prof = useMemo(() => basicAttack(gear?.weapon ?? null, gear?.species), [gear?.weapon, gear?.species]);
   const ESSENCE_FX: Record<string, string> = { fogo: 'chamas', agua: 'gotas', terra: 'pedras', vento: 'vento', luz: 'luz', sombra: 'sombra', gelo: 'gelo', raio: 'raios', natureza: 'folhas', veneno: 'veneno' };
   const fxColor = gear?.weapon?.essence ? ELEMENTS[gear.weapon.essence].glow : gear?.color ?? '#ffd56b';
-  const damageOf = (mul = 1) => Math.max(1, Math.round(20 * prof.power * (1 + (gear?.poder ?? 0) / 100) * mul));
+  // Constelação Viva: Força (armas físicas) ou Magia (cajado, varinha, orbe…) escalam o golpe; o equipamento já entra na potência
+  const basic = () => basicHit(prof.ranged, gear?.weapon?.essence ?? null);
+  const damageOf = (mul = 1) => Math.max(1, Math.round(20 * prof.power * basic().power * mul));
+  const cadence = () => prof.cadence * combat.d.attackSpeed; // velocidade de ataque = frequência
   // mira do mouse (PC): o ponto do chão sob o cursor, na altura do Companion
   const aimRay = useMemo(() => ({ ray: new THREE.Raycaster(), plane: new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), hit: new THREE.Vector3() }), []);
   const mouseGround = (state: { camera: THREE.Camera; pointer: THREE.Vector2 }, at: THREE.Vector3, use: 'attack' | 'skill' = 'attack') => {
@@ -316,7 +320,7 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
     const conf = settings(), ai = cs.ai, order0 = brain.order;
     if (order0 && 'until' in order0 && performance.now() > order0.until) brain.order = null;
     const order = brain.order;
-    const driving = [...keys.current].some((k2) => k2 !== 'shift');
+    const driving = [...keys.current].some((k2) => k2 !== 'shift') || s.click; // andando por clique: a ordem do jogador vale até chegar
     ai.think -= dt; ai.skillT -= dt;
     if (vitals.hitId !== ai.hitSeen) { ai.hitSeen = vitals.hitId; say('hurt', {}, { chance: 0.35 }); }
     const hpR = vitals.hp / Math.max(1, vitals.hpMax);
@@ -365,9 +369,9 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
         else if (cs.cd <= 0 && canAct() && spendStamina(6)) {
           // arco: tiro rápido (sem carregar) no ritmo da arma
           const shot = bowShot(0.9, prof.range, prof.power);
-          s.yaw = aiYaw; r.rotation.y = s.yaw; cs.cd = 1 / prof.cadence + 0.5;
+          s.yaw = aiYaw; r.rotation.y = s.yaw; cs.cd = 1 / cadence() + 0.5;
           if (actions.has('shoot')) { play('shoot', 0.08); actions.get('shoot')!.timeScale = 1.6; s.act = ''; s.once = 0.45; }
-          fxQueue.push({ kind: 'arrow', pos: r.position.clone(), yaw: s.yaw, range: shot.range, speed: shot.speed, damage: damageOf(shot.power), color: fxColor, perfect: false });
+          fxQueue.push({ kind: 'arrow', pos: r.position.clone(), yaw: s.yaw, range: shot.range, speed: shot.speed, damage: damageOf(shot.power), color: fxColor, perfect: false, info: basic().info });
         }
       }
       // habilidades da barra, quando dá (SP, recarga, alcance)
@@ -391,12 +395,12 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
     if (fire) {
       s.sitting = false;
       cs.want = 0;
-      cs.cd = 1 / prof.cadence;
+      cs.cd = 1 / cadence();
       const wt = gear?.weapon?.type ?? '';
       const kind = (wt ? null : chosen('__basic')) ?? (actions.has('attack:' + wt) ? 'attack:' + wt : actions.has(prof.anim) ? prof.anim : actions.has('attack') ? 'attack' : null);
       if (kind) {
         // a animação acelera para caber no ritmo da arma, e o corpo fica preso só até o golpe sair
-        const a = actions.get(kind)!, dur = a.getClip().duration, ts = Math.min(3, Math.max(1.3, dur * prof.cadence * 1.15));
+        const a = actions.get(kind)!, dur = a.getClip().duration, ts = Math.min(3, Math.max(1.3, dur * cadence() * 1.15));
         play(kind, 0.06); a.timeScale = ts; s.act = ''; s.once = Math.min(0.75, (dur / ts) * 0.8);
       } else { s.once = 0.3; cs.lunge = 0.3; }
       s.target.copy(r.position);
@@ -410,8 +414,8 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
       }
       const pos = r.position.clone();
       fxQueue.push(prof.ranged === 'magic'
-        ? { kind: 'magic', pos: pos.setY(0), yaw: s.yaw, range: prof.range, damage: damageOf(), color: fxColor, style: gear?.weapon?.essence ? ESSENCE_FX[gear.weapon.essence] : 'luz' }
-        : { kind: 'slash', pos, yaw: s.yaw, range: prof.range, damage: damageOf(), color: fxColor, heavy: prof.power > 1.2 });
+        ? { kind: 'magic', pos: pos.setY(0), yaw: s.yaw, range: prof.range, damage: damageOf(), color: fxColor, style: gear?.weapon?.essence ? ESSENCE_FX[gear.weapon.essence] : 'luz', info: basic().info }
+        : { kind: 'slash', pos, yaw: s.yaw, range: prof.range, damage: damageOf(), color: fxColor, heavy: prof.power > 1.2, info: basic().info });
     }
     if (cs.charging) {
       cs.held += dt;
@@ -443,7 +447,7 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
         const shot = bowShot(cs.held, prof.range, prof.power);
         cs.charging = false; charge.current = 0; chargeState.active = false;
         const a = actions.get('shoot'); if (a) a.timeScale = 1;
-        fxQueue.push({ kind: 'arrow', pos: r.position.clone(), yaw: s.yaw, range: shot.range, speed: shot.speed, damage: damageOf(shot.power), color: shot.perfect ? '#ffe68a' : fxColor, perfect: shot.perfect });
+        fxQueue.push({ kind: 'arrow', pos: r.position.clone(), yaw: s.yaw, range: shot.range, speed: shot.speed, damage: damageOf(shot.power), color: shot.perfect ? '#ffe68a' : fxColor, perfect: shot.perfect, info: basic().info });
         s.once = 0.35; s.act = '';
       }
     }
@@ -454,6 +458,8 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
       const q = skillInput.req;
       if (q) {
         const sk = q.skill;
+        // dano, cura e preparação congelados no lançamento: trocar a build depois não muda o que já saiu
+        const fz = q.frozen ?? castSkill(sk, 1 + RANK_POWER * (q.level - 1));
         let best: { x: number; z: number } | null = null, bd = Math.max(sk.range, sk.radius) + 1.5;
         targets.forEach((tg) => { const dd = Math.hypot(tg.x - r.position.x, tg.z - r.position.z); if (dd < bd && dd > 0.3) { bd = dd; best = tg; } });
         const b = best as { x: number; z: number } | null;
@@ -467,12 +473,10 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
         const tgt = mouseTgt ?? (aimed ? new THREE.Vector3(b!.x, 0, b!.z) : r.position.clone().setY(0).addScaledVector(fv, sk.shape === 'leap' ? sk.range : Math.min(sk.range, 3.5)));
         const travel = sk.shape === 'dash' ? 0.3 : sk.shape === 'leap' ? 0.45 : 0;
         const kind = chosen(sk.slug) ?? (sk.anim === 'attack' && sk.shape !== 'melee' && actions.has('cast') ? 'cast' : actions.has(sk.anim) ? sk.anim : actions.has('attack') ? 'attack' : null);
-        if (kind) { const a = actions.get(kind)!, ts = 1.5; play(kind, 0.06); a.timeScale = ts; s.act = ''; s.once = Math.max(sk.windup + travel + 0.15, Math.min(0.9, (a.getClip().duration / ts) * 0.8)); } else { s.once = sk.windup + travel + 0.3; cs.lunge = 0.35; }
+        if (kind) { const a = actions.get(kind)!, ts = 1.5; play(kind, 0.06); a.timeScale = ts; s.act = ''; s.once = Math.max(fz.windup + travel + 0.15, Math.min(0.9, (a.getClip().duration / ts) * 0.8)); } else { s.once = fz.windup + travel + 0.3; cs.lunge = 0.35; }
         s.target.copy(r.position); s.player = false; s.wait = Math.max(s.wait, 1.6);
-        const rank = 1 + RANK_POWER * (q.level - 1);
-        const atk = 60 * (1 + (gear?.poder ?? 0) / 100);
-        fxQueue.push({ kind: 'skill', pos: r.position.clone(), yaw: s.yaw, target: tgt, skill: sk, damage: Math.round(expectedDamage(sk, atk, 40) * rank), heal: Math.round(sk.heal * rank), color: q.color });
-        if (travel) cs.move = { from: r.position.clone(), to: sk.shape === 'dash' ? r.position.clone().addScaledVector(fv, sk.range) : tgt.clone(), t: -sk.windup, dur: travel, arc: sk.shape === 'leap' ? 1.3 : 0 };
+        fxQueue.push({ kind: 'skill', pos: r.position.clone(), yaw: s.yaw, target: tgt, skill: { ...sk, windup: fz.windup }, damage: fz.damage, heal: fz.heal, color: q.color, info: fz.info });
+        if (travel) cs.move = { from: r.position.clone(), to: sk.shape === 'dash' ? r.position.clone().addScaledVector(fv, sk.range) : tgt.clone(), t: -fz.windup, dur: travel, arc: sk.shape === 'leap' ? 1.3 : 0 };
       }
     }
     if (cs.move) {
@@ -499,13 +503,14 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
       s.target.set(moveRequest.point.x, 0, moveRequest.point.z);
       const rr = Math.hypot(s.target.x, s.target.z);
       if (rr > roam.limit) s.target.multiplyScalar(roam.limit / rr);
-      s.wait = 10; s.running = !keys.current.has('shift'); s.sitting = false;
+      s.wait = 10; s.running = !keys.current.has('shift'); s.sitting = false; s.click = true; s.blocked = 0;
     }
     // controle pelo teclado
     const k = keys.current;
     const ix = (k.has('d') || k.has('arrowright') ? 1 : 0) - (k.has('a') || k.has('arrowleft') ? 1 : 0);
     const iz = (k.has('w') || k.has('arrowup') ? 1 : 0) - (k.has('s') || k.has('arrowdown') ? 1 : 0);
     if (ix || iz) {
+      s.click = false;
       state.camera.getWorldDirection(fwd); fwd.y = 0; fwd.normalize();
       const rx = -fwd.z, rz = fwd.x; // direita da câmera no chão
       const dx = fwd.x * iz + rx * ix, dz = fwd.z * iz + rz * ix, n = Math.hypot(dx, dz) || 1;
@@ -519,15 +524,16 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
     const d = to.length();
     if (d > 0.08) {
       to.normalize();
-      const step = Math.min(d, (guard ? walkSpeed * 0.4 : s.running ? runSpeed : walkSpeed) * dt);
+      const step = Math.min(d, (guard ? walkSpeed * combat.d.guard.move : s.running ? runSpeed : walkSpeed) * dt);
       const before = { x: r.position.x, z: r.position.z }, next = { x: r.position.x + to.x * step, z: r.position.z + to.z * step };
       // colisão: desliza em volta de pedras, troncos e da fogueira; se ficar travado contra algo, desiste do destino
-      if (resolveCollisions(next) && Math.hypot(next.x - before.x, next.z - before.z) < step * 0.25) { s.blocked += dt; if (s.blocked > 0.6 && !s.player) { s.target.set(next.x, 0, next.z); s.blocked = 0; s.stuck = true; } } else s.blocked = 0;
+      if (resolveCollisions(next) && Math.hypot(next.x - before.x, next.z - before.z) < step * 0.25) { s.blocked += dt; if (s.blocked > 0.6 && !s.player) { s.target.set(next.x, 0, next.z); s.blocked = 0; s.stuck = true; s.click = false; } } else s.blocked = 0;
       r.position.x = next.x; r.position.z = next.z;
       const want = Math.atan2(to.x, to.z); let dy = want - s.yaw; while (dy > Math.PI) dy -= 2 * Math.PI; while (dy < -Math.PI) dy += 2 * Math.PI;
       s.yaw += dy * Math.min(1, dt * (s.player ? 9 : 5));
       if (s.jumpT >= 0 && actions.has('jump')) { /* o pulo segue tocando */ } else play(guard && actions.has('block') ? 'block' : s.running && actions.has('run') ? 'run' : actions.has('walk') ? 'walk' : 'idle');
     } else {
+      s.click = false;
       s.wait -= dt;
       const night = gameTime(Date.now()).phase === 'madrugada';
       // falando (balão aberto): gesticula, se tiver a animação

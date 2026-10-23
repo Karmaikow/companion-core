@@ -13,7 +13,7 @@ Código:
 
 ## Classes e ofícios
 
-As classes, atributos, velocidades, habilidades de forma, vocações e afinidades continuam como estavam. A afinidade de +10% fica só no combate.
+As classes, atributos, velocidades, habilidades de forma, vocações e afinidades continuam como estavam. A afinidade da classe vale só no combate: −10% no custo de SP da essência afim (Constelação Viva; antes "+10%").
 
 | Classe | Ofício | Produz nesta entrega | Coleta superior (tipo de fonte) |
 |---|---|---|---|
