@@ -375,11 +375,10 @@ Os efeitos deixaram de ser pontos com textura e passaram a usar um motor própri
   passar o mouse; no celular vira uma fileira rolável embaixo. Painéis podem ser minimizados.
 - **Forja Primordial**: para Taurinas (classe real, de teste ou linhagem) o menu mostra a Forja, com ícone de bigorna,
   no lugar da Oficina.
-- **Conversa no mundo** (`ChatComposer`): a caixa fica no canto de baixo; a fala da pessoa aparece num balão verde
-  logo abaixo do balão do Companion (`playerSpeech`). O histórico continua na aba Conversa.
-- **Dicas das quests** (`questHelp`, forma de alma): a quest da vez aparece sob a placa de nome com o que fazer, e a
-  caixa de conversa mostra 3 respostas prontas que o detector entende (tocar envia; botão direito põe na caixa). A aba
-  Quests repete a dica. Testado: as respostas prontas concluem cada quest pela regra offline.
+- **Conversa no mundo** (`ChatComposer`): a caixa fica no canto de baixo; a fala da pessoa aparece junto dela (v1.19;
+  antes ficava sob o balão do Companion e parecia fala dele). O histórico continua na aba Conversa.
+- **Dicas das quests** (`questHelp`, forma de alma): a quest da vez aparece sob a placa de nome e a
+  aba Quests repete a dica. (v1.19: as respostas prontas saíram; ficou uma dica discreta e uma pergunta curiosa.)
 - **Companion "ele"**: `masculinize` troca o que ele fala de si ("estou pronta" → "estou pronto", "Obrigada" →
   "Obrigado") nas falas prontas, no respondedor offline, nas falas curtas e nas respostas da IA; o prompt também pede o
   masculino. Só troca depois de um verbo de estado, para não mexer em "a sopa ficou pronta".
