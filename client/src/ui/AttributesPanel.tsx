@@ -39,7 +39,7 @@ export function AttributesPanel() {
         return <div className="attribute-row" key={key} style={{ ['--stat-color' as string]: color }}>
           <span className="attribute-symbol"><HudGlyph kind={key} /></span>
           <div><div className="attribute-label"><span>{label}</span><strong>{value}</strong></div>
-            <div className="attribute-meter" title={'Bônus da árvore: +' + bonus + '%'}><i style={{ width: Math.min(100, 20 + bonus * 2) + '%' }} /></div>
+            <div className="attribute-meter" title={'Bônus da árvore: +' + bonus + '%'}><i style={{ width: Math.min(100, bonus) + '%' }} /></div>
           </div>
           <button className="attribute-plus" disabled={saving || !candidate} aria-label={'Melhorar ' + label}
             title={candidate ? candidate.name + ': ' + candidate.description : nodes.length ? 'Confira os pontos e pré-requisitos na árvore de habilidades' : 'Este atributo ainda não tem uma passiva disponível para sua classe'}
@@ -50,7 +50,7 @@ export function AttributesPanel() {
         <div><HudGlyph kind="defesa" /><span>Defesa<b>+{fx?.bonus.defesa ?? 0}%</b></span></div>
         <div><HudGlyph kind="sintonia" /><span>Sintonia<b>+{fx?.bonus.sintonia ?? 0}%</b></span></div>
       </div>
-      <small className="attribute-points" aria-live="polite">{saving ? 'Salvando…' : free + ' ponto' + (free === 1 ? '' : 's') + ' disponível' + (free === 1 ? '' : 'is')}</small>
+      <small className="attribute-points" aria-live="polite">{saving ? 'Salvando…' : free + (free === 1 ? ' ponto disponível' : ' pontos disponíveis')}</small>
       <button className="redistribute" disabled={saving || !spent(alloc)} onClick={() => { if (confirm('Devolver todos os pontos da árvore? As habilidades liberadas por eles também serão removidas até você distribuí-los novamente.')) void persistAlloc(companion.id, {}); }}><span aria-hidden="true">⟳</span> Redistribuir pontos</button>
       <p className="attribute-note">Vitalidade e energia mostram os máximos atuais; os demais valores mostram bônus da árvore. Habilidades e passivas compartilham os mesmos pontos.</p>
     </>}
