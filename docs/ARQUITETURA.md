@@ -367,6 +367,24 @@ Os efeitos deixaram de ser pontos com textura e passaram a usar um motor própri
   - Cada monstro colide com o próprio tamanho (`resolveCollisions(p, raio)`) e é empurrado para fora dos obstáculos em todo quadro, inclusive parado ou recém-nascido.
 - **Cauda e asas:** as desenhadas por código ficam desligadas no jogo; só o modelo 3D aparece. O código continua, para testes (`?cauda=`, `?asas=`) e para uma versão futura, como cauda no próprio rig.
 
+## HUD Art Deco, conversa no mundo e dicas das quests (v1.18)
+
+- **HUD** (`client/src/game-hud.css`, a partir do `feature/game-ui-lab`): molduras `.deco` (azul-noite, filete de ouro
+  duplo, cantos em colchete e losango no topo, sem imagens), brasão do lugar no topo, relógio do jogo, minimapa redondo
+  com bússola. Menu lateral só com ícones em grupos (Companion · Jornada · Bolsa · Ofícios · Sistema), rótulo dourado ao
+  passar o mouse; no celular vira uma fileira rolável embaixo. Painéis podem ser minimizados.
+- **Forja Primordial**: para Taurinas (classe real, de teste ou linhagem) o menu mostra a Forja, com ícone de bigorna,
+  no lugar da Oficina.
+- **Conversa no mundo** (`ChatComposer`): a caixa fica no canto de baixo; a fala da pessoa aparece num balão verde
+  logo abaixo do balão do Companion (`playerSpeech`). O histórico continua na aba Conversa.
+- **Dicas das quests** (`questHelp`, forma de alma): a quest da vez aparece sob a placa de nome com o que fazer, e a
+  caixa de conversa mostra 3 respostas prontas que o detector entende (tocar envia; botão direito põe na caixa). A aba
+  Quests repete a dica. Testado: as respostas prontas concluem cada quest pela regra offline.
+- **Companion "ele"**: `masculinize` troca o que ele fala de si ("estou pronta" → "estou pronto", "Obrigada" →
+  "Obrigado") nas falas prontas, no respondedor offline, nas falas curtas e nas respostas da IA; o prompt também pede o
+  masculino. Só troca depois de um verbo de estado, para não mexer em "a sopa ficou pronta".
+- **Entrada**: "Criar conta e começar" é o botão principal; entrar, experimentar sem conta e jogar offline vêm depois.
+
 ## Constelação Viva, quest da classe, galeria do ADM e clique para andar (v1.17)
 
 - **Constelação Viva** (atributos distribuíveis): seis atributos (Vitalidade, Força, Magia, Agilidade, Destreza, Espírito),
