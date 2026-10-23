@@ -18,6 +18,10 @@ import { EcosPanel } from './ui/EcosPanel';
 import { PactoPanel } from './ui/PactoPanel';
 import { LocationHud, QuestTracker } from './ui/GameHud';
 import { ChatComposer } from './ui/ChatComposer';
+import { AttackCursor } from './ui/AttackCursor';
+import { joinWorld, type RemoteInfo } from './net/presence';
+import { SocialPanel } from './ui/SocialPanel';
+import { useSocialLoop, useSocial } from './net/social';
 import { HudGlyph } from './ui/HudGlyph';
 import { usePacto } from './pacto/pactoStore';
 import { EcosHud } from './ui/EcosHud';
@@ -37,6 +41,7 @@ const TAB_GROUPS: { label: string; tabs: { key: Tab; label: string }[] }[] = [
   { label: 'Jornada', tabs: [{ key: 'quests', label: 'Quests' }, { key: 'diary', label: 'Diário' }, { key: 'memories', label: 'Memórias' }] },
   { label: 'Bolsa', tabs: [{ key: 'inventory', label: 'Inventário' }, { key: 'recipes', label: 'Receitas' }, { key: 'ecos', label: 'Expedição' }] },
   { label: 'Ofícios', tabs: [{ key: 'pacto', label: 'Oficina' }, { key: 'forja', label: 'Forja Primordial' }] },
+  { label: 'Mundo', tabs: [{ key: 'social', label: 'Amigos e grupo' }] },
   { label: 'Sistema', tabs: [{ key: 'settings', label: 'Ajustes' }] },
 ];
 const TABS = TAB_GROUPS.flatMap((g) => g.tabs);
@@ -228,6 +233,19 @@ export function App() {
   const goWorld = () => { setPlace('world'); setExplore(false); };
   const goHome = () => { setPlace('refuge'); setExplore(false); toast('De volta ao Refúgio.', 'soft'); };
 
+  // presença (MMO fase 1): no Companion World, os Companions de outros jogadores aparecem na mesma tela.
+  // Online: canal do Supabase Realtime; no dev, `?eco` testa entre abas com um BroadcastChannel.
+  const presenceKey = place === 'world' && c?.id && (backend?.kind === 'online' || (import.meta.env.DEV && new URLSearchParams(location.search).has('eco'))) ? c.id + '|' + (model?.url.split('?')[0] ?? '') + '|' + c.discoveries.name : '';
+  const presenceMe = useRef<RemoteInfo | null>(null);
+  presenceMe.current = c ? { id: import.meta.env.DEV && new URLSearchParams(location.search).get('eco') ? c.id + ':' + new URLSearchParams(location.search).get('eco') : c.id, name: c.discoveries.name ?? 'Companion', color: visual.glow, model: model ?? null, pronoun: c.discoveries.pronoun } : null;
+  useEffect(() => {
+    if (!presenceKey || !presenceMe.current) return;
+    return joinWorld(presenceMe.current, backend?.kind !== 'online');
+  }, [presenceKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useSocialLoop({ on: backend?.kind === 'online' && c?.stage === 'awakened', inWorld: place === 'world', me: c?.id ?? null });
+  const socialBadge = useSocial((s) => (s.data ? s.data.friendRequests.length + s.data.partyInvites.length + s.data.trades.filter((t) => !t.mine && t.status === 'proposed').length : 0));
+
   useSkillSync();
 
   // Cauda e asas desenhadas por código: desligadas no jogo (ficavam fora do modelo; só o modelo 3D por enquanto).
@@ -299,7 +317,7 @@ export function App() {
   const hiddenTab = (k: Tab) => (k === 'forja' ? !taurina : k === 'pacto' ? taurina : false);
   useEffect(() => setMinimized(false), [tab]);
   useEffect(() => { if ((tab === 'forja' && !taurina) || (tab === 'pacto' && taurina)) setTab(taurina ? 'forja' : 'pacto'); }, [tab, taurina]); // eslint-disable-line react-hooks/exhaustive-deps
-  const panel = { chat: ChatPanel, memories: MemoriesPanel, diary: DiaryPanel, quests: QuestsPanel, inventory: InventoryPanel, recipes: RecipesPanel, skills: SkillsTab, bond: BondPanel, ecos: EcosPanel, pacto: PactoPanel, forja: PactoPanel, settings: SettingsPanel };
+  const panel = { chat: ChatPanel, memories: MemoriesPanel, diary: DiaryPanel, quests: QuestsPanel, inventory: InventoryPanel, recipes: RecipesPanel, skills: SkillsTab, bond: BondPanel, ecos: EcosPanel, pacto: PactoPanel, forja: PactoPanel, social: SocialPanel, settings: SettingsPanel };
   const Panel = tab ? panel[tab] : null;
 
   return (
@@ -351,7 +369,8 @@ export function App() {
           )}
           {model && <SkillBar color={visual.glow} />}
           {model && <TouchMoves />}
-          {model && <FaintCounter />}
+          {model && <AttackCursor />}
+          {model && <FaintCounter onReturn={place === 'world' ? goHome : undefined} />}
           {model && (
             <button className={'attack-btn' + (bowEquipped ? ' bow' : '')} aria-label={bowEquipped ? 'Segure para carregar o arco e solte para atirar' : 'Atacar'}
               onPointerDown={(e) => { e.preventDefault(); (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId); pressAttack(); }}
@@ -381,6 +400,7 @@ export function App() {
                   <button key={t.key} className={(tab === t.key ? 'on' : '') + (t.key === 'forja' ? ' forge' : '')} onClick={() => setTab(tab === t.key ? null : t.key)} aria-pressed={tab === t.key} aria-label={t.label} data-tip={t.label}>
                     <Icon tab={t.key} />
                     <span>{t.label}</span>
+                    {t.key === 'social' && socialBadge > 0 && <em className="dot" aria-label={socialBadge + ' pedidos'} />}
                     {t.key === 'bond' && snap?.awakening?.ready && c.stage === 'particles' && <em className="dot" aria-label="pronto para despertar" />}
                   </button>
                 ))}

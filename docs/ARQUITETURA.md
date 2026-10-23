@@ -385,6 +385,42 @@ Os efeitos deixaram de ser pontos com textura e passaram a usar um motor própri
 - **Entrada**: "Criar conta e começar" é o botão principal; entrar, experimentar sem conta e jogar offline vêm depois.
 
 
+## MMO social: encontros, amizade, grupo e troca (v1.22)
+
+Tudo em **docs/MMO_SOCIAL.md** ("O que já está no jogo"). Resumo: quando dois Companions ficam perto no Companion
+World, os dois jogos avisam o servidor e ele escreve a conversa entre eles pela IA (balões nos dois, memória para os
+dois). O pedido de amizade nasce do Companion; a pessoa aceita ou recusa na aba **Amigos e grupo**. Grupo de até 4:
+o Companion convida e aceita sozinho, ou a pessoa convida e aceita. Troca de itens só entre pessoas, com as duas
+confirmações e a troca atômica no banco (`trade_execute`).
+
+## MMO fase 1: ver outros Companions (v1.21)
+
+Regras sociais do MMO e as fases em **docs/MMO_SOCIAL.md** (amizade só entre Companions: eles pedem, as pessoas
+aceitam; grupo pedido e aceito por Companions ou pessoas; troca de itens só entre pessoas; sem chat entre pessoas).
+
+- **Presença** (`client/src/net/presence.ts`): no Companion World, cada jogo entra no canal de broadcast `mundo` do
+  Supabase Realtime e manda ~4×/s a posição, a direção e se está caído (`companionPose`); a ficha (nome, cor, modelo com
+  parado/andando/correndo) vai na entrada, a cada 10 s e quando alguém novo aparece. Quem fica 8 s quieto some.
+- **Desenho** (`scene/RemoteCompanions.tsx`): até 24 Companions num raio de 70 m, com o modelo e as animações de
+  andar/correr pela velocidade, ou uma esfera de luz na cor dele; plaquinha com o nome. Só visual, sem colisão.
+- Teste no dev sem servidor: duas abas com `?mundo&eco=a` e `?mundo&eco=b` (BroadcastChannel).
+- Canal público na fase 1 (posição falsa só afeta o visual); vira privado com RLS antes das fases sociais.
+
+## Clique para atacar, desmaio com escolha e barra fora do chat (v1.20)
+
+- **Clique no monstro = ataque básico** (com "clique esquerdo anda", o padrão): o alvo sob o cursor é achado pela
+  posição na tela (`attackPick.pick` em `Combat.tsx`, vale para o corpo todo e para toque). O Companion vai até ele e
+  golpeia até ele cair, até a pessoa mandar andar (clique no chão ou WASD) ou ele se afastar 30 m; só o golpe básico
+  (a IA não lança habilidades nessa ordem). Sobre o monstro, a seta vira um alvo girando com uma espadinha
+  (`ui/AttackCursor.tsx`) e aparece um alvo dourado no chão; o alvo travado fica vermelho e gira ao contrário.
+- **Desmaio**: os monstros se dispersam na hora e voltam para casa (`vitals.faintId`). Terminada a contagem, o Companion
+  continua deitado e a tela oferece **Levantar e continuar** (metade da vida) ou **Retornar para o Refúgio** (vida e SP
+  cheios; só no mundo). Ao levantar fica 10 s **invencível** (`INVULN_SECONDS`): anel dourado em volta dele, aviso nas
+  barras, e nenhum monstro vem brigar por conta própria (só quem for provocado de novo).
+- **Barra de habilidades** fica no espaço livre entre a caixa de conversa e a janela aberta (antes ficava por trás do
+  chat em telas menores); com janela aberta os espaços encolhem, e abaixo de 1180 px ela some enquanto a janela estiver
+  aberta.
+
 ## Armas no osso, habilidade carregada e o Companion que escolhe (v1.19)
 
 - **Armas presas ao osso da mão**: `Equipment.tsx` põe o item como filho do osso (`createPortal`). A orientação base vem da pose de bind do SkinnedMesh (`boneInverses` + `bindMatrix`), então a pegada é a mesma em qualquer modelo/animação; a escala do osso é compensada. No Arsenal, "mostrar o ponto do osso" desenha os eixos do encaixe.

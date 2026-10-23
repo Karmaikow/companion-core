@@ -28,3 +28,4 @@ export * from './ecos.ts';
 export * from './ecosPlay.ts';
 export * from './pacto.ts';
 export * from './constellation.ts';
+export * from './social.ts';
