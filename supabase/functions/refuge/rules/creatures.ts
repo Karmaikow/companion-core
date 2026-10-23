@@ -71,6 +71,8 @@ export interface CreatureDef {
   color: string;                 // cor da criatura (corpo de reserva, brilho, partículas)
   motion: Motion;                // movimento por código (.GLB sem rig/animação)
   look?: ModelLook;
+  /** O Administrador → Animações: papel → "anim:<arquivo>|<clipe>" ou "procedural" (movimento por código); vazio = automático */
+  animMap?: Record<string, string>;
   model?: { url: string; path?: string; anims: { url: string; path?: string; kind: string; name: string }[] };
   art?: { url: string; path?: string };
 }
@@ -120,6 +122,11 @@ export function sanitizeCreature(input: unknown): CreatureDef | null {
     color: typeof c.color === 'string' && /^#[0-9a-f]{6}$/i.test(c.color) ? c.color.toLowerCase() : '#b9a6ff',
     look: sanitizeLook(c.look),
     motion: c.motion && c.motion in MOTIONS ? c.motion : 'auto',
+    animMap: (() => {
+      const o = (c.animMap ?? {}) as Record<string, unknown>, out: Record<string, string> = {};
+      for (const k of ['idle', 'walk', 'run', 'attack', 'hurt', 'happy', 'sleep']) { const v = o[k]; if (typeof v === 'string' && (v === 'procedural' || /^anim:[^|]{1,80}\|.{1,120}$/.test(v))) out[k] = v; }
+      return Object.keys(out).length ? out : undefined;
+    })(),
     model: m,
     art: c.art && typeof c.art.url === 'string' && URL_OK.test(c.art.url) ? { url: c.art.url, path: typeof c.art.path === 'string' ? c.art.path : undefined } : undefined,
   };

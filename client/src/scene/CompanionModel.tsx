@@ -9,7 +9,7 @@ import * as THREE from 'three';
 import { GLTFLoader, type GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
-import { animKind, attackVariant, strideSpeed, gameTime, type AnimKind } from '@rules';
+import { animKind, attackVariant, strideSpeed, gameTime, COMPANION_ANIM_SLOTS, parseAnimRef, gatherSlot, type AnimKind } from '@rules';
 import type { CompanionModelFiles } from '../backend/types';
 import { CLEAR_R, companionFocus, companionPose, moveRequest, attackRequest, attackPick, teleport, resolveCollisions, platformHeight, type WorldShape } from './world';
 import { work } from '../ecos/ecosStore';
@@ -37,7 +37,7 @@ loader.setMeshoptDecoder(MeshoptDecoder);
 export const loadGltf = (url: string) => new Promise<GLTF>((ok, bad) => loader.load(url, ok, undefined, bad));
 const load = loadGltf;
 
-interface Loaded { gltf: GLTF; clips: { clip: THREE.AnimationClip; kind: AnimKind | string; stride: number }[] }
+interface Loaded { gltf: GLTF; clips: { clip: THREE.AnimationClip; kind: AnimKind | string; stride: number; /** arquivo de onde veio: "corpo" ou o nome do .GLB de animação */ src: string }[] }
 
 /** Tira o deslocamento horizontal da raiz (quem move é o jogo) e devolve quanto ela andava por ciclo. */
 export function inPlace(clip: THREE.AnimationClip): number {
@@ -114,7 +114,7 @@ export function facingYaw(root: THREE.Object3D): number {
 /** Pedido: o Companion andava devagar demais; o passo natural da animação vezes 2. */
 const SPEED_BOOST = 2;
 
-const ONCE = new Set(['happy', 'jump', 'attack', 'hurt', 'eat', 'cast', 'shoot', 'dodge', 'wave', 'pickup', 'getup']);
+const ONCE = new Set(['happy', 'jump', 'attack', 'hurt', 'eat', 'cast', 'shoot', 'dodge', 'wave', 'getup', 'fidget']);
 
 /** Onde o Companion pode andar. No Refúgio: a clareira em volta do altar. No mundo aberto: longe, com passeios perto de onde está. */
 export interface Roam {
@@ -143,7 +143,7 @@ export function CompanionModel({ files, world, burstKey, speech, onFail, roam = 
       const clips: Loaded['clips'] = [];
       const add = (list: THREE.AnimationClip[], kindHint: string | null, name: string) =>
         // "special" vindo do servidor (tipo que a função ainda não conhece): tenta pelo nome do arquivo/clipe
-        list.forEach((clip) => clips.push({ clip, kind: (kindHint && kindHint !== 'special' ? kindHint : null) ?? animKind(name, clip.name) ?? 'special', stride: inPlace(clip) / Math.max(0.01, clip.duration) }));
+        list.forEach((clip) => clips.push({ clip, kind: (kindHint && kindHint !== 'special' ? kindHint : null) ?? animKind(name, clip.name) ?? 'special', stride: inPlace(clip) / Math.max(0.01, clip.duration), src: name }));
       // várias animações num arquivo só: o tipo vem do nome de cada clipe; uma só: do nome do arquivo
       add(gltf.animations, gltf.animations.length > 1 ? null : animKind(files.url.split('?')[0]), 'corpo');
       for (const a of files.anims) {
@@ -161,6 +161,7 @@ export function CompanionModel({ files, world, burstKey, speech, onFail, roam = 
 function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear }: { loaded: Loaded; world: WorldShape; burstKey: number; speech: string | null; roam: Roam; appendages: AppendageSpec | null; speed: number; gear: Gear | null }) {
   const root = useRef<THREE.Group>(null);
   const pose = useRef<THREE.Group>(null);
+  const animMap = useSkills((s) => s.animMap);
   const { model, scale, mixer, actions, walkSpeed: natWalk, runSpeed: natRun, anchors, gearBones } = useMemo(() => {
     // cópia com esqueleto próprio: o React pode repetir este cálculo, e o original não pode ser movido entre grupos
     const model = cloneSkinned(loaded.gltf.scene);
@@ -172,7 +173,7 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
     const orient = new THREE.Group(); orient.rotation.y = -facingYaw(model); orient.add(model);
     const mixer = new THREE.AnimationMixer(model);
     const actions = new Map<string, THREE.AnimationAction>();
-    let stride = 0;
+    let stride = 0, runPick: Loaded['clips'][number] | null = null;
     // "Parado" que na verdade anda: o Tripo às vezes exporta o rig do corpo já com a animação de andar.
     // Se o clipe de parado desloca o corpo ou é igual ao de andar, ele não serve como parado (fica a respiração procedural).
     const sig = (c: THREE.AnimationClip) => c.duration.toFixed(3) + ':' + c.tracks.length + ':' + c.tracks.slice(0, 3).map((t) => Array.from(t.values.slice(0, 8)).map((v) => v.toFixed(3)).join(',')).join('|');
@@ -201,11 +202,28 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
       if (actions.has(key)) continue;
       const a = mixer.clipAction(c2.clip.clone()); a.setLoop(THREE.LoopOnce, 1); actions.set(key, a);
     }
+    // escolhas do Administrador (aba Animações): o clipe de cada papel ("slot:<papel>"), por cima do automático
+    for (const sl of COMPANION_ANIM_SLOTS) {
+      const ref = parseAnimRef(animMap['slot:' + sl.key]);
+      if (!ref || ref === 'procedural') continue;
+      const hit = loaded.clips.find((c2) => c2.clip.name === ref.clip && (ref.file === '*' || c2.src === ref.file));
+      if (!hit) continue;
+      const a = mixer.clipAction(hit.clip.clone());
+      if (!sl.loop) { a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = sl.key === 'faint'; }
+      actions.set(sl.key, a);
+      if (sl.key === 'walk') stride = hit.stride * scale;
+      if (sl.key === 'run') runPick = hit;
+    }
+    // sem "parado": em vez da pose de braços abertos (bind pose), o primeiro quadro do andar/correr, parado
+    if (!actions.has('idle')) {
+      const base = loaded.clips.find((c2) => c2.kind === 'walk') ?? loaded.clips.find((c2) => c2.kind === 'run') ?? loaded.clips[0];
+      if (base) { const a = mixer.clipAction(base.clip.clone()); a.timeScale = 0; actions.set('idle', a); }
+    }
     const walkSpeed = actions.has('walk') ? strideSpeed(stride, 1, 0.7) : 0.7;
-    const run = loaded.clips.find((c2) => c2.kind === 'run');
+    const run = runPick ?? loaded.clips.find((c2) => c2.kind === 'run');
     const runSpeed = run ? strideSpeed(run.stride * scale, 1, walkSpeed * 2) : walkSpeed * 1.8;
     return { model: orient, scale, mixer, actions, walkSpeed, runSpeed, anchors: findAnchors(model), gearBones: findGearBones(model) };
-  }, [loaded]);
+  }, [loaded, animMap]);
 
   // Velocidade: o dobro do passo natural da animação × a velocidade da classe. A animação acelera junto
   // (timeScale), então os pés continuam sem patinar.
@@ -218,7 +236,7 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
   }, [actions, mul]);
 
   const start = roam.start ?? [1.6, 1.4];
-  const st = useRef({ target: new THREE.Vector3(start[0], 0, start[1]), wait: 2, act: '' as string, yaw: 0, burst: burstKey, once: 0, player: false, running: false, req: moveRequest.id, tp: teleport.id, blocked: 0, lift: 0, stuck: false, jumpT: -1, jumpId: moveInput.jumpId, sitId: moveInput.sitId, sitting: false, guarding: false, click: false });
+  const st = useRef({ target: new THREE.Vector3(start[0], 0, start[1]), wait: 2, act: '' as string, yaw: 0, burst: burstKey, once: 0, player: false, running: false, req: moveRequest.id, tp: teleport.id, blocked: 0, lift: 0, stuck: false, jumpT: -1, jumpId: moveInput.jumpId, sitId: moveInput.sitId, sitting: false, guarding: false, click: false, idleT: 0, fidgetAt: 10 });
   // WASD / setas: a pessoa conduz o Companion (relativo à câmera); corre por padrão, Shift anda devagar. Digitando no chat, as teclas são ignoradas.
   const keys = useRef(new Set<string>());
   useEffect(() => {
@@ -404,7 +422,7 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
       cs.want = 0;
       cs.cd = 1 / cadence();
       const wt = gear?.weapon?.type ?? '';
-      const kind = (wt ? null : chosen('__basic')) ?? (actions.has('attack:' + wt) ? 'attack:' + wt : actions.has(prof.anim) ? prof.anim : actions.has('attack') ? 'attack' : null);
+      const kind = (wt ? null : chosen('__basic')) ?? (actions.has('attack:' + wt) ? 'attack:' + wt : prof.ranged === 'magic' && actions.has('attack:magia') ? 'attack:magia' : wt === 'lanca' && actions.has('attack:espada') ? 'attack:espada' : actions.has(prof.anim) ? prof.anim : actions.has('attack') ? 'attack' : null);
       if (kind) {
         // a animação acelera para caber no ritmo da arma, e o corpo fica preso só até o golpe sair
         const a = actions.get(kind)!, dur = a.getClip().duration, ts = Math.min(3, Math.max(1.3, dur * cadence() * 1.15));
@@ -549,11 +567,19 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
         // coletando (Ecos da Terra): olha para o recurso e trabalha
         const want = Math.atan2(work.at.x - r.position.x, work.at.z - r.position.z); let dy = want - s.yaw; while (dy > Math.PI) dy -= 2 * Math.PI; while (dy < -Math.PI) dy += 2 * Math.PI;
         s.yaw += dy * Math.min(1, dt * 6);
-        const wk = actions.has('gather') ? 'gather' : actions.has('attack') ? 'attack' : 'idle';
+        const gs = gatherSlot(work.kind);
+        const wk = actions.has(gs) ? gs : actions.has('gather') ? 'gather' : actions.has('pickup') ? 'pickup' : actions.has('attack') ? 'attack' : 'idle';
         play(wk); const wa = actions.get(wk); if (wa && wk === 'attack') wa.timeScale = 0.75;
         s.wait = Math.max(s.wait, 1);
       }
-      else play(guard && actions.has('block') ? 'block' : s.sitting && actions.has('sit') ? 'sit' : night && actions.has('sleep') ? 'sleep' : speech && actions.has('talk') ? 'talk' : 'idle');
+      else {
+        const still = guard && actions.has('block') ? 'block' : s.sitting && actions.has('sit') ? 'sit' : night && actions.has('sleep') ? 'sleep' : speech && actions.has('talk') ? 'talk' : 'idle';
+        // "Ocioso": parado há um tempo, de vez em quando faz um gesto (espreguiçar, olhar em volta)
+        s.idleT = still === 'idle' ? s.idleT + dt : 0;
+        const fa = actions.get('fidget');
+        if (fa && s.idleT > s.fidgetAt) { s.idleT = 0; s.fidgetAt = 9 + Math.random() * 10; play('fidget', 0.25); s.once = fa.getClip().duration * 0.95; }
+        else play(still);
+      }
       if (s.sitting || guard) s.wait = Math.max(s.wait, 1);
       if (!ai.target && !ai.fleeing) idleChatter({ raining: weatherNow.kind === 'chuva' || weatherNow.kind === 'tempestade', night });
       const goal = roam.goal?.current;

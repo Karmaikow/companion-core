@@ -385,6 +385,24 @@ Os efeitos deixaram de ser pontos com textura e passaram a usar um motor própri
 - **Entrada**: "Criar conta e começar" é o botão principal; entrar, experimentar sem conta e jogar offline vêm depois.
 
 
+## Animações por papel, campo de treino e iluminação (v1.24)
+
+- **O Administrador → Animações** (`ui/AnimStudio.tsx`): para cada Companion com modelo, a lista de papéis
+  (`COMPANION_ANIM_SLOTS` em `shared/rules/anim.ts`: Parado, Andando, Correndo, Sentado, Ataque básico/espada/adaga/maça,
+  arco, magia, ataque básico de magia, Ocioso, coletas — chão, picareta, plantas, madeira —, Salto, Desmaiando, Joker
+  (comemoração) e Defesa) e, em cada um, qualquer clipe de qualquer .GLB do modelo (automático pelo nome se vazio).
+  Grava em `companion_skill_anims` como `"slot:<papel>": "anim:<arquivo>|<clipe>"` (o nome do arquivo evita confundir
+  clipes com o mesmo nome, como "Take 001"). Campo de treino com sombra: o papel escolhido (andar/correr em círculo
+  com a velocidade casada com o passo), Parado, Andar, Correr e "Simular o jogo". Continua o envio de mais animações.
+- **Monstros** na mesma aba (`CREATURE_ANIM_SLOTS`): clipe, automático ou **movimento por código** em cada papel;
+  grava em `creatures.data.animMap`.
+- **No jogo**: os papéis escolhidos substituem o automático (também para quem vê o Companion no MMO: parado, andar e
+  correr vão na presença). Sem "Parado", o Companion fica com o primeiro quadro do andar em vez da pose de braços
+  abertos. "Ocioso" toca de vez em quando parado; a coleta usa picareta/plantas/madeira/chão conforme o material; o
+  golpe básico com arma mágica usa "Ataque básico magia".
+- **Luz**: menos luz de hemisfério e mais sol (mais contraste e volume), sol mais baixo com sombras suaves (PCF soft,
+  mapa 2048), luz de preenchimento azulada do lado oposto e tom dourado/lilás perto do nascer e do pôr do sol.
+
 ## Quests secretas dão pontos (v1.23)
 
 Cada quest secreta conquistada soma **+1 ponto de habilidade** (árvore; `skillPoints(vínculo, combate, secretas)`) e

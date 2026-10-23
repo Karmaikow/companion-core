@@ -9,7 +9,7 @@ import { Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import type { GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { animKind } from '@rules';
+import { animKind, parseAnimRef } from '@rules';
 import { remotePoses, usePresence, type RemoteInfo } from '../net/presence';
 import { useRemoteSpeech, useSocial } from '../net/social';
 import { facingYaw, inPlace, loadGltf, restBox, sanitizeSkins } from './CompanionModel';
@@ -49,10 +49,10 @@ function Remote({ info, world }: { info: RemoteInfo; world: WorldShape }) {
     let alive = true;
     (async () => {
       const gltf = await loadOnce(m.url);
-      const clips: { clip: THREE.AnimationClip; kind: string; stride: number }[] = [];
-      const add = (list: THREE.AnimationClip[], hint: string | null) => list.forEach((clip) => clips.push({ clip, kind: (hint && hint !== 'special' ? hint : null) ?? animKind(clip.name) ?? 'special', stride: inPlace(clip) / Math.max(0.01, clip.duration) }));
-      add(gltf.animations, gltf.animations.length > 1 ? null : animKind(m.url.split('?')[0]));
-      for (const a of m.anims) { if (a.url === m.url) continue; try { const g = await loadOnce(a.url); add(g.animations, g.animations.length > 1 ? null : a.kind); } catch { /* sem essa animação */ } }
+      const clips: { clip: THREE.AnimationClip; kind: string; stride: number; src: string }[] = [];
+      const add = (list: THREE.AnimationClip[], hint: string | null, src: string) => list.forEach((clip) => clips.push({ clip, kind: (hint && hint !== 'special' ? hint : null) ?? animKind(clip.name) ?? 'special', stride: inPlace(clip) / Math.max(0.01, clip.duration), src }));
+      add(gltf.animations, gltf.animations.length > 1 ? null : animKind(m.url.split('?')[0]), 'corpo');
+      for (const a of m.anims) { if (a.url === m.url) continue; try { const g = await loadOnce(a.url); add(g.animations, g.animations.length > 1 ? null : a.kind, a.name); } catch { /* sem essa animação */ } }
       const model = cloneSkinned(gltf.scene);
       sanitizeSkins(model);
       model.traverse((o) => { if ((o as THREE.Mesh).isMesh) { o.castShadow = true; o.frustumCulled = false; } });
@@ -64,12 +64,15 @@ function Remote({ info, world }: { info: RemoteInfo; world: WorldShape }) {
       const mixer = new THREE.AnimationMixer(model), actions = new Map<string, THREE.AnimationAction>();
       let walk = 0.7, run = 1.4;
       for (const k of ['idle', 'walk', 'run']) {
-        const c2 = clips.find((x) => x.kind === k);
+        const ref = parseAnimRef(info.slots?.[k]);
+        const c2 = (ref && ref !== 'procedural' ? clips.find((x) => x.clip.name === ref.clip && (ref.file === '*' || x.src === ref.file)) : null) ?? clips.find((x) => x.kind === k);
         if (!c2) continue;
         actions.set(k, mixer.clipAction(c2.clip));
         if (k === 'walk') walk = Math.max(0.3, c2.stride * scale);
         if (k === 'run') run = Math.max(walk * 1.4, c2.stride * scale);
       }
+      // sem "parado": o primeiro quadro do andar (em vez da pose de braços abertos)
+      if (!actions.has('idle')) { const base = clips.find((x) => x.kind === 'walk') ?? clips.find((x) => x.kind === 'run'); if (base) { const a = mixer.clipAction(base.clip.clone()); a.timeScale = 0; actions.set('idle', a); } }
       if (alive) setBody({ model: holder, mixer, actions, walk, run });
     })().catch(() => { if (alive) setBody(null); });
     return () => { alive = false; };
