@@ -19,6 +19,7 @@ import { PactoPanel } from './ui/PactoPanel';
 import { LocationHud, QuestTracker } from './ui/GameHud';
 import { ChatComposer } from './ui/ChatComposer';
 import { AttackCursor } from './ui/AttackCursor';
+import { useSkills } from './ui/skillState';
 import { joinWorld, type RemoteInfo } from './net/presence';
 import { SocialPanel } from './ui/SocialPanel';
 import { useSocialLoop, useSocial } from './net/social';
@@ -237,7 +238,7 @@ export function App() {
   // Online: canal do Supabase Realtime; no dev, `?eco` testa entre abas com um BroadcastChannel.
   const presenceKey = place === 'world' && c?.id && (backend?.kind === 'online' || (import.meta.env.DEV && new URLSearchParams(location.search).has('eco'))) ? c.id + '|' + (model?.url.split('?')[0] ?? '') + '|' + c.discoveries.name : '';
   const presenceMe = useRef<RemoteInfo | null>(null);
-  presenceMe.current = c ? { id: import.meta.env.DEV && new URLSearchParams(location.search).get('eco') ? c.id + ':' + new URLSearchParams(location.search).get('eco') : c.id, name: c.discoveries.name ?? 'Companion', color: visual.glow, model: model ?? null, pronoun: c.discoveries.pronoun } : null;
+  presenceMe.current = c ? { id: import.meta.env.DEV && new URLSearchParams(location.search).get('eco') ? c.id + ':' + new URLSearchParams(location.search).get('eco') : c.id, name: c.discoveries.name ?? 'Companion', color: visual.glow, model: model ?? null, pronoun: c.discoveries.pronoun, slots: Object.fromEntries(['idle', 'walk', 'run'].map((k) => [k, useSkills.getState().animMap['slot:' + k] ?? '']).filter(([, v]) => v)) } : null;
   useEffect(() => {
     if (!presenceKey || !presenceMe.current) return;
     return joinWorld(presenceMe.current, backend?.kind !== 'online');

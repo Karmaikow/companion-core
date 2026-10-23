@@ -289,30 +289,40 @@ export class AssetBoundary extends Component<{ children: ReactNode }, { failed: 
   render() { return this.state.failed ? null : this.props.children; }
 }
 
+const GOLD = new THREE.Color('#ffb36b'), FILL_DAY = new THREE.Color('#9fc8ff'), FILL_NIGHT = new THREE.Color('#5b5fb0'), FILL_GOLD = new THREE.Color('#d9a0ff');
+
 export function Sky({ daylight, palette, follow = false, fogFar }: { daylight: number; palette: BiomePalette; /** mundo aberto: a luz (e a sombra) acompanham o Companion */ follow?: boolean; /** distância da névoa (o mundo aberto esconde a borda dos chunks) */ fogFar?: number }) {
   const { scene } = useThree();
   const hemi = useRef<THREE.HemisphereLight>(null);
   const sun = useRef<THREE.DirectionalLight>(null);
+  const fill = useRef<THREE.DirectionalLight>(null);
   const day = useMemo(() => ({ bg: C(palette.sky), fog: C(palette.fog), sky: C(palette.sky).lerp(C('#ffffff'), 0.6), ground: C(palette.grassDark).multiplyScalar(0.8), sun: C('#fff0cf') }), [palette]);
   const night = useMemo(() => ({ bg: C(palette.skyNight), fog: C(palette.fogNight), sky: C(palette.skyNight).lerp(C('#ffffff'), 0.5), ground: C('#30484a'), sun: C('#b9c6ff') }), [palette]);
   useEffect(() => {
     const k = daylight;
     const bg = night.bg.clone().lerp(day.bg, k), fog = night.fog.clone().lerp(day.fog, k);
     scene.background = bg; scene.fog = fogFar ? new THREE.Fog(fog, fogFar * 0.45, fogFar) : new THREE.Fog(fog, 30 + k * 8, 62 + k * 18);
-    if (hemi.current) { hemi.current.color.copy(night.sky).lerp(day.sky, k); hemi.current.groundColor.copy(night.ground).lerp(day.ground, k); hemi.current.intensity = 1.1 + k * 0.6; }
-    if (sun.current) { sun.current.color.copy(night.sun).lerp(day.sun, k); sun.current.intensity = 0.7 + k * 1.5; }
+    // Mais contraste: menos luz "de todo lado" (hemisfério) e mais sol, então as sombras e o volume aparecem.
+    // Perto do nascer/pôr do sol (dia pela metade) o sol fica dourado e o céu de preenchimento, lilás.
+    const golden = Math.max(0, 1 - Math.abs(k - 0.5) / 0.32);
+    if (hemi.current) { hemi.current.color.copy(night.sky).lerp(day.sky, k); hemi.current.groundColor.copy(night.ground).lerp(day.ground, k); hemi.current.intensity = 0.8 + k * 0.4; }
+    if (sun.current) { sun.current.color.copy(night.sun).lerp(day.sun, k).lerp(GOLD, golden * 0.55); sun.current.intensity = 0.8 + k * 1.8; }
+    if (fill.current) { fill.current.color.copy(FILL_NIGHT).lerp(FILL_DAY, k).lerp(FILL_GOLD, golden * 0.5); fill.current.intensity = 0.25 + k * 0.3; }
   }, [daylight, scene, day, night, fogFar]);
   useFrame(() => {
     const l = sun.current;
     if (!follow || !l) return;
-    l.position.set(companionFocus.x + 9, companionFocus.y + 16, companionFocus.z + 5);
+    l.position.set(companionFocus.x + 11, companionFocus.y + 13, companionFocus.z + 7);
     l.target.position.copy(companionFocus); l.target.updateMatrixWorld();
   });
   return (
     <>
       <hemisphereLight ref={hemi} />
-      <directionalLight ref={sun} position={[9, 16, 5]} castShadow shadow-mapSize={[1024, 1024]} shadow-bias={-0.0008} shadow-normalBias={0.03}
-        shadow-camera-left={-14} shadow-camera-right={14} shadow-camera-top={14} shadow-camera-bottom={-14} shadow-camera-near={1} shadow-camera-far={60} />
+      {/* sol mais baixo (sombras mais longas e desenhadas) */}
+      <directionalLight ref={sun} position={[11, 13, 7]} castShadow shadow-mapSize={[2048, 2048]} shadow-bias={-0.0006} shadow-normalBias={0.035} shadow-radius={3}
+        shadow-camera-left={-16} shadow-camera-right={16} shadow-camera-top={16} shadow-camera-bottom={-16} shadow-camera-near={1} shadow-camera-far={60} />
+      {/* luz de preenchimento do lado oposto (o céu refletido), sem sombra: tira o "chapado" do lado escuro */}
+      <directionalLight ref={fill} position={[-8, 6, -10]} />
     </>
   );
 }

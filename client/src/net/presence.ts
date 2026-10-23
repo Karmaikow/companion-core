@@ -17,7 +17,7 @@ import { supabase } from '../backend/online';
 import type { CompanionModelFiles } from '../backend/types';
 import { companionFocus, companionPose } from '../scene/world';
 
-export interface RemoteInfo { id: string; name: string; color: string; model: CompanionModelFiles | null; pronoun?: string }
+export interface RemoteInfo { id: string; name: string; color: string; model: CompanionModelFiles | null; pronoun?: string; /** clipes escolhidos no Administrador para parado/andando/correndo ({ idle: "anim:<arquivo>|<clipe>" }) */ slots?: Record<string, string> }
 export interface RemotePose { x: number; z: number; yaw: number; down: boolean; t: number }
 interface Hello { type: 'hello'; info: RemoteInfo; ask?: boolean }
 interface Pose { type: 'pose'; id: string; x: number; z: number; yaw: number; down: boolean }
@@ -58,18 +58,18 @@ function localTransport(onMsg: (m: Msg) => void): Transport {
 }
 
 /** Modelo com endereços absolutos (um caminho relativo do teste vale para quem recebe no mesmo site). */
-const absolute = (m: CompanionModelFiles | null): CompanionModelFiles | null => {
+const absolute = (m: CompanionModelFiles | null, slots: Record<string, string> = {}): CompanionModelFiles | null => {
   if (!m) return null;
   const abs = (u: string) => { try { return new URL(u, location.href).href; } catch { return u; } };
   // só o que a presença usa: corpo + parado/andando/correndo
-  return { url: abs(m.url), anims: m.anims.filter((a) => a.url === m.url || ['idle', 'walk', 'run'].includes(a.kind)).map((a) => ({ ...a, url: abs(a.url) })) };
+  return { url: abs(m.url), anims: m.anims.filter((a) => a.url === m.url || ['idle', 'walk', 'run'].includes(a.kind) || Object.values(slots).some((v) => v.startsWith('anim:' + a.name + '|'))).map((a) => ({ ...a, url: abs(a.url) })) };
 };
 
 /**
  * Entra no mundo compartilhado e devolve a função para sair. `local`: BroadcastChannel (testes no dev).
  */
 export function joinWorld(me: RemoteInfo, local = false): () => void {
-  const info: RemoteInfo = { ...me, model: absolute(me.model) };
+  const info: RemoteInfo = { ...me, model: absolute(me.model, me.slots) };
   const infos = new Map<string, RemoteInfo>();
   const publish = () => usePresence.setState({ others: [...infos.values()] });
   const onMsg = (m: Msg) => {
@@ -77,7 +77,7 @@ export function joinWorld(me: RemoteInfo, local = false): () => void {
     if (m.type === 'hello') {
       if (!m.info?.id || m.info.id === info.id) return;
       const known = infos.has(m.info.id);
-      infos.set(m.info.id, { id: m.info.id, name: String(m.info.name ?? '').slice(0, 40) || 'Companion', color: /^#[0-9a-f]{6}$/i.test(m.info.color) ? m.info.color : '#9fd8ff', model: m.info.model ?? null, pronoun: m.info.pronoun });
+      infos.set(m.info.id, { id: m.info.id, name: String(m.info.name ?? '').slice(0, 40) || 'Companion', color: /^#[0-9a-f]{6}$/i.test(m.info.color) ? m.info.color : '#9fd8ff', model: m.info.model ?? null, pronoun: m.info.pronoun, slots: m.info.slots && typeof m.info.slots === 'object' ? m.info.slots : undefined });
       if (!known) publish();
       if (m.ask) t.send({ type: 'hello', info }); // alguém novo pediu as fichas: responde com a minha
       if (!remotePoses.has(m.info.id)) remotePoses.set(m.info.id, { x: NaN, z: NaN, yaw: 0, down: false, t: performance.now(), px: NaN, pz: NaN, pt: 0 });

@@ -292,7 +292,7 @@ export function WorldScene(props: WorldSceneProps) {
   }, [center, TR]);
   return (
     <Canvas
-      shadows={high}
+      shadows={high ? 'soft' : false}
       dpr={high ? [1, 1.75] : [0.75, 1]}
       camera={{ position: [0, 9, 13], fov: 34, near: 0.3, far: 140 }}
       gl={{ antialias: false, powerPreference: 'high-performance' }}

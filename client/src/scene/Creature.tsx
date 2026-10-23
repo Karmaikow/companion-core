@@ -9,7 +9,7 @@ import * as THREE from 'three';
 import { GLTFLoader, type GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
-import { animKind, motionFor, type CreatureDef } from '@rules';
+import { animKind, motionFor, parseAnimRef, type CreatureDef } from '@rules';
 import { inPlace, sanitizeSkins, restBox, facingYaw } from './CompanionModel';
 import { lookUniforms, setLook, withLook } from './look';
 import { SlimeBody } from './Slime';
@@ -28,7 +28,7 @@ export function CreatureBody({ def, act }: { def: CreatureDef; act: CreatureAct 
   return <MistBody def={def} act={act} />;
 }
 
-interface Loaded { scene: THREE.Object3D; clips: { clip: THREE.AnimationClip; kind: string }[] }
+interface Loaded { scene: THREE.Object3D; clips: { clip: THREE.AnimationClip; kind: string; src: string }[] }
 
 function ModelBody({ def, act }: { def: CreatureDef; act: CreatureAct }) {
   const [data, setData] = useState<Loaded | null>(null);
@@ -37,10 +37,10 @@ function ModelBody({ def, act }: { def: CreatureDef; act: CreatureAct }) {
     let alive = true;
     (async () => {
       const g = await loadGltf(def.model!.url);
-      const clips: Loaded['clips'] = g.animations.map((c) => ({ clip: c, kind: animKind(def.model!.url, c.name) ?? 'idle' }));
+      const clips: Loaded['clips'] = g.animations.map((c) => ({ clip: c, kind: animKind(def.model!.url, c.name) ?? 'idle', src: 'corpo' }));
       for (const a of def.model!.anims) {
         if (a.url === def.model!.url) continue;
-        try { const ga = await loadGltf(a.url); ga.animations.forEach((c) => clips.push({ clip: c, kind: a.kind })); } catch { /* fica sem essa */ }
+        try { const ga = await loadGltf(a.url); ga.animations.forEach((c) => clips.push({ clip: c, kind: a.kind, src: a.name })); } catch { /* fica sem essa */ }
       }
       if (alive) setData({ scene: g.scene, clips });
     })().catch(() => alive && setFailed(true));
@@ -77,8 +77,18 @@ function ModelInstance({ def, data, act }: { def: CreatureDef; data: Loaded; act
       if (kind === 'attack' || kind === 'hurt' || kind === 'happy') a.setLoop(THREE.LoopRepeat, Infinity);
       actions.set(kind, a);
     }
+    // escolhas do Administrador (aba Animações): um clipe para o papel, ou o movimento por código
+    for (const [act, v] of Object.entries(def.animMap ?? {})) {
+      const ref = parseAnimRef(v);
+      if (ref === 'procedural') { actions.get(act)?.stop(); actions.delete(act); continue; }
+      if (!ref) continue;
+      const hit = data.clips.find((c) => c.clip.name === ref.clip && (ref.file === '*' || c.src === ref.file));
+      if (!hit) continue;
+      const cl = hit.clip.clone(); inPlace(cl);
+      actions.set(act, mixer.clipAction(cl));
+    }
     return { root, pivot, mixer, actions, lu };
-  }, [data, def.size]);
+  }, [data, def.size, def.animMap]);
   useEffect(() => setLook(lu, def.look), [lu, def.look]);
   useEffect(() => () => { mixer.stopAllAction(); }, [mixer]);
   const cur = useRef('');

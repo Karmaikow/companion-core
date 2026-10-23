@@ -14,10 +14,12 @@ import { ServerStudio } from './ServerStudio';
 import { SkillAnimPicker } from './SkillAnimPicker';
 import { CompanionsAdmin } from './AdminCompanions';
 import { AdminVoid } from './AdminVoid';
+import { AnimStudio } from './AnimStudio';
 
-type View = 'companions' | 'biomas' | 'forja' | 'invocador' | 'arsenal' | 'servidor';
+type View = 'companions' | 'animacoes' | 'biomas' | 'forja' | 'invocador' | 'arsenal' | 'servidor';
 const VIEWS: { key: View; label: string; hash: string; title: string; hint: string }[] = [
   { key: 'companions', label: 'Companions', hash: '#/admin', title: 'Companions', hint: 'Todos os Companions: ficha, progressão, coleta, build e os pedidos de arte da Fábrica. O jogador nunca vê este painel.' },
+  { key: 'animacoes', label: 'Animações', hash: '#/admin/animacoes', title: 'Animações', hint: 'Qual clipe faz cada papel (parado, andando, golpes, coleta…) para Companions e monstros, com campo de treino.' },
   { key: 'biomas', label: 'Biomas', hash: '#/admin/biomas', title: 'Estúdio de Biomas', hint: 'Refúgios e regiões do Companion World: cores, modelos e a aparência de cada modelo, com prévia 3D.' },
   { key: 'forja', label: 'Forja de Batalha', hash: '#/admin/forja', title: 'Forja de Batalha', hint: 'Habilidades genéricas que qualquer Companion daquela essência e corpo pode usar.' },
   { key: 'invocador', label: 'Invocador de Monstros', hash: '#/admin/invocador', title: 'Invocador de Monstros', hint: 'O catálogo de criaturas: corpo, jeito de lutar, onde aparecem e o que soltam.' },
@@ -28,7 +30,7 @@ const VIEWS: { key: View; label: string; hash: string; title: string; hint: stri
 export interface Job {
   id: string; companionId: string; status: string; createdAt: string; updatedAt: string; contractVersion: number;
   name: string; contract: IdentityContractV1; prompt: ArtPrompt; artUrl?: string; artPath: string | null; error?: string | null;
-  model?: { url: string }; modelPath: string | null; animPaths: { path: string; kind: string; name: string }[];
+  model?: { url: string; anims?: { url: string; kind: string; name: string }[] }; modelPath: string | null; animPaths: { path: string; kind: string; name: string }[];
 }
 
 const STATUS: Record<string, string> = { queued: 'Na fila', generating: 'Gerando', review: 'Em revisão', approved: 'Aprovada (no jogo)', failed: 'Falhou' };
@@ -242,6 +244,7 @@ export function AdminPanel() {
 
       {msg && <p className="msg err">{msg}</p>}
 
+      {session && view === 'animacoes' && <AnimStudio jobs={jobs ?? []} onUploadAnims={uploadAnims} busy={busy} />}
       {session && view === 'biomas' && <BiomeStudio />}
       {session && view === 'forja' && <ForgeStudio />}
       {session && view === 'invocador' && <SummonerStudio />}

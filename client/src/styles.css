@@ -1060,3 +1060,24 @@ html:has(.admin), body:has(.admin), #root:has(.admin) { height: auto; min-height
 .admin-void-login { position: absolute; left: 50%; bottom: max(4vh, 18px); transform: translateX(-50%); background: none; border: 0; color: #ffffff33; font: 0.8rem var(--sans, sans-serif); letter-spacing: 0.2em; cursor: pointer; padding: 8px 14px; }
 .admin-void-login:hover, .admin-void-login:focus-visible { color: #ffffff99; }
 .admin-void-form { position: fixed; left: 50%; bottom: max(4vh, 18px); transform: translateX(-50%); z-index: 2; display: grid; gap: 8px; width: min(300px, calc(100vw - 32px)); background: #000c; padding: 14px; border-radius: 10px; border: 1px solid #9fd8ff33; }
+
+/* O Administrador → Animações */
+.anim-studio { display: grid; gap: 12px; }
+.admin-tabs.sub { margin: 0; }
+.anim-grid { display: grid; grid-template-columns: minmax(300px, 420px) 1fr; gap: 16px; align-items: start; }
+@media (max-width: 900px) { .anim-grid { grid-template-columns: 1fr; } }
+.anim-side { display: grid; gap: 10px; }
+.anim-side label { display: grid; gap: 4px; }
+.anim-map.slots { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-height: 60vh; overflow: auto; }
+.anim-map.slots li { display: grid; grid-template-columns: 1fr minmax(120px, 170px) 14px; gap: 6px; align-items: center; padding: 4px 6px; border-radius: 6px; }
+.anim-map.slots li.on { background: #ffffff12; outline: 1px solid #ffd77a55; }
+.anim-map.slots .slot-name { all: unset; cursor: pointer; display: grid; }
+.anim-map.slots .slot-name small { opacity: 0.65; font-size: 0.72rem; }
+.anim-map.slots select { width: 100%; }
+.slot-state { color: #ffffff44; font-size: 0.8rem; }
+.slot-state.ok { color: #9fe08a; }
+.anim-stage { display: grid; gap: 8px; position: sticky; top: 12px; }
+.anim-modes { display: flex; flex-wrap: wrap; gap: 6px; }
+.anim-modes button { padding: 6px 10px; border-radius: 6px; }
+.anim-modes button.on { outline: 2px solid #ffd77a; }
+.anim-canvas { height: min(60vh, 520px); border-radius: 12px; overflow: hidden; background: #bfe3ff; }
