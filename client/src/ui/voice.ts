@@ -79,8 +79,9 @@ export function sendPlayerMessage(text: string) {
   if (!m) return;
   const g = useGame.getState();
   const cmd = skillInput.body ? handleCommand(m) : null;
-  if (cmd && !settings().ordersToChat) return;
-  if (g.busy) { if (!cmd) g.toast('Espere ela terminar de responder…', 'soft'); return; }
+  if (cmd && !settings().ordersToChat) { g.sayPlayer(m); return; }
+  if (g.busy) { if (!cmd) g.toast('Espere terminar de responder…', 'soft'); return; }
+  g.sayPlayer(m);
   void g.run((b) => b.chat(m));
 }
 

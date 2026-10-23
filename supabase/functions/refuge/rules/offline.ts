@@ -6,7 +6,7 @@
 import { type Discoveries, resolveColor, resolveElement, resolveForm } from './identity.ts';
 import { nextCuriosity, type QuestState } from './quests.ts';
 import type { ModelTurn } from './engine.ts';
-import { normalize } from './text.ts';
+import { masculinize, normalize } from './text.ts';
 import { TRAIT_GROUPS } from './creation.ts';
 import { CLASS_HINTS, SPECIES, classSuggestionLine, isAffirmative, nextClassSuggestion, suggestedClass } from './species.ts';
 
@@ -141,6 +141,6 @@ export function offlineTurn(message: string, d: Discoveries, quests: QuestState[
   } else if (!reply) {
     reply = pick(['Estou pronta para despertar quando você quiser. ✨', 'Fico feliz de estar aqui com você.', 'Me conta mais sobre o seu dia?'], seed);
   }
-  if (d.pronoun === 'ele') reply = reply.replace(/\bpronta\b/g, 'pronto').replace(/Curiosa\? Calma\? Corajosa\?/, 'Curioso? Calmo? Corajoso?');
+  if (d.pronoun === 'ele') reply = masculinize(reply);
   return { reply, meaningful, mood: discoveries.length ? 'feliz' : 'curiosa', discoveries, memories: [] };
 }

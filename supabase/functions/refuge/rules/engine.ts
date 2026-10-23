@@ -142,7 +142,7 @@ export function buildChatSystemPrompt(ctx: PromptContext): string {
   const d = ctx.discoveries;
   const me = d.name ?? 'o Companion';
   const you = d.playerName ?? 'a pessoa';
-  const pron = d.pronoun === 'ele' ? 'Use o masculino ao falar de si (ex.: "estou curioso").' : 'Use o feminino ao falar de si (ex.: "estou curiosa").';
+  const pron = d.pronoun === 'ele' ? 'Você é um MENINO: fale de si SEMPRE no masculino ("estou curioso", "fico animado", "obrigado", "pronto", "sozinho", "cansado"). Nunca use o feminino para si.' : 'Use o feminino ao falar de si (ex.: "estou curiosa").';
   const topic = FANTASY_TOPICS[Math.abs(ctx.seed ?? ctx.history.length) % FANTASY_TOPICS.length];
   const book = ctx.recipes?.length ? `Receitas já anotadas no livro: ${ctx.recipes.slice(0, 12).join(', ')}.` : 'O livro de receitas ainda está vazio.';
   const awake = !!ctx.body?.awakened;

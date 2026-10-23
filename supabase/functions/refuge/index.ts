@@ -6,7 +6,7 @@ import {
   offlineTurn, assistDiscoveries, buildDreamPrompt, parseDream, checkAwakening, buildIdentityContract, gameTime, companionDay, clampText,
   QUESTS, QUEST_REWARDS, validateSetup, evaluateSecrets, isQuestionAboutCompanion, buildMusePrompt,
   SECRET_BY_KEY, SECRET_XP, SECRET_BOOST_TURNS, buildArtPrompt, ANIM_KINDS, SPECIES, DEFAULT_CREATURES, sanitizeCreature, recordKill, combatMemoryLines, combatMemoryText,
-  resolveBalance, type BalanceConfig, budget, deriveStats, progressionStage,
+  masculinize, resolveBalance, type BalanceConfig, budget, deriveStats, progressionStage,
   BANK_EVENTS, MOMENT_EVENTS, withXpMultiplier, combatXp, resolveEcos, type EcosConfig, resolvePacto, type PactoConfig, buildBarkBankPrompt, parseBarkBank, buildMomentPrompt, parseMoment, dossier, type BarkEvent,
   type BestiaryEntry, type CreatureDef, type SecretKey, type GameConfig, type IdentityContractV1, type QuestState, type Discoveries, type MemoryLite, type ChatLine,
 } from './rules/index.ts';
@@ -499,6 +499,7 @@ async function actChat(db: SupabaseClient, c: Record<string, unknown>, message: 
     model = offlineTurn(message, d, quests, Date.now(), recentPlayer, lastCompanion);
   } else {
     model = assistDiscoveries(message, model, d, quests, recentPlayer, lastCompanion);
+    if (d.pronoun === 'ele') model = { ...model, reply: masculinize(model.reply) }; // "ele": fala de si no masculino
   }
 
   const plan = applyTurn({
@@ -607,6 +608,7 @@ async function actMuse(db: SupabaseClient, c: Record<string, unknown>, cfg: Awai
     if (raw) { const t = parseModelTurn(raw); reply = t.reply; mood = t.mood; }
   } catch { /* sem modelo: não puxa assunto */ }
   if (!reply || reply === '…') return { mused: false };
+  if ((c.discoveries as Discoveries | null)?.pronoun === 'ele') reply = masculinize(reply);
   await event(db, cid, 'companion', 'chat.companion', { text: reply, mood, source: providerName(), muse: true });
   return { mused: true, reply, mood };
 }

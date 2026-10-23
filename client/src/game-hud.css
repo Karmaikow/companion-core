@@ -1,0 +1,280 @@
+/*
+ * HUD do jogo em estilo Art Deco de fantasia: azul-noite com filetes de ouro antigo, cantos em colchete e losangos.
+ * Inspirado no game-ui-lab (feature/game-ui-lab). A cena 3D continua viva por baixo.
+ * `.deco` é a moldura: borda dourada + segunda linha interna + cantos e losango no topo (desenhados com gradientes,
+ * sem imagens). Vale para o nome, o menu, os painéis, o relógio, o brasão, a caixa de conversa e o minimapa.
+ */
+.game-ui {
+  --hud-gold: #dcbc7a;
+  --hud-gold-2: #f3dca4;
+  --hud-line: #8d7449;
+  --hud-ink: rgba(9, 17, 38, 0.94);
+  --hud-ink-2: #0b1530;
+  --hud-violet: #1a1f4d;
+  --hud-soft: #b9c2d8;
+  --hud-edge: max(16px, env(safe-area-inset-left));
+  --hud-top: max(14px, env(safe-area-inset-top));
+  --hud-bottom: max(16px, env(safe-area-inset-bottom));
+  --corner: 12px;
+}
+
+/* ---------- moldura Art Deco ---------- */
+.game-ui .deco {
+  border: 1px solid var(--hud-line);
+  background:
+    radial-gradient(120% 90% at 50% 0%, #26306a33, transparent 60%),
+    linear-gradient(180deg, #121c44f2, var(--hud-ink));
+  box-shadow:
+    inset 0 0 0 3px var(--hud-ink-2),
+    inset 0 0 0 4px #c9a96145,
+    0 0 0 1px #05091a,
+    0 10px 28px #0009;
+  isolation: isolate;
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+}
+.game-ui .deco::before {
+  /* cantos em colchete, por dentro da moldura */
+  content: ''; position: absolute; inset: 5px; pointer-events: none; z-index: -1; border-radius: inherit;
+  --c: var(--hud-gold);
+  background:
+    linear-gradient(var(--c), var(--c)) top left / var(--corner) 1.5px no-repeat,
+    linear-gradient(var(--c), var(--c)) top left / 1.5px var(--corner) no-repeat,
+    linear-gradient(var(--c), var(--c)) top right / var(--corner) 1.5px no-repeat,
+    linear-gradient(var(--c), var(--c)) top right / 1.5px var(--corner) no-repeat,
+    linear-gradient(var(--c), var(--c)) bottom left / var(--corner) 1.5px no-repeat,
+    linear-gradient(var(--c), var(--c)) bottom left / 1.5px var(--corner) no-repeat,
+    linear-gradient(var(--c), var(--c)) bottom right / var(--corner) 1.5px no-repeat,
+    linear-gradient(var(--c), var(--c)) bottom right / 1.5px var(--corner) no-repeat;
+  opacity: 0.9;
+}
+.game-ui .deco::after {
+  /* losango no meio da borda de cima */
+  content: ''; position: absolute; top: -5px; left: calc(50% - 4px); width: 8px; height: 8px; transform: rotate(45deg); pointer-events: none;
+  background: linear-gradient(135deg, var(--hud-gold-2), #9b7a3e); border: 1px solid #05091a; box-shadow: 0 0 6px #ffd98a66;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .game-ui .deco { transition: border-color 0.25s ease, box-shadow 0.25s ease; }
+}
+
+/* ---------- placa de nome ---------- */
+.game-ui .nameplate {
+  position: absolute; top: var(--hud-top); left: var(--hud-edge); right: auto; width: 348px; max-width: calc(100vw - 32px); min-width: 0;
+  padding: 12px 16px 12px 12px; gap: 14px; border-radius: 6px 18px 6px 18px; z-index: 3;
+}
+.game-ui .nameplate::after { left: 52px; }
+.game-ui .nameplate > div:not(.portrait) { flex: 1; min-width: 0; }
+.game-ui .nameplate h1 { font: 600 1.35rem/1.1 var(--serif); color: #fff2d8; margin-bottom: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; letter-spacing: 0.02em; }
+.game-ui .nameplate p { font: 0.84rem/1.2 var(--serif); color: #c9d3e6; padding-bottom: 5px; margin-bottom: 6px; border-bottom: 1px solid #8d74494a; }
+.game-ui .portrait { width: 74px; height: 88px; flex: none; border-radius: 48% 48% 44% 44%; border: 2px solid var(--hud-gold); outline: 3px solid #0b1330; box-shadow: 0 0 0 4px var(--hud-line), 0 0 18px #9fb4ff40; background-size: cover; background-position: center 24%; }
+.game-ui .vitals { width: 100%; }
+.game-ui .vbar .bar { border-color: #9e875d88; background: #070b1a; box-shadow: inset 0 1px 3px #000a; }
+.game-ui .vbar.hp .bar i { background: linear-gradient(#fb9b78, #b53823 52%, #e54c30); }
+.game-ui .vbar.sp .bar i { background: linear-gradient(#9fe8ff, #248acb 52%, #6cd5ff); }
+.game-ui .vbar.st .bar i { background: linear-gradient(#c1f09a, #58a545 52%, #98d46d); }
+.game-ui .vbar.bond .bar i { background: linear-gradient(#d5b6ff, #8052cf 52%, #aa7eeb); }
+.game-ui .nameplate .bar.small { background: #070b1a; border: 1px solid #9e875d88; }
+.game-ui .leave { right: -8px; top: -10px; z-index: 2; }
+.game-ui .nameplate .mode { top: -12px; right: 30px; font-size: 0.64rem; z-index: 2; }
+
+/* ---------- brasão do lugar e relógio ---------- */
+.game-ui .location-crest {
+  position: absolute; z-index: 2; top: var(--hud-top); left: 50%; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 14px; padding: 6px 26px; border-radius: 2px;
+  clip-path: polygon(14px 0, calc(100% - 14px) 0, 100% 50%, calc(100% - 14px) 100%, 14px 100%, 0 50%);
+  font: 1.02rem var(--serif); letter-spacing: 0.06em; color: #f4e7ca; max-width: 40vw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.game-ui .location-crest::before, .game-ui .location-crest::after { display: none; }
+.game-ui .location-crest span { color: var(--hud-gold); font-size: 0.7rem; }
+.game-ui .game-clock { position: absolute; top: var(--hud-top); right: var(--hud-edge); z-index: 3; display: flex; align-items: center; gap: 8px; padding: 4px 12px; border-radius: 4px 12px 4px 12px; font: 1rem var(--serif); color: #f4e7ca; }
+.game-ui .game-clock::after { display: none; }
+.game-ui .game-clock .hud-glyph { width: 22px; height: 22px; color: #f5ce65; }
+.hud-glyph { width: 30px; height: 30px; flex: none; filter: drop-shadow(0 0 4px currentColor); }
+
+/* ---------- menu lateral: ícones em grupos ---------- */
+.game-ui .rail {
+  position: absolute; left: var(--hud-edge); top: calc(var(--hud-top) + 132px); bottom: auto; transform: none;
+  width: 58px; max-height: calc(100dvh - var(--hud-top) - 148px); display: flex; flex-direction: column; gap: 0;
+  padding: 10px 5px; border-radius: 30px; overflow-y: auto; overflow-x: visible; scrollbar-width: none; z-index: 4; --corner: 9px;
+}
+.game-ui .rail::-webkit-scrollbar { display: none; }
+.game-ui .rail-group { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.game-ui .rail-sep { display: block; width: 34px; height: 9px; margin: 3px 0 2px; background:
+  linear-gradient(90deg, transparent, var(--hud-line) 30%, var(--hud-line) 70%, transparent) center / 100% 1px no-repeat; position: relative; }
+.game-ui .rail-sep::after { content: ''; position: absolute; left: calc(50% - 3px); top: 1.5px; width: 6px; height: 6px; transform: rotate(45deg); background: var(--hud-gold); box-shadow: 0 0 5px #ffd98a88; }
+.game-ui .rail button {
+  position: relative; width: 44px; height: 40px; min-height: 40px; flex: 0 0 40px; padding: 0; display: grid; place-items: center;
+  border: 1px solid transparent; border-radius: 12px; background: none; color: #dcc08a;
+}
+.game-ui .rail button svg { width: 24px; height: 24px; color: #e6cb92; filter: drop-shadow(0 2px 1px #000); }
+.game-ui .rail button > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.game-ui .rail button:hover, .game-ui .rail button:focus-visible { background: linear-gradient(#2a3a7a66, #0f1838); border-color: var(--hud-line); }
+.game-ui .rail button.on { background: radial-gradient(circle at 50% 40%, #3a4fa877, #101838 75%); border-color: var(--hud-gold); box-shadow: inset 0 0 12px #9fb4ff30, 0 0 10px #ffd98a33; }
+.game-ui .rail button.on svg { color: #fff1cc; }
+.game-ui .rail button.forge svg { color: #ffb37a; }
+.game-ui .rail button.forge.on { border-color: #ffb37a; box-shadow: inset 0 0 12px #ff8a3d40, 0 0 12px #ff8a3d55; }
+.game-ui .rail .dot { left: auto; right: 4px; top: 4px; }
+/* rótulo ao passar o mouse: plaqueta dourada à direita do ícone */
+@media (hover: hover) and (min-width: 761px) {
+  .game-ui .rail { overflow: visible; }
+  .game-ui .rail button::after {
+    content: attr(data-tip); position: absolute; left: calc(100% + 14px); top: 50%; transform: translateY(-50%) translateX(-4px); opacity: 0; pointer-events: none;
+    white-space: nowrap; padding: 4px 12px; font: 0.86rem var(--serif); color: #fff2d8; background: #0d1638f2; border: 1px solid var(--hud-line);
+    box-shadow: inset 0 0 0 2px #0b1330, 0 6px 16px #0008; clip-path: polygon(8px 0, 100% 0, 100% 100%, 8px 100%, 0 50%); transition: opacity 0.15s, transform 0.15s; z-index: 9;
+  }
+  .game-ui .rail button:hover::after, .game-ui .rail button:focus-visible::after { opacity: 1; transform: translateY(-50%); }
+}
+
+/* ---------- quest da vez ---------- */
+.game-ui .quest-tracker {
+  position: absolute; top: calc(var(--hud-top) + 132px); left: calc(var(--hud-edge) + 74px); z-index: 2; display: flex; gap: 10px; align-items: flex-start;
+  width: 300px; max-width: calc(100vw - 120px); padding: 10px 14px; text-align: left; border: 0; border-left: 2px solid var(--hud-gold); border-radius: 2px;
+  background: linear-gradient(90deg, #0d1638eb, #0d163855 85%, transparent); color: #eed38f;
+}
+.game-ui .quest-diamond .hud-glyph { width: 26px; height: 26px; color: var(--hud-gold); }
+.game-ui .quest-tracker strong { display: block; font: 600 1rem var(--serif); color: #f6dfa8; }
+.game-ui .quest-tracker small { display: block; color: #ece3d0; font: 0.8rem/1.35 var(--serif); margin-top: 3px; }
+.game-ui .quest-tracker em { display: block; font-style: normal; font-size: 0.7rem; color: var(--hud-soft); margin-top: 4px; }
+
+/* ---------- minimapa, clima e viagem ---------- */
+.game-ui .world-map { top: calc(var(--hud-top) + 48px); right: var(--hud-edge); width: 156px !important; height: 156px !important; border-radius: 50%; border: 3px solid var(--hud-gold); overflow: visible; outline: 2px solid #0b1330; outline-offset: 3px; box-shadow: 0 0 0 6px #8b7449, 0 10px 22px #0007; background: #10183a; z-index: 3; }
+.game-ui .world-map canvas { border-radius: 50%; }
+.game-ui .world-map.big { width: 300px !important; height: 300px !important; z-index: 8; }
+.game-ui .world-map .map-count { left: 50%; bottom: 12px; transform: translateX(-50%); white-space: nowrap; font-size: 0.6rem; background: #0b1330d9; border: 1px solid #b79d61; color: #fff0cb; padding: 1px 6px; }
+.game-ui .world-map [class^='compass-'] { position: absolute; z-index: 2; font: 700 0.8rem var(--serif); color: #f5d68e; background: #0b1330; width: 20px; height: 20px; display: grid; place-items: center; border: 1px solid #a58c57; transform: rotate(45deg); border-radius: 3px; }
+.game-ui .world-map [class^='compass-'] > b { transform: rotate(-45deg); }
+.game-ui .world-map .compass-n { top: -12px; left: calc(50% - 10px); }
+.game-ui .world-map .compass-s { bottom: -12px; left: calc(50% - 10px); }
+.game-ui .world-map .compass-e { right: -12px; top: calc(50% - 10px); }
+.game-ui .world-map .compass-w { left: -12px; top: calc(50% - 10px); }
+.game-ui.has-panel .world-map { display: none; }
+.game-ui .weather-chip { top: calc(var(--hud-top) + 48px); left: auto; right: var(--hud-edge); font: 0.75rem var(--serif); border-color: var(--hud-line); background: #0d1638d9; }
+.game-ui.in-world .weather-chip { top: calc(var(--hud-top) + 222px); }
+.game-ui .travel { top: calc(var(--hud-top) + 80px); left: auto; right: var(--hud-edge); transform: none; flex-direction: column; align-items: flex-end; z-index: 3; }
+.game-ui.in-world .travel { top: calc(var(--hud-top) + 252px); }
+.game-ui .travel button { border-radius: 4px 12px 4px 12px; border-color: var(--hud-line); background: #0d1638e6; font-size: 0.85rem; padding: 7px 14px; box-shadow: inset 0 0 0 2px #0b1330; }
+.game-ui .travel button.primary { background: linear-gradient(180deg, #f3d48d, #c9994a); color: #22180a; box-shadow: inset 0 0 0 2px #fff1c055, 0 6px 16px #0007; }
+.game-ui.has-panel .travel, .game-ui.has-panel .weather-chip { display: none; }
+
+/* ---------- painéis ---------- */
+.game-ui .panel { top: calc(var(--hud-top) + 48px); bottom: var(--hud-bottom); right: var(--hud-edge); width: min(400px, calc(100vw - 32px)); border-radius: 4px 18px 4px 18px; z-index: 6; }
+.game-ui .panel > header { padding: 12px 12px 10px 20px; border-bottom: 1px solid #9e875d55; background: linear-gradient(90deg, transparent, #c9a9611a 50%, transparent); }
+.game-ui .panel h2 { color: #fff0d4; font: 500 1.4rem var(--serif); letter-spacing: 0.04em; }
+.game-ui .panel-controls { display: flex; gap: 2px; }
+.game-ui .panel-controls button { border: 1px solid transparent; background: none; width: 40px; height: 40px; padding: 0; border-radius: 6px; font: 1.4rem var(--serif); color: #e5c98e; display: grid; place-items: center; }
+.game-ui .panel-controls button:hover { background: #ffffff10; border-color: var(--hud-line); }
+.game-ui .panel.is-minimized { bottom: auto; }
+.game-ui .panel-body[hidden] { display: none; }
+.game-ui .panel.panel-chat { background: transparent; border-color: transparent; box-shadow: none; }
+.game-ui .panel.panel-chat::before, .game-ui .panel.panel-chat::after { display: none; }
+.game-ui .panel.panel-pacto, .game-ui .panel.panel-forja { left: calc(var(--hud-edge) + 76px); right: var(--hud-edge); width: auto; max-width: 1180px; margin-left: auto; }
+.game-ui .panel.panel-forja > header h2 { color: #ffd2a4; }
+
+/* ---------- conversa no mundo ---------- */
+.game-ui .composer-world { position: absolute; z-index: 4; left: calc(var(--hud-edge) + 72px); bottom: var(--hud-bottom); width: min(380px, calc(100vw - 32px)); display: flex; flex-direction: column; gap: 8px; }
+.game-ui .world-composer { position: relative; display: flex; align-items: center; gap: 2px; height: 46px; padding: 3px 5px 3px 16px; border-radius: 16px 4px 16px 4px; --corner: 8px; }
+.game-ui .world-composer::after { display: none; }
+.game-ui .world-composer:focus-within { border-color: var(--hud-gold-2); box-shadow: inset 0 0 0 3px var(--hud-ink-2), inset 0 0 0 4px #c9a96166, 0 0 14px #9fb4ff44; }
+.game-ui .world-composer input { flex: 1; width: 0; min-width: 0; border: 0; background: none; outline: none; padding: 7px 0; font: 0.95rem var(--serif); color: #f4e5c8; }
+.game-ui .world-composer input::placeholder { color: #b7bfd3; }
+.game-ui .world-composer button { display: grid; place-items: center; width: 38px; height: 38px; border: 0; border-radius: 8px; background: none; color: #c8e4f4; padding: 6px; }
+.game-ui .world-composer button .hud-glyph { width: 22px; height: 22px; filter: none; }
+.game-ui .world-composer button:hover:not(:disabled) { background: #ffffff12; }
+.game-ui .world-composer .mic.on { color: #ff9db3; background: #8c2b4150; }
+.game-ui .world-thinking { position: absolute; left: 14px; top: -24px; padding: 2px 10px; background: #0b1330d0; color: #e5d7bb; font: italic 0.82rem var(--serif); border-radius: 12px; pointer-events: none; }
+.game-ui .composer-world:has(.quick-replies) .world-thinking { top: auto; bottom: 54px; }
+.game-ui.has-panel .composer-world { display: none; }
+@media (min-width: 761px) { .game-ui.has-panel .composer-world { display: flex; } .game-ui.has-panel:has(.panel-pacto, .panel-forja) .composer-world { display: none; } }
+
+/* dicas da quest (forma de alma) */
+.quick-replies { padding: 8px 10px 10px; border-radius: 10px; background: #0d1638e0; border: 1px solid #8d744988; box-shadow: 0 6px 18px #0007; color: #ece3d0; font: 0.82rem/1.35 var(--serif); }
+.quick-replies p { margin: 0 0 6px; }
+.quick-replies p b { color: #f6dfa8; font-weight: 600; }
+.quick-replies .link { font-size: 0.72rem; color: var(--hud-soft, #b9c2d8); padding: 0 4px; }
+.qr-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.qr-list button { min-height: 36px; padding: 6px 12px; border-radius: 4px 12px 4px 12px; border: 1px solid #b79d6188; background: linear-gradient(#1b2452, #0e1638); color: #fff2d8; font: 0.86rem var(--serif); text-align: left; }
+.qr-list button:hover:not(:disabled), .qr-list button:focus-visible { border-color: var(--hud-gold, #dcbc7a); box-shadow: 0 0 10px #ffd98a33; }
+.composer-panel .quick-replies { margin: 6px 0; }
+.quest-help { margin-top: 6px; padding: 6px 8px; border-left: 2px solid var(--brass); background: #ffffff08; display: grid; gap: 3px; }
+
+/* ---------- balões sobre o Companion (a fala dele e a da pessoa) ---------- */
+.speech-stack { transform: translate(-50%, -100%); display: flex; flex-direction: column; align-items: center; gap: 12px; width: max-content; max-width: min(320px, 70vw); pointer-events: none; }
+.game-ui .speech-stack .speech { transform: none; }
+.game-ui .speech {
+  width: fit-content; max-width: min(320px, 70vw); padding: 10px 18px; border-radius: 14px 4px 14px 4px; color: #fff2da; background: #0d1638f2;
+  border: 1px solid #d4b575; box-shadow: inset 0 0 0 3px #0b1330, 0 6px 18px #0007; font: 1rem/1.4 var(--serif); overflow-wrap: anywhere; max-height: 180px; overflow-y: auto;
+}
+.game-ui .speech::after { border-top-color: #d4b575; }
+.game-ui .speech-player { align-self: flex-start; margin-left: -18px; background: #173426ee; color: #eef7dd; border-color: #aac785; font-size: 0.88rem; padding: 6px 13px; border-radius: 4px 14px 4px 14px; }
+.game-ui .speech-player b { display: block; font: 600 0.68rem var(--sans); text-transform: uppercase; letter-spacing: 0.08em; color: #c8e7a8; }
+.game-ui .speech-player::after { display: none; }
+
+/* ---------- barra de habilidades e ataque ---------- */
+.game-ui .skill-bar { border: 1px solid #9d844b; border-radius: 6px; background: #0d1638b3; box-shadow: inset 0 0 0 2px #0b1330, 0 6px 20px #0007; }
+.game-ui .sb-slot { border-color: #c9ab6c; border-radius: 6px; box-shadow: inset 0 0 0 2px #0b1330; }
+.game-ui .sb-icon .hud-glyph { width: 30px; height: 30px; color: var(--sk, #8bceff); }
+.game-ui .attack-btn { border-radius: 10px; border: 2px solid #eed38f; background: linear-gradient(135deg, #b38f43, #2d2517 48%, #6b4f25); box-shadow: inset 0 0 0 3px #141b1e, 0 6px 16px #0008; color: #fff1ce; }
+.game-ui .attack-btn .hud-glyph { width: 42px; height: 42px; }
+.game-ui .key-hint { bottom: calc(var(--hud-bottom) + 70px); background: #0d163899; border: 1px solid #8d744955; font: 0.72rem var(--serif); }
+.game-ui.has-panel .key-hint { display: none; }
+.game-ui .toasts { top: calc(var(--hud-top) + 48px); }
+.game-ui .ecos-objective { top: calc(var(--hud-top) + 46px); left: 50%; transform: translateX(-50%); }
+.game-ui .ecos-recent { bottom: calc(var(--hud-bottom) + 70px); }
+.game-ui .awaken-float { bottom: calc(var(--hud-bottom) + 76px); border-radius: 6px 16px 6px 16px; }
+
+/* ---------- notebook / tablet ---------- */
+@media (max-width: 1250px) and (min-width: 761px) {
+  .game-ui .nameplate { width: 316px; }
+  .game-ui .portrait { width: 62px; height: 76px; }
+  .game-ui .quest-tracker { width: 260px; }
+  .game-ui .panel { width: min(360px, calc(100vw - 32px)); }
+  .game-ui .composer-world { width: 320px; }
+  .game-ui .location-crest { max-width: 30vw; }
+}
+
+/* ---------- celular ---------- */
+@media (max-width: 760px) {
+  .game-ui { --hud-edge: max(10px, env(safe-area-inset-left)); --rail-h: 58px; }
+  .game-ui .nameplate { left: var(--hud-edge); right: auto; width: calc(100vw - 100px); padding: 8px 10px; gap: 8px; }
+  .game-ui .nameplate::after { left: 50%; }
+  .game-ui .portrait { width: 44px; height: 52px; }
+  .game-ui .nameplate h1 { font-size: 1.1rem; }
+  .game-ui .nameplate p { font-size: 0.72rem; margin-bottom: 4px; padding-bottom: 3px; }
+  .game-ui .location-crest { display: none; }
+  .game-ui .game-clock { right: var(--hud-edge); padding: 3px 8px; font-size: 0.85rem; }
+  .game-ui .weather-chip { top: calc(var(--hud-top) + 40px); }
+  .game-ui .rail {
+    top: auto; bottom: max(8px, env(safe-area-inset-bottom)); left: var(--hud-edge); right: var(--hud-edge); width: auto; max-height: none;
+    flex-direction: row; align-items: center; padding: 5px 8px; border-radius: 16px; overflow-x: auto; overflow-y: hidden; z-index: 7; --corner: 8px;
+  }
+  .game-ui .rail::after { display: none; }
+  .game-ui .rail-group { flex-direction: row; gap: 2px; }
+  .game-ui .rail-sep { width: 9px; height: 30px; margin: 0 3px; background: linear-gradient(180deg, transparent, var(--hud-line) 30%, var(--hud-line) 70%, transparent) center / 1px 100% no-repeat; }
+  .game-ui .rail-sep::after { top: calc(50% - 3px); left: 1.5px; }
+  .game-ui .rail button { width: 44px; height: 44px; flex: 0 0 44px; }
+  .game-ui .quest-tracker { top: auto; bottom: calc(var(--rail-h) + 116px + env(safe-area-inset-bottom)); left: var(--hud-edge); width: calc(100vw - 20px); max-width: none; padding: 6px 10px; }
+  .game-ui .quest-tracker small { display: none; }
+  .game-ui .composer-world { left: var(--hud-edge); width: calc(100vw - 20px); bottom: calc(var(--rail-h) + 14px + env(safe-area-inset-bottom)); }
+  .game-ui .composer-world:has(.quick-replies) ~ .quest-tracker, .game-ui:has(.quick-replies) .quest-tracker { display: none; }
+  .game-ui .panel { top: calc(var(--hud-top) + 96px); bottom: calc(var(--rail-h) + 14px + env(safe-area-inset-bottom)); left: var(--hud-edge); right: var(--hud-edge); width: auto; height: auto; }
+  .game-ui .panel.panel-pacto, .game-ui .panel.panel-forja { left: var(--hud-edge); }
+  .game-ui .world-map { width: 92px !important; height: 92px !important; top: calc(var(--hud-top) + 44px); }
+  .game-ui .world-map.big { width: min(280px, calc(100vw - 40px)) !important; height: min(280px, calc(100vw - 40px)) !important; }
+  .game-ui .world-map [class^='compass-'] { font-size: 0.6rem; width: 15px; height: 15px; }
+  .game-ui.in-world .weather-chip { top: calc(var(--hud-top) + 148px); }
+  .game-ui .travel, .game-ui.in-world .travel { top: auto; bottom: calc(var(--rail-h) + 70px + env(safe-area-inset-bottom)); right: var(--hud-edge); flex-direction: row; }
+  .game-ui .skill-bar { bottom: calc(var(--rail-h) + 120px + env(safe-area-inset-bottom)); }
+  .game-ui .attack-btn { bottom: calc(var(--rail-h) + 190px + env(safe-area-inset-bottom)); }
+  .game-ui .touch-moves { bottom: calc(var(--rail-h) + 190px + env(safe-area-inset-bottom)); }
+  .game-ui .awaken-float { bottom: calc(var(--rail-h) + 130px + env(safe-area-inset-bottom)); }
+  .game-ui .toasts { top: calc(var(--hud-top) + 96px); }
+  .game-ui .key-hint { display: none; }
+  .game-ui.has-panel .skill-bar, .game-ui.has-panel .attack-btn, .game-ui.has-panel .touch-moves, .game-ui.has-panel .quest-tracker { display: none; }
+}
+@media (orientation: landscape) and (max-height: 520px) {
+  .game-ui .portrait, .game-ui .quest-tracker, .game-ui .location-crest { display: none; }
+  .game-ui .nameplate { width: 250px; }
+  .game-ui .rail { top: calc(var(--hud-top) + 96px); bottom: auto; left: var(--hud-edge); right: auto; width: 56px; max-height: calc(100dvh - 120px); flex-direction: column; overflow-y: auto; }
+  .game-ui .rail-group { flex-direction: column; }
+  .game-ui .composer-world { left: calc(var(--hud-edge) + 70px); bottom: var(--hud-bottom); width: 300px; }
+}
+@media (prefers-reduced-motion: reduce) { .game-ui *, .game-ui *::before, .game-ui *::after { transition: none !important; } }

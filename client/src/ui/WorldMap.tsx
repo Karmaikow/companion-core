@@ -65,6 +65,7 @@ export function WorldMap({ world, discovered }: { world: CompanionWorld; discove
   const found = world.sites.filter((s) => !s.home && discovered.has(s.name)).length;
   return (
     <button className={'world-map' + (big ? ' big' : '')} onClick={() => setBig(!big)} aria-label={big ? 'Diminuir o mapa' : 'Ampliar o mapa'} style={{ width: SIZE, height: SIZE }}>
+      <span className="compass-n" aria-hidden="true"><b>N</b></span><span className="compass-s" aria-hidden="true"><b>S</b></span><span className="compass-e" aria-hidden="true"><b>L</b></span><span className="compass-w" aria-hidden="true"><b>O</b></span>
       <canvas ref={base} width={SIZE} height={SIZE} />
       <canvas ref={top} width={SIZE} height={SIZE} />
       <span className="map-count">{found}/{world.sites.length - 1} lugares</span>

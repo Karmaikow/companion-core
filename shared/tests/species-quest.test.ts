@@ -42,3 +42,29 @@ describe('Que criatura serei? — sugestão e confirmação', () => {
     for (const t of ['não', 'talvez', 'prefiro gato', '']) expect(isAffirmative(t)).toBe(false);
   });
 });
+
+import { questHelp } from '../rules/quests.ts';
+describe('dicas de conversa das quests', () => {
+  const st = (doneUpTo: string[]) => initialQuests().map((q) => (doneUpTo.includes(q.key) ? { ...q, status: 'done' as const } : q));
+  const base = { name: 'Luna', pronoun: 'ela' as const, playerName: 'Diego', traits: ['curiosa', 'gentil'] };
+  it('as respostas prontas completam a quest pela regra offline', () => {
+    const order = ['identity', 'traits', 'color', 'species', 'essence', 'bond', 'dream'];
+    for (let i = 2; i < order.length; i++) {
+      const states = st(order.slice(0, i));
+      const h = questHelp(states, base, { bondLevel: 3, firstBondLevel: 2, suggested: order[i] === 'species' ? null : null })!;
+      expect(h.quest).toBe(order[i]);
+      if (h.quest === 'species' || (h.quest as string) === 'none') continue;
+      const ok = h.replies.some((r) => offlineTurn(r, base, states, 1, [], '').discoveries.some((x) => x.quest === h.quest));
+      expect(ok, h.quest + ': ' + h.replies.join(' | ')).toBe(true);
+    }
+  });
+  it('forma: depois da sugestão do Companion, o "sim" pronto conclui', () => {
+    const states = st(['identity', 'traits', 'color']);
+    const h = questHelp(states, base, { bondLevel: 3, firstBondLevel: 2, suggested: 'touro' })!;
+    expect(offlineTurn(h.replies[0], base, states, 1, [], classSuggestionLine('touro')).discoveries[0]?.quest).toBe('species');
+  });
+  it('primeiro laço antes do vínculo 2: dica de conversar mais', () => {
+    const h = questHelp(st(['identity', 'traits', 'color', 'species', 'essence']), base, { bondLevel: 1, firstBondLevel: 2 })!;
+    expect(h.hint).toMatch(/vínculo 2/);
+  });
+});

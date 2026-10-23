@@ -106,3 +106,47 @@ export function nextCuriosity(states: QuestState[]): QuestDef | null {
 export function initialQuests(): QuestState[] {
   return QUESTS.map((q) => ({ key: q.key, status: 'active' as const }));
 }
+
+// ---------------------------------------------------------------------------
+// Dicas de conversa (forma de alma): o que dizer para avançar a quest da vez
+// ---------------------------------------------------------------------------
+
+export interface QuestHelp { quest: QuestKey; title: string; hint: string; replies: string[] }
+
+const pickN = <T,>(list: T[], n: number, seed: number) => { const out: T[] = []; const pool = [...list]; let s = Math.abs(seed) || 1; while (out.length < n && pool.length) { s = (s * 1103515245 + 12345) % 2147483648; out.push(pool.splice(s % pool.length, 1)[0]); } return out; };
+
+/**
+ * Dicas para a pessoa completar a próxima quest conversando: uma frase do que fazer e 2–3 respostas prontas que o
+ * detector entende (as mesmas palavras que validateDiscovery aceita). Não decide nada: a quest só conclui pela regra.
+ * @param ctx.suggested classe que o Companion acabou de sugerir na fala ("Que tal eu me parecer um touro?")
+ */
+export function questHelp(states: QuestState[], d: Discoveries, ctx: { bondLevel: number; firstBondLevel: number; suggested?: string | null; affinities?: string[]; seed?: number }): QuestHelp | null {
+  const q = nextCuriosity(states);
+  if (!q) return null;
+  const he = d.pronoun === 'ele', me = d.name ?? (he ? 'ele' : 'ela'), you = d.playerName ?? 'você';
+  const seed = ctx.seed ?? (d.name ?? '').length * 7 + states.filter((s) => s.status === 'done').length;
+  const art = he ? 'o' : 'a';
+  switch (q.key) {
+    case 'identity':
+      return { quest: q.key, title: q.title, hint: `Dê um nome para ${art} Companion.`, replies: pickN(['Que tal Luna?', 'Você vai se chamar Maya', 'Gosto de Bele para você'], 3, seed) };
+    case 'color':
+      return { quest: q.key, title: q.title, hint: `Diga qual cor combina com a luz de ${me}.`, replies: pickN(['Acho que azul combina com você', 'Sua cor é roxo', 'Que tal verde, como a floresta?', 'Dourado combina com a sua luz', 'Rosa! Sua luz é rosa'], 3, seed) };
+    case 'traits':
+      return { quest: q.key, title: q.title, hint: `Conte como você vê o jeito de ${me}.`, replies: pickN([he ? 'Você é curioso e gentil' : 'Você é curiosa e gentil', he ? 'Te acho corajoso e brincalhão' : 'Te acho corajosa e brincalhona', he ? 'Você parece calmo e protetor' : 'Você parece calma e protetora'], 3, seed) };
+    case 'species':
+      return ctx.suggested
+        ? { quest: q.key, title: q.title, hint: `${me} sugeriu uma forma. Se gostar, é só confirmar; se não, peça outra.`, replies: ['Sim! Adorei essa ideia', 'Prefiro outra forma', 'Que tal uma fada?'] }
+        : { quest: q.key, title: q.title, hint: `Pergunte que criatura ${me} quer ser, ou sugira uma (touro, pássaro, gato, dragão ou fada).`, replies: pickN(['Que criatura você gostaria de ser?', 'Te imagino com orelhas de gato', 'Você seria um dragão incrível', 'Imagino você com asas de pássaro', 'Você tem cara de fada'], 3, seed) };
+    case 'essence': {
+      const label: Record<string, string> = { fogo: 'fogo', agua: 'água', terra: 'terra', vento: 'vento', luz: 'luz', sombra: 'sombra', gelo: 'gelo', raio: 'raio', natureza: 'natureza', veneno: 'veneno' };
+      const first = (ctx.affinities ?? []).map((e) => `Sinto ${label[e] ?? e} no seu núcleo`);
+      return { quest: q.key, title: q.title, hint: `Descubra o elemento que pulsa no núcleo de ${me}.${first.length ? ' A forma escolhida combina com ' + (ctx.affinities ?? []).map((e) => label[e] ?? e).join(' e ') + '.' : ''}`, replies: [...first, ...pickN(['Acho que sua essência é luz', 'Sinto água no seu núcleo', 'Você tem cara de vento', 'Sua essência é natureza'], 3, seed)].slice(0, 3) };
+    }
+    case 'bond':
+      return ctx.bondLevel < ctx.firstBondLevel
+        ? { quest: q.key, title: q.title, hint: `Conversem mais um pouco: o primeiro laço abre no vínculo ${ctx.firstBondLevel} (agora ${ctx.bondLevel}). Conte algo do seu dia.`, replies: pickN(['Hoje meu dia foi corrido, mas pensei em você', 'Quer saber do que eu mais gosto?', 'Vou te contar uma história de quando eu era criança', 'Hoje choveu e lembrei do Refúgio'], 3, seed) }
+        : { quest: q.key, title: q.title, hint: `Combine como ${me} vai chamar você.`, replies: [`Pode me chamar de ${you}`, 'Me chama de parceiro', 'Pode me chamar de amigo'] };
+    case 'dream':
+      return { quest: q.key, title: q.title, hint: `Ajude ${me} a descobrir o primeiro sonho para quando ganhar um corpo.`, replies: pickN(['Seu primeiro sonho é voar sobre as montanhas ao amanhecer', 'Sonho com você explorando ruínas antigas', 'Que tal sonhar em encontrar o Lago da Névoa?', 'Seu sonho é conhecer todas as criaturas do mundo'], 3, seed) };
+  }
+}

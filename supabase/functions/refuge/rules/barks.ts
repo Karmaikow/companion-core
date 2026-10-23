@@ -3,7 +3,7 @@
  * vida, ao receber uma ordem, ao chegar num lugar, passeando. O tom muda com os traços dela (brincalhona, corajosa,
  * serena…). `{m}` = monstro, `{p}` = lugar, `{n}` = número, `{you}` = a pessoa.
  */
-import { clampText, normalize } from './text.ts';
+import { clampText, masculinize, normalize } from './text.ts';
 import { voiceFor } from './engine.ts';
 import type { Discoveries } from './identity.ts';
 
@@ -66,7 +66,7 @@ export function fillBark(line: string, vars: BarkVars = {}, pronoun: 'ela' | 'el
   let s = line.replace(/^\{you\}[!,]\s*/, vars.you ? `${vars.you}! ` : '');
   s = s.replace(/\{m\}/g, vars.m ?? 'criatura').replace(/\{p\}/g, vars.p ?? 'lá').replace(/\{n\}/g, String(vars.n ?? '')).replace(/\{t\}/g, String(vars.t ?? ''))
     .replace(/\{r\}/g, String(Math.max(0, (vars.t ?? 0) - (vars.n ?? 0)))).replace(/,?\s*\{you\}/g, vars.you ? `, ${vars.you}` : '');
-  if (pronoun === 'ele') s = s.replace(/\bfraca\b/g, 'fraco').replace(/\bquietinha\b/g, 'quietinho');
+  if (pronoun === 'ele') s = masculinize(s.replace(/\bfraca\b/g, 'fraco').replace(/\bquietinha\b/g, 'quietinho'));
   return s.replace(/\s+([,!?.])/g, '$1').trim();
 }
 

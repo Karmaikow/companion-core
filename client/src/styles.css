@@ -1050,3 +1050,5 @@ html:has(.admin), body:has(.admin), #root:has(.admin) { height: auto; min-height
 .adm-swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: middle; }
 .adm-stats { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 0; }
 .adm-derived { margin: 0; font-size: 0.86rem; color: var(--mist); }
+.entry-alt { display: flex; flex-direction: column; gap: 2px; margin-top: 6px; padding-top: 8px; border-top: 1px solid #2a3a5c; }
+.entry-alt .link { font-size: 0.85rem; color: var(--mist); }
