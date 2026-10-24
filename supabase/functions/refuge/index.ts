@@ -10,7 +10,7 @@ import {
   BANK_EVENTS, MOMENT_EVENTS, withXpMultiplier, combatXp, resolveEcos, type EcosConfig, resolvePacto, type PactoConfig, buildBarkBankPrompt, parseBarkBank, buildMomentPrompt, parseMoment, dossier, type BarkEvent,
   type BestiaryEntry, type CreatureDef, type SecretKey, type GameConfig, type IdentityContractV1, type QuestState, type Discoveries, type MemoryLite, type ChatLine,
 } from './rules/index.ts';
-import { complete, providerName, refreshAi, loadAiRow, targetFromRow, callTarget, envProviderName, envTarget, AI_PROVIDERS, AI_DEFAULTS, type AiProvider, type AiRow } from './llm.ts';
+import { complete, providerName, refreshAi, loadAiRow, targetFromRow, callTarget, listModels, envProviderName, envTarget, AI_PROVIDERS, AI_DEFAULTS, type AiProvider, type AiRow } from './llm.ts';
 import { ecosAction, EcosError } from './ecos.ts';
 import { pactoAction, PactoError } from './pacto.ts';
 import { buildAction, BuildError, loadBuild } from './build.ts';
@@ -161,6 +161,13 @@ async function adminAiTest(db: SupabaseClient, body: Record<string, unknown>) {
     const why = code === 401 || code === 403 ? 'chave recusada' : code === 404 ? 'modelo ou endereço não encontrado' : code === 429 ? 'limite de uso da conta' : m.includes('Timeout') || m.includes('abort') ? 'demorou demais' : 'erro ' + m;
     return { ok: false, error: `Não funcionou (${why}).` };
   }
+}
+
+async function adminAiModels(db: SupabaseClient, body: Record<string, unknown>) {
+  const d = aiDraft({ ...body, model: body.model || 'x' }, await loadAiRow(db));
+  const t = targetFromRow(d);
+  if (!t) return { models: [], error: 'Cole a chave para ver os modelos.' };
+  try { return { models: await listModels(t) }; } catch (e) { return { models: [], error: 'Não consegui listar (' + String((e as Error).message).split(' ').pop() + ').' }; }
 }
 
 async function adminJobs(db: SupabaseClient) {
@@ -712,6 +719,7 @@ Deno.serve(async (req) => {
       if (action === 'admin.ai.get') return json(200, await adminAiGet(db));
       if (action === 'admin.ai.set') return json(200, await adminAiSet(db, userId, body));
       if (action === 'admin.ai.test') return json(200, await adminAiTest(db, body));
+      if (action === 'admin.ai.models') return json(200, await adminAiModels(db, body));
       if (action === 'admin.companions') return json(200, await adminCompanions(db, cfg));
       if (action === 'admin.companion') return json(200, await adminCompanion(db, cfg, String(body.companionId ?? '')));
       return json(404, { error: 'Ação desconhecida.' });
