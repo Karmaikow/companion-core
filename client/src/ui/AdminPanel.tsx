@@ -24,7 +24,7 @@ const VIEWS: { key: View; label: string; hash: string; title: string; hint: stri
   { key: 'forja', label: 'Forja de Batalha', hash: '#/admin/forja', title: 'Forja de Batalha', hint: 'Habilidades genéricas que qualquer Companion daquela essência e corpo pode usar.' },
   { key: 'invocador', label: 'Invocador de Monstros', hash: '#/admin/invocador', title: 'Invocador de Monstros', hint: 'O catálogo de criaturas: corpo, jeito de lutar, onde aparecem e o que soltam.' },
   { key: 'arsenal', label: 'Arsenal', hash: '#/admin/arsenal', title: 'Arsenal', hint: 'Armas e equipamentos: modelo, atributos, raridade, pegada na mão e a receita da Forja (só Taurinas forjam).' },
-  { key: 'servidor', label: 'Servidor', hash: '#/admin/servidor', title: 'Servidor', hint: 'XP de vínculo e clima — vale na hora para todos os jogadores.' },
+  { key: 'servidor', label: 'Servidor', hash: '#/admin/servidor', title: 'Servidor', hint: 'IA dos Companions, XP de vínculo e clima — vale na hora para todos os jogadores.' },
 ];
 
 export interface Job {
