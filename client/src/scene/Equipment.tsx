@@ -64,6 +64,59 @@ function bindRel(bone: THREE.Object3D, root: THREE.Object3D): THREE.Quaternion |
   return found;
 }
 
+/** Matriz do osso no mundo na pose de ligação (independe da animação tocando). */
+function bindWorld(bone: THREE.Object3D, root: THREE.Object3D): THREE.Matrix4 | null {
+  let out: THREE.Matrix4 | null = null;
+  root.traverse((o) => {
+    const sm = o as THREE.SkinnedMesh;
+    if (out || !sm.isSkinnedMesh || !sm.skeleton) return;
+    const i = sm.skeleton.bones.indexOf(bone as THREE.Bone);
+    if (i < 0) return;
+    out = new THREE.Matrix4().copy(sm.skeleton.boneInverses[i]).invert().premultiply(sm.bindMatrixInverse).premultiply(sm.matrixWorld);
+  });
+  return out;
+}
+
+/**
+ * Encaixe pela própria mão (na pose de ligação), igual em qualquer rig — braços abertos (T) ou para baixo (A), nomes do
+ * Tripo/Mixamo ou do Mesh2Motion: "ao longo" = do pulso para os dedos; "polegar" = do mindinho para o indicador; a palma
+ * fica no meio. Arma: a lâmina sai do lado do polegar (como num punho fechado). Arco: as pontas seguem o polegar e a flecha
+ * aponta para onde os dedos apontam (o braço esticado). Devolve a orientação (espaço do mundo, na ligação) e a palma
+ * (espaço do osso), ou null se a mão não tiver dedos nem antebraço para medir.
+ */
+function handSocket(hand: THREE.Object3D, root: THREE.Object3D, kind: 'arma' | 'arco'): { q: THREE.Quaternion; palm: THREE.Vector3 } | null {
+  const Mh = bindWorld(hand, root);
+  if (!Mh) return null;
+  const at = (o: THREE.Object3D) => { const m = bindWorld(o, root); return m ? new THREE.Vector3().setFromMatrixPosition(m) : null; };
+  const H = new THREE.Vector3().setFromMatrixPosition(Mh);
+  const kids = hand.children.filter((c) => (c as THREE.Bone).isBone);
+  const name = (o: THREE.Object3D) => o.name.toLowerCase();
+  const pick = (re: RegExp) => kids.find((c) => re.test(name(c))) ?? null;
+  const idx = pick(/index/), mid = pick(/middle/), pin = pick(/pinky|little/) ?? pick(/ring/);
+  const fingers = kids.filter((c) => !/thumb/.test(name(c)));
+  let along: THREE.Vector3 | null = null;
+  const mp = mid ? at(mid) : null;
+  if (mp) along = mp.clone().sub(H);
+  else if (fingers.length) { const c = new THREE.Vector3(); let n = 0; for (const f of fingers) { const p = at(f); if (p) { c.add(p); n++; } } if (n) along = c.divideScalar(n).sub(H); }
+  if ((!along || along.lengthSq() < 1e-10) && hand.parent) { const pa = at(hand.parent); if (pa) along = H.clone().sub(pa); }
+  if (!along || along.lengthSq() < 1e-10) return null;
+  along.normalize();
+  const ip = idx ? at(idx) : null, pp = pin ? at(pin) : null;
+  let thumb = ip && pp ? ip.clone().sub(pp) : null;
+  if (!thumb || thumb.lengthSq() < 1e-10) { root.getWorldQuaternion(rq); thumb = new THREE.Vector3(0, 0, 1).applyQuaternion(rq); }
+  thumb.sub(along.clone().multiplyScalar(thumb.dot(along))).normalize();
+  const n = new THREE.Vector3().crossVectors(along, thumb).normalize();
+  const basis = kind === 'arco'
+    ? new THREE.Matrix4().makeBasis(along, thumb, n) // x: flecha (dedos), y: pontas do arco (polegar)
+    : new THREE.Matrix4().makeBasis(n, thumb, along.clone().negate()); // y: lâmina (polegar), z: para o pulso
+  const q = new THREE.Quaternion().setFromRotationMatrix(basis);
+  // palma: um pouco a caminho dos dedos, no espaço do osso
+  const len = mp ? mp.distanceTo(H) : 0.05 * (H.length() || 1);
+  const palmWorld = H.clone().add(along.clone().multiplyScalar(len * 0.45));
+  const palm = palmWorld.applyMatrix4(Mh.clone().invert());
+  return { q, palm };
+}
+
 /**
  * Item preso DIRETO no osso (filho do osso na cena): acompanha a mão em toda animação, sem cálculo por quadro.
  * O encaixe ("socket") desfaz o giro do osso na pose de ligação e aplica a orientação base do tipo de item, então a
@@ -77,14 +130,25 @@ function Attached({ item, bones, root, charge, showSocket }: { item: ItemDef; bo
   const b = bone === 'nenhum' ? null : bones?.[bone] ?? null;
   const local = useRef<THREE.Quaternion | null>(null);
   const firstRel = useRef<THREE.Quaternion | null>(null);
+  const palm = useRef<THREE.Vector3 | null>(null);
   useFrame(() => {
     const r = root.current, grp = g.current; if (!r || !grp || bone === 'nenhum') return;
     if (b) {
       if (!local.current) {
-        // pose de ligação; sem ela (rig sem pele), o primeiro quadro serve de descanso
-        let rest = bindRel(b, r);
-        if (!rest) { r.getWorldQuaternion(rq); b.getWorldQuaternion(q); firstRel.current ??= rq.clone().invert().multiply(q); rest = firstRel.current; }
-        local.current = rest.clone().invert().multiply(base);
+        // mãos com arma ou arco: encaixe medido na própria mão (igual em qualquer rig e pose de ligação)
+        const hand = (bone === 'mao_direita' || bone === 'mao_esquerda') && (item.type === 'arco' || ITEM_TYPES[item.type].slot === 'weapon');
+        const sock = hand ? handSocket(b, r, item.type === 'arco' ? 'arco' : 'arma') : null;
+        const Mb = sock ? bindWorld(b, r) : null;
+        if (sock && Mb) {
+          const bq = new THREE.Quaternion(); Mb.decompose(v, bq, sc);
+          local.current = bq.invert().multiply(sock.q);
+          palm.current = sock.palm;
+        } else {
+          // pose de ligação; sem ela (rig sem pele), o primeiro quadro serve de descanso
+          let rest = bindRel(b, r);
+          if (!rest) { r.getWorldQuaternion(rq); b.getWorldQuaternion(q); firstRel.current ??= rq.clone().invert().multiply(q); rest = firstRel.current; }
+          local.current = rest.clone().invert().multiply(base);
+        }
       }
       grp.quaternion.copy(local.current);
       b.getWorldScale(sc);
@@ -92,6 +156,7 @@ function Attached({ item, bones, root, charge, showSocket }: { item: ItemDef; bo
       grp.scale.setScalar(k);
       // chapéu e coroa: um pouco acima do osso da cabeça (no espaço do corpo em A-pose)
       if (bone === 'cabeca') grp.position.copy(v.set(0, 0.3 * k, 0).applyQuaternion(local.current.clone().multiply(base.clone().invert())));
+      else if (palm.current) grp.position.copy(palm.current);
       else grp.position.set(0, 0, 0);
     } else {
       r.getWorldQuaternion(rq);
@@ -103,7 +168,7 @@ function Attached({ item, bones, root, charge, showSocket }: { item: ItemDef; bo
   const body = (
     <group ref={g}>
       {showSocket && <axesHelper args={[0.12]} />}
-      <AssetBoundary><Suspense fallback={null}><ItemModel item={item} charge={item.type === 'arco' ? charge : undefined} /></Suspense></AssetBoundary>
+      <AssetBoundary><Suspense fallback={null}><ItemModel item={item} charge={item.type === 'arco' ? charge : undefined} draw={item.type === 'arco' && bone === 'mao_esquerda' ? bones?.mao_direita ?? null : null} /></Suspense></AssetBoundary>
     </group>
   );
   return b ? createPortal(body, b) : body;

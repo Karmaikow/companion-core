@@ -3,7 +3,8 @@
  * varinha, arco, escudo, grimório, orbe, chapéu, tiara, laço, coroa, mochila, aljava).
  * Convenção: a origem é o ponto de pegada (a mão, o alto da cabeça, o meio das costas); armas apontam para +Y
  * (a lâmina sobe a partir da mão); a frente do personagem é +Z.
- * `charge` (0..1) estica a corda do arco e mostra a flecha encaixada.
+ * `charge` (0..1) estica a corda do arco e mostra a flecha encaixada. `draw` (a mão que puxa): a corda vai até ela quando
+ * a mão está atrás do arco, então a flecha encaixa e a corda estica junto com a animação de tiro.
  */
 import { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
@@ -12,11 +13,11 @@ import * as THREE from 'three';
 import { ELEMENTS, ITEM_TYPES, RARITIES, type ItemDef } from '@rules';
 import { lookUniforms, setLook, withLook } from './look';
 
-export function ItemModel({ item, charge }: { item: ItemDef; charge?: { current: number } }) {
+export function ItemModel({ item, charge, draw }: { item: ItemDef; charge?: { current: number }; draw?: THREE.Object3D | null }) {
   const size = ITEM_TYPES[item.type].size * item.grip.scale;
   return (
     <group position={item.grip.pos} rotation={item.grip.rot}>
-      {item.model ? <GlbItem item={item} size={size} /> : <ProcItem item={item} size={size} charge={charge} />}
+      {item.model ? <GlbItem item={item} size={size} /> : <ProcItem item={item} size={size} charge={charge} draw={draw} />}
     </group>
   );
 }
@@ -39,7 +40,7 @@ function GlbItem({ item, size }: { item: ItemDef; size: number }) {
 
 const M = (color: string, o: Partial<THREE.MeshStandardMaterialParameters> = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.55, metalness: 0, ...o });
 
-function ProcItem({ item, size, charge }: { item: ItemDef; size: number; charge?: { current: number } }) {
+function ProcItem({ item, size, charge, draw }: { item: ItemDef; size: number; charge?: { current: number }; draw?: THREE.Object3D | null }) {
   const { primary, secondary, metal, gem, variant } = item.proc;
   const gemColor = item.essence ? ELEMENTS[item.essence].glow : RARITIES[item.rarity].color;
   const mats = useMemo(() => ({
@@ -92,7 +93,7 @@ function ProcItem({ item, size, charge }: { item: ItemDef; size: number; charge?
     }
     case 'cajado': return <Staff L={s} mats={mats} gem={gem} />;
     case 'varinha': return <Wand L={s} mats={mats} />;
-    case 'arco': return <Bow size={s} mats={mats} charge={charge} />;
+    case 'arco': return <Bow size={s} mats={mats} charge={charge} draw={draw} />;
     case 'escudo': return (
       <group rotation={[0, 0, 0]}>
         <mesh material={mats.a} castShadow rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[s / 2, s / 2, 0.04, 28]} /></mesh>
@@ -152,30 +153,62 @@ function ProcItem({ item, size, charge }: { item: ItemDef; size: number; charge?
   }
 }
 
-/** Arco: braços curvos, corda que estica com a carga e a flecha encaixada enquanto carrega. Fica de pé na mão. */
-function Bow({ size, mats, charge }: { size: number; mats: Record<string, THREE.Material>; charge?: { current: number } }) {
+/** Arco: braços curvos, corda que estica com a carga (ou vai até a mão que puxa) e a flecha encaixada. Fica de pé na mão. */
+function Bow({ size, mats, charge, draw }: { size: number; mats: Record<string, THREE.Material>; charge?: { current: number }; draw?: THREE.Object3D | null }) {
   const h = size / 2;
   const limb = useMemo(() => new THREE.TubeGeometry(new THREE.CatmullRomCurve3([new THREE.Vector3(-0.02, -h, 0), new THREE.Vector3(0.07, -h * 0.55, 0), new THREE.Vector3(0.09, 0, 0), new THREE.Vector3(0.07, h * 0.55, 0), new THREE.Vector3(-0.02, h, 0)]), 40, 0.016, 8, false), [h]);
   const arrow = useRef<THREE.Group>(null);
   const geo = useMemo(() => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(9), 3)); return g; }, []);
   useEffect(() => () => { limb.dispose(); geo.dispose(); }, [limb, geo]);
-  useFrame(() => {
-    const c = charge?.current ?? 0, pull = -0.02 - c * 0.22;
-    const p = geo.attributes.position as THREE.BufferAttribute;
-    p.setXYZ(0, -0.02, -h, 0); p.setXYZ(1, pull, 0, 0); p.setXYZ(2, -0.02, h, 0); p.needsUpdate = true;
-    if (arrow.current) { arrow.current.visible = c > 0.01; arrow.current.position.x = pull; }
+  // ponto da mão que segura a corda: a base dos dedos do meio (ou do indicador), senão o punho
+  const knuckle = useMemo(() => draw ? draw.children.find((c) => (c as THREE.Bone).isBone && /middle/i.test(c.name)) ?? draw.children.find((c) => (c as THREE.Bone).isBone && /index/i.test(c.name)) ?? draw : null, [draw]);
+  const tmp = useMemo(() => ({ p: new THREE.Vector3(), d: new THREE.Vector3(), X: new THREE.Vector3(1, 0, 0) }), []);
+  const outer = useRef<THREE.Group>(null), spin = useRef<THREE.Group>(null), yaw = useRef(0);
+  useFrame((_, dtRaw) => {
+    const dt = Math.min(dtRaw, 0.05), c = charge?.current ?? 0;
+    let x = -0.02 - c * 0.22, y = 0, z = 0, byHand = false, r = 0;
+    const o = outer.current, sp = spin.current;
+    if (knuckle && o && sp) {
+      // mão atrás do arco, na altura do meio da corda e até a puxada máxima: o arco vira de frente para ela (a mão do arco
+      // fecha em volta do cabo, então quem diz a direção da flecha é a mão que puxa) e a corda vai até os dedos.
+      // Passou da puxada máxima (o braço que voa para trás ao soltar): a corda volta e a flecha some, disparada.
+      const p = o.worldToLocal(knuckle.getWorldPosition(tmp.p));
+      r = Math.hypot(p.x, p.z);
+      if (r < size * 0.5 && Math.abs(p.y) < h * 0.55 && (r > 0.12 || p.x < -0.03)) {
+        byHand = true;
+        if (r > 0.12) yaw.current += (Math.atan2(p.z, -p.x) - yaw.current) * Math.min(1, dt * 20);
+      }
+    }
+    if (!byHand) yaw.current *= Math.max(0, 1 - dt * 3);
+    if (sp) sp.rotation.y = yaw.current;
+    if (byHand && sp && knuckle) {
+      sp.updateMatrixWorld(true);
+      const q = sp.worldToLocal(knuckle.getWorldPosition(tmp.p));
+      x = Math.min(-0.02, q.x); y = q.y; z = q.z;
+    }
+    const pos = geo.attributes.position as THREE.BufferAttribute;
+    pos.setXYZ(0, -0.02, -h, 0); pos.setXYZ(1, x, y, z); pos.setXYZ(2, -0.02, h, 0); pos.needsUpdate = true;
+    if (arrow.current) {
+      arrow.current.visible = c > 0.01 || (byHand && r > 0.12);
+      arrow.current.position.set(x, y, z);
+      // a flecha sai do encaixe na corda e passa pelo apoio do arco
+      tmp.d.set(0.09 - x, -y, -z).normalize();
+      arrow.current.quaternion.setFromUnitVectors(tmp.X, tmp.d);
+    }
   });
   const line = useMemo(() => new THREE.Line(geo, new THREE.LineBasicMaterial({ color: '#f3efe0' })), [geo]);
   return (
-    <group>
-      <mesh geometry={limb} material={mats.a} castShadow />
-      <mesh material={mats.b} position={[0.09, 0, 0]}><cylinderGeometry args={[0.022, 0.022, 0.1, 8]} /></mesh>
-      <primitive object={line} />
-      <group ref={arrow} visible={false}>
-        {/* flecha na horizontal, ponta para +X (para frente do arco) */}
-        <mesh material={mats.metal} rotation={[0, 0, -Math.PI / 2]} position={[0.24, 0, 0]}><cylinderGeometry args={[0.006, 0.006, 0.48, 6]} /></mesh>
-        <mesh material={mats.gem} rotation={[0, 0, -Math.PI / 2]} position={[0.5, 0, 0]}><coneGeometry args={[0.02, 0.06, 6]} /></mesh>
-        <mesh material={mats.b} position={[0.03, 0, 0]} scale={[0.04, 0.02, 0.004]}><sphereGeometry args={[1, 8, 6]} /></mesh>
+    <group ref={outer}>
+      <group ref={spin}>
+        <mesh geometry={limb} material={mats.a} castShadow />
+        <mesh material={mats.b} position={[0.09, 0, 0]}><cylinderGeometry args={[0.022, 0.022, 0.1, 8]} /></mesh>
+        <primitive object={line} />
+        <group ref={arrow} visible={false}>
+          {/* flecha na horizontal, ponta para +X (para frente do arco) */}
+          <mesh material={mats.metal} rotation={[0, 0, -Math.PI / 2]} position={[0.24, 0, 0]}><cylinderGeometry args={[0.006, 0.006, 0.48, 6]} /></mesh>
+          <mesh material={mats.gem} rotation={[0, 0, -Math.PI / 2]} position={[0.5, 0, 0]}><coneGeometry args={[0.02, 0.06, 6]} /></mesh>
+          <mesh material={mats.b} position={[0.03, 0, 0]} scale={[0.04, 0.02, 0.004]}><sphereGeometry args={[1, 8, 6]} /></mesh>
+        </group>
       </group>
     </group>
   );

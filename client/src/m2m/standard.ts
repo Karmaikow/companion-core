@@ -20,6 +20,9 @@ import { RetargetUtils } from './RetargetUtils';
 import { STANDARD_PREFIX, STANDARD_VIRTUAL, STANDARD_SLOTS, STANDARD_EXTRAS } from './slots';
 export { STANDARD_PREFIX, STANDARD_VIRTUAL, STANDARD_SLOTS, STANDARD_EXTRAS };
 
+/** Clipe montado: puxar + soltar (veja loadLibrary). */
+export const ARCHERY = 'Archery';
+
 const LIBS = ['/m2m/human-base.glb', '/m2m/human-addon.glb', '/m2m/human-mocap.glb'];
 const RIG = '/m2m/rig-human.glb';
 
@@ -32,6 +35,11 @@ export function loadLibrary() {
     const [rig, ...libs] = await Promise.all([loader.loadAsync(RIG), ...LIBS.map((u) => loader.loadAsync(u))]);
     const clips = new Map<string, THREE.AnimationClip>();
     for (const l of libs) for (const c of l.animations) if (!clips.has(c.name)) clips.set(c.name, c);
+    // tiro com arco em um clipe só: puxar a corda, segurar mirando e soltar. A mira ocupa de 38% a 52% e o jogo congela
+    // em 45% enquanto o arco carrega, então a pose parada é sempre a da corda toda puxada.
+    const pull = clips.get('Bow Pull Back'), hold = clips.get('Bow Pull Hold'), rel = clips.get('Bow Release');
+    if (pull && hold && rel) clips.set(ARCHERY, joinClips(ARCHERY, [{ clip: pull, share: 0.38 }, { clip: hold, share: 0.14, cut: 0.5 }, { clip: rel, share: 0.48 }]));
+    else if (pull && rel) clips.set(ARCHERY, joinClips(ARCHERY, [{ clip: pull, share: 0.45 }, { clip: rel, share: 0.55 }]));
     return { rig: rig.scene, clips };
   })();
   libPromise.catch(() => { libPromise = null; });
@@ -188,6 +196,40 @@ function fixMirroredSides(scene: THREE.Object3D, map: Map<string, string>): bool
   const swap = (n: string) => n.replace(/_l(\b|_|$)/, '_§$1').replace(/_r(\b|_|$)/, '_l$1').replace('_§', '_r');
   for (const [tgt, src] of [...map.entries()]) map.set(tgt, swap(src));
   return true;
+}
+
+/**
+ * Junta clipes do mesmo esqueleto um depois do outro. Cada parte ocupa a fração `share` da duração total (`cut` corta o
+ * clipe nesse tempo, em segundos). Trilha que falta numa parte fica parada no primeiro valor de outra parte.
+ */
+function joinClips(name: string, parts: { clip: THREE.AnimationClip; share: number; cut?: number }[]): THREE.AnimationClip {
+  const lens = parts.map((p) => Math.min(p.clip.duration, p.cut ?? Infinity));
+  const total = lens.reduce((a, b) => a + b, 0);
+  const names = [...new Set(parts.flatMap((p) => p.clip.tracks.map((t) => t.name)))];
+  const tracks = names.map((n) => {
+    const own = parts.map((p) => p.clip.tracks.find((t) => t.name === n));
+    const ref = own.find(Boolean)!;
+    const size = ref.getValueSize();
+    const times: number[] = [], values: number[] = [];
+    let off = 0;
+    parts.forEach((p, i) => {
+      const dur = p.share * total, k = dur / Math.max(1e-6, lens[i]), t = own[i];
+      const eps = i ? 1e-4 : 0;
+      if (t) {
+        for (let j = 0; j < t.times.length; j++) {
+          if (t.times[j] > lens[i] + 1e-6) break;
+          times.push(t.times[j] * k + off + (j === 0 ? eps : 0)); values.push(...Array.from(t.values.slice(j * size, j * size + size)));
+        }
+      } else {
+        const v = Array.from(ref.values.slice(0, size));
+        times.push(off + eps, off + dur); values.push(...v, ...v);
+      }
+      off += dur;
+    });
+    const Ctor = ref.constructor as new (n: string, t: number[], v: number[]) => THREE.KeyframeTrack;
+    return new Ctor(n, times, values);
+  });
+  return new THREE.AnimationClip(name, total, tracks);
 }
 
 /** .GLB só com o esqueleto do modelo e os clipes convertidos (o jogo liga pelos nomes dos ossos). */

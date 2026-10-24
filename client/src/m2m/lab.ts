@@ -24,6 +24,7 @@ const loader = new GLTFLoader(); loader.setMeshoptDecoder(MeshoptDecoder);
   log(`${clips.length} clipes convertidos em ${(performance.now() - t).toFixed(0)} ms`);
   const buf = await exportClips(model.scene, clips);
   log(`arquivo do jogo: ${(buf.byteLength / 1024).toFixed(0)} KB`);
+  (window as unknown as { __pack: ArrayBuffer }).__pack = buf;
   // como o jogo: abre o arquivo de animação e toca num modelo carregado à parte
   const anim = await loader.parseAsync(buf, '');
   const fresh = await loader.loadAsync(url + '?outra');
@@ -35,7 +36,7 @@ const loader = new GLTFLoader(); loader.setMeshoptDecoder(MeshoptDecoder);
   const big = new URLSearchParams(location.search).get('so');
   const box = new THREE.Box3().setFromObject(body), c = box.getCenter(new THREE.Vector3()), h = box.getSize(new THREE.Vector3()).y;
   const cam = new THREE.PerspectiveCamera(35, 200 / 250, 0.01, 100); const look = c;
-  if (big) cam.position.set(c.x, c.y + h * 0.05, c.z + h * 2.3); else cam.position.set(look.x + h * 0.2, look.y + h * 0.15, look.z + h * 2.2);
+  if (big && new URLSearchParams(location.search).has('lado')) cam.position.set(c.x + h * 1.6, c.y + h * 0.05, c.z + h * 1.6); else if (big) cam.position.set(c.x, c.y + h * 0.05, c.z + h * 2.3); else cam.position.set(look.x + h * 0.2, look.y + h * 0.15, look.z + h * 2.2);
   cam.lookAt(look);
   const W = big ? 600 : 200, H = big ? 600 : 250;
   cam.aspect = W / H; cam.updateProjectionMatrix();
@@ -47,7 +48,7 @@ const loader = new GLTFLoader(); loader.setMeshoptDecoder(MeshoptDecoder);
   for (const [slot, name] of Object.entries(STANDARD_SLOTS).filter(([k]) => !big || k === big)) {
     const clip = anim.animations.find((a) => a.name === name);
     if (!clip) { log('faltou no arquivo: ' + name); continue; }
-    mixer.stopAllAction(); const a = mixer.clipAction(clip); a.play(); mixer.setTime(clip.duration * 0.45);
+    mixer.stopAllAction(); const a = mixer.clipAction(clip); a.play(); mixer.setTime(clip.duration * Number(new URLSearchParams(location.search).get('t') ?? 0.45));
     // quantas trilhas acharam osso no modelo novo
     bound = Math.max(bound, (a as unknown as { _propertyBindings: { binding: { node?: unknown } }[] })._propertyBindings.filter((p) => p.binding.node).length);
     r.render(scene, cam);

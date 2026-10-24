@@ -1,0 +1,15 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><link rel="stylesheet" href="./src/styles.css"><title>Lab Arsenal</title></head>
+<body style="margin:0;background:#0d1330"><div id="root" style="position:static;width:700px;height:520px"></div>
+<script type="module">
+// Lab (só no dev): o campo de treino do Arsenal com um modelo de teste e o pacote padrão dele, sem login.
+import { createElement as h } from 'react';
+import { createRoot } from 'react-dom/client';
+import { DEFAULT_ITEMS } from '@rules';
+import { ItemPreview } from './src/scene/ItemPreview';
+import { labSetCompanionModels } from './src/ui/companionModels';
+const q = new URLSearchParams(location.search);
+const m = q.get('m') ?? 'miguel-rig';
+labSetCompanionModels([{ companionId: 'lab', name: m, url: `/m2m-test/${m}.glb`, status: 'approved', anims: [{ url: `/m2m-test/${m}-pack.glb`, name: 'padrao-m2m-lab.glb', kind: 'special' }] }]);
+const item = DEFAULT_ITEMS.find((i) => i.slug === (q.get('item') ?? 'espada-de-madeira'));
+createRoot(document.getElementById('root')).render(h('div', { style: { width: 700, height: 520 } }, h(ItemPreview, { item, charge: 0, body: { url: `/m2m-test/${m}.glb`, companionId: 'lab', swing: q.has('swing'), socket: q.has('socket') } })));
+</script></body></html>

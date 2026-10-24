@@ -59,7 +59,7 @@ function hits(s: SkillDef, L: Layout, p: THREE.Vector3): boolean {
 const EFFECT = 0.9, REST = 0.9;
 
 /** Modelo de Companion no lugar do boneco de cápsula (campo de treino do Administrador) e a animação escolhida. */
-export interface TrainingBody { url: string; anim: string | null }
+export interface TrainingBody { url: string; anim: string | null; companionId?: string | null }
 
 function Scene({ skill, color, onHit, body }: { skill: SkillDef; color: string; onHit: (n: number) => void; body?: TrainingBody | null }) {
   const L = useMemo(() => layoutFor(skill), [skill]);
@@ -177,7 +177,7 @@ function Scene({ skill, color, onHit, body }: { skill: SkillDef; color: string; 
       {/* conjurador */}
       <group ref={caster}>
         {body ? (
-          <AssetBoundary><Suspense fallback={null}><TrainingModel url={body.url} cue={cue} /></Suspense></AssetBoundary>
+          <AssetBoundary><Suspense fallback={null}><TrainingModel url={body.url} cue={cue} companionId={body.companionId} /></Suspense></AssetBoundary>
         ) : (
           <>
             <mesh position={[0, 0.5, 0]} castShadow><capsuleGeometry args={[0.32, 0.35, 6, 16]} /><meshLambertMaterial color={color} /></mesh>
