@@ -6,13 +6,14 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import {
   DEFAULT_CREATURES, DEFAULT_SKILLS, WORLD_FALLBACK_BIOMES, ELEMENTS, BODIES, ARCHETYPES, TEMPERAMENTS, BATTLE_STYLES, TIMES, ANIM_KINDS,
-  sanitizeCreature, sanitizeSkill, sanitizeBiome, kitFor, MOTIONS, biomeSlug, animKind, creatureStatsAt, creatureSkillsAt, mitigate,
+  sanitizeCreature, sanitizeSkill, rigForBody, type CreatureRig, sanitizeBiome, kitFor, MOTIONS, biomeSlug, animKind, creatureStatsAt, creatureSkillsAt, mitigate,
   type CreatureDef, type Motion, type Archetype, type Temperament, type BattleStyle, type TimeOfDay, type Element, type BodyPlan, type SkillDef,
 } from '@rules';
 import { supabase } from '../backend/online';
 import { useCatalog, uploadWorldAsset, safeName } from './catalog';
 import { LookEditor } from './BiomeStudio';
-import { RigEditor } from './RigEditor';
+import { AutoRig, glbHasRig } from './RigEditor';
+import { CreaturePromptGen, RigSelect } from './CreaturePromptGen';
 
 const CreaturePreview = lazy(() => import('../scene/CreaturePreview').then((m) => ({ default: m.CreaturePreview })));
 const ESS = Object.keys(ELEMENTS) as Element[];
@@ -49,6 +50,7 @@ export function SummonerStudio() {
     if (dirty && !window.confirm('Há mudanças não salvas. Trocar mesmo assim?')) return;
     const r = cat.rows?.find((x) => x.slug === slug);
     setSel(slug); setDraft(r ? structuredClone(r.data) : null); setStatus(r?.status ?? 'draft'); setDirty(false); setMsg(null);
+    if (r) setRig(rigForBody(r.data.body));
   };
   const edit = (p: Partial<CreatureDef>) => { setDraft((d) => (d ? { ...d, ...p } : d)); setDirty(true); };
   function create() {
@@ -56,25 +58,29 @@ export function SummonerStudio() {
     if (!newName.trim()) return;
     if (cat.rows?.some((r) => r.slug === slug)) { setMsg({ text: `Já existe "${slug}".` }); return; }
     const base = sanitizeCreature({ ...DEFAULT_CREATURES[0], slug, name: newName.trim(), description: '', drops: [], biomes: [], color: '#b9a6ff' })!;
-    setSel(slug); setDraft(base); setStatus('draft'); setDirty(true); setNewName('');
+    setSel(slug); setDraft(base); setStatus('draft'); setDirty(true); setNewName(''); setRig(rigForBody(base.body));
   }
 
-  const [rigOpen, setRigOpen] = useState(false);
-  async function uploadModel(files: File[], asAnims: boolean) {
+  // esqueleto do rig automático (começa pelo tipo de corpo); modelo enviado sem rig ganha o rig sozinho
+  const [rig, setRig] = useState<CreatureRig>('fox');
+  const [rigUrl, setRigUrl] = useState<string | null>(null);
+  async function uploadModel(files: File[], asAnims: boolean, rigged?: boolean) {
     if (!draft) return;
     const glbs = files.filter((f) => /\.glb$/i.test(f.name));
     if (!glbs.length) { setMsg({ text: 'Envie arquivos .GLB.' }); return; }
+    const needsRig = !asAnims && !(rigged ?? await glbHasRig(glbs[0]));
     await run(async () => {
       const ups = [];
       for (const f of glbs) ups.push({ f, ...(await uploadWorldAsset(`creatures/${draft.slug}/${Date.now()}-${safeName(f.name)}.glb`, f)) });
       if (!asAnims) {
         const main = ups[0], kind = animKind(main.f.name);
         edit({ model: { url: main.url, path: main.path, anims: kind ? [{ url: main.url, path: main.path, kind, name: main.f.name }] : [] } });
+        if (needsRig) setRigUrl(main.url);
       } else {
         const model = draft.model!;
         edit({ model: { ...model, anims: [...model.anims, ...ups.map((u) => ({ url: u.url, path: u.path, kind: animKind(u.f.name) ?? 'special', name: u.f.name }))] } });
       }
-    }, asAnims ? 'Animações adicionadas (o tipo vem do nome; confira e salve).' : 'Modelo enviado. Salve para valer.');
+    }, asAnims ? 'Animações adicionadas (o tipo vem do nome; confira e salve).' : needsRig ? 'Modelo enviado; fazendo o rig automático…' : 'Modelo enviado. Salve para valer.');
   }
   async function uploadArt(f: File) {
     if (!draft) return;
@@ -139,17 +145,18 @@ export function SummonerStudio() {
             <fieldset>
               <legend>Corpo</legend>
               <div className="grid-form">
-                <label>Tipo de corpo<select value={draft.body} onChange={(e) => edit({ body: e.target.value as BodyPlan })}>{(Object.keys(BODIES) as BodyPlan[]).map((b) => <option key={b} value={b}>{BODIES[b]}</option>)}</select></label>
+                <label>Tipo de corpo<select value={draft.body} onChange={(e) => { edit({ body: e.target.value as BodyPlan }); setRig(rigForBody(e.target.value as BodyPlan)); }}>{(Object.keys(BODIES) as BodyPlan[]).map((b) => <option key={b} value={b}>{BODIES[b]}</option>)}</select></label>
                 <label>Altura (m)<input type="number" step={0.1} min={0.2} max={12} value={draft.size} onChange={(e) => edit({ size: Number(e.target.value) })} /></label>
               </div>
               <div className="model-box">
-                {draft.model ? <small className="ok">Modelo 3D: {decodeURIComponent(draft.model.url.split('/').pop() ?? '')}</small> : <small>Sem modelo 3D (.GLB do Tripo, com ou sem rig).</small>}
+                {draft.model ? <small className="ok">Modelo 3D: {decodeURIComponent(draft.model.url.split('/').pop() ?? '')}</small> : <small>Sem modelo 3D. Envie o .GLB do Tripo sem rig: o esqueleto escolhido é encaixado aqui, sozinho, com as animações dele.</small>}
                 <div className="row">
                   <label className="upload"><input type="file" accept=".glb,model/gltf-binary" disabled={busy} onChange={(e) => { const fs = [...(e.target.files ?? [])]; e.target.value = ''; if (fs.length) void uploadModel(fs, false); }} />{draft.model ? 'Trocar modelo .GLB' : 'Enviar modelo .GLB'}</label>
                   {draft.model && <label className="upload"><input type="file" accept=".glb,model/gltf-binary" multiple disabled={busy} onChange={(e) => { const fs = [...(e.target.files ?? [])]; e.target.value = ''; if (fs.length) void uploadModel(fs, true); }} />+ Animações .GLB</label>}
-                  {draft.model && <button className="ghost" disabled={busy} onClick={() => setRigOpen(true)} title="Encaixa um esqueleto (quadrúpede, aranha, dragão…) e escolhe as animações">Fazer o rig aqui (Mesh2Motion)</button>}
+                  <label className="inline">Esqueleto<RigSelect value={rig} onChange={setRig} disabled={busy} /></label>
+                  {draft.model && <button className="link" disabled={busy} onClick={() => setRigUrl(draft.model!.url)} title="Encaixa o esqueleto escolhido de novo, sozinho, com as animações dele">refazer o rig automático</button>}
                   {draft.model && <button className="link" onClick={() => edit({ model: undefined })}>tirar modelo</button>}
-                  {rigOpen && draft.model && <RigEditor url={draft.model.url} name={draft.name} who="monstro" onClose={() => setRigOpen(false)} onDone={async (file) => { await uploadModel([file], false); setRigOpen(false); }} />}
+                  {rigUrl && <AutoRig url={rigUrl} name={draft.name} rig={rig} onClose={() => setRigUrl(null)} onDone={async (file) => { await uploadModel([file], false, true); setRigUrl(null); setMsg({ ok: true, text: 'Rig automático pronto, com as animações do esqueleto. Confira na prévia e salve.' }); }} />}
                 </div>
                 {draft.model && draft.model.anims.length > 0 && (
                   <ul className="anim-list">
@@ -178,6 +185,13 @@ export function SummonerStudio() {
                   </label>
                 )}
               </div>
+            </fieldset>
+            <fieldset>
+              <legend>Prompt do modelo 3D</legend>
+              <details>
+                <summary>Gerar o prompt pela imagem de referência e pelo tipo</summary>
+                <CreaturePromptGen name={draft.name} color={draft.color} element={draft.essence ? ELEMENTS[draft.essence].label : undefined} rig={rig} onRig={setRig} />
+              </details>
             </fieldset>
 
             <fieldset>

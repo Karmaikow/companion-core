@@ -160,3 +160,41 @@ export async function listModels(t: AiTarget): Promise<string[]> {
   const data = await r.json();
   return ((data?.data ?? []) as { id?: string }[]).map((m) => String(m.id ?? '')).filter(Boolean).sort();
 }
+
+/**
+ * Descreve uma imagem (painel do ADM: referência de monstro → texto do prompt). Usa a IA escolhida e, se ela não lê
+ * imagens, a dos segredos. `image` é um data URL (png/jpeg/webp).
+ */
+export async function describeImage(image: string, instruction: string): Promise<string | null> {
+  const m = /^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/=]+)$/.exec(image);
+  if (!m) throw new Error('imagem inválida');
+  const tries = [chosen, ENV_TARGET].filter((t, i, a): t is AiTarget => !!t && a.indexOf(t) === i);
+  let last: unknown = new Error('sem IA');
+  for (const t of tries) {
+    try {
+      const signal = AbortSignal.timeout(40_000);
+      if (AI_DEFAULTS[t.provider].wire === 'anthropic') {
+        const r = await fetch(t.baseUrl + '/messages', {
+          method: 'POST', signal,
+          headers: { 'content-type': 'application/json', 'x-api-key': t.key, 'anthropic-version': '2023-06-01' },
+          body: JSON.stringify({ model: t.modelHq, max_tokens: 400, messages: [{ role: 'user', content: [{ type: 'image', source: { type: 'base64', media_type: m[1], data: m[2] } }, { type: 'text', text: instruction }] }] }),
+        });
+        if (!r.ok) throw new Error(t.provider + ' ' + r.status);
+        const data = await r.json();
+        const text = (data?.content ?? []).filter((b: { type: string }) => b.type === 'text').map((b: { text: string }) => b.text).join('').trim();
+        if (text) return text;
+        continue;
+      }
+      const r = await fetch(t.baseUrl + '/chat/completions', {
+        method: 'POST', signal,
+        headers: { 'Content-Type': 'application/json', ...(t.key ? { Authorization: `Bearer ${t.key}` } : {}) },
+        body: JSON.stringify({ model: t.modelHq, max_tokens: 400, messages: [{ role: 'user', content: [{ type: 'text', text: instruction }, { type: 'image_url', image_url: { url: image } }] }] }),
+      });
+      if (!r.ok) throw new Error(t.provider + ' ' + r.status);
+      const data = await r.json();
+      const text = stripThinking(data?.choices?.[0]?.message?.content ?? '');
+      if (text) return text;
+    } catch (e) { last = e; }
+  }
+  throw last;
+}

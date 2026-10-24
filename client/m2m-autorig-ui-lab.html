@@ -1,0 +1,7 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="./src/styles.css"></head><body><div id="root"></div><script type="module">
+import { createElement as h } from 'react';
+import { createRoot } from 'react-dom/client';
+import { AutoRig } from './src/ui/RigEditor';
+const q = new URLSearchParams(location.search);
+createRoot(document.getElementById('root')).render(h(AutoRig, { url: q.get('modelo'), name: 'Teste', rig: q.get('tipo'), onClose: () => {}, onDone: (f) => { window.__file = f.size; } }));
+</script></body></html>

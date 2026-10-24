@@ -1,0 +1,14 @@
+<!doctype html><html><body><pre id="log"></pre><script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+const L = new GLTFLoader(); const out = {};
+for (const t of ['fox','horse','spider','bird','dragon','snake','shark','kaiju']) {
+  const [r, m] = await Promise.all([L.loadAsync(`/rig/rigs/rig-${t}.glb`), L.loadAsync(`/rig/models/model-${t}.glb`)]);
+  r.scene.updateMatrixWorld(true); m.scene.updateMatrixWorld(true);
+  const mb = new THREE.Box3().setFromObject(m.scene); const jb = new THREE.Box3(); const bones = [];
+  r.scene.traverse((o) => { if (o.isBone) { const p = o.getWorldPosition(new THREE.Vector3()); jb.expandByPoint(p); bones.push(`${o.name}(${o.parent?.isBone ? o.parent.name : '-'}) ${p.toArray().map(n=>n.toFixed(2)).join(',')}`); } });
+  let skinned = false; m.scene.traverse((o) => { if (o.isSkinnedMesh) skinned = true; });
+  out[t] = { model: [mb.min.toArray().map(n=>+n.toFixed(2)), mb.max.toArray().map(n=>+n.toFixed(2))], joints: [jb.min.toArray().map(n=>+n.toFixed(2)), jb.max.toArray().map(n=>+n.toFixed(2))], skinned, n: bones.length, bones };
+}
+window.__out = out; document.getElementById('log').textContent = 'done';
+</script></body></html>

@@ -1,0 +1,41 @@
+<!doctype html><html><body style="margin:0;background:#223"><div id="v" style="display:flex;flex-wrap:wrap"></div><pre id="log" style="color:#fff"></pre>
+<iframe id="f" style="width:900px;height:600px;border:0"></iframe>
+<script type="module">
+// Lab (só no dev): rig automático sem cliques ("sozinho"), depois toca as animações do arquivo que voltou.
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+const q = new URLSearchParams(location.search);
+const log = (s) => { document.getElementById('log').textContent += s + '\n'; };
+const f = document.getElementById('f');
+f.src = `/rig/create.html?modelo=${encodeURIComponent(q.get('modelo'))}&auto=1&sozinho=${q.get('tipo')}`;
+addEventListener('message', async (e) => {
+  const d = e.data;
+  if (d.type === 'm2m-progress') { log('etapa ' + d.stage + (d.fit ? ' ' + JSON.stringify(d.fit) : '')); if (d.stage === 'pele') window.__fitShot = true; return; }
+  if (d.type === 'm2m-error') { log('ERRO ' + d.message); window.__done = true; return; }
+  if (d.type !== 'm2m-export') return;
+  log('arquivo ' + (d.buffer.byteLength / 1024).toFixed(0) + ' KB');
+  const g = await new GLTFLoader().parseAsync(d.buffer, '');
+  log('clipes: ' + g.animations.map((a) => a.name).join(', '));
+  f.remove();
+  const want = (q.get('clipes') ?? 'Idle,Walk,Run').split(',');
+  const box = new THREE.Box3().setFromObject(g.scene), c = box.getCenter(new THREE.Vector3()), s = box.getSize(new THREE.Vector3());
+  const R = Math.max(s.x, s.y, s.z);
+  const r = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true }); r.setSize(300, 300);
+  const scene = new THREE.Scene(); scene.background = new THREE.Color('#33406f'); scene.add(g.scene);
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x334455, 2.5));
+  const helper = new THREE.SkeletonHelper(g.scene); scene.add(helper);
+  const mixer = new THREE.AnimationMixer(g.scene);
+  const shots = [['rest', null, 0]];
+  for (const w of want) { const clip = g.animations.find((a) => a.name.toLowerCase().includes(w.toLowerCase())); if (clip) { shots.push([clip.name, clip, 0.25]); shots.push([clip.name, clip, 0.6]); } }
+  for (const [name, clip, t] of shots) {
+    mixer.stopAllAction();
+    if (clip) { const a = mixer.clipAction(clip); a.play(); mixer.setTime(clip.duration * t); } else g.scene.traverse((o) => { if (o.isSkinnedMesh) o.skeleton.pose(); });
+    for (const [cam, lbl] of [[new THREE.Vector3(R * 1.6, R * 0.5, R * 0.6), 'lado'], [new THREE.Vector3(0, R * 0.4, R * 1.8), 'frente']]) {
+      const camera = new THREE.PerspectiveCamera(40, 1, 0.01, 100); camera.position.copy(c).add(cam); camera.lookAt(c);
+      r.render(scene, camera);
+      const fig = document.createElement('figure'); fig.style.margin = '2px'; fig.innerHTML = `<img src="${r.domElement.toDataURL()}"><figcaption style="color:#fff;font:11px sans-serif">${name} ${t} ${lbl}</figcaption>`; document.getElementById('v').appendChild(fig);
+    }
+  }
+  window.__done = true;
+});
+</script></body></html>

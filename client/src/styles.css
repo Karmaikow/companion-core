@@ -1097,3 +1097,13 @@ html:has(.admin), body:has(.admin), #root:has(.admin) { height: auto; min-height
 .rig-editor .rig-opts { display: grid; gap: 2px; font-size: .78rem; color: #f4ead2; }
 .rig-editor .rig-opts label { display: flex; gap: 6px; align-items: center; white-space: nowrap; }
 .rig-editor .rig-opts small { color: #9fe0a0; max-width: 260px; }
+/* rig automático: uma janela no meio mostrando o editor trabalhando (só para ver) */
+.rig-editor.auto { inset: auto; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(820px, 94vw); height: min(560px, 86vh); border: 1px solid rgba(214, 176, 106, .45); border-radius: 12px; overflow: hidden; box-shadow: 0 20px 60px rgba(0, 0, 0, .6); }
+.rig-editor.auto iframe { pointer-events: none; }
+.rig-editor .rig-stage { flex: 1; font-size: .85rem; color: #9fe0a0; }
+.rig-editor .msg.err { flex: 1; margin: 0; }
+.creature-prompt { display: grid; gap: 6px; margin-top: 8px; }
+.creature-prompt .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.creature-prompt .ref-thumb { width: 64px; height: 64px; object-fit: cover; border-radius: 8px; border: 1px solid rgba(214, 176, 106, .4); }
+.creature-prompt textarea[readonly] { font-size: .75rem; }
+.model-box label.inline { display: inline-flex; gap: 6px; align-items: center; }

@@ -1,79 +1,62 @@
 /**
- * Rig no próprio Administrador: o editor do Mesh2Motion (MIT, hospedado em /rig/) abre o .GLB sem rig, a pessoa encaixa
- * o esqueleto e o arquivo riggado volta direto para cá (postMessage do editor, mesma origem) — sem baixar nem reenviar.
- * Companions: esqueleto humano, sem precisar marcar animações (o pacote padrão vem depois, na aba Animações).
- * Monstros: o esqueleto do bicho e as animações marcadas vão junto no arquivo.
+ * Rig automático no Administrador: o editor do Mesh2Motion (MIT, hospedado em /rig/) abre o .GLB sem rig, escolhe o
+ * esqueleto, encaixa as juntas sozinho (humano pelas fatias do corpo; bichos comparando com o modelo do molde), liga a
+ * malha aos ossos e devolve o arquivo para cá (postMessage, mesma origem) — sem ninguém clicar.
+ * Companions: esqueleto humano, sem animações (o pacote padrão vem depois, na aba Animações).
+ * Monstros: o esqueleto do tipo escolhido e todas as animações do molde dele vão juntos no arquivo.
+ * A janela mostra o editor trabalhando (só para ver; não dá para mexer).
  */
 import { useEffect, useRef, useState } from 'react';
-import { loadRigPreset, presetQuery, saveRigPreset, type RigPreset } from './rigPreset';
 
-export function RigEditor({ url, name, who, onDone, onClose }: {
-  url: string; name: string; who: 'companion' | 'monstro';
+const STAGES: Record<string, string> = { esqueleto: 'Escolhendo o esqueleto…', encaixe: 'Medindo o corpo e encaixando as juntas…', pele: 'Ligando a malha aos ossos…', arquivo: 'Gravando o arquivo…' };
+
+export function AutoRig({ url, name, rig, onDone, onClose }: {
+  url: string; name: string; rig: string;
   onDone: (file: File) => Promise<void> | void; onClose: () => void;
 }) {
   const frame = useRef<HTMLIFrameElement>(null);
+  const [stage, setStage] = useState('Abrindo o modelo…');
+  const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  // esqueleto salvo (Companions): começa por ele e, se marcado, este encaixe vira o novo ponto de partida
-  const [preset, setPreset] = useState<RigPreset | null | undefined>(who === 'companion' ? undefined : null);
-  const [usePreset, setUsePreset] = useState(true);
-  const [keep, setKeep] = useState(false);
-  const [auto, setAuto] = useState(true);
-  const [note, setNote] = useState<string | null>(null);
+  const doneRef = useRef(onDone); doneRef.current = onDone;
   useEffect(() => {
-    if (who !== 'companion') return;
-    loadRigPreset().then((p) => { setPreset(p); setKeep(!p); }, () => setPreset(null));
-  }, [who]);
-  const keepRef = useRef(keep); keepRef.current = keep;
-  useEffect(() => {
+    // sem resposta em 3 min: algo travou (modelo pesado demais ou quebrado)
+    const timer = setTimeout(() => setError((e) => e ?? 'O rig automático demorou demais. Tente de novo ou envie um modelo mais leve.'), 180_000);
     const on = (e: MessageEvent) => {
       if (e.origin !== location.origin || e.source !== frame.current?.contentWindow) return;
-      const d = e.data as { type?: string; buffer?: ArrayBuffer };
-      if (d?.type !== 'm2m-export' || !(d.buffer instanceof ArrayBuffer)) return;
-      const slug = name.normalize('NFD').replace(/[^\w-]+/g, '_').slice(0, 30) || 'modelo';
-      setSaving(true);
-      const file = new File([d.buffer], `${slug}-rig.glb`, { type: 'model/gltf-binary' });
-      void (async () => {
-        if (who === 'companion' && keepRef.current) {
-          try { await saveRigPreset(file, name); setNote(`Esqueleto de ${name} guardado: os próximos rigs começam por ele.`); }
-          catch (err) { setNote((err as Error).message); }
-        }
-        await onDone(file);
-      })().finally(() => setSaving(false));
+      const d = e.data as { type?: string; stage?: string; message?: string; buffer?: ArrayBuffer };
+      if (d?.type === 'm2m-progress' && d.stage) setStage(STAGES[d.stage] ?? d.stage);
+      else if (d?.type === 'm2m-error') setError('O rig automático não conseguiu: ' + (d.message ?? 'erro desconhecido'));
+      else if (d?.type === 'm2m-export' && d.buffer instanceof ArrayBuffer) {
+        clearTimeout(timer);
+        const slug = name.normalize('NFD').replace(/[^\w-]+/g, '_').slice(0, 30) || 'modelo';
+        setSaving(true); setStage('Salvando o modelo riggado…');
+        void Promise.resolve(doneRef.current(new File([d.buffer], `${slug}-rig.glb`, { type: 'model/gltf-binary' }))).finally(() => setSaving(false));
+      }
     };
     addEventListener('message', on);
-    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape' && !saving) onClose(); };
-    addEventListener('keydown', esc);
-    return () => { removeEventListener('message', on); removeEventListener('keydown', esc); };
-  }, [name, onDone, onClose, saving, who]);
+    return () => { clearTimeout(timer); removeEventListener('message', on); };
+  }, [name]);
 
   return (
-    <div className="rig-editor" role="dialog" aria-modal="true" aria-label={`Rig de ${name}`}>
+    <div className="rig-editor auto" role="dialog" aria-modal="true" aria-label={`Rig automático de ${name}`}>
       <header>
-        <b>Rig de {name}</b>
-        <ol>
-          {who === 'companion' ? <>
-            <li>Gire o modelo para olhar para a linha azul, se precisar, e escolha o esqueleto <b>Human</b>{preset && usePreset ? <> (ele já vem com o encaixe de {preset.from}, esticado para este modelo)</> : null}.</li>
-            <li><b>Edit Skeleton</b>: {auto && !(preset && usePreset) ? <>as juntas já vêm encaixadas pelo corpo; confira e ajuste só o que precisar.</> : <>arraste as juntas para dentro do corpo (ombros, cotovelos, punhos, quadril, joelhos, pés).</>} O espelho faz os dois lados de uma vez.</li>
-            <li><b>Finish</b> e depois <b>Download</b> (não precisa marcar animações): o modelo riggado volta sozinho para cá.</li>
-          </> : <>
-            <li>Escolha o esqueleto do monstro (quadrúpede, aranha, dragão, pássaro, cobra, tubarão ou kaiju).</li>
-            <li><b>Edit Skeleton</b>: encaixe as juntas no corpo e depois <b>Finish</b>.</li>
-            <li>Marque as animações (parado, andar, correr, ataque, dano, morte, dormir) e <b>Download</b>: o modelo volta sozinho para cá.</li>
-          </>}
-        </ol>
-        {who === 'companion' && (
-          <div className="rig-opts">
-            <label><input type="checkbox" checked={auto && !(preset && usePreset)} disabled={!!(preset && usePreset)} onChange={(e) => setAuto(e.target.checked)} /> encaixe automático (mede o corpo e põe as juntas)</label>
-            {preset && <label><input type="checkbox" checked={usePreset} onChange={(e) => setUsePreset(e.target.checked)} /> começar pelo esqueleto de {preset.from}</label>}
-            <label><input type="checkbox" checked={keep} onChange={(e) => setKeep(e.target.checked)} /> guardar este encaixe para os próximos</label>
-            {note && <small role="status">{note}</small>}
-          </div>
-        )}
-        <button className="ghost" disabled={saving} onClick={onClose}>{saving ? 'Gravando…' : 'Fechar'}</button>
+        <b>Rig automático · {name}</b>
+        <span className={error ? 'msg err' : 'rig-stage'} role="status">{error ?? stage}</span>
+        <button className="ghost" disabled={saving} onClick={onClose}>{saving ? 'Gravando…' : error ? 'Fechar' : 'Cancelar'}</button>
       </header>
-      {preset === undefined ? <p className="hint" style={{ padding: 16 }}>Carregando…</p> : (
-        <iframe key={(usePreset ? 'p' : 'm') + (auto ? 'a' : '')} ref={frame} title="Editor de rig (Mesh2Motion)" src={`/rig/create.html?modelo=${encodeURIComponent(url)}${preset && usePreset ? presetQuery(preset) : who === 'companion' && auto ? '&auto=1' : ''}`} />
-      )}
+      <iframe ref={frame} title="Rig automático (Mesh2Motion)" tabIndex={-1} src={`/rig/create.html?modelo=${encodeURIComponent(url)}&auto=1&sozinho=${encodeURIComponent(rig)}`} />
     </div>
   );
+}
+
+/** O .GLB já tem esqueleto (pele ligada a ossos)? Lê só o cabeçalho JSON do arquivo. */
+export async function glbHasRig(file: Blob): Promise<boolean> {
+  try {
+    const head = new DataView(await file.slice(0, 20).arrayBuffer());
+    if (head.getUint32(0, true) !== 0x46546c67) return false;
+    const len = head.getUint32(12, true);
+    const json = JSON.parse(new TextDecoder().decode(await file.slice(20, 20 + len).arrayBuffer())) as { skins?: unknown[] };
+    return (json.skins?.length ?? 0) > 0;
+  } catch { return false; }
 }
