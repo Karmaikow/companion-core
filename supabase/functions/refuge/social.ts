@@ -6,7 +6,7 @@
 // - Troca: só pessoas; a outra responde com a parte dela e as duas confirmam; o banco troca tudo de uma vez.
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import {
-  SOCIAL, pairKey, buildMeetPrompt, parseMeet, offlineMeet, planMeeting, companionAcceptsParty, parseTradeItems, tradeStep, masculinize, friendRequestText,
+  SOCIAL, pairKey, buildMeetPrompt, parseMeet, offlineMeet, planMeeting, companionAcceptsParty, buildPartyTalkPrompt, parsePartyTalk, offlinePartyTalk, GROUP_ACTIVITY, type GroupActivity, parseTradeItems, tradeStep, masculinize, friendRequestText,
   type MeetSide, type MeetContext, type MeetProposal, type Discoveries, type TradeStatus,
 } from './rules/index.ts';
 import { complete, providerName } from './llm.ts';
@@ -29,6 +29,20 @@ async function cards(db: SupabaseClient, ids: string[]): Promise<Map<string, Car
   const { data } = await db.from('companions').select('id,discoveries,stage').in('id', uniq);
   return new Map((data ?? []).map((r) => [r.id as string, card(r)]));
 }
+/** Retrato (arte aprovada na Fábrica) de cada Companion, com URL assinada — para o painel do grupo. */
+async function artUrls(db: SupabaseClient, ids: string[]): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  if (!ids.length) return out;
+  const { data } = await db.from('visual_jobs').select('companion_id,result,created_at').in('companion_id', ids).eq('status', 'approved').order('created_at', { ascending: false });
+  const paths = new Map<string, string>();
+  for (const j of data ?? []) { const p = (j.result as { art?: { path?: string } } | null)?.art?.path; if (p && !paths.has(j.companion_id as string)) paths.set(j.companion_id as string, p); }
+  if (!paths.size) return out;
+  const { data: signed } = await db.storage.from('companion-studio').createSignedUrls([...paths.values()], 6 * 3600);
+  const byPath = new Map((signed ?? []).filter((x) => x.path && x.signedUrl).map((x) => [x.path as string, x.signedUrl as string]));
+  paths.forEach((p, id) => { const u = byPath.get(p); if (u) out.set(id, u); });
+  return out;
+}
+
 async function companionRow(db: SupabaseClient, id: string) {
   const { data } = await db.from('companions').select('id,owner_id,discoveries,stage').eq('id', id).maybeSingle();
   if (!data) throw new SocialError(404, 'Companion não encontrado.');
@@ -171,6 +185,45 @@ async function near(ctx: Ctx, body: Record<string, unknown>) {
   return { meeting: await meetingView(db, mt, me), ...out };
 }
 
+/**
+ * Conversa do grupo (enquanto a atividade é "conversar", ou de vez em quando caçando/explorando): uma troca curta entre
+ * quem pediu e outro membro, sobre o que estão fazendo. Uma por grupo a cada SOCIAL.partyTalkEvery segundos; entra no
+ * mesmo limite diário dos encontros. Sem memória (a do encontro já existe) para não encher o prompt.
+ */
+async function partyTalk(ctx: Ctx, body: Record<string, unknown>) {
+  const { db, c } = ctx;
+  const me = c.id as string;
+  const activity = (typeof body.activity === 'string' && body.activity in GROUP_ACTIVITY ? body.activity : 'conversar') as GroupActivity;
+  const party = await partyOf(db, me);
+  if (!party || party.size < 2) return { meeting: null, reason: 'sem-grupo' };
+  const others = party.members.filter((m) => m !== me);
+  const want = typeof body.with === 'string' && others.includes(body.with) ? body.with : others[Math.floor(Date.now() / 60000) % others.length];
+  const since = new Date(Date.now() - SOCIAL.partyTalkEvery * 1000).toISOString();
+  const list = party.members.join(',');
+  const { data: recent } = await db.from('companion_meetings').select('id,a,b,lines,created_at').in('a', party.members).in('b', party.members).order('created_at', { ascending: false }).limit(6);
+  const last = (recent ?? [])[0];
+  if (last && (last.created_at as string) > since) return { meeting: Date.now() - Date.parse(last.created_at as string) < 120_000 ? await meetingView(db, last, me) : null, reason: 'recente' };
+  void list;
+  const dayAgo = new Date(Date.now() - 86_400_000).toISOString();
+  const [{ count: n1 }, { count: n2 }] = await Promise.all([
+    db.from('companion_meetings').select('id', { count: 'exact', head: true }).eq('a', me).gte('created_at', dayAgo),
+    db.from('companion_meetings').select('id', { count: 'exact', head: true }).eq('b', me).gte('created_at', dayAgo),
+  ]);
+  if ((n1 ?? 0) + (n2 ?? 0) >= SOCIAL.dailyMeetings) return { meeting: null, reason: 'limite-do-dia' };
+  const [a, b] = pairKey(me, want);
+  const [ra, rb] = await Promise.all([companionRow(db, a), companionRow(db, b)]);
+  const da = (ra.discoveries ?? {}) as Discoveries, dbb = (rb.discoveries ?? {}) as Discoveries;
+  const A: MeetSide = { id: a, name: da.name ?? 'Companion', discoveries: da, memories: [], about: [] }, B: MeetSide = { id: b, name: dbb.name ?? 'Companion', discoveries: dbb, memories: [], about: [] };
+  const said = (recent ?? []).slice(0, 3).flatMap((m) => (m.lines as { name: string; text: string }[]).map((l) => `${l.name}: ${l.text}`));
+  let lines = null as { who: 'a' | 'b'; text: string }[] | null, source = 'party:offline';
+  try { const raw = await complete(buildPartyTalkPrompt(A, B, activity, said), [], 'Continue a conversa.', { maxTokens: 400, quality: true, timeoutMs: 12_000 }); if (raw) { lines = parsePartyTalk(raw); if (lines) source = 'party:' + providerName(); } } catch { lines = null; }
+  lines ??= offlinePartyTalk(A, B, activity, a + b + Date.now());
+  const speak = (who: 'a' | 'b', t: string) => ((who === 'a' ? da : dbb).pronoun === 'ele' ? masculinize(t) : t);
+  const stored = lines.map((l) => ({ cid: l.who === 'a' ? a : b, name: l.who === 'a' ? A.name : B.name, text: speak(l.who, l.text) }));
+  const { data: mt } = await db.from('companion_meetings').insert({ a, b, lines: stored, source }).select('id,a,b,lines,created_at').single();
+  return { meeting: mt ? await meetingView(db, mt, me) : null };
+}
+
 async function meetingView(db: SupabaseClient, m: Record<string, unknown>, me: string) {
   const other = (m.a === me ? m.b : m.a) as string;
   const cs = await cards(db, [other]);
@@ -211,7 +264,11 @@ async function state(ctx: Ctx) {
       known: known.filter((id) => !friendIds.includes(id)).map(pick),
       friendRequests: (reqIn.data ?? []).map((r) => ({ id: r.id, from: pick(r.from_cid as string), at: r.created_at, text: friendRequestText(pick(r.from_cid as string).name, myName, myPron) })),
       friendRequestsSent: (reqOut.data ?? []).map((r) => ({ id: r.id, to: pick(r.to_cid as string), at: r.created_at })),
-      party: party ? { id: party.id, leader: party.leader, members: party.members.map(pick) } : null,
+      party: party ? await (async () => {
+        const [arts, rows] = await Promise.all([artUrls(db, party.members), db.from('companions').select('id,discoveries').in('id', party.members)]);
+        const traits = new Map((rows.data ?? []).map((r) => [r.id as string, ((r.discoveries ?? {}) as Discoveries).traits ?? []]));
+        return { id: party.id, leader: party.leader, members: party.members.map((id) => ({ ...pick(id), art: arts.get(id) ?? null, traits: traits.get(id) ?? [] })) };
+      })() : null,
       partyInvites: (invIn.data ?? []).map((r) => ({ id: r.id, from: pick(r.from_cid as string), by: r.by, at: r.created_at })),
       partyInvitesSent: (invOut.data ?? []).map((r) => ({ id: r.id, to: pick(r.to_cid as string), by: r.by, at: r.created_at })),
       trades: (trades.data ?? []).map((t) => ({ id: t.id, mine: t.from_cid === me, from: pick(t.from_cid as string), to: pick(t.to_cid as string), give: t.give, take: t.take, status: t.status, fromOk: t.from_ok, toOk: t.to_ok, at: t.updated_at })),
@@ -233,6 +290,7 @@ export async function socialAction(action: string, body: Record<string, unknown>
   switch (action) {
     case 'social.state': return state(ctx);
     case 'social.near': return near(ctx, body);
+    case 'social.party.talk': return partyTalk(ctx, body);
 
     // amizade: só a pessoa responde (o Companion nunca aceita sozinho)
     case 'social.friend.respond': {

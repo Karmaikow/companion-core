@@ -357,7 +357,7 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
       if (focusT && !cs.charging && order?.kind !== 'flee') ai.target = focusT;
       else if (!driving && !cs.charging) {
         let threat: Target | null = null, td = Infinity, prey: Target | null = null, pd = Infinity;
-        const huntR = order?.kind === 'hunt' ? 18 : 12;
+        const huntR = order?.kind === 'hunt' ? 18 : socialHold.group?.activity === 'cacar' ? 16 : 12;
         targets.forEach((tg) => {
           const c = tg.creature; if (!c || tg.r < 0 || c.hp() <= 0) return;
           const dd = Math.hypot(tg.x - r.position.x, tg.z - r.position.z);
@@ -372,7 +372,7 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
         } else {
           const exploring = !!roam.goal?.current;
           // em grupo (seguindo o líder) também caça o que aparecer perto, junto com ele
-          const hunting = order?.kind === 'attack' || order?.kind === 'hunt' || (exploring && conf.posture === 'cacadora') || (!!socialHold.follow && conf.posture !== 'pacifica');
+          const hunting = order?.kind === 'attack' || order?.kind === 'hunt' || (exploring && conf.posture === 'cacadora') || (socialHold.group?.activity === 'cacar' && conf.posture !== 'pacifica');
           if (hunting && prey) ai.target = prey;
           else if (conf.posture !== 'pacifica' && threat && td < 7) ai.target = threat; // se defende de quem vem brigar
         }
@@ -413,7 +413,7 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
     } else if (!ai.target) ai.engaged = null;
     // MMO: encontrou outro Companion → para e conversa olhando para ele; em grupo → vai junto com o líder.
     // A pessoa manda mais: andar (teclado, joystick, clique) cancela.
-    if (driving) { socialHold.until = 0; }
+    if (driving) { socialHold.until = 0; socialHold.pausedUntil = performance.now() + 15_000; } // a pessoa mexeu: o grupo espera um pouco
     let holdYaw: number | null = null;
     if (!driving && !ai.target && !ai.fleeing && !cs.charging) {
       const nowMs = performance.now();

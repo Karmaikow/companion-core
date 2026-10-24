@@ -246,6 +246,8 @@ export function App() {
   }, [presenceKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useSocialLoop({ on: backend?.kind === 'online' && c?.stage === 'awakened', inWorld: place === 'world', me: c?.id ?? null });
+  // grupo: o líder explora sozinho quando o grupo está explorando ou caçando (os outros vão atrás dele)
+  const groupExplore = useSocial((s) => !!s.group && s.group.role === 'leader' && s.group.activity !== 'conversar');
   const socialBadge = useSocial((s) => (s.data ? s.data.friendRequests.length + s.data.partyInvites.length + s.data.trades.filter((t) => !t.mine && t.status === 'proposed').length : 0));
 
   useSkillSync();
@@ -332,7 +334,7 @@ export function App() {
       <div className="stage">
         <Suspense fallback={null}>
           {place === 'world' && model ? (
-            <WorldScene world={companionWorld} creatures={creatures} model={model} appendages={appendages} speed={built.moveSpeed} gear={gear} weather={weather} speech={bubble} burstKey={burst} color={visual.color} quality={quality()} discovered={discovered} explore={explore} onRegion={enterRegion} onDiscover={discover} onHome={goHome} />
+            <WorldScene world={companionWorld} creatures={creatures} model={model} appendages={appendages} speed={built.moveSpeed} gear={gear} weather={weather} speech={bubble} burstKey={burst} color={visual.color} quality={quality()} discovered={discovered} explore={explore || groupExplore} onRegion={enterRegion} onDiscover={discover} onHome={goHome} />
           ) : <Refuge color={visual.color} glow={visual.glow} element={d.element} energy={energy} pulseKey={pulse} burstKey={burst} features={passage && !features.window ? { ...features, window: true } : features} contract={c?.stage === 'awakened' ? c.identityContract : null} speech={bubble} model={model} seed={seed} biome={biome} quality={quality()} appendages={appendages} speed={built.moveSpeed} gear={gear} weather={weather} />}
         </Suspense>
       </div>

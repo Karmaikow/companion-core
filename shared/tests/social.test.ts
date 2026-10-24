@@ -82,3 +82,19 @@ describe('MMO social', () => {
     void t; t = t;
   });
 });
+
+describe('grupo: atividade e conversa', () => {
+  it('a atividade é a mesma para todo o grupo na mesma janela e muda com o tempo', async () => {
+    const { groupActivity, GROUP_ACTIVITY_WINDOW } = await import('../rules/social.ts');
+    const t = 1_800_000_000_000;
+    expect(groupActivity('p1', t)).toBe(groupActivity('p1', t + 1000));
+    const seen = new Set(Array.from({ length: 40 }, (_, i) => groupActivity('p1', t + i * GROUP_ACTIVITY_WINDOW * 1000)));
+    expect(seen.size).toBeGreaterThan(1);
+  });
+  it('conversa de grupo: lê o JSON e tem reserva sem IA', async () => {
+    const { parsePartyTalk, offlinePartyTalk } = await import('../rules/social.ts');
+    expect(parsePartyTalk('{"lines":[{"who":"a","text":"Olha!"},{"who":"b","text":"Que lindo!"}]}')).toHaveLength(2);
+    expect(parsePartyTalk('{"lines":[{"who":"a","text":"Olha!"}]}')).toBeNull();
+    expect(offlinePartyTalk(A, B, 'cacar', 's')).toHaveLength(2);
+  });
+});
