@@ -199,7 +199,14 @@ export async function exportClips(model: THREE.Object3D, clips: THREE.AnimationC
   const rig = cloneSkinned(model);
   const drop: THREE.Object3D[] = [];
   rig.traverse((o) => { if ((o as THREE.Mesh).isMesh || (o as THREE.SkinnedMesh).isSkinnedMesh) drop.push(o); });
-  for (const o of drop) o.removeFromParent();
+  // a malha sai, mas os ossos que estão dentro dela ficam (no rig do Mesh2Motion o esqueleto mora dentro da malha)
+  for (const o of drop) {
+    const keep = new THREE.Object3D();
+    keep.name = o.name; keep.position.copy(o.position); keep.quaternion.copy(o.quaternion); keep.scale.copy(o.scale);
+    for (const ch of [...o.children]) keep.add(ch);
+    const parent = o.parent;
+    if (parent) { parent.add(keep); o.removeFromParent(); }
+  }
   const out = await new GLTFExporter().parseAsync(rig, { binary: true, animations: clips, onlyVisible: false });
   return compactGlb(out as ArrayBuffer);
 }

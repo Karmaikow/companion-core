@@ -1,0 +1,2 @@
+import{t as e}from"./offline-UpsnbZjO.js";/* empty css              */var t=new class{constructor(){this.mesh2motion_engine=new e}},n=new URLSearchParams(location.search).get(`modelo`);n!==null&&t.mesh2motion_engine.load_model_step.load_model_file(new URL(n,location.href).href,`glb`);
+//# sourceMappingURL=create-Bi4YDe4s.js.map

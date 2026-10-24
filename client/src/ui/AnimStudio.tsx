@@ -411,13 +411,12 @@ function M2mGuide({ open }: { open: boolean }) {
     <details className="model-box m2m-box" open={open}>
     <summary><strong>Animar um monstro com o Mesh2Motion</strong></summary>
     <ol className="m2m-steps">
-      <li>Exporte o monstro do Tripo <b>só o modelo, sem rig</b>, em .GLB.</li>
-      <li>No editor, importe o .GLB e escolha o esqueleto: quadrúpede (raposa ou cavalo), aranha, dragão, pássaro, cobra, tubarão ou kaiju.</li>
-      <li>Encaixe os ossos no corpo (arraste as juntas), teste e marque as animações: parado, andar, correr, ataque ou mordida, dano, morte, dormir.</li>
-      <li>Exporte em .GLB e envie no Invocador, na seção do modelo do monstro. Os papéis daqui se preenchem pelos nomes; ajuste o que quiser e salve.</li>
+      <li>Exporte o monstro do Tripo <b>só o modelo, sem rig</b>, e envie no Invocador.</li>
+      <li>No Invocador, toque em <b>Fazer o rig aqui</b>: escolha o esqueleto (quadrúpede, aranha, dragão, pássaro, cobra, tubarão ou kaiju) e encaixe as juntas no corpo.</li>
+      <li>Marque as animações (parado, andar, correr, ataque ou mordida, dano, morte, dormir) e <b>Download</b>: o modelo volta sozinho para o Invocador. Salve o monstro.</li>
+      <li>Aqui, os papéis se preenchem pelos nomes; ajuste o que quiser e salve.</li>
     </ol>
-    <a className="button" href="https://app.mesh2motion.org/" target="_blank" rel="noreferrer">Abrir o editor do Mesh2Motion ↗</a>
-    <small>Código aberto (MIT) e animações livres (CC0): pode usar no jogo.</small>
+    <small>Editor do Mesh2Motion (código aberto MIT, animações CC0), dentro do nosso site.</small>
   </details>
   );
 }

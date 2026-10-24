@@ -1,0 +1,202 @@
+diff --git a/src/CustomModelUploadBootstrap.ts b/src/CustomModelUploadBootstrap.ts
+index f5f9e30..23ea013 100644
+--- a/src/CustomModelUploadBootstrap.ts
++++ b/src/CustomModelUploadBootstrap.ts
+@@ -1,7 +1,7 @@
+ import { Mesh2MotionEngine } from './Mesh2MotionEngine'
+ 
+ export class CustomModelUploadBootstrap {
+-  private readonly mesh2motion_engine: Mesh2MotionEngine
++  public readonly mesh2motion_engine: Mesh2MotionEngine
+ 
+   constructor () {
+     this.mesh2motion_engine = new Mesh2MotionEngine()
+@@ -10,3 +10,10 @@ export class CustomModelUploadBootstrap {
+ 
+ // instantiate the class to setup event listeners
+ const app = new CustomModelUploadBootstrap()
++
++// Companion Core: "?modelo=<url>" abre o modelo direto (o Administrador passa o .GLB do Companion ou do monstro)
++const model_url = new URLSearchParams(location.search).get('modelo')
++if (model_url !== null) {
++  // o carregador aceita o endereço direto (é o mesmo caminho do arquivo enviado pela tela)
++  app.mesh2motion_engine.load_model_step.load_model_file(new URL(model_url, location.href).href, 'glb')
++}
+diff --git a/src/lib/CustomSkeletonHelper.ts b/src/lib/CustomSkeletonHelper.ts
+index ffceca8..a38b97f 100644
+--- a/src/lib/CustomSkeletonHelper.ts
++++ b/src/lib/CustomSkeletonHelper.ts
+@@ -50,7 +50,7 @@ const bone_category_colors: Record<BoneCategory, number> = {
+ let shared_joint_texture: Texture | undefined
+ 
+ function get_joint_texture (): Texture {
+-  shared_joint_texture ??= new TextureLoader().load('/images/skeleton-joint-point.png')
++  shared_joint_texture ??= new TextureLoader().load('images/skeleton-joint-point.png')
+   return shared_joint_texture
+ }
+ 
+diff --git a/src/lib/DOMUtilities.ts b/src/lib/DOMUtilities.ts
+index de042b5..27a8896 100644
+--- a/src/lib/DOMUtilities.ts
++++ b/src/lib/DOMUtilities.ts
+@@ -36,7 +36,7 @@ export class DOMUtilities {
+   static readonly top_nav_links: TopNavLinksConfig = {
+     support_href: 'https://support.mesh2motion.org',
+     github_href: 'https://github.com/scottpetrovic/mesh2motion-app',
+-    github_icon_src: '../images/github-white-icon.png'
++    github_icon_src: 'images/github-white-icon.png'
+   }
+ 
+   static readonly settings_defaults: SettingsDefaultsConfig = {
+@@ -90,17 +90,17 @@ export class DOMUtilities {
+     mount.innerHTML = `
+       <div id="header-ui">
+         <div>
+-          <img class="nav-icon" src="/images/mouse-left.svg" style="vertical-align: middle" />
++          <img class="nav-icon" src="images/mouse-left.svg" style="vertical-align: middle" />
+           Rotate
+         </div>
+ 
+         <div>
+-          <img class="nav-icon" src="/images/mouse-right.svg" style="vertical-align: middle" />
++          <img class="nav-icon" src="images/mouse-right.svg" style="vertical-align: middle" />
+           Pan
+         </div>
+ 
+         <div>
+-          <img class="nav-icon" src="/images/mouse-middle.svg" style="vertical-align: middle" />
++          <img class="nav-icon" src="images/mouse-middle.svg" style="vertical-align: middle" />
+           Zoom
+         </div>
+       </div>
+@@ -158,12 +158,12 @@ export class DOMUtilities {
+         <div style="display: flex; flex-direction: row; align-items: center; gap: 1rem; justify-content: center;">
+           <label style="display: inline-flex">Expand / Contract Arms</label>
+ 
+-          <img src="/images/icons/help.svg" alt="Help" width="20" height="20"
++          <img src="images/icons/help.svg" alt="Help" width="20" height="20"
+             data-tippy-content="Fine-tune arm spread across all animations for heavier or skinnier characters." />
+ 
+           <button class="secondary-button" id="reset-arm-extension-button"
+             aria-label="Reset arm extension" data-tippy-content="Reset">
+-            <img src="/images/icons/reset.svg" alt="Reset Arm Extension" width="20" height="20" />
++            <img src="images/icons/reset.svg" alt="Reset Arm Extension" width="20" height="20" />
+           </button>
+         </div>
+ 
+@@ -262,7 +262,7 @@ export class DOMUtilities {
+     if (DOMUtilities.is_retarget_page()) {
+       return {
+         export_button_id: 'export-retargeting-button',
+-        download_icon_src: '../images/icons/download.svg',
++        download_icon_src: 'images/icons/download.svg',
+         tooltip: defaults.tooltip
+       }
+     }
+@@ -272,7 +272,7 @@ export class DOMUtilities {
+ 
+   private static get_download_settings_icon_src (): string {
+     if (DOMUtilities.is_retarget_page()) {
+-      return '../images/icons/arrow-dropdown.svg'
++      return 'images/icons/arrow-dropdown.svg'
+     }
+ 
+     return 'images/icons/arrow-dropdown.svg'
+@@ -401,7 +401,7 @@ export class DOMUtilities {
+       <div id="settings-dropdown-container" class="nav-dropdown">
+         <button id="settings-toggle" class="nav-icon-button" aria-expanded="false" aria-controls="settings-dropdown-content" aria-haspopup="true" aria-label="Open settings">
+           
+-        <img src="/images/icons/settings.svg" alt="Settings" width="30" height="30" />
++        <img src="images/icons/settings.svg" alt="Settings" width="30" height="30" />
+         
+         </button>
+ 
+diff --git a/src/lib/processes/animations-listing/AnimationPlayer.ts b/src/lib/processes/animations-listing/AnimationPlayer.ts
+index 43f880d..7732c0e 100644
+--- a/src/lib/processes/animations-listing/AnimationPlayer.ts
++++ b/src/lib/processes/animations-listing/AnimationPlayer.ts
+@@ -175,10 +175,10 @@ export class AnimationPlayer {
+     if (icon !== null) {
+       // swap the img src based on play/pause state
+       if (this.is_playing || this.was_playing_before_user_scrubbed) {
+-        icon.src = '../images/icons/pause.svg'
++        icon.src = 'images/icons/pause.svg'
+         icon.alt = 'Pause'
+       } else {
+-        icon.src = '../images/icons/play.svg'
++        icon.src = 'images/icons/play.svg'
+         icon.alt = 'Play'
+       }
+     }
+diff --git a/src/lib/processes/animations-listing/AnimationSearch.ts b/src/lib/processes/animations-listing/AnimationSearch.ts
+index 4d38cb9..79bed4d 100644
+--- a/src/lib/processes/animations-listing/AnimationSearch.ts
++++ b/src/lib/processes/animations-listing/AnimationSearch.ts
+@@ -21,9 +21,9 @@ export class AnimationSearch extends EventTarget {
+   private static readonly mirror_mode_cycle: AnimationMirrorExportMode[] = ['none', 'mirrored', 'both']
+ 
+   private static readonly mirror_mode_icons: Record<AnimationMirrorExportMode, string> = {
+-    none: '/images/icons/mirror.svg',
+-    mirrored: '/images/icons/mirror.svg',
+-    both: '/images/icons/mirror-both.svg'
++    none: 'images/icons/mirror.svg',
++    mirrored: 'images/icons/mirror.svg',
++    both: 'images/icons/mirror-both.svg'
+   }
+ 
+   constructor (filter_input_id: string, animation_list_container_id: string, theme_manager: ThemeManager, skeleton_type: SkeletonType) {
+diff --git a/src/lib/processes/animations-listing/StepAnimationsListing.ts b/src/lib/processes/animations-listing/StepAnimationsListing.ts
+index 733a770..536229f 100644
+--- a/src/lib/processes/animations-listing/StepAnimationsListing.ts
++++ b/src/lib/processes/animations-listing/StepAnimationsListing.ts
+@@ -455,7 +455,8 @@ export class StepAnimationsListing extends EventTarget {
+       return (checkbox as HTMLInputElement).checked
+     })
+     if (this.ui.dom_export_button != null) {
+-      this.ui.dom_export_button.disabled = !is_any_checkbox_checked
++      // Companion Core: dentro do Administrador basta o rig (as animações vêm do pacote padrão do jogo)
++      this.ui.dom_export_button.disabled = !is_any_checkbox_checked && window.parent === window
+     }
+   }
+ 
+diff --git a/src/lib/processes/edit-skeleton/StepEditSkeleton.ts b/src/lib/processes/edit-skeleton/StepEditSkeleton.ts
+index c5f60ad..e7341ee 100644
+--- a/src/lib/processes/edit-skeleton/StepEditSkeleton.ts
++++ b/src/lib/processes/edit-skeleton/StepEditSkeleton.ts
+@@ -60,7 +60,7 @@ export class StepEditSkeleton extends EventTarget {
+   private enable_arm_plane_correction: boolean = false
+   private arm_plane_offset: number = 0.0
+ 
+-  private readonly joint_texture = new TextureLoader().load('/images/skeleton-joint-point.png')
++  private readonly joint_texture = new TextureLoader().load('images/skeleton-joint-point.png')
+ 
+   private _added_event_listeners: boolean = false
+   private readonly preview_plane_manager: PreviewPlaneManager = PreviewPlaneManager.getInstance()
+diff --git a/src/lib/processes/export-to-file/StepExportToFile.ts b/src/lib/processes/export-to-file/StepExportToFile.ts
+index 053adec..07bf627 100644
+--- a/src/lib/processes/export-to-file/StepExportToFile.ts
++++ b/src/lib/processes/export-to-file/StepExportToFile.ts
+@@ -47,7 +47,7 @@ export class StepExportToFile extends EventTarget {
+     filename: string = 'exported_model',
+     download_settings: DownloadSettings): Promise<void> {
+ 
+-    if (this.animation_clips_to_export.length === 0) {
++    if (this.animation_clips_to_export.length === 0 && window.parent === window) {
+       console.log('ERROR: No animation clips added to export')
+       return Promise.reject(new Error('No animation clips added to export'))
+     }
+@@ -204,6 +204,14 @@ export class StepExportToFile extends EventTarget {
+   }
+ 
+   private save_file (blob: Blob, filename: string): void {
++    // Companion Core: aberto dentro do Administrador, o arquivo volta para ele em vez de baixar
++    const host: Window | null = window.parent !== window ? window.parent : (window.opener as Window | null)
++    if (host !== null) {
++      void blob.arrayBuffer().then((buffer) => {
++        host.postMessage({ type: 'm2m-export', filename, buffer }, location.origin, [buffer])
++      })
++      return
++    }
+     if (this.ui.dom_export_button_hidden_link != null) {
+       this.ui.dom_export_button_hidden_link.href = URL.createObjectURL(blob)
+       this.ui.dom_export_button_hidden_link.download = filename

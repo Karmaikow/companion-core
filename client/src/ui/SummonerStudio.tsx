@@ -12,6 +12,7 @@ import {
 import { supabase } from '../backend/online';
 import { useCatalog, uploadWorldAsset, safeName } from './catalog';
 import { LookEditor } from './BiomeStudio';
+import { RigEditor } from './RigEditor';
 
 const CreaturePreview = lazy(() => import('../scene/CreaturePreview').then((m) => ({ default: m.CreaturePreview })));
 const ESS = Object.keys(ELEMENTS) as Element[];
@@ -58,6 +59,7 @@ export function SummonerStudio() {
     setSel(slug); setDraft(base); setStatus('draft'); setDirty(true); setNewName('');
   }
 
+  const [rigOpen, setRigOpen] = useState(false);
   async function uploadModel(files: File[], asAnims: boolean) {
     if (!draft) return;
     const glbs = files.filter((f) => /\.glb$/i.test(f.name));
@@ -141,11 +143,13 @@ export function SummonerStudio() {
                 <label>Altura (m)<input type="number" step={0.1} min={0.2} max={12} value={draft.size} onChange={(e) => edit({ size: Number(e.target.value) })} /></label>
               </div>
               <div className="model-box">
-                {draft.model ? <small className="ok">Modelo 3D: {decodeURIComponent(draft.model.url.split('/').pop() ?? '')}</small> : <small>Sem modelo 3D (.GLB do Tripo, com rig).</small>}
+                {draft.model ? <small className="ok">Modelo 3D: {decodeURIComponent(draft.model.url.split('/').pop() ?? '')}</small> : <small>Sem modelo 3D (.GLB do Tripo, com ou sem rig).</small>}
                 <div className="row">
                   <label className="upload"><input type="file" accept=".glb,model/gltf-binary" disabled={busy} onChange={(e) => { const fs = [...(e.target.files ?? [])]; e.target.value = ''; if (fs.length) void uploadModel(fs, false); }} />{draft.model ? 'Trocar modelo .GLB' : 'Enviar modelo .GLB'}</label>
                   {draft.model && <label className="upload"><input type="file" accept=".glb,model/gltf-binary" multiple disabled={busy} onChange={(e) => { const fs = [...(e.target.files ?? [])]; e.target.value = ''; if (fs.length) void uploadModel(fs, true); }} />+ Animações .GLB</label>}
+                  {draft.model && <button className="ghost" disabled={busy} onClick={() => setRigOpen(true)} title="Encaixa um esqueleto (quadrúpede, aranha, dragão…) e escolhe as animações">Fazer o rig aqui (Mesh2Motion)</button>}
                   {draft.model && <button className="link" onClick={() => edit({ model: undefined })}>tirar modelo</button>}
+                  {rigOpen && draft.model && <RigEditor url={draft.model.url} name={draft.name} who="monstro" onClose={() => setRigOpen(false)} onDone={async (file) => { await uploadModel([file], false); setRigOpen(false); }} />}
                 </div>
                 {draft.model && draft.model.anims.length > 0 && (
                   <ul className="anim-list">
