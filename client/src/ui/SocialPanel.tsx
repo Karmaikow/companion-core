@@ -22,6 +22,10 @@ const itemLabel = (it: Item, inv?: SocialState['inventory']) => {
   return e ? blueprintById(e.blueprint)?.name ?? e.blueprint : 'peça';
 };
 
+const ExitIcon = () => (<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4" /><path d="M10 16l-4-4 4-4" /><path d="M6 12h10" /></svg>);
+const TradeIcon = () => (<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 8h14l-4-4" /><path d="M20 16H6l4 4" /></svg>);
+const InviteIcon = () => (<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="8" r="3.2" /><path d="M3.5 19c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5" /><path d="M18 8v6M15 11h6" /></svg>);
+
 function Who({ c, children }: { c: SocialCard; children?: React.ReactNode }) {
   return (
     <div className="soc-who">
@@ -36,6 +40,7 @@ export function SocialPanel() {
   const { data, busy, available } = useSocial();
   const [trading, setTrading] = useState<{ to: SocialCard; counter?: string } | null>(null);
   const [openMeet, setOpenMeet] = useState<number | null>(null);
+  const [confirmLeave, setConfirmLeave] = useState(false);
   if (!available) return <p className="hint">Amigos e grupos acontecem no modo online, depois do despertar: o seu Companion conhece outros no Companion World.</p>;
   if (!data) return <p className="hint">Carregando…</p>;
   const inParty = (id: string) => !!data.party?.members.some((m) => m.id === id);
@@ -64,9 +69,9 @@ export function SocialPanel() {
       <section>
         <h3>Grupo</h3>
         {data.party ? (
-          <div className="soc-card">
+          <div className="soc-card soc-party-card">
+            <button className="soc-icon danger soc-corner" disabled={busy} onClick={() => setConfirmLeave(true)} title="Sair do grupo" aria-label="Sair do grupo"><ExitIcon /></button>
             <PartyCard party={data.party} me={data.me} />
-            <div className="soc-row"><button disabled={busy} onClick={() => void socialCall('social.party.leave')}>Sair do grupo</button></div>
           </div>
         ) : <p className="hint">Sem grupo agora. O seu Companion pode montar um sozinho, ou você chama alguém que ele conhece.</p>}
         {data.partyInvites.map((i) => (
@@ -88,9 +93,9 @@ export function SocialPanel() {
         {people.map(({ c, friend }) => (
           <div className="soc-card" key={c.id}>
             <Who c={c}><small>{friend ? (c.pronoun === 'ela' ? '♥ amiga' : '♥ amigo') : c.pronoun === 'ela' ? 'conhecida' : 'conhecido'}</small></Who>
-            <div className="soc-row">
-              {canInvite(c.id) && <button disabled={busy} onClick={() => void socialCall('social.party.invite', { to: c.id })}>Chamar para o grupo</button>}
-              <button disabled={busy} onClick={() => setTrading({ to: c })}>Propor troca</button>
+            <div className="soc-icons">
+              {canInvite(c.id) && <button className="soc-icon" disabled={busy} onClick={() => void socialCall('social.party.invite', { to: c.id })} title="Chamar para o grupo" aria-label={`Chamar ${c.name} para o grupo`}><InviteIcon /></button>}
+              <button className="soc-icon" disabled={busy} onClick={() => setTrading({ to: c })} title="Propor troca" aria-label={`Propor troca a ${c.name}`}><TradeIcon /></button>
             </div>
           </div>
         ))}
@@ -119,6 +124,19 @@ export function SocialPanel() {
           </div>
         ))}
       </section>
+      {confirmLeave && (
+        <div className="soc-modal" role="dialog" aria-modal="true" aria-label="Sair do grupo" onClick={() => setConfirmLeave(false)}>
+          <div className="soc-modal-box" onClick={(e) => e.stopPropagation()}>
+            <ExitIcon />
+            <b>Sair do grupo?</b>
+            <p>Seu Companion deixa o grupo e volta a andar sozinho. Ele pode ser chamado de novo depois.</p>
+            <div className="soc-row">
+              <button className="primary danger" disabled={busy} onClick={() => { setConfirmLeave(false); void socialCall('social.party.leave'); }}>Sair</button>
+              <button autoFocus onClick={() => setConfirmLeave(false)}>Ficar</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -466,3 +466,91 @@ canvas.cursor-attack { cursor: none !important; }
 .party-hp { height: 6px; border-radius: 3px; background: #ffffff18; overflow: hidden; }
 .party-hp i { display: block; height: 100%; background: linear-gradient(90deg, #e2504f, #ff8a6a); transition: width 0.4s; }
 .party-hp i.down { background: #777; }
+
+
+/* ================= celular deitado, versão enxuta (v1.29) =================
+   Na tela: retrato redondo com as barrinhas, mapa, hora/clima discretos, joystick, ataque e habilidades.
+   Todo o resto mora no botão ☰ (menu em tela cheia). */
+.mobile-menu-btn, .mobile-menu { display: none; }
+.game-ui.touch-land .travel, .game-ui.touch-land .touch-quick, .game-ui.touch-land .rail, .game-ui.touch-land.rail-open .rail,
+.game-ui.touch-land .quest-tracker, .game-ui.touch-land .location-crest, .game-ui.touch-land .key-hint { display: none !important; }
+/* retrato + barrinhas, sem janela */
+.game-ui.touch-land .nameplate { top: max(8px, env(safe-area-inset-top)); left: max(10px, env(safe-area-inset-left)); width: auto; padding: 0; gap: 8px; background: none; border: 0; box-shadow: none; align-items: center; }
+.game-ui.touch-land .nameplate::before, .game-ui.touch-land .nameplate::after { display: none; }
+.game-ui.touch-land .nameplate h1, .game-ui.touch-land .nameplate p, .game-ui.touch-land .nameplate .mode, .game-ui.touch-land .nameplate .leave { display: none; }
+.game-ui.touch-land .portrait { display: block; width: 46px; height: 46px; border-radius: 50%; border: 2px solid var(--hud-gold); box-shadow: 0 0 0 2px #0b1330cc, 0 3px 10px #0008; background-size: cover; background-position: 50% 18%; }
+.game-ui.touch-land .vitals { display: grid; gap: 3px; width: 84px; }
+.game-ui.touch-land .vitals .vbar { display: block; }
+.game-ui.touch-land .vitals .vbar > span, .game-ui.touch-land .vitals .vbar > small, .game-ui.touch-land .vitals .vshield { display: none; }
+.game-ui.touch-land .vitals .vbar .bar { height: 5px; border-radius: 3px; background: #0b1330aa; box-shadow: 0 0 0 1px #00000055; }
+/* hora e clima discretos */
+.game-ui.touch-land .game-clock { top: max(6px, env(safe-area-inset-top)); right: calc(var(--hud-edge) + 4px); padding: 2px 8px; font-size: 0.78rem; background: #0b1330aa; border: 0; box-shadow: none; }
+.game-ui.touch-land .game-clock::before, .game-ui.touch-land .game-clock::after { display: none; }
+.game-ui.touch-land .game-clock .hud-glyph { width: 14px; height: 14px; }
+.game-ui.touch-land .weather-chip, .game-ui.touch-land.in-world .weather-chip { top: max(6px, env(safe-area-inset-top)); right: calc(var(--hud-edge) + 76px); padding: 2px 8px; font-size: 0.72rem; background: #0b1330aa; border: 0; }
+/* o único botão: ☰ */
+.game-ui.touch-land .mobile-menu-btn { display: grid; place-items: center; position: absolute; top: calc(max(8px, env(safe-area-inset-top)) + 56px); left: max(10px, env(safe-area-inset-left)); width: 40px; height: 40px; border-radius: 50%; border: 1px solid #b79d61; background: #0b1330cc; color: #f6dfa8; font-size: 1.15rem; z-index: 7; box-shadow: 0 3px 10px #0007; }
+.game-ui.touch-land .mobile-menu-btn .dot { position: absolute; right: 2px; top: 2px; }
+/* ação: ataque menor e habilidades em dois arcos mais juntos */
+.game-ui.touch-land .attack-btn { right: 22px; bottom: 20px; width: 64px; height: 64px; }
+.game-ui.touch-land .attack-btn .hud-glyph { width: 30px; height: 30px; }
+.game-ui.touch-land .attack-btn small { display: none; }
+.game-ui.touch-land .skill-bar { width: 200px; height: 200px; }
+.game-ui.touch-land .skill-bar .sb-slot { width: 40px; height: 40px; }
+.game-ui.touch-land .skill-bar .sb-slot:nth-child(n+6) { width: 34px; height: 34px; }
+.game-ui.touch-land .skill-bar .sb-icon { font-size: 1.1rem; }
+.game-ui.touch-land .skill-bar .sb-icon .hud-glyph { width: 22px; height: 22px; }
+.game-ui.touch-land .skill-bar .sb-slot:nth-child(1) { right: 114px; bottom: 32px; }
+.game-ui.touch-land .skill-bar .sb-slot:nth-child(2) { right: 108px; bottom: 63px; }
+.game-ui.touch-land .skill-bar .sb-slot:nth-child(3) { right: 91px; bottom: 89px; }
+.game-ui.touch-land .skill-bar .sb-slot:nth-child(4) { right: 65px; bottom: 106px; }
+.game-ui.touch-land .skill-bar .sb-slot:nth-child(5) { right: 34px; bottom: 112px; }
+.game-ui.touch-land .skill-bar .sb-slot:nth-child(6) { right: 158px; bottom: 61px; }
+.game-ui.touch-land .skill-bar .sb-slot:nth-child(7) { right: 140px; bottom: 104px; }
+.game-ui.touch-land .skill-bar .sb-slot:nth-child(8) { right: 106px; bottom: 138px; }
+.game-ui.touch-land .skill-bar .sb-slot:nth-child(9) { right: 63px; bottom: 156px; }
+.game-ui.touch-land .touch-moves { right: 196px; bottom: 10px; gap: 6px; }
+.game-ui.touch-land .touch-moves button { width: 38px; height: 38px; font-size: 0.95rem; }
+.game-ui.touch-land .touch-moves button small { display: none; }
+.game-ui.touch-land .joy-zone { width: 38vw; height: 55vh; }
+.game-ui.touch-land .joy-base { width: 96px; height: 96px; margin: -48px 0 0 -48px; }
+.game-ui.touch-land .joy-knob { width: 42px; height: 42px; margin: -21px 0 0 -21px; }
+/* conversa: abre pelo menu; fecha sozinha ao enviar? fica até tocar fora */
+.game-ui.touch-land.chat-open .composer-world { bottom: 8px; width: min(380px, 44vw); }
+/* painéis abertos pelo menu: tela cheia */
+.game-ui.touch-land .panel { top: max(6px, env(safe-area-inset-top)); bottom: max(6px, env(safe-area-inset-bottom)); left: max(6px, env(safe-area-inset-left)); right: max(6px, env(safe-area-inset-right)); width: auto; z-index: 20; }
+/* menu em tela cheia */
+.game-ui.touch-land .mobile-menu { display: flex; flex-direction: column; gap: 10px; position: fixed; inset: 0; z-index: 30; padding: max(12px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); background: radial-gradient(circle at 30% 20%, #1a2350f5, #070b1cfa); overflow-y: auto; animation: echo-in 0.2s ease-out; }
+.mobile-menu header { display: flex; align-items: baseline; gap: 10px; }
+.mobile-menu header b { font: 600 1.2rem var(--serif); color: #f6dfa8; }
+.mobile-menu header small { color: var(--hud-soft); }
+.mobile-menu header .close { margin-left: auto; width: 40px; height: 40px; border-radius: 50%; border: 1px solid #b79d61; background: #0b1330; color: #f6dfa8; font-size: 1.3rem; }
+.mm-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.mm-actions button { display: flex; align-items: center; gap: 8px; min-height: 42px; padding: 6px 14px; border-radius: 4px 14px 4px 14px; border: 1px solid #b79d61; background: linear-gradient(#1b2452, #0e1638); color: #fff2d8; font: 0.95rem var(--serif); }
+.mm-actions button.on { border-color: #ffd77a; box-shadow: 0 0 10px #ffd77a44; }
+.mm-actions button small { display: block; font-size: 0.7rem; color: var(--hud-soft); }
+.mm-actions .hud-glyph { width: 18px; height: 18px; }
+.mm-quest .quest-tracker { display: flex !important; position: static; width: auto; }
+.mm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
+.mm-grid button { position: relative; display: grid; justify-items: center; gap: 4px; padding: 10px 6px; border-radius: 12px; border: 1px solid #8d744966; background: #ffffff08; color: #e6cb92; font: 0.8rem var(--serif); }
+.mm-grid button span { color: #f4ead2; }
+.mm-grid button .dot { position: absolute; right: 8px; top: 8px; }
+.mm-leave { align-self: flex-start; margin-top: auto; background: none; border: 0; color: #ffb3a8aa; font: 0.85rem var(--serif); padding: 8px 4px; }
+
+/* Amigos e grupo: botões de ícone e confirmação de saída (v1.29) */
+.soc-card:has(> .soc-icons) { grid-template-columns: 1fr auto; align-items: center; }
+.soc-icons { display: flex; gap: 6px; }
+.soc-icon { display: grid; place-items: center; width: 38px; height: 38px; padding: 0; border-radius: 50%; border: 1px solid #b79d61; background: linear-gradient(#1b2452, #0e1638); color: #f6dfa8; cursor: pointer; transition: transform 0.12s, box-shadow 0.12s; }
+.soc-icon:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 0 10px #ffd77a55; }
+.soc-icon:disabled { opacity: 0.45; cursor: default; }
+.soc-icon.danger { color: #ffb3a8; border-color: #c98a7c; }
+.soc-party-card { position: relative; }
+.soc-corner { position: absolute; top: 8px; right: 8px; width: 34px; height: 34px; z-index: 1; }
+.soc-modal { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; padding: 16px; background: #04071acc; backdrop-filter: blur(3px); animation: echo-in 0.15s ease-out; }
+.soc-modal-box { display: grid; justify-items: center; gap: 8px; width: min(320px, 100%); padding: 18px 18px 14px; text-align: center; border-radius: 6px 18px 6px 18px; border: 1px solid #b79d61; background: linear-gradient(#18204a, #0b1230); color: #f4ead2; box-shadow: 0 16px 40px #000a; }
+.soc-modal-box svg { width: 34px; height: 34px; color: #ffb3a8; }
+.soc-modal-box b { font: 600 1.1rem var(--serif); color: #f6dfa8; }
+.soc-modal-box p { margin: 0; font-size: 0.85rem; color: var(--hud-soft); }
+.soc-modal-box .soc-row { justify-content: center; margin-top: 4px; }
+.soc-modal-box .soc-row button { min-width: 96px; }
+.soc-modal-box button.danger { background: linear-gradient(#7a2f2a, #4e1b18); border-color: #c98a7c; color: #ffe3dc; }
