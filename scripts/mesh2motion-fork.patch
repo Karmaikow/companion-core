@@ -1,8 +1,9 @@
 diff --git a/src/CustomModelUploadBootstrap.ts b/src/CustomModelUploadBootstrap.ts
-index f5f9e30..23ea013 100644
+index f5f9e30..6a344a6 100644
 --- a/src/CustomModelUploadBootstrap.ts
 +++ b/src/CustomModelUploadBootstrap.ts
-@@ -1,7 +1,7 @@
+@@ -1,7 +1,8 @@
++import { Box3 } from 'three'
  import { Mesh2MotionEngine } from './Mesh2MotionEngine'
  
  export class CustomModelUploadBootstrap {
@@ -11,7 +12,7 @@ index f5f9e30..23ea013 100644
  
    constructor () {
      this.mesh2motion_engine = new Mesh2MotionEngine()
-@@ -10,3 +10,10 @@ export class CustomModelUploadBootstrap {
+@@ -10,3 +11,17 @@ export class CustomModelUploadBootstrap {
  
  // instantiate the class to setup event listeners
  const app = new CustomModelUploadBootstrap()
@@ -21,6 +22,13 @@ index f5f9e30..23ea013 100644
 +if (model_url !== null) {
 +  // o carregador aceita o endereço direto (é o mesmo caminho do arquivo enviado pela tela)
 +  app.mesh2motion_engine.load_model_step.load_model_file(new URL(model_url, location.href).href, 'glb')
++}
++
++// Companion Core: caixa do modelo aberto (o esqueleto salvo é esticado para ela)
++;(window as unknown as { __cc_model_box: () => Box3 | null }).__cc_model_box = () => {
++  const meshes = app.mesh2motion_engine.load_model_step.model_meshes()
++  if (meshes.children.length === 0) return null
++  return new Box3().setFromObject(meshes)
 +}
 diff --git a/src/lib/CustomSkeletonHelper.ts b/src/lib/CustomSkeletonHelper.ts
 index ffceca8..a38b97f 100644
@@ -200,3 +208,104 @@ index 053adec..07bf627 100644
      if (this.ui.dom_export_button_hidden_link != null) {
        this.ui.dom_export_button_hidden_link.href = URL.createObjectURL(blob)
        this.ui.dom_export_button_hidden_link.download = filename
+diff --git a/src/lib/processes/load-skeleton/StepLoadSkeleton.ts b/src/lib/processes/load-skeleton/StepLoadSkeleton.ts
+index 89a5ca2..331c6e0 100644
+--- a/src/lib/processes/load-skeleton/StepLoadSkeleton.ts
++++ b/src/lib/processes/load-skeleton/StepLoadSkeleton.ts
+@@ -1,5 +1,5 @@
+ import { UI } from '../../UI.ts'
+-import { Object3D, type Scene, type Object3DEventMap } from 'three'
++import { Object3D, Box3, Vector3, type Scene, type Object3DEventMap, type SkinnedMesh } from 'three'
+ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+ import { SkeletonType, type HandSkeletonType } from '../../enums/SkeletonType.js'
+ import { RigConfig } from '../../RigConfig.ts'
+@@ -215,6 +215,22 @@ export class StepLoadSkeleton extends EventTarget {
+   }
+ 
+   public load_skeleton_file (file_path: string): void {
++    // Companion Core: esqueleto já encaixado num modelo anterior (salvo no Administrador) no lugar do molde
++    const preset = companion_core_preset(this.skeleton_file_path())
++    if (preset !== null) {
++      this.loader.load(preset.url, (gltf: GLTFResult) => {
++        const armature = preset_armature(gltf.scene, preset.box)
++        if (armature === null) { console.warn('Companion Core: esqueleto salvo sem ossos; usando o molde'); this.load_template_skeleton_file(file_path); return }
++        this.loaded_armature = armature
++        this.loaded_armature.name = 'Loaded Armature'
++        this.dispatchEvent(new CustomEvent('skeletonLoaded', { detail: this.loaded_armature }))
++      }, undefined, () => { this.load_template_skeleton_file(file_path) })
++      return
++    }
++    this.load_template_skeleton_file(file_path)
++  }
++
++  private load_template_skeleton_file (file_path: string): void {
+     // load skeleton from GLB file
+     this.loader.load(file_path, (gltf: GLTFResult) => {
+       // traverse scene and find first bone object
+@@ -304,3 +320,66 @@ export class StepLoadSkeleton extends EventTarget {
+     }
+   }
+ }
++
++
++// ---------------------------------------------------------------------------------------------------------------
++// Companion Core: esqueleto salvo ("?esqueleto=<url>&tipo=human&caixa=minX,minY,minZ,maxX,maxY,maxZ")
++
++interface CompanionCorePreset { url: string, box: number[] }
++
++function companion_core_preset (type: SkeletonType): CompanionCorePreset | null {
++  const q = new URLSearchParams(location.search)
++  const url = q.get('esqueleto')
++  const box = (q.get('caixa') ?? '').split(',').map(Number)
++  if (url === null || box.length !== 6 || box.some((n) => !Number.isFinite(n))) return null
++  if ((q.get('tipo') ?? 'human') !== type) return null
++  return { url, box }
++}
++
++/**
++ * Os ossos do modelo salvo (que podem estar dentro da malha), num "Armature" novo, esticados da caixa do modelo
++ * salvo para a caixa do modelo aberto agora: mesma altura e o pé no mesmo lugar.
++ */
++function preset_armature (scene: Object3D, box: number[]): Object3D | null {
++  // o arquivo guarda os ossos na pose em que estavam ao exportar (a animação tocando): volta à pose de encaixe
++  scene.traverse((o) => { if ((o as SkinnedMesh).isSkinnedMesh) (o as SkinnedMesh).skeleton.pose() })
++  scene.updateMatrixWorld(true)
++  let first: Object3D | null = null
++  scene.traverse((o) => { if (first === null && o.type === 'Bone') first = o })
++  if (first === null) return null
++  const root = first as Object3D
++  const armature = new Object3D()
++  if (root.parent !== null) root.parent.matrixWorld.decompose(armature.position, armature.quaternion, armature.scale)
++  armature.add(root.clone(true))
++  // caixa do modelo aberto agora (o que está na cena, sem o esqueleto)
++  const get_box = (window as unknown as { __cc_model_box?: () => Box3 | null }).__cc_model_box
++  const now = get_box?.() ?? null
++  if (now !== null && !now.isEmpty()) {
++    const old_min = new Vector3(box[0], box[1], box[2]), old_max = new Vector3(box[3], box[4], box[5])
++    const old_h = Math.max(1e-6, old_max.y - old_min.y), new_h = Math.max(1e-6, now.max.y - now.min.y)
++    const k = new_h / old_h
++    // pé do centro da caixa antiga → pé do centro da caixa nova
++    const old_foot = new Vector3((old_min.x + old_max.x) / 2, old_min.y, (old_min.z + old_max.z) / 2)
++    const new_foot = new Vector3((now.min.x + now.max.x) / 2, now.min.y, (now.min.z + now.max.z) / 2)
++    const wrap = new Object3D()
++    wrap.add(armature)
++    armature.position.sub(old_foot)
++    wrap.scale.setScalar(k)
++    wrap.position.copy(new_foot)
++    wrap.updateMatrixWorld(true)
++    // achata: um Object3D só com a escala aplicada nas posições dos ossos (como o molde espera)
++    const flat = new Object3D()
++    const m = armature.matrixWorld.clone()
++    m.decompose(flat.position, flat.quaternion, flat.scale)
++    for (const child of [...armature.children]) flat.add(child)
++    const s = flat.scale.x
++    if (Math.abs(s - 1) > 1e-6) {
++      flat.traverse((o) => { if (o !== flat) o.position.multiplyScalar(s) })
++      flat.scale.set(1, 1, 1)
++    }
++    flat.updateMatrixWorld(true)
++    return flat
++  }
++  armature.updateMatrixWorld(true)
++  return armature
++}

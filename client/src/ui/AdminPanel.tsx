@@ -16,6 +16,7 @@ import { CompanionsAdmin } from './AdminCompanions';
 import { AdminVoid } from './AdminVoid';
 import { AnimStudio } from './AnimStudio';
 import { RigEditor } from './RigEditor';
+import { saveRigPreset } from './rigPreset';
 
 type View = 'companions' | 'animacoes' | 'biomas' | 'forja' | 'invocador' | 'arsenal' | 'servidor';
 const VIEWS: { key: View; label: string; hash: string; title: string; hint: string }[] = [
@@ -178,6 +179,7 @@ export function AdminPanel() {
                     {j.modelPath ? 'Trocar modelo .GLB' : 'Enviar modelo .GLB'}
                   </label>
                   {j.model?.url && <button className="ghost" disabled={busy} onClick={() => setRigJob(j)} title="Encaixa o esqueleto humano no modelo (dispensa o rig do Tripo)">Fazer o rig aqui (Mesh2Motion)</button>}
+                  {j.model?.url && <button className="link" disabled={busy} onClick={() => { const u = j.model!.url; setBusy(true); setMsg(null); void fetch(u).then((r) => r.blob()).then((b) => saveRigPreset(b, j.name)).then(() => setMsg(`Esqueleto de ${j.name} guardado: os próximos rigs começam por ele.`), (e) => setMsg((e as Error).message)).finally(() => setBusy(false)); }} title="O encaixe deste modelo (feito aqui com o Mesh2Motion) vira o ponto de partida dos próximos">usar este rig como padrão dos próximos</button>}
                   <strong>Animações</strong>
                   {j.animPaths.length ? (
                     <ul className="anim-list">
