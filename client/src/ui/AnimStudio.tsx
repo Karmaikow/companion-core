@@ -196,7 +196,7 @@ function Performer({ gltf, pick, slot, mode }: { gltf: GLTF; pick: (k: string) =
     // como no jogo: sem correr usa o andar (e vice-versa); sem parado, o primeiro quadro do andar
     const c = pick(key) ?? (key === 'run' ? pick('walk') : key === 'walk' ? pick('run') : key === 'idle' ? pick('walk') ?? pick('run') : null);
     const id = key + '|' + (c ? c.file + c.clip.name : 'none');
-    if (s.curKey === id && s.cur?.isRunning()) return s.cur;
+    if (s.curKey === id && s.cur?.isScheduled()) return s.cur;
     s.cur?.fadeOut(0.2);
     if (!c) { s.cur = null; s.curKey = id; return null; }
     const a = mixer.clipAction(c.clip);
