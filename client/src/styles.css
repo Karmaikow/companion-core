@@ -1122,3 +1122,16 @@ html:has(.admin), body:has(.admin), #root:has(.admin) { height: auto; min-height
 .stats-editor .stats-table td.pinned input:not([type=checkbox]):not([type=range]):not([type=color]) { color: #f6dfa8; font-weight: 700; background: rgba(214, 176, 106, .12); }
 .stats-table tr.out { opacity: .5; }
 .stats-table td.blow { color: #ffb4a8; white-space: nowrap; padding-right: 8px; }
+/* Vale dos Ecos: na cena só um botão pequeno; o resto fica no painel do menu (Jornada → Vale dos Ecos) */
+.ecos-pill { position: absolute; top: calc(max(14px, env(safe-area-inset-top)) + 100px); left: 50%; transform: translateX(-50%); display: grid; gap: 1px; padding: 6px 14px; text-align: center; cursor: pointer; font: inherit; color: inherit; max-width: min(360px, 60vw); }
+.ecos-pill .pill-title { font-weight: 700; font-size: .85rem; }
+.ecos-pill .pill-info { font-size: .75rem; opacity: .85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ecos-pill:hover { filter: brightness(1.15); }
+.ecos-vale { display: grid; gap: 10px; }
+.ecos-summary { display: grid; gap: 4px; }
+.ecos-vale-map { display: flex; gap: 12px; align-items: flex-start; flex-wrap: wrap; }
+.ecos-vale-map > div { flex: 1; min-width: 160px; }
+.ecos-clue-list { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 6px; font-size: .82rem; }
+.ecos-clue-list .tag { display: inline-block; margin-right: 6px; padding: 0 6px; border-radius: 99px; font-size: .66rem; text-transform: uppercase; letter-spacing: .05em; border: 1px solid currentColor; }
+.ecos-ap .ap-short { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; margin: 2px 0 6px; font-size: .82rem; }
+.ecos-ap .ap-short .fit.ok { color: #9fe0a0; } .ecos-ap .ap-short .fit.no { color: #ffb4a8; }
