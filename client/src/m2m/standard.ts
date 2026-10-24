@@ -44,6 +44,8 @@ export interface Retargeter {
   names: string[];
   /** Ossos ligados / ossos do modelo, e o tipo de rig reconhecido. */
   mapped: number; bones: number; rigType: string;
+  /** O rig tinha esquerda e direita trocadas nos nomes (e o mapa foi corrigido). */
+  mirrored: boolean;
 }
 
 /**
@@ -72,13 +74,18 @@ export async function makeRetargeter(model: THREE.Object3D): Promise<Retargeter>
   svc.set_target_mapping_type(MixamoMapper.is_target_valid_skeleton(names) ? TargetBoneMappingType.Mixamo : RigifyMapper.is_target_valid_skeleton(names) ? TargetBoneMappingType.Rigify : TargetBoneMappingType.Custom);
   const map = BoneAutoMapper.auto_map_bones();
   svc.set_bone_mappings(map);
+  // Rigs com os lados trocados no nome ("Left" no braço direito): os pés dizem para onde o corpo olha; se a esquerda
+  // dos nomes cair do lado direito, troca _l/_r no mapa (senão os clipes saem espelhados e torcidos).
+  const mirrored = fixMirroredSides(target, map);
+  svc.set_bone_mappings(map);
+  svc.set_target_armature(target);
   if (map.size < 12) throw new Error(`Não reconheci o esqueleto (${map.size} ossos ligados de ${names.length}). Ele precisa ser humanoide, como o rig do Tripo ou do Mixamo.`);
 
   const cache = new Map<string, THREE.AnimationClip>();
   const rigType = svc.get_target_mapping_type();
   return {
     names: [...lib.clips.keys()].sort((a, b) => a.localeCompare(b)),
-    mapped: map.size, bones: names.length, rigType,
+    mapped: map.size, bones: names.length, rigType, mirrored,
     get(name) {
       if (cache.has(name)) return cache.get(name)!;
       const src = lib.clips.get(name);
@@ -150,6 +157,22 @@ function slimTrack(t: THREE.KeyframeTrack): THREE.KeyframeTrack | null {
     const Ctor = t.constructor as new (name: string, times: Float32Array, values: Float32Array) => THREE.KeyframeTrack;
     return new Ctor(t.name, nt, nv);
   }
+}
+
+/** Corrige o mapa (alvo → origem) quando os nomes de esquerda/direita do alvo estão trocados. */
+function fixMirroredSides(scene: THREE.Object3D, map: Map<string, string>): boolean {
+  const toTarget = new Map<string, string>();
+  map.forEach((src, tgt) => { if (!toTarget.has(src)) toTarget.set(src, tgt); });
+  const pos = (src: string) => { const n = toTarget.get(src); const o = n ? scene.getObjectByName(n) : null; return o ? o.getWorldPosition(new THREE.Vector3()) : null; };
+  scene.updateMatrixWorld(true);
+  const fl = pos('foot_l'), fr = pos('foot_r'), bl = pos('ball_l'), br = pos('ball_r'), tl = pos('thigh_l'), tr = pos('thigh_r');
+  if (!fl || !fr || !bl || !br || !tl || !tr) return false;
+  const toes = bl.clone().sub(fl).add(br.clone().sub(fr)).setY(0);           // para onde os pés apontam
+  const named = tl.clone().sub(tr).cross(new THREE.Vector3(0, 1, 0)).setY(0); // frente se "esquerda" fosse esquerda mesmo
+  if (toes.lengthSq() < 1e-8 || named.lengthSq() < 1e-8 || toes.dot(named) >= 0) return false;
+  const swap = (n: string) => n.replace(/_l(\b|_|$)/, '_§$1').replace(/_r(\b|_|$)/, '_l$1').replace('_§', '_r');
+  for (const [tgt, src] of [...map.entries()]) map.set(tgt, swap(src));
+  return true;
 }
 
 /** .GLB só com o esqueleto do modelo e os clipes convertidos (o jogo liga pelos nomes dos ossos). */

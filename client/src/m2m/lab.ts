@@ -10,8 +10,12 @@ const loader = new GLTFLoader(); loader.setMeshoptDecoder(MeshoptDecoder);
 (async () => {
   const url = new URLSearchParams(location.search).get('modelo') ?? '/m2m-test/sample.glb';
   const model = await loader.loadAsync(url);
+  // ?girar=180: simula um modelo exportado de costas (como alguns do Tripo)
+  const turn = Number(new URLSearchParams(location.search).get('girar') ?? 0) * Math.PI / 180;
+  model.scene.rotation.y += turn;
   let t = performance.now();
   const rt = await makeRetargeter(model.scene);
+  log(`lados trocados nos nomes: ${rt.mirrored ? 'sim (corrigido)' : 'não'}`);
   log(`esqueleto ${rt.rigType}: ${rt.mapped}/${rt.bones} ossos · biblioteca ${rt.names.length} clipes · ${(performance.now() - t).toFixed(0)} ms`);
   const names = [...new Set([...Object.values(STANDARD_SLOTS), ...STANDARD_EXTRAS])];
   t = performance.now();
@@ -22,24 +26,29 @@ const loader = new GLTFLoader(); loader.setMeshoptDecoder(MeshoptDecoder);
   // como o jogo: abre o arquivo de animação e toca num modelo carregado à parte
   const anim = await loader.parseAsync(buf, '');
   const fresh = await loader.loadAsync(url + '?outra');
+  fresh.scene.rotation.y += turn;
   const body = cloneSkinned(fresh.scene);
   const scene = new THREE.Scene(); scene.add(body);
   scene.background = new THREE.Color('#2d3770');
   scene.add(new THREE.HemisphereLight(0xffffff, 0x445566, 2.2)); const dl = new THREE.DirectionalLight(0xffffff, 1.6); dl.position.set(2, 4, 3); scene.add(dl);
+  const big = new URLSearchParams(location.search).get('so');
   const box = new THREE.Box3().setFromObject(body), c = box.getCenter(new THREE.Vector3()), h = box.getSize(new THREE.Vector3()).y;
-  const cam = new THREE.PerspectiveCamera(35, 200 / 250, 0.01, 100); cam.position.set(c.x + h * 0.9, c.y + h * 0.3, c.z + h * 2.6); cam.lookAt(c);
-  const r = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true }); r.setSize(200, 250);
+  const cam = new THREE.PerspectiveCamera(35, 200 / 250, 0.01, 100); const look = big ? new THREE.Vector3(c.x, c.y - h * 0.3, c.z) : c;
+  cam.position.set(look.x + h * 0.2, look.y + h * 0.15, look.z + h * (big ? 1.4 : 2.2)); cam.lookAt(look);
+  const W = big ? 600 : 200, H = big ? 600 : 250;
+  cam.aspect = W / H; cam.updateProjectionMatrix();
+  const r = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true }); r.setSize(W, H);
   const mixer = new THREE.AnimationMixer(body);
   const grid = document.getElementById('grid')!;
   let bound = 0;
-  for (const [slot, name] of Object.entries(STANDARD_SLOTS)) {
+  for (const [slot, name] of Object.entries(STANDARD_SLOTS).filter(([k]) => !big || k === big)) {
     const clip = anim.animations.find((a) => a.name === name);
     if (!clip) { log('faltou no arquivo: ' + name); continue; }
     mixer.stopAllAction(); const a = mixer.clipAction(clip); a.play(); mixer.setTime(clip.duration * 0.45);
     // quantas trilhas acharam osso no modelo novo
     bound = Math.max(bound, (a as unknown as { _propertyBindings: { binding: { node?: unknown } }[] })._propertyBindings.filter((p) => p.binding.node).length);
     r.render(scene, cam);
-    const f = document.createElement('figure'); f.innerHTML = `<img src="${r.domElement.toDataURL()}"><figcaption>${slot} · ${name}</figcaption>`; grid.appendChild(f);
+    const f = document.createElement('figure'); f.innerHTML = `<img src="${r.domElement.toDataURL()}"><figcaption>${slot} · ${name}</figcaption>`; if (big) f.style.width = W + 'px'; grid.appendChild(f);
   }
   log(`clipes no arquivo: ${anim.animations.length} · trilhas ligadas ao modelo novo: ${bound}`);
   (window as unknown as { __done: boolean }).__done = true;
