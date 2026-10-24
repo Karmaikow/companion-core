@@ -1,5 +1,5 @@
 /**
- * Painel "Expedição" (Ecos da Terra): mochila, receitas, a obra comunitária, o diário de descobertas e o jardim, e o
+ * Painel "Vale dos Ecos" (Jornada; Ecos da Terra): o vale (objetivo, mapa, indícios e recursos por perto), a mochila, receitas, a obra comunitária, o diário de descobertas e o jardim, e o
  * que pedir à Companion (intenção, objetivo, risco, espaço reservado, ferramentas e preferência de ambiente).
  */
 import { useEffect, useMemo, useState } from 'react';
@@ -8,18 +8,18 @@ import {
   type ResCategory, type GatheringIntent, type IntentMode, type Zone, type ToolKey,
 } from '@rules';
 import { useEcos, bagBatches, bagUsedOf, batchLabel, suggestionsNow } from '../ecos/ecosStore';
-import { NearbyList } from './EcosHud';
+import { NearbyList, MiniMap, CluesList, ObjectiveSummary } from './EcosHud';
 import { companionFocus } from '../scene/world';
 import { useGame } from '../store';
 
-type Sub = 'perto' | 'mochila' | 'receitas' | 'obra' | 'diario' | 'mayuna';
-const SUBS: [Sub, string][] = [['perto', 'Por perto'], ['mochila', 'Mochila'], ['receitas', 'Receitas'], ['obra', 'Obra'], ['diario', 'Diário'], ['mayuna', 'Pedir']];
+type Sub = 'vale' | 'mochila' | 'receitas' | 'obra' | 'diario' | 'mayuna';
+const SUBS: [Sub, string][] = [['vale', 'Vale'], ['mochila', 'Mochila'], ['receitas', 'Receitas'], ['obra', 'Obra'], ['diario', 'Diário'], ['mayuna', 'Pedir']];
 const rid = () => crypto.randomUUID();
 
 export function EcosPanel() {
   const view = useEcos((s) => s.view), error = useEcos((s) => s.error);
   const stage = useGame((s) => s.snap?.companion?.stage);
-  const [sub, setSub] = useState<Sub>('perto');
+  const [sub, setSub] = useState<Sub>('vale');
   useEffect(() => { if (stage === 'awakened') void useEcos.getState().refresh(); }, [stage]);
   if (stage !== 'awakened') return <p className="empty">As expedições começam depois do despertar, quando ela ganha um corpo.</p>;
   return (
@@ -31,7 +31,14 @@ export function EcosPanel() {
       {error && <p className="ecos-error" role="alert">{error}</p>}
       {!view ? <p className="hint">Carregando a expedição…</p> : (
         <>
-          {sub === 'perto' && <><p className="hint">O Vale dos Ecos fica logo ao norte do Portal: bosque, riacho e afloramento. Clique num recurso na cena ou escolha aqui.</p><NearbyList /></>}
+          {sub === 'vale' && (
+            <div className="ecos-vale">
+              <ObjectiveSummary />
+              <div className="ecos-vale-map"><MiniMap /><div><b>Indícios</b><CluesList /></div></div>
+              <b>Recursos por perto</b>
+              <NearbyList />
+            </div>
+          )}
           {sub === 'mochila' && <Bag />}
           {sub === 'receitas' && <Recipes />}
           {sub === 'obra' && <Project />}

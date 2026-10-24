@@ -1,0 +1,20 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="./src/styles.css"></head><body style="background:#3d6a2e;margin:0;width:1280px;height:760px;position:relative">
+<div id="root" style="position:absolute;inset:0"></div><script type="module">
+// Lab (só no dev): o Vale dos Ecos no modo local — o botão da cena, o painel do recurso e o painel do menu.
+import { createElement as h } from 'react';
+import { createRoot } from 'react-dom/client';
+import { useGame } from './src/store';
+import { useEcos } from './src/ecos/ecosStore';
+import { LocalBackend } from './src/backend/local';
+import { EcosHud } from './src/ui/EcosHud';
+import { EcosPanel } from './src/ui/EcosPanel';
+import { VALE_NODES } from '@rules';
+const q = new URLSearchParams(location.search);
+useGame.setState({ backend: new LocalBackend(), snap: { companion: { stage: 'awakened' } }, tab: null });
+useEcos.getState().setInVale(true);
+await useEcos.getState().refresh();
+if (q.has('sel')) useEcos.getState().select(VALE_NODES[Number(q.get('sel'))].id);
+function App() { const tab = useGame((s) => s.tab); return h('div', null, h(EcosHud, { panelOpen: !!tab }), tab && h('section', { className: 'panel deco panel-ecos', style: { right: 0, top: 0 } }, h('div', { className: 'panel-body' }, h(EcosPanel)))); }
+createRoot(document.getElementById('root')).render(h(App));
+window.__ok = true;
+</script></body></html>

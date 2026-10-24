@@ -158,13 +158,14 @@ export const useEcos = create<EcosStore>((set, get) => ({
     if (!n || !ap) return;
     if (get().run && !['concluido', 'interrompido', 'erro'].includes(get().run!.phase)) get().cancel('trocou de ação');
     if (by === 'pessoa' && get().auto.on) get().stopIntent('você assumiu o controle');
-    set({ run: { node, approach, request: uuid(), phase: 'andando', seconds: ap.seconds, started: 0, by }, selected: node, error: null });
+    // o painel do recurso fecha: a barra de ação mostra o andamento (e a coleta da Companion não abre nada sozinha)
+    set({ run: { node, approach, request: uuid(), phase: 'andando', seconds: ap.seconds, started: 0, by }, selected: null, error: null });
     walkCheck.tries = 0; walkTo(n);
   },
   inspect(node) {
     const n = nodeById(node); if (!n) return;
     if (get().run && !['concluido', 'interrompido', 'erro'].includes(get().run!.phase)) get().cancel('trocou de ação');
-    set({ run: { node, approach: 'observar', request: uuid(), phase: 'andando', seconds: 2, started: 0, by: 'pessoa', inspect: true }, selected: node });
+    set({ run: { node, approach: 'observar', request: uuid(), phase: 'andando', seconds: 2, started: 0, by: 'pessoa', inspect: true }, selected: null });
     walkCheck.tries = 0; walkTo(n);
   },
   cancel(why = 'você cancelou') {

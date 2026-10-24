@@ -46,8 +46,7 @@ export function EcosHud({ panelOpen = false }: { panelOpen?: boolean }) {
   if (!inVale && !run && !auto) return null;
   return (
     <div className="ecos-hud" aria-label="Expedição: Ecos da Terra">
-      <ObjectiveCard />
-      {!panelOpen && <CluesCard />}
+      {!panelOpen && <ValePill />}
       {!panelOpen && <ContextPanel />}
       <ActionBar />
       <RecentLoot />
@@ -56,30 +55,43 @@ export function EcosHud({ panelOpen = false }: { panelOpen?: boolean }) {
   );
 }
 
-function ObjectiveCard() {
+/** No Vale: só um botão pequeno (objetivo e mochila); tocar abre o painel "Vale dos Ecos" do menu. */
+function ValePill() {
   const obj = useEcos((s) => s.objective), auto = useEcos((s) => s.auto), view = useEcos((s) => s.view), conn = useEcos((s) => s.conn);
   const used = bagUsedOf(view), cap = view?.config.bag ?? 60;
   const count = objectiveCount();
   return (
-    <section className="ecos-objective ecos-card" aria-live="polite">
-      <small className="ecos-eyebrow">Vale dos Ecos</small>
+    <button type="button" className="ecos-pill ecos-card" onClick={() => useGame.getState().setTab('ecos')} aria-label="Abrir o painel do Vale dos Ecos">
+      <span className="pill-title">🌿 Vale dos Ecos</span>
+      <span className="pill-info">
+        {obj ? `${obj.label} ${Math.min(count, obj.qty)}/${obj.qty}` : auto.on ? '✦ coletando por conta' : 'toque num recurso'}
+        {' · '}🎒 {used}/{cap}{conn === 'perdida' ? ' · sem conexão' : ''}
+      </span>
+    </button>
+  );
+}
+
+/** Resumo para o painel: objetivo, coleta por conta e mochila. */
+export function ObjectiveSummary() {
+  const obj = useEcos((s) => s.objective), auto = useEcos((s) => s.auto), view = useEcos((s) => s.view), conn = useEcos((s) => s.conn);
+  const used = bagUsedOf(view), cap = view?.config.bag ?? 60;
+  const count = objectiveCount();
+  return (
+    <section className="ecos-summary" aria-live="polite">
       {obj ? (
         <>
           <b>{obj.label} — {Math.min(count, obj.qty)}/{obj.qty}</b>
           <div className="bar" role="progressbar" aria-valuemin={0} aria-valuemax={obj.qty} aria-valuenow={Math.min(count, obj.qty)}><i style={{ width: `${Math.min(100, (count / obj.qty) * 100)}%` }} /></div>
+          <button type="button" className="link" onClick={() => useEcos.getState().setObjective(null)}>tirar objetivo</button>
         </>
-      ) : <b>Explore: clique num recurso para ver o que dá para fazer.</b>}
-      {auto.on && (
-        <p className="ecos-auto">✦ Coletando por conta{auto.last ? `: ${auto.last}` : '…'} <button type="button" className="link" onClick={() => useEcos.getState().stopIntent()}>parar</button></p>
-      )}
+      ) : <b>Toque num recurso do vale para ver o que dá para coletar.</b>}
+      {auto.on && <p className="ecos-auto">✦ Coletando por conta{auto.last ? `: ${auto.last}` : '…'} <button type="button" className="link" onClick={() => useEcos.getState().stopIntent()}>parar</button></p>}
       <small className="ecos-bagline">Mochila {used}/{cap}{used >= cap ? ' · cheia' : ''}{conn === 'perdida' ? ' · conexão perdida (tentando de novo)' : ''}</small>
-      {view?.simulated && <small className="ecos-sim" role="note">Offline: simulado neste aparelho (não vale online).</small>}
-      {obj && <button type="button" className="link" onClick={() => useEcos.getState().setObjective(null)}>tirar objetivo</button>}
     </section>
   );
 }
 
-function MiniMap() {
+export function MiniMap() {
   const view = useEcos((s) => s.view), selected = useEcos((s) => s.selected);
   const known = knownNow(view).map((k) => k.node.id);
   const chain = view?.profile.chain[SEIVA_AZUL.id];
@@ -100,27 +112,20 @@ function MiniMap() {
   );
 }
 
-function CluesCard() {
+/** Indícios do vale (observação · hipótese · descoberta), no painel. */
+export function CluesList() {
   const view = useEcos((s) => s.view);
   const clues = visibleClues(view);
-  const [open, setOpen] = useState(() => !(typeof matchMedia !== 'undefined' && matchMedia('(max-width: 720px)').matches));
-  return (
-    <section className="ecos-clues ecos-card">
-      <header><b>Indícios</b><button type="button" className="link" aria-expanded={open} onClick={() => setOpen(!open)}>{open ? 'recolher' : 'abrir'}</button></header>
-      {open && <>
-        <MiniMap />
-        {clues.length ? (
-          <ul>
-            {clues.map((c) => <li key={c.id} className={'clue ' + c.status}><span className="tag">{STATUS_LABEL[c.status]}</span>{c.text}</li>)}
-          </ul>
-        ) : <p className="hint">Nada estranho por aqui… ainda. Observe as árvores perto da água.</p>}
-      </>}
-    </section>
-  );
+  return clues.length ? (
+    <ul className="ecos-clue-list">
+      {clues.map((c) => <li key={c.id} className={'clue ' + c.status}><span className="tag">{STATUS_LABEL[c.status]}</span>{c.text}</li>)}
+    </ul>
+  ) : <p className="hint">Nada estranho por aqui… ainda. Observe as árvores perto da água.</p>;
 }
 
 function ApproachRow({ node, ap, state }: { node: ResourceNode; ap: Approach; state: { blocked: string | null } }) {
   const view = useEcos((s) => s.view), obj = useEcos((s) => s.objective);
+  const [info, setInfo] = useState(false);
   const known = view?.profile.knownMaterials ?? [];
   const outs = expectedOutcome(node, ap);
   const fits = obj ? outs.some((o) => { const m = MATERIALS[o.material]; const bands = obj.match.prop ? (o.bands[obj.match.prop] ?? []) : ['alta' as Band]; return bands.some((b) => matchesObjective(obj.match, { material: m.id, bands: obj.match.prop ? { [obj.match.prop]: b } : {} })); }) : null;
@@ -130,21 +135,28 @@ function ApproachRow({ node, ap, state }: { node: ResourceNode; ap: Approach; st
         <b>{ap.label}</b><span className="ap-time">{ap.seconds} s</span>
         {ap.tool && <span className="ap-tool" title={TOOLS[ap.tool].label}>{TOOLS[ap.tool].icon} {TOOLS[ap.tool].label}</span>}
       </div>
-      <ul className="ap-out">
-        {outs.map((o) => {
-          const m = MATERIALS[o.material], k = known.includes(o.material);
-          const qty = o.qty[0] === o.qty[1] ? `${o.qty[0]}` : `${o.qty[0]}–${o.qty[1]}`;
-          return (
-            <li key={o.material}>
-              {CATEGORIES[m.category].icon} {m.name}: {o.chance !== undefined ? <><em>às vezes</em> ({Math.round(o.chance * 100)}%) </> : <>garantido {o.guaranteed}{o.qty[1] > o.guaranteed ? <>, <em>estimado</em> {qty}</> : null} </>}
-              {Object.keys(o.bands).length > 0 && <span className="ap-bands">{k ? Object.entries(o.bands).map(([p, b]) => `${PROP_LABEL[p as PropKey].toLowerCase()} ${(b as Band[]).map((x) => BAND_LABEL[x]).join('–')}`).join(' · ') : 'propriedades desconhecidas (colete uma vez)'}</span>}
-            </li>
-          );
-        })}
-      </ul>
-      <p className="ap-meta"><span>{ap.pitch}</span> <span>Ambiente: {ap.effect}</span> {ap.risk !== 'nenhum' && <span>Risco: {ap.risk}</span>}{fits !== null && <span className={'fit ' + (fits ? 'ok' : 'no')}>{fits ? '✓ serve ao objetivo' : '✗ não serve ao objetivo'}</span>}</p>
+      <p className="ap-short">
+        {outs.map((o) => { const m = MATERIALS[o.material]; const qty = o.chance !== undefined ? `às vezes` : o.qty[0] === o.qty[1] ? `×${o.qty[0]}` : `×${o.qty[0]}–${o.qty[1]}`; return <span key={o.material}>{CATEGORIES[m.category].icon} {m.name} {qty}</span>; })}
+        {fits !== null && <span className={'fit ' + (fits ? 'ok' : 'no')}>{fits ? '✓ objetivo' : '✗ objetivo'}</span>}
+        <button type="button" className="link" aria-expanded={info} onClick={() => setInfo(!info)}>{info ? 'menos' : 'detalhes'}</button>
+      </p>
+      {info && <>
+        <ul className="ap-out">
+          {outs.map((o) => {
+            const m = MATERIALS[o.material], k = known.includes(o.material);
+            const qty = o.qty[0] === o.qty[1] ? `${o.qty[0]}` : `${o.qty[0]}–${o.qty[1]}`;
+            return (
+              <li key={o.material}>
+                {CATEGORIES[m.category].icon} {m.name}: {o.chance !== undefined ? <><em>às vezes</em> ({Math.round(o.chance * 100)}%) </> : <>garantido {o.guaranteed}{o.qty[1] > o.guaranteed ? <>, <em>estimado</em> {qty}</> : null} </>}
+                {Object.keys(o.bands).length > 0 && <span className="ap-bands">{k ? Object.entries(o.bands).map(([p, b]) => `${PROP_LABEL[p as PropKey].toLowerCase()} ${(b as Band[]).map((x) => BAND_LABEL[x]).join('–')}`).join(' · ') : 'propriedades desconhecidas (colete uma vez)'}</span>}
+              </li>
+            );
+          })}
+        </ul>
+        <p className="ap-meta"><span>{ap.pitch}</span> <span>Ambiente: {ap.effect}</span> {ap.risk !== 'nenhum' && <span>Risco: {ap.risk}</span>}</p>
+      </>}
       <button type="button" className="primary" disabled={!!state.blocked} onClick={() => useEcos.getState().gather(node.id, ap.id)} aria-describedby={state.blocked ? `why-${node.id}-${ap.id}` : undefined}>
-        {state.blocked ? 'Indisponível' : ap.label}
+        {state.blocked ? 'Indisponível' : 'Coletar'}
       </button>
       {state.blocked && <small id={`why-${node.id}-${ap.id}`} className="ap-why">{state.blocked}</small>}
     </li>
@@ -266,7 +278,7 @@ function ChoiceModal() {
 export function NearbyList() {
   const view = useEcos((s) => s.view);
   const list = knownNow(view).sort((a, b) => a.dist - b.dist).slice(0, 8);
-  if (!list.length) return <p className="hint">Nenhum recurso à vista. Ande pelo Vale dos Ecos (ao norte do Portal).</p>;
+  if (!list.length) return <p className="hint">Nenhum recurso à vista. O vale fica logo ao norte do Portal do Refúgio.</p>;
   return (
     <ul className="ecos-near">
       {list.map(({ node, dist }) => <li key={node.id}><button type="button" className="ghost" onClick={() => useEcos.getState().select(node.id)}>{CATEGORIES[NODE_KINDS[node.kind].category].icon} {nodeName(node)} · {Math.round(dist)} m</button></li>)}

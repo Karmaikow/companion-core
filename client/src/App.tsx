@@ -40,8 +40,8 @@ import { supabase } from './backend/online';
 /** Menu lateral em grupos: o Companion, a jornada, a bolsa, os ofícios e os ajustes. A Forja só aparece para Taurinas. */
 const TAB_GROUPS: { label: string; tabs: { key: Tab; label: string }[] }[] = [
   { label: 'Companion', tabs: [{ key: 'chat', label: 'Conversa' }, { key: 'bond', label: 'Vínculo' }, { key: 'skills', label: 'Habilidades' }] },
-  { label: 'Jornada', tabs: [{ key: 'quests', label: 'Quests' }, { key: 'diary', label: 'Diário' }, { key: 'memories', label: 'Memórias' }] },
-  { label: 'Bolsa', tabs: [{ key: 'inventory', label: 'Inventário' }, { key: 'recipes', label: 'Receitas' }, { key: 'ecos', label: 'Expedição' }] },
+  { label: 'Jornada', tabs: [{ key: 'quests', label: 'Quests' }, { key: 'ecos', label: 'Vale dos Ecos' }, { key: 'diary', label: 'Diário' }, { key: 'memories', label: 'Memórias' }] },
+  { label: 'Bolsa', tabs: [{ key: 'inventory', label: 'Inventário' }, { key: 'recipes', label: 'Receitas' }] },
   { label: 'Ofícios', tabs: [{ key: 'pacto', label: 'Oficina' }, { key: 'forja', label: 'Forja Primordial' }] },
   { label: 'Mundo', tabs: [{ key: 'social', label: 'Amigos e grupo' }] },
   { label: 'Sistema', tabs: [{ key: 'settings', label: 'Ajustes' }] },

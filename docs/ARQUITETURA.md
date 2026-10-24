@@ -737,3 +737,9 @@ Prompt com o mundo de fantasia, regra explícita de pronomes ("mim" = a pessoa; 
   em vida, ataque e defesa) e `levelStats` (valores fixados à mão num nível). `creatureStatsAt`: o nível 1 e os fixados
   são pontos fixos, linha reta entre eles e crescimento depois do último. No Invocador, a tabela do nível mínimo ao
   máximo (ou 1–60) é editável célula a célula; célula fixada fica destacada e apagar solta.
+
+- **v1.37 — Vale dos Ecos mais simples.** O painel saiu da Bolsa e virou "Vale dos Ecos" na Jornada (menu), com a aba
+  Vale (objetivo, mapa, indícios e recursos por perto). Na cena, dentro do vale, fica só um botão pequeno (objetivo e
+  mochila) que abre o painel; os indícios não abrem mais sozinhos. O painel do recurso só abre quando a pessoa toca
+  num recurso e fecha ao começar a coleta (a coleta da Companion não abre nada); cada abordagem mostra o resumo e os
+  detalhes (propriedades, ambiente, risco) ficam em "detalhes".
