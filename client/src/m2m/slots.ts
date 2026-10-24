@@ -14,7 +14,7 @@ export const STANDARD_SLOTS: Record<string, string> = {
   'attack:espada': 'Sword_Attack',
   'attack:faca': 'Sword_Regular_B',
   'attack:maca': 'Sword_Regular_C',
-  shoot: 'Bow',
+  shoot: 'Archery', // puxar + soltar (montado da biblioteca); "Bow" sozinho é uma reverência
   cast: 'Two-hand Blast',
   'attack:magia': 'Spell_Simple_Shoot',
   fidget: 'Idle_ShakeOff',

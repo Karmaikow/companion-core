@@ -139,7 +139,7 @@ export function ForgeStudio() {
         <section className="biome-editor">
           <div className="biome-preview">
             <Suspense fallback={<div className="art-empty">Carregando prévia…</div>}>
-              <SkillPreview skill={clean} companionColor={compColor} defenderEssence={defEss || null} body={trainerModel ? { url: trainerModel.url, anim: animKey(trainerAnims[clean.slug]) } : null} />
+              <SkillPreview skill={clean} companionColor={compColor} defenderEssence={defEss || null} body={trainerModel ? { url: trainerModel.url, anim: animKey(trainerAnims[clean.slug]), companionId: trainerModel.companionId } : null} />
             </Suspense>
             <div className="preview-tools">
               <label>Campo de treino <select value={trainer} onChange={(e) => setTrainer(e.target.value)} aria-label="Quem testa a habilidade">
