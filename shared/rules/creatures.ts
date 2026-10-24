@@ -45,6 +45,21 @@ export function motionFor(c: Pick<CreatureDef, 'motion' | 'body'>): Exclude<Moti
 
 /** vida, ataque (poder), defesa e agilidade no nível 1; velocidade de ataque em golpes por segundo. */
 export interface CreatureStats { vida: number; poder: number; defesa: number; agilidade: number; atkSpeed: number }
+export type CreatureStatKey = keyof CreatureStats;
+export const CREATURE_STAT_KEYS: CreatureStatKey[] = ['vida', 'poder', 'defesa', 'agilidade', 'atkSpeed'];
+/** Limites de cada atributo e o crescimento padrão por nível. */
+export const CREATURE_STAT_RULES: Record<CreatureStatKey, { label: string; min: number; max: number; growth: number; step: number }> = {
+  vida: { label: 'Vida (HP)', min: 10, max: 99999, growth: 0.08, step: 1 },
+  poder: { label: 'Ataque', min: 1, max: 9999, growth: 0.08, step: 1 },
+  defesa: { label: 'Defesa', min: 0, max: 9999, growth: 0.08, step: 1 },
+  agilidade: { label: 'Agilidade', min: 1, max: 100, growth: 0, step: 1 },
+  atkSpeed: { label: 'Vel. de ataque', min: 0.1, max: 4, growth: 0, step: 0.05 },
+};
+const roundStat = (k: CreatureStatKey, v: number) => {
+  const r = CREATURE_STAT_RULES[k];
+  const x = Math.min(r.max, Math.max(r.min, v));
+  return k === 'atkSpeed' ? Math.round(x * 100) / 100 : Math.round(x);
+};
 /** Habilidade do monstro: frequência, nível em que abre e (opcional) a habilidade que precisa vir antes — a árvore. */
 export interface CreatureSkill { slug: string; weight: number; level: number; after?: string }
 export interface CreatureDef {
@@ -71,6 +86,11 @@ export interface CreatureDef {
   color: string;                 // cor da criatura (corpo de reserva, brilho, partículas)
   motion: Motion;                // movimento por código (.GLB sem rig/animação)
   look?: ModelLook;
+  /** Crescimento por nível de cada atributo (0,08 = +8% por nível); vazio = vida, ataque e defesa +8%, o resto fixo. */
+  growth?: Partial<Record<CreatureStatKey, number>>;
+  /** Valores fixados à mão num nível (o Invocador → tabela por nível). Entre dois fixados o valor vai em linha reta;
+   *  depois do último, cresce pelo crescimento a partir dele. */
+  levelStats?: Record<string, Partial<CreatureStats>>;
   /** O Administrador → Animações: papel → "anim:<arquivo>|<clipe>" ou "procedural" (movimento por código); vazio = automático */
   animMap?: Record<string, string>;
   model?: { url: string; path?: string; anims: { url: string; path?: string; kind: string; name: string }[] };
@@ -107,6 +127,22 @@ export function sanitizeCreature(input: unknown): CreatureDef | null {
     style: c.style && c.style in BATTLE_STYLES ? c.style : 'corpo-a-corpo',
     level: pair(c.level, 1, 60, [1, 3]),
     stats: { vida: Math.round(n(st.vida, 10, 5000, 120)), poder: Math.round(n(st.poder, 1, 500, 20)), defesa: Math.round(n(st.defesa, 0, 500, 15)), agilidade: Math.round(n(st.agilidade, 1, 100, 10)), atkSpeed: Math.round(n(st.atkSpeed, 0.1, 4, 0.8) * 100) / 100 },
+    growth: (() => {
+      const g = (c.growth ?? {}) as Record<string, unknown>, out: Partial<Record<CreatureStatKey, number>> = {};
+      for (const k of CREATURE_STAT_KEYS) if (typeof g[k] === 'number' && Number.isFinite(g[k])) out[k] = Math.round(Math.min(0.5, Math.max(-0.2, g[k] as number)) * 1000) / 1000;
+      return Object.keys(out).length ? out : undefined;
+    })(),
+    levelStats: (() => {
+      const ls = (c.levelStats ?? {}) as Record<string, unknown>, out: Record<string, Partial<CreatureStats>> = {};
+      for (const [lvRaw, v] of Object.entries(ls).slice(0, 60)) {
+        const lvN = Math.round(Number(lvRaw));
+        if (!(lvN >= 1 && lvN <= 60) || !v || typeof v !== 'object') continue;
+        const row: Partial<CreatureStats> = {};
+        for (const k of CREATURE_STAT_KEYS) { const x = (v as Record<string, unknown>)[k]; if (typeof x === 'number' && Number.isFinite(x)) row[k] = roundStat(k, x); }
+        if (Object.keys(row).length) out[String(lvN)] = row;
+      }
+      return Object.keys(out).length ? out : undefined;
+    })(),
     size: n(c.size, 0.2, 12, 0.9), speed: n(c.speed, 0.2, 6, 1.2), aggroRange: n(c.aggroRange, 1, 30, 7),
     skills: (() => {
       const l = list(c.skills, 12, (s) => (typeof s.slug === 'string' && SLUG.test(s.slug) ? { slug: s.slug, weight: n(s.weight, 0, 10, 1), level: Math.round(n(s.level, 1, 60, 1)), ...(typeof s.after === 'string' && SLUG.test(s.after) ? { after: s.after } : {}) } : null));
@@ -132,10 +168,32 @@ export function sanitizeCreature(input: unknown): CreatureDef | null {
   };
 }
 
-/** Atributos num nível (crescem ~8% por nível). */
+/** Crescimento por nível de um atributo (o da criatura ou o padrão). */
+export const statGrowth = (c: CreatureDef, k: CreatureStatKey) => c.growth?.[k] ?? CREATURE_STAT_RULES[k].growth;
+
+/** Valor de um atributo fixado à mão naquele nível (ou undefined). */
+export const pinnedStat = (c: CreatureDef, level: number, k: CreatureStatKey) => c.levelStats?.[String(level)]?.[k];
+
+/**
+ * Atributos num nível. Os valores do nível 1 e os fixados à mão na tabela por nível são pontos fixos: entre dois, o
+ * valor vai em linha reta; depois do último, cresce pelo crescimento de cada atributo (padrão +8% em vida, ataque e
+ * defesa; agilidade e velocidade de ataque fixas).
+ */
 export function creatureStatsAt(c: CreatureDef, level: number): CreatureStats {
-  const k = Math.pow(1.08, Math.max(0, level - 1));
-  return { vida: Math.round(c.stats.vida * k), poder: Math.round(c.stats.poder * k), defesa: Math.round(c.stats.defesa * k), agilidade: c.stats.agilidade, atkSpeed: c.stats.atkSpeed };
+  const L = Math.max(1, Math.round(level));
+  const out = {} as CreatureStats;
+  for (const k of CREATURE_STAT_KEYS) {
+    const pins: [number, number][] = [[1, c.stats[k]]];
+    for (const [lv, row] of Object.entries(c.levelStats ?? {})) { const v = row[k]; if (typeof v === 'number') { const n = Number(lv); if (n === 1) pins[0] = [1, v]; else pins.push([n, v]); } }
+    pins.sort((a, b) => a[0] - b[0]);
+    let prev = pins[0], next: [number, number] | null = null;
+    for (const p of pins) { if (p[0] <= L) prev = p; else { next = p; break; } }
+    const v = next && prev[0] < L
+      ? prev[1] + (next[1] - prev[1]) * (L - prev[0]) / (next[0] - prev[0])
+      : prev[1] * Math.pow(1 + statGrowth(c, k), L - prev[0]);
+    out[k] = roundStat(k, v);
+  }
+  return out;
 }
 
 /** Habilidades abertas num nível (a árvore: nível alcançado e a de antes também aberta). */

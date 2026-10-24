@@ -14,6 +14,7 @@ import { useCatalog, uploadWorldAsset, safeName } from './catalog';
 import { LookEditor } from './BiomeStudio';
 import { AutoRig, glbHasRig } from './RigEditor';
 import { CreaturePromptGen, RigSelect } from './CreaturePromptGen';
+import { CreatureStatsEditor } from './CreatureStatsEditor';
 
 const CreaturePreview = lazy(() => import('../scene/CreaturePreview').then((m) => ({ default: m.CreaturePreview })));
 const ESS = Object.keys(ELEMENTS) as Element[];
@@ -209,14 +210,10 @@ export function SummonerStudio() {
             </fieldset>
 
             <fieldset>
-              <legend>Atributos (no nível 1 — crescem 8% por nível)</legend>
+              <legend>Atributos por nível</legend>
+              <CreatureStatsEditor draft={draft} clean={clean} edit={edit} />
               <div className="grid-form">
-                <label>Vida (HP)<input type="number" min={10} max={5000} value={draft.stats.vida} onChange={(e) => edit({ stats: { ...draft.stats, vida: Number(e.target.value) } })} /></label>
-                <label>Ataque<input type="number" min={1} max={500} value={draft.stats.poder} onChange={(e) => edit({ stats: { ...draft.stats, poder: Number(e.target.value) } })} /></label>
-                <label>Defesa<input type="number" min={0} max={500} value={draft.stats.defesa} onChange={(e) => edit({ stats: { ...draft.stats, defesa: Number(e.target.value) } })} /><small className="hint">100 = recebe metade do dano</small></label>
-                <label>Agilidade<input type="number" min={1} max={100} value={draft.stats.agilidade} onChange={(e) => edit({ stats: { ...draft.stats, agilidade: Number(e.target.value) } })} /></label>
                 <label>Velocidade de movimento (m/s)<input type="number" step={0.1} min={0.2} max={6} value={draft.speed} onChange={(e) => edit({ speed: Number(e.target.value) })} /><small className="hint">correndo atrás: ×1,6</small></label>
-                <label>Velocidade de ataque (golpes/s)<input type="number" step={0.05} min={0.1} max={4} value={draft.stats.atkSpeed} onChange={(e) => edit({ stats: { ...draft.stats, atkSpeed: Number(e.target.value) } })} /><small className="hint">1 golpe a cada {(1 / Math.max(0.1, draft.stats.atkSpeed)).toFixed(1).replace('.', ',')} s</small></label>
               </div>
               {lv && <small className="hint">No nível {clean!.level[1]}: vida {lv.vida} · ataque {lv.poder} · defesa {lv.defesa} · um golpe tira ~{mitigate(lv.poder, 0)} de HP do Companion</small>}
             </fieldset>

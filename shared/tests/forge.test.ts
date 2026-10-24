@@ -104,3 +104,23 @@ describe('velocidade das classes', () => {
     expect(speciesSpeed(null)).toBe(1);
   });
 });
+
+describe('atributos do monstro por nível', () => {
+  const base = sanitizeCreature({ ...DEFAULT_CREATURES[0], stats: { vida: 100, poder: 10, defesa: 10, agilidade: 10, atkSpeed: 1 } })!;
+  it('sem ajustes cresce 8% em vida/ataque/defesa e mantém o resto', () => {
+    const s = creatureStatsAt(base, 2);
+    expect(s.vida).toBe(108); expect(s.agilidade).toBe(10); expect(s.atkSpeed).toBe(1);
+  });
+  it('valores fixados: linha reta entre eles e crescimento depois do último', () => {
+    const c = sanitizeCreature({ ...base, levelStats: { '5': { vida: 500 } }, growth: { vida: 0.1 } })!;
+    expect(creatureStatsAt(c, 3).vida).toBe(300);
+    expect(creatureStatsAt(c, 5).vida).toBe(500);
+    expect(creatureStatsAt(c, 6).vida).toBe(550);
+    expect(creatureStatsAt(c, 6).poder).toBe(Math.round(10 * Math.pow(1.08, 5)));
+  });
+  it('limpa valores fora dos limites', () => {
+    const c = sanitizeCreature({ ...base, levelStats: { '99': { vida: 5 }, '3': { atkSpeed: 9, x: 1 } }, growth: { vida: 3 } })!;
+    expect(c.levelStats).toEqual({ '3': { atkSpeed: 4 } });
+    expect(c.growth?.vida).toBe(0.5);
+  });
+});

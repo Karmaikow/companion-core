@@ -732,3 +732,8 @@ Prompt com o mundo de fantasia, regra explícita de pronomes ("mim" = a pessoa; 
   de prompt do modelo 3D (imagem de referência → descrição pela IA geral, `admin.ai.describe`; pose que o rig lê bem).
   Nomes de clipe dos bichos: o clipe decide o papel (nadar/rastejar = andar, bater asas/voar = correr) e o clipe com o
   nome exato do papel ganha.
+
+- **v1.36 — Atributos do monstro por nível.** `CreatureDef.growth` (crescimento por nível de cada atributo; padrão +8%
+  em vida, ataque e defesa) e `levelStats` (valores fixados à mão num nível). `creatureStatsAt`: o nível 1 e os fixados
+  são pontos fixos, linha reta entre eles e crescimento depois do último. No Invocador, a tabela do nível mínimo ao
+  máximo (ou 1–60) é editável célula a célula; célula fixada fica destacada e apagar solta.

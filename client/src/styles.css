@@ -1107,3 +1107,18 @@ html:has(.admin), body:has(.admin), #root:has(.admin) { height: auto; min-height
 .creature-prompt .ref-thumb { width: 64px; height: 64px; object-fit: cover; border-radius: 8px; border: 1px solid rgba(214, 176, 106, .4); }
 .creature-prompt textarea[readonly] { font-size: .75rem; }
 .model-box label.inline { display: inline-flex; gap: 6px; align-items: center; }
+/* Invocador: atributos por nível */
+.stats-editor .growth { display: flex; align-items: center; gap: 4px; font-size: .72rem; color: var(--mist, #b9c2e6); }
+.stats-editor .growth input { width: 4.2em; padding: 2px 4px; }
+.stats-table-tools label.inline { display: inline-flex; flex-direction: row; gap: 6px; align-items: center; white-space: nowrap; }
+.stats-table-tools label.inline input { width: auto; margin: 0; }
+.stats-table-tools { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin: 6px 0; }
+.stats-table-wrap { max-height: 320px; overflow: auto; border: 1px solid rgba(214, 176, 106, .25); border-radius: 8px; }
+.stats-table { width: 100%; border-collapse: collapse; font-size: .78rem; }
+.stats-table th, .stats-table td { padding: 2px 4px; text-align: right; border-bottom: 1px solid rgba(255, 255, 255, .06); }
+.stats-table thead th { position: sticky; top: 0; background: #151b38; z-index: 1; font-weight: 600; }
+.stats-editor .stats-table td input:not([type=checkbox]):not([type=range]):not([type=color]) { width: 100%; min-width: 3.5em; max-width: 5.5em; margin: 0; box-shadow: none; font-size: .78rem; text-align: right; background: transparent; border: 1px solid transparent; color: inherit; padding: 2px 4px; border-radius: 4px; }
+.stats-editor .stats-table td input:not([type=checkbox]):not([type=range]):not([type=color]):focus { border-color: rgba(214, 176, 106, .7); background: rgba(0, 0, 0, .25); }
+.stats-editor .stats-table td.pinned input:not([type=checkbox]):not([type=range]):not([type=color]) { color: #f6dfa8; font-weight: 700; background: rgba(214, 176, 106, .12); }
+.stats-table tr.out { opacity: .5; }
+.stats-table td.blow { color: #ffb4a8; white-space: nowrap; padding-right: 8px; }
