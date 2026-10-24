@@ -380,9 +380,35 @@ export function App() {
           {model && <TouchMoves />}
           {model && touchLand && <Joystick />}
           {touchLand && (
-            <div className="touch-quick" role="group" aria-label="Atalhos">
-              <button className={railOpen ? 'on' : ''} onClick={() => setRailOpen(!railOpen)} aria-expanded={railOpen} aria-label="Menu">☰</button>
-              <button className={chatOpen ? 'on' : ''} onClick={() => setChatOpen(!chatOpen)} aria-expanded={chatOpen} aria-label="Conversar"><HudGlyph kind="send" /></button>
+            <button className="mobile-menu-btn" onClick={() => setRailOpen(true)} aria-label="Abrir o menu" aria-expanded={railOpen}>☰{socialBadge > 0 && <em className="dot" aria-label={socialBadge + ' pedidos'} />}</button>
+          )}
+          {touchLand && railOpen && (
+            <div className="mobile-menu" role="dialog" aria-label="Menu">
+              <header>
+                <b>{d.name ?? 'Companion'}</b>
+                <small>{c.stage === 'awakened' ? 'Primeira forma' : 'Partículas'} · vínculo {c.bond.level}</small>
+                <button className="close" onClick={() => setRailOpen(false)} aria-label="Fechar o menu">×</button>
+              </header>
+              <div className="mm-actions">
+                <button onClick={() => { setRailOpen(false); setChatOpen(true); }}><HudGlyph kind="send" /><span>Conversar</span></button>
+                {model && (place === 'refuge'
+                  ? <button disabled={!passage} onClick={() => { setRailOpen(false); goWorld(); }}><span aria-hidden>✦</span><span>Companion World{!passage && <small>abre depois do primeiro sonho</small>}</span></button>
+                  : <>
+                    <button onClick={() => { setRailOpen(false); goHome(); }}><span aria-hidden>⌂</span><span>Voltar ao Refúgio</span></button>
+                    <button className={explore ? 'on' : ''} onClick={() => setExplore(!explore)}><span aria-hidden>➶</span><span>{explore ? 'Explorando sozinho…' : 'Explorar sozinho'}</span></button>
+                  </>)}
+              </div>
+              {c.stage === 'particles' && <div className="mm-quest" onClick={() => setRailOpen(false)}><QuestTracker /></div>}
+              <nav className="mm-grid" aria-label="Seções">
+                {TABS.filter((t) => !hiddenTab(t.key)).map((t) => (
+                  <button key={t.key} onClick={() => { setRailOpen(false); setTab(t.key); }}>
+                    <Icon tab={t.key} size={26} />
+                    <span>{t.label}</span>
+                    {t.key === 'social' && socialBadge > 0 && <em className="dot" />}
+                  </button>
+                ))}
+              </nav>
+              <button className="mm-leave" onClick={() => void leave()}>⎋ Sair da conta</button>
             </div>
           )}
           {model && <AttackCursor />}
