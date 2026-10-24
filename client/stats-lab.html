@@ -1,0 +1,8 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="./src/styles.css"></head><body style="background:#0d1330;color:#f4ead2;padding:16px;width:760px"><div id="root" class="biome-form"></div><script type="module">
+import { createElement as h, useState } from 'react';
+import { createRoot } from 'react-dom/client';
+import { DEFAULT_CREATURES, sanitizeCreature } from '@rules';
+import { CreatureStatsEditor } from './src/ui/CreatureStatsEditor';
+function App() { const [d, setD] = useState({ ...DEFAULT_CREATURES[2], level: [3, 12], levelStats: { '8': { vida: 900 } } }); window.__d = d; return h('fieldset', null, h('legend', null, 'Atributos por nível'), h(CreatureStatsEditor, { draft: d, clean: sanitizeCreature(d), edit: (p) => setD((x) => ({ ...x, ...p })) })); }
+createRoot(document.getElementById('root')).render(h(App));
+</script></body></html>
