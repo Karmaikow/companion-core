@@ -36,10 +36,10 @@ export interface SocialState {
 /** Fala de um Companion de outro jogador (balão sobre ele na cena). */
 export const useRemoteSpeech = create<Record<string, { text: string; id: number }>>(() => ({}));
 let speechSeq = 0;
-function sayRemote(cid: string, text: string) {
+function sayRemote(cid: string, text: string, ms?: number) {
   const id = ++speechSeq;
   useRemoteSpeech.setState({ [cid]: { text, id } });
-  window.setTimeout(() => { if (useRemoteSpeech.getState()[cid]?.id === id) useRemoteSpeech.setState((s) => { const n = { ...s }; delete n[cid]; return n; }); }, Math.max(3200, text.length * 70));
+  window.setTimeout(() => { if (useRemoteSpeech.getState()[cid]?.id === id) useRemoteSpeech.setState((s) => { const n = { ...s }; delete n[cid]; return n; }); }, ms ?? Math.max(3200, text.length * 70));
 }
 
 if (import.meta.env.DEV && typeof window !== 'undefined') (window as unknown as { __social: unknown }).__social = { useRemoteSpeech, remotePoses, usePresence };
@@ -85,10 +85,22 @@ function playMeeting(m: MeetingView, me: string) {
   if (seen.meetings.has(m.id)) return;
   seen.meetings.add(m.id);
   const g = useGame.getState();
-  // fica parado conversando enquanto as falas passam (a pessoa pode tirar dali andando)
+  // As duas telas seguem o MESMO relógio: a fala i sai em (hora do encontro no servidor + 2 s + i × 3,4 s). Antes cada
+  // jogo começava quando recebia o encontro (o segundo recebe alguns segundos depois) e cada tela mostrava outra fala.
+  const step = 3400, now = Date.now();
+  let t0 = Date.parse(m.at) + 2000;
+  // relógio do aparelho muito diferente do servidor (tudo "já passou"): toca do começo agora
+  if (!Number.isFinite(t0) || t0 + m.lines.length * step < now - 90_000) t0 = now + 600;
+  const at = (i: number) => t0 + i * step - now;
   const other = m.with ? remotePoses.get(m.with.id) : undefined;
-  if (other && Number.isFinite(other.x)) Object.assign(socialHold, { until: performance.now() + 900 + m.lines.length * 3400 + 1500, x: other.x, z: other.z });
-  m.lines.forEach((l, i) => window.setTimeout(() => { if (l.cid === me) useGame.getState().sayBark(l.text); else sayRemote(l.cid, l.text); }, 600 + i * 3400));
+  const end = at(m.lines.length);
+  if (other && Number.isFinite(other.x) && end > 0) Object.assign(socialHold, { until: performance.now() + end + 1200, x: other.x, z: other.z });
+  m.lines.forEach((l, i) => {
+    const wait = at(i);
+    if (wait < -step) return; // essa fala já passou
+    // cada fala fica só o tempo dela (a próxima já é do outro): assim nunca aparecem duas ao mesmo tempo
+    window.setTimeout(() => { if (l.cid === me) useGame.getState().sayBark(l.text, step - 200); else sayRemote(l.cid, l.text, step - 200); }, Math.max(0, wait));
+  });
   if (m.with) g.toast(`${m.lines.find((l) => l.cid === me)?.name ?? 'Seu Companion'} conversou com ${m.with.name} ✨`, 'soft');
 }
 

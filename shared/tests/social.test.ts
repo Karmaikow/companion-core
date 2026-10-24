@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { sociability, companionDecisions, companionAcceptsParty, meetAllowance, parseMeet, offlineMeet, parseTradeItems, tradeStep, buildMeetPrompt, SOCIAL, type MeetSide, type MeetContext } from '../rules/social.ts';
+import { sociability, companionDecisions, companionAcceptsParty, meetAllowance, parseMeet, offlineMeet, parseTradeItems, tradeStep, buildMeetPrompt, planMeeting, SOCIAL, type MeetSide, type MeetContext } from '../rules/social.ts';
 
 const side = (id: string, name: string, traits: string[], pronoun: 'ela' | 'ele' = 'ela'): MeetSide => ({ id, name, discoveries: { name, traits, pronoun, colorName: 'azul' }, memories: [], about: [] });
 const A = side('a1', 'Maya', ['sociavel', 'brincalhona', 'sanguinea']);
@@ -31,13 +31,26 @@ describe('MMO social', () => {
     expect(n(true)).toBeGreaterThan(n(false));
     expect(n(true, B.discoveries)).toBeLessThan(n(true));
   });
-  it('a IA não consegue pedir amizade fora da regra', () => {
+  it('o que acontece vem do roteiro das regras, não do que a IA escreveu', () => {
     const raw = JSON.stringify({ lines: [{ who: 'a', text: 'Oi!' }, { who: 'b', text: 'Olá!' }], memoryA: 'Maya conheceu Luna no rio.', memoryB: 'Luna conheceu Maya no rio.', friendRequest: 'a', partyInvite: 'b' });
-    const p = parseMeet(raw, A, B, ctx({ partyA: { id: 'p', size: 1 } }))!;
-    expect(p.friendRequest).toBeNull(); // primeiro encontro
-    expect(p.partyInvite).toBeNull(); // A já tem grupo, B não pode chamar
+    const plan = { friendRequest: null, partyInvite: null, partyAccepted: false } as const;
+    const p = parseMeet(raw, A, B, ctx(), plan)!;
+    expect(p.friendRequest).toBeNull();
+    expect(p.partyInvite).toBeNull();
     expect(p.lines).toHaveLength(2);
     expect(parseMeet('{"lines":[{"who":"a","text":"oi"}]}', A, B, ctx())).toBeNull();
+  });
+  it('convite de grupo: a conversa termina com o aceite (ou a recusa) que vale no jogo', () => {
+    for (const accepted of [true, false]) {
+      const plan = { friendRequest: null, partyInvite: 'a' as const, partyAccepted: accepted };
+      expect(buildMeetPrompt(A, B, ctx({ friends: true }), plan)).toMatch(accepted ? /ACEITA/ : /RECUSA/);
+      const p = offlineMeet(A, B, ctx({ friends: true }), plan);
+      expect(p.partyAccepted).toBe(accepted);
+      expect(p.lines[p.lines.length - 1].who).toBe('b');
+      expect(p.lines.length).toBeLessThanOrEqual(SOCIAL.maxLines);
+    }
+    const plan = planMeeting(A, B, ctx({ friends: true, meetings: 4, seed: 'x' }));
+    if (!plan.partyInvite) expect(plan.partyAccepted).toBe(false);
   });
   it('encontro offline tem os dois falando e memória para os dois', () => {
     const p = offlineMeet(A, B, ctx());
@@ -45,9 +58,8 @@ describe('MMO social', () => {
     expect(p.memoryA).toMatch(/Maya conheceu Luna/);
     expect(p.memoryB).toMatch(/Luna conheceu Maya/);
   });
-  it('prompt diz o que é permitido', () => {
-    expect(buildMeetPrompt(A, B, ctx())).toMatch(/friendRequest: sempre null/);
-    expect(buildMeetPrompt(A, B, ctx({ meetings: 2 }))).toMatch(/"a" ou "b" se um deles pedir/);
+  it('sem convite no roteiro, o prompt proíbe combinar de ir junto', () => {
+    expect(buildMeetPrompt(A, B, ctx(), { friendRequest: null, partyInvite: null, partyAccepted: false })).toMatch(/Ninguém chama o outro para um grupo/);
   });
   it('itens da troca: limpa e recusa repetidos ou inválidos', () => {
     expect(parseTradeItems([{ kind: 'material', key: 'seiva', qty: 3 }, { kind: 'equipment', id: '11111111-1111-1111-1111-111111111111' }])).toHaveLength(2);

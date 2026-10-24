@@ -37,8 +37,9 @@ interface State {
   toast(text: string, tone?: Toast['tone']): void;
   celebrate(c: Omit<Celebration, 'id'>): void;
   /** fala curta da Companion no jogo (balão; sem IA) */
-  bark: { id: number; text: string } | null;
-  sayBark(text: string): void;
+  bark: { id: number; text: string; ms?: number } | null;
+  /** `ms`: quanto tempo o balão fica (nos encontros, só até a próxima fala) */
+  sayBark(text: string, ms?: number): void;
   /** Criatura derrotada: registra no bestiário (sem travar a conversa) e comemora o que for novo. */
   recordKill(slug: string, level: number): Promise<import('./backend/types').CombatResult | null>;
   dismissCelebration(): void;
@@ -63,7 +64,7 @@ export const useGame = create<State>((set, get) => ({
   burst: 0,
   toasts: [],
   bark: null,
-  sayBark: (text) => set({ bark: { id: ++seq, text } }),
+  sayBark: (text, ms) => set({ bark: { id: ++seq, text, ms } }),
   celebrations: [],
   awakenCall: false,
   items: DEFAULT_ITEMS,
