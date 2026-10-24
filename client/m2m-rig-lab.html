@@ -1,0 +1,10 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><link rel="stylesheet" href="./src/styles.css"><title>Lab Rig</title></head>
+<body style="margin:0;background:#0d1330"><div id="root"></div>
+<script type="module">
+// Lab (só no dev): o editor de rig do Administrador com o Miguel, sem login.
+import { createElement as h } from 'react';
+import { createRoot } from 'react-dom/client';
+import { RigEditor } from './src/ui/RigEditor';
+window.__done = null;
+createRoot(document.getElementById('root')).render(h(RigEditor, { url: '/m2m-test/miguel.glb', name: 'Miguel', who: 'companion', onClose: () => {}, onDone: async (f) => { window.__done = { name: f.name, size: f.size, type: f.type }; } }));
+</script></body></html>

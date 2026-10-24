@@ -693,3 +693,10 @@ Prompt com o mundo de fantasia, regra explícita de pronomes ("mim" = a pessoa; 
   (esqueletos de raposa, cavalo, aranha, dragão, pássaro, cobra, tubarão e kaiju), volta com as animações e entra pelo
   Invocador; os papéis se preenchem pelos nomes (`animKind` conhece bite, kick, hit, howl, roar…).
 - Lab no dev: `/m2m-lab.html?modelo=…` (converte, grava, reabre e toca num modelo novo) e `/m2m-ui-lab.html` (a aba sem login).
+- **Rig no próprio Administrador (v1.32):** o editor do Mesh2Motion (fork MIT) fica em `client/public/rig/` (build de
+  `create.html`, sem as prévias em vídeo, os modelos de variação e os arquivos de teste). Duas mudanças no fork:
+  `?modelo=<url>` abre o modelo direto e, dentro de um iframe, o Download manda o .GLB para a página-mãe
+  (`postMessage` `m2m-export`, mesma origem) em vez de baixar — e pode exportar sem animações. Botão **Fazer o rig aqui**
+  no cartão do Companion (Fábrica) e no Invocador (`ui/RigEditor.tsx`): o arquivo riggado substitui o modelo. Companions
+  riggados com o esqueleto humano do Mesh2Motion recebem o pacote padrão sem conversão (só rotações; o quadril na altura
+  do modelo). Com isso o Tripo só precisa gerar a malha.

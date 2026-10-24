@@ -20,6 +20,7 @@ const loader = new GLTFLoader(); loader.setMeshoptDecoder(MeshoptDecoder);
   const names = [...new Set([...Object.values(STANDARD_SLOTS), ...STANDARD_EXTRAS])];
   t = performance.now();
   const clips = names.map((n) => rt.get(n)!).filter(Boolean);
+  { const bn: string[] = []; model.scene.traverse((o) => { if ((o as THREE.Bone).isBone) bn.push(o.name); }); log(`ossos: ${bn.slice(0, 5).join(', ')} · Walk: ${clips[1]?.tracks.length} trilhas (${clips[1]?.tracks.slice(0, 3).map((t) => t.name).join(', ')}) · no arquivo do modelo: ${model.animations.map((a) => a.name).join(', ')}`); }
   log(`${clips.length} clipes convertidos em ${(performance.now() - t).toFixed(0)} ms`);
   const buf = await exportClips(model.scene, clips);
   log(`arquivo do jogo: ${(buf.byteLength / 1024).toFixed(0)} KB`);
@@ -55,7 +56,7 @@ const loader = new GLTFLoader(); loader.setMeshoptDecoder(MeshoptDecoder);
 })().catch((e) => { log('ERRO ' + (e?.stack ?? e)); (window as unknown as { __done: boolean }).__done = true; });
 // diagnóstico de tamanho (só no lab)
 (window as unknown as { __stats: unknown }).__stats = async () => {
-  const url = '/m2m-test/sample.glb';
+  const url = new URLSearchParams(location.search).get('modelo') ?? '/m2m-test/sample.glb';
   const model = await loader.loadAsync(url);
   const rt = await makeRetargeter(model.scene);
   const c = rt.get('Walk')!;

@@ -15,6 +15,7 @@ import { SkillAnimPicker } from './SkillAnimPicker';
 import { CompanionsAdmin } from './AdminCompanions';
 import { AdminVoid } from './AdminVoid';
 import { AnimStudio } from './AnimStudio';
+import { RigEditor } from './RigEditor';
 
 type View = 'companions' | 'animacoes' | 'biomas' | 'forja' | 'invocador' | 'arsenal' | 'servidor';
 const VIEWS: { key: View; label: string; hash: string; title: string; hint: string }[] = [
@@ -97,16 +98,18 @@ export function AdminPanel() {
   }
 
   // Modelo 3D (.GLB do Tripo) e animações: cada animação vem num .GLB separado do mesmo rig.
-  async function uploadModel(job: Job, file: File) {
-    if (!/\.glb$/i.test(file.name)) { setMsg('Envie o modelo em .GLB.'); return; }
+  async function uploadModel(job: Job, file: File): Promise<boolean> {
+    if (!/\.glb$/i.test(file.name)) { setMsg('Envie o modelo em .GLB.'); return false; }
     setBusy(true); setMsg(null);
     try {
       const modelPath = await put(job, file, 'model', 'model/gltf-binary');
       const kind = animKind(file.name);
       // o arquivo do corpo também costuma trazer uma animação (ex.: "parado"); entra na lista se o nome disser qual é
-      await update(job, job.status === 'approved' ? 'approved' : 'review', { modelPath, ...(kind ? { addAnims: [{ path: modelPath, kind, name: file.name }] } : {}) });
-    } catch (e) { setMsg((e as Error).message); setBusy(false); }
+      return await update(job, job.status === 'approved' ? 'approved' : 'review', { modelPath, ...(kind ? { addAnims: [{ path: modelPath, kind, name: file.name }] } : {}) });
+    } catch (e) { setMsg((e as Error).message); setBusy(false); return false; }
   }
+  // rig no próprio Administrador (editor do Mesh2Motion): o modelo riggado volta e substitui o atual
+  const [rigJob, setRigJob] = useState<Job | null>(null);
   async function uploadAnims(job: Job, files: File[], opts: { dropPrefix?: string } = {}): Promise<boolean> {
     const glbs = files.filter((f) => /\.glb$/i.test(f.name));
     if (!glbs.length) { setMsg('Envie as animações em .GLB.'); return false; }
@@ -169,11 +172,12 @@ export function AdminPanel() {
                 </label>
                 <div className="model-box">
                   <strong>Modelo 3D</strong>
-                  {j.modelPath ? <small className="ok">Modelo enviado: {j.modelPath.split('/').pop()}</small> : <small>Sem modelo ainda (.GLB do Tripo, com rig)</small>}
+                  {j.modelPath ? <small className="ok">Modelo enviado: {j.modelPath.split('/').pop()}</small> : <small>Sem modelo ainda (.GLB do Tripo, com ou sem rig)</small>}
                   <label className="upload">
                     <input type="file" accept=".glb,model/gltf-binary" disabled={busy} onChange={(e) => { const f = e.target.files?.[0]; if (f) void uploadModel(j, f); e.target.value = ''; }} />
                     {j.modelPath ? 'Trocar modelo .GLB' : 'Enviar modelo .GLB'}
                   </label>
+                  {j.model?.url && <button className="ghost" disabled={busy} onClick={() => setRigJob(j)} title="Encaixa o esqueleto humano no modelo (dispensa o rig do Tripo)">Fazer o rig aqui (Mesh2Motion)</button>}
                   <strong>Animações</strong>
                   {j.animPaths.length ? (
                     <ul className="anim-list">
@@ -245,6 +249,12 @@ export function AdminPanel() {
       {msg && <p className="msg err">{msg}</p>}
 
       {session && view === 'animacoes' && <AnimStudio jobs={jobs ?? []} onUploadAnims={uploadAnims} busy={busy} />}
+      {rigJob?.model?.url && (
+        <RigEditor url={rigJob.model.url} name={rigJob.name} who="companion" onClose={() => setRigJob(null)}
+          onDone={async (file) => {
+            if (await uploadModel(rigJob, file)) { setRigJob(null); setMsg(`Rig de ${rigJob.name} pronto e salvo como modelo. Agora em Animações → Aplicar o pacote padrão (e salve).`); }
+          }} />
+      )}
       {session && view === 'biomas' && <BiomeStudio />}
       {session && view === 'forja' && <ForgeStudio />}
       {session && view === 'invocador' && <SummonerStudio />}
