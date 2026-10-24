@@ -10,7 +10,7 @@ import {
   BANK_EVENTS, MOMENT_EVENTS, withXpMultiplier, combatXp, resolveEcos, type EcosConfig, resolvePacto, type PactoConfig, buildBarkBankPrompt, parseBarkBank, buildMomentPrompt, parseMoment, dossier, type BarkEvent,
   type BestiaryEntry, type CreatureDef, type SecretKey, type GameConfig, type IdentityContractV1, type QuestState, type Discoveries, type MemoryLite, type ChatLine,
 } from './rules/index.ts';
-import { complete, providerName } from './llm.ts';
+import { complete, providerName, refreshAi, loadAiRow, targetFromRow, callTarget, envProviderName, envTarget, AI_PROVIDERS, AI_DEFAULTS, type AiProvider, type AiRow } from './llm.ts';
 import { ecosAction, EcosError } from './ecos.ts';
 import { pactoAction, PactoError } from './pacto.ts';
 import { buildAction, BuildError, loadBuild } from './build.ts';
@@ -104,6 +104,63 @@ async function withArtUrl(db: SupabaseClient, job: Record<string, unknown> | nul
 async function isAdmin(db: SupabaseClient, userId: string) {
   const { data } = await db.from('studio_admins').select('user_id').eq('user_id', userId).maybeSingle();
   return !!data;
+}
+
+// ---------------------------------------------------------------------------
+// IA geral dos Companions (painel do ADM → Servidor). A chave nunca volta inteira para o navegador.
+// ---------------------------------------------------------------------------
+
+const keyHint = (k: string | null) => (k ? '••••' + k.slice(-4) : '');
+
+async function adminAiGet(db: SupabaseClient) {
+  const row = await loadAiRow(db);
+  return {
+    provider: row?.provider ?? 'auto', model: row?.model ?? '', modelHq: row?.model_hq ?? '', baseUrl: row?.base_url ?? '',
+    hasKey: !!row?.api_key, keyHint: keyHint(row?.api_key ?? null),
+    active: providerName(), env: envProviderName(), ready: !!targetFromRow(row),
+    defaults: AI_DEFAULTS,
+  };
+}
+
+function aiDraft(body: Record<string, unknown>, saved: AiRow | null): AiRow {
+  const provider = String(body.provider ?? 'auto') as AiProvider;
+  if (!AI_PROVIDERS.includes(provider)) throw new HttpError(400, 'IA desconhecida.');
+  const txt = (v: unknown, max: number) => { const t = typeof v === 'string' ? v.trim() : ''; if (t.length > max) throw new HttpError(400, 'Texto longo demais.'); return t || null; };
+  const baseUrl = txt(body.baseUrl, 300);
+  if (baseUrl && !/^https:\/\/[^\s]+$/i.test(baseUrl)) throw new HttpError(400, 'O endereço precisa começar com https://');
+  if (provider === 'custom' && !baseUrl) throw new HttpError(400, 'Informe o endereço da API (base URL).');
+  if (provider === 'custom' && !txt(body.model, 120)) throw new HttpError(400, 'Informe o modelo.');
+  const newKey = txt(body.apiKey, 400);
+  // a chave antiga só continua se a IA for a mesma (chave de uma não serve na outra)
+  const keep = !body.clearKey && saved?.provider === provider ? saved?.api_key ?? null : null;
+  return { provider, model: txt(body.model, 120), model_hq: txt(body.modelHq, 120), base_url: baseUrl, api_key: newKey ?? keep };
+}
+
+async function adminAiSet(db: SupabaseClient, userId: string, body: Record<string, unknown>) {
+  const saved = await loadAiRow(db);
+  const d = aiDraft(body, saved);
+  if (d.provider !== 'auto' && d.provider !== 'custom' && !d.api_key) throw new HttpError(400, 'Cole a chave da API dessa IA.');
+  const { error } = await db.from('ai_settings').upsert({ id: 1, ...d, updated_at: new Date().toISOString(), updated_by: userId });
+  if (error) throw new HttpError(500, 'Não consegui salvar: ' + error.message);
+  await refreshAi(db, true);
+  return adminAiGet(db);
+}
+
+async function adminAiTest(db: SupabaseClient, body: Record<string, unknown>) {
+  const d = aiDraft(body, await loadAiRow(db));
+  const t = d.provider === 'auto' ? envTarget() : targetFromRow(d);
+  if (!t) return { ok: false, error: d.provider === 'auto' ? 'Sem IA nos segredos da função: os Companions usam respostas simples.' : 'Falta a chave (ou o endereço/modelo) para testar.' };
+  const started = Date.now();
+  try {
+    const raw = await callTarget(t, 'Você é um teste de conexão. Responda em português, em no máximo 6 palavras, só texto.', [], 'Diga oi para o Refúgio.', { maxTokens: 200, timeoutMs: 15_000 });
+    if (!raw) return { ok: false, error: 'A IA respondeu vazio.' };
+    return { ok: true, ms: Date.now() - started, provider: t.provider, model: t.model, sample: raw.replace(/\s+/g, ' ').slice(0, 120) };
+  } catch (e) {
+    const m = String((e as Error)?.message ?? e);
+    const code = Number(m.split(' ').pop());
+    const why = code === 401 || code === 403 ? 'chave recusada' : code === 404 ? 'modelo ou endereço não encontrado' : code === 429 ? 'limite de uso da conta' : m.includes('Timeout') || m.includes('abort') ? 'demorou demais' : 'erro ' + m;
+    return { ok: false, error: `Não funcionou (${why}).` };
+  }
 }
 
 async function adminJobs(db: SupabaseClient) {
@@ -647,10 +704,14 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const action = String(body.action ?? 'state');
     const cfg = await loadConfig(db);
+    await refreshAi(db);
     if (action.startsWith('admin.')) {
       if (!(await isAdmin(db, userId))) return json(403, { error: 'Esta conta não é administradora.' });
       if (action === 'admin.jobs') return json(200, await adminJobs(db));
       if (action === 'admin.update') return json(200, await adminUpdate(db, body));
+      if (action === 'admin.ai.get') return json(200, await adminAiGet(db));
+      if (action === 'admin.ai.set') return json(200, await adminAiSet(db, userId, body));
+      if (action === 'admin.ai.test') return json(200, await adminAiTest(db, body));
       if (action === 'admin.companions') return json(200, await adminCompanions(db, cfg));
       if (action === 'admin.companion') return json(200, await adminCompanion(db, cfg, String(body.companionId ?? '')));
       return json(404, { error: 'Ação desconhecida.' });

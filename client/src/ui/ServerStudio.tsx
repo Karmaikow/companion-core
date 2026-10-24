@@ -8,6 +8,7 @@ import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { DEFAULT_CONFIG, DEFAULT_WEATHER, REFUGE_BIOME, WEATHERS, WEATHER_KINDS, resolveConfig, sanitizeWeather, xpForLevel, weatherAt, type GameConfig, type WeatherConfig } from '@rules';
 import { supabase } from '../backend/online';
 import { WeatherOverlay } from './WeatherOverlay';
+import { AiSettings } from './AiSettings';
 
 const BiomePreview = lazy(() => import('../scene/BiomePreview').then((m) => ({ default: m.BiomePreview })));
 
@@ -62,6 +63,7 @@ export function ServerStudio() {
   return (
     <div className="server-studio">
       <section className="biome-form">
+        <AiSettings />
         <fieldset>
           <legend>XP de vínculo</legend>
           <label>Multiplicador de XP <input type="range" min={0.5} max={10} step={0.25} value={mult} onChange={(e) => setMult(Number(e.target.value))} /> <b>{mult}×</b></label>
