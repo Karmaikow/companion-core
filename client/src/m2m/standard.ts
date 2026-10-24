@@ -12,6 +12,7 @@ import { AnimationRetargetService } from './AnimationRetargetService';
 import { BoneAutoMapper } from './bone-automap/BoneAutoMapper';
 import { MixamoMapper } from './bone-automap/MixamoMapper';
 import { RigifyMapper } from './bone-automap/RigifyMapper';
+import { Mesh2MotionMapper } from './bone-automap/Mesh2MotionMapper';
 import { TargetBoneMappingType } from './TargetBoneMappingType';
 import { SkeletonType } from './SkeletonType';
 import { RetargetUtils } from './RetargetUtils';
@@ -71,7 +72,9 @@ export async function makeRetargeter(model: THREE.Object3D): Promise<Retargeter>
   svc.set_target_armature(target);
   const names: string[] = [];
   target.traverse((o) => { if ((o as THREE.Bone).isBone) names.push(o.name); });
-  svc.set_target_mapping_type(MixamoMapper.is_target_valid_skeleton(names) ? TargetBoneMappingType.Mixamo : RigifyMapper.is_target_valid_skeleton(names) ? TargetBoneMappingType.Rigify : TargetBoneMappingType.Custom);
+  const srcNames: string[] = []; lib.rig.traverse((o) => { if ((o as THREE.Bone).isBone) srcNames.push(o.name); });
+  // esqueleto do próprio Mesh2Motion (modelo riggado no editor deles): os clipes servem direto, sem conversão
+  svc.set_target_mapping_type(Mesh2MotionMapper.is_source_bones_same_as_target(srcNames, names) ? TargetBoneMappingType.Mesh2Motion : MixamoMapper.is_target_valid_skeleton(names) ? TargetBoneMappingType.Mixamo : RigifyMapper.is_target_valid_skeleton(names) ? TargetBoneMappingType.Rigify : TargetBoneMappingType.Custom);
   const map = BoneAutoMapper.auto_map_bones();
   svc.set_bone_mappings(map);
   // Rigs com os lados trocados no nome ("Left" no braço direito): os pés dizem para onde o corpo olha; se a esquerda
@@ -79,9 +82,14 @@ export async function makeRetargeter(model: THREE.Object3D): Promise<Retargeter>
   const mirrored = fixMirroredSides(target, map);
   svc.set_bone_mappings(map);
   svc.set_target_armature(target);
-  if (map.size < 12) throw new Error(`Não reconheci o esqueleto (${map.size} ossos ligados de ${names.length}). Ele precisa ser humanoide, como o rig do Tripo ou do Mixamo.`);
+  if (!names.length) throw new Error('Este modelo não tem esqueleto (rig). Exporte do Tripo com rig, ou faça o rig no editor do Mesh2Motion (esqueleto humano) e envie o .GLB que ele gerar.');
+  if (map.size < 12) throw new Error(`Não reconheci o esqueleto (${map.size} ossos ligados de ${names.length}). Ele precisa ser humanoide, como o rig do Tripo, do Mixamo ou do Mesh2Motion.`);
 
   const cache = new Map<string, THREE.AnimationClip>();
+  // altura do quadril do modelo ÷ a do molde (para o deslocamento do quadril no esqueleto do Mesh2Motion)
+  const pelvisTrack = 'pelvis.position';
+  const tgtPelvis = target.getObjectByName('pelvis'), srcPelvis = lib.rig.getObjectByName('pelvis');
+  const hipK = tgtPelvis && srcPelvis && srcPelvis.position.length() > 1e-6 ? tgtPelvis.position.length() / srcPelvis.position.length() : 1;
   const rigType = svc.get_target_mapping_type();
   return {
     names: [...lib.clips.keys()].sort((a, b) => a.localeCompare(b)),
@@ -96,6 +104,15 @@ export async function makeRetargeter(model: THREE.Object3D): Promise<Retargeter>
       let out: THREE.AnimationClip;
       try { out = svc.retarget_animation_clip(src); } finally { console.log = quiet; }
       out.name = name; // sem o " RT": o nome é a chave nas escolhas do Administrador
+      if (rigType === TargetBoneMappingType.Mesh2Motion) {
+        // mesmo esqueleto, outro corpo: só rotações (posições e escalas do molde deformariam as proporções do modelo),
+        // e o quadril sobe e desce na proporção da altura dele
+        out.tracks = out.tracks.filter((t) => t.name.endsWith('.quaternion') || t.name === pelvisTrack).map((t) => {
+          if (t.name !== pelvisTrack) return t;
+          const v = Float32Array.from(t.values as ArrayLike<number>).map((x) => x * hipK);
+          return new THREE.VectorKeyframeTrack(t.name, Float32Array.from(t.times as ArrayLike<number>), v);
+        });
+      }
       slimClip(out, rest); // ossos parados viram 2 chaves; quadros que a interpolação refaz saem (o arquivo do jogo fica leve)
       cache.set(name, out);
       return out;
@@ -110,8 +127,10 @@ export async function makeRetargeter(model: THREE.Object3D): Promise<Retargeter>
 export function slimClip(clip: THREE.AnimationClip, rest?: Map<string, number[]>) {
   const atRest = (t: THREE.KeyframeTrack, quat: boolean) => {
     const r = rest?.get(t.name), v = t.values;
+    if (!r && !t.name.endsWith('.scale')) return false;
+    if (t.name.endsWith('.scale')) return Math.abs(v[0] - 1) + Math.abs(v[1] - 1) + Math.abs(v[2] - 1) < 1e-4;
+    if (quat && r) return Math.abs(r[0] * v[0] + r[1] * v[1] + r[2] * v[2] + r[3] * v[3]) > 0.99999;
     if (!r) return false;
-    if (quat) return Math.abs(r[0] * v[0] + r[1] * v[1] + r[2] * v[2] + r[3] * v[3]) > 0.99999;
     return Math.abs(r[0] - v[0]) + Math.abs(r[1] - v[1]) + Math.abs(r[2] - v[2]) < 1e-4 * (1 + Math.abs(r[0]) + Math.abs(r[1]) + Math.abs(r[2]));
   };
   const out: THREE.KeyframeTrack[] = [];
