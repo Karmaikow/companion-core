@@ -2,3 +2,4 @@ node_modules
 dist
 *.log
 dist-fn
+client/public/m2m-test/

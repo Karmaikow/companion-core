@@ -1081,3 +1081,9 @@ html:has(.admin), body:has(.admin), #root:has(.admin) { height: auto; min-height
 .anim-modes button { padding: 6px 10px; border-radius: 6px; }
 .anim-modes button.on { outline: 2px solid #ffd77a; }
 .anim-canvas { height: min(60vh, 520px); border-radius: 12px; overflow: hidden; background: #bfe3ff; }
+
+/* Animações padrão (Mesh2Motion) no Administrador */
+.m2m-box { background: rgba(127, 214, 255, .06); border-color: rgba(127, 214, 255, .35); }
+.m2m-box summary { cursor: pointer; }
+.m2m-steps { margin: 4px 0; padding-left: 18px; display: grid; gap: 4px; font-size: .82rem; color: var(--mist); }
+.m2m-box a.button { display: inline-block; justify-self: start; padding: 6px 12px; border-radius: 8px; border: 1px solid rgba(214, 176, 106, .6); color: #f6dfa8; text-decoration: none; }

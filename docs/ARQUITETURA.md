@@ -678,3 +678,18 @@ Prompt com o mundo de fantasia, regra explícita de pronomes ("mim" = a pessoa; 
    salvar). *Padrão do servidor* usa os segredos acima; se a IA escolhida falhar numa chamada, os segredos viram reserva.
 5. Captcha no login anônimo antes de abrir ao público.
 6. Direção de arte: kit do primeiro bioma (10–15 chunks, ~40 props). Tufo de grama com 100–400 triângulos para encher mais a clareira.
+
+## Animações padrão (Mesh2Motion, v1.31)
+
+- **Companions:** o .GLB do Tripo só precisa do rig (as animações que vierem nele continuam, mas os papéis usam o
+  pacote padrão). No Administrador → Animações → **Aplicar o pacote padrão**, o navegador converte a biblioteca humana do
+  [Mesh2Motion](https://github.com/Mesh2Motion/mesh2motion-app) (165 animações, CC0) para o esqueleto daquele modelo com o
+  retarget "swing-twist" deles (MIT, em `client/src/m2m`). Cada papel pode trocar por qualquer clipe da biblioteca e ser
+  conferido no campo de treino. Ao salvar, sai um .GLB só de animação (`padrao-m2m-<data>.glb`, ~650 KB para 22 clipes)
+  que troca o anterior (`dropAnimsPrefix` no `admin.update`); o jogo liga pelos nomes dos ossos, sem converter nada no celular.
+- **Enxuto:** trilhas paradas viram 2 chaves (e somem se repetem a pose de descanso), chaves que a interpolação refaz saem
+  (< ~0,3°) e a descrição do .GLB usa um bufferView só e números com 7 dígitos: de 2,2 MB para ~650 KB.
+- **Monstros:** o retarget automático é só para humanoides. O monstro vai sem rig para o editor do Mesh2Motion
+  (esqueletos de raposa, cavalo, aranha, dragão, pássaro, cobra, tubarão e kaiju), volta com as animações e entra pelo
+  Invocador; os papéis se preenchem pelos nomes (`animKind` conhece bite, kick, hit, howl, roar…).
+- Lab no dev: `/m2m-lab.html?modelo=…` (converte, grava, reabre e toca num modelo novo) e `/m2m-ui-lab.html` (a aba sem login).

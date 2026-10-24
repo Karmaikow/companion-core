@@ -289,7 +289,9 @@ async function adminUpdate(db: SupabaseClient, body: Record<string, unknown>) {
   if (typeof body.artPath === 'string' && body.artPath) r.art = { path: await checkPath(body.artPath), uploadedAt: now } as StudioResult['art'];
   if (typeof body.modelPath === 'string' && body.modelPath) r.model = { path: await checkPath(body.modelPath), uploadedAt: now };
   if (Array.isArray(body.addAnims)) {
-    const anims = [...(r.anims ?? [])];
+    // pacote que é regravado inteiro (animações padrão do Mesh2Motion): o arquivo anterior com o mesmo prefixo sai
+    const drop = typeof body.dropAnimsPrefix === 'string' && body.dropAnimsPrefix.length >= 4 ? body.dropAnimsPrefix : null;
+    const anims = [...(r.anims ?? [])].filter((a) => !drop || !String(a.name ?? '').startsWith(drop));
     for (const a of body.addAnims.slice(0, 20) as { path?: unknown; kind?: unknown; name?: unknown }[]) {
       const path = await checkPath(a.path);
       const kind = ANIM_KIND_SET.has(String(a.kind)) ? String(a.kind) : 'special';

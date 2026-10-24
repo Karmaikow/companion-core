@@ -1,0 +1,11 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><link rel="stylesheet" href="./src/styles.css"><title>Lab Animações</title></head>
+<body style="margin:0;background:#0d1330"><div id="root" style="position:static;height:auto"></div>
+<script type="module">
+// Lab (só no dev): a aba Animações do Administrador com um Companion de mentira, sem login.
+import { createElement as h } from 'react';
+import { createRoot } from 'react-dom/client';
+import { AnimStudio } from './src/ui/AnimStudio';
+const job = { id: 'lab', companionId: 'lab', status: 'approved', name: 'Modelo de teste', contractVersion: 1, model: { url: '/m2m-test/sample.glb', anims: [] } };
+window.__uploads = [];
+createRoot(document.getElementById('root')).render(h('div', { className: 'admin', style: { padding: 12 } }, h(AnimStudio, { jobs: [job], busy: false, onUploadAnims: async (j, files, opts) => { window.__uploads.push({ name: files[0].name, size: files[0].size, opts }); return true; } })));
+</script></body></html>

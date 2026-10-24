@@ -80,9 +80,9 @@ export function AdminPanel() {
     if (r.error) setMsg('E-mail ou senha incorretos.'); else setSession(true);
   }
 
-  async function update(job: Job, status: string, extra: Record<string, unknown> = {}) {
+  async function update(job: Job, status: string, extra: Record<string, unknown> = {}): Promise<boolean> {
     setBusy(true); setMsg(null);
-    try { setJobs(withPrompt((await call('admin.update', { jobId: job.id, status, ...extra })).jobs)); } catch (e) { setMsg((e as Error).message); } finally { setBusy(false); }
+    try { setJobs(withPrompt((await call('admin.update', { jobId: job.id, status, ...extra })).jobs)); return true; } catch (e) { setMsg((e as Error).message); return false; } finally { setBusy(false); }
   }
 
   async function put(job: Job, file: File, folder: string, type: string) {
@@ -107,15 +107,15 @@ export function AdminPanel() {
       await update(job, job.status === 'approved' ? 'approved' : 'review', { modelPath, ...(kind ? { addAnims: [{ path: modelPath, kind, name: file.name }] } : {}) });
     } catch (e) { setMsg((e as Error).message); setBusy(false); }
   }
-  async function uploadAnims(job: Job, files: File[]) {
+  async function uploadAnims(job: Job, files: File[], opts: { dropPrefix?: string } = {}): Promise<boolean> {
     const glbs = files.filter((f) => /\.glb$/i.test(f.name));
-    if (!glbs.length) { setMsg('Envie as animações em .GLB.'); return; }
+    if (!glbs.length) { setMsg('Envie as animações em .GLB.'); return false; }
     setBusy(true); setMsg(null);
     try {
       const addAnims = [];
       for (const f of glbs) addAnims.push({ path: await put(job, f, 'anims', 'model/gltf-binary'), kind: animKind(f.name) ?? 'special', name: f.name });
-      await update(job, job.status === 'approved' ? 'approved' : 'review', { addAnims });
-    } catch (e) { setMsg((e as Error).message); setBusy(false); }
+      return await update(job, job.status === 'approved' ? 'approved' : 'review', { addAnims, ...(opts.dropPrefix ? { dropAnimsPrefix: opts.dropPrefix } : {}) });
+    } catch (e) { setMsg((e as Error).message); setBusy(false); return false; }
   }
 
   async function upload(job: Job, file: File) {
