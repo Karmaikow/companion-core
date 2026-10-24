@@ -15,8 +15,7 @@ import { SkillAnimPicker } from './SkillAnimPicker';
 import { CompanionsAdmin } from './AdminCompanions';
 import { AdminVoid } from './AdminVoid';
 import { AnimStudio } from './AnimStudio';
-import { RigEditor } from './RigEditor';
-import { saveRigPreset } from './rigPreset';
+import { AutoRig, glbHasRig } from './RigEditor';
 
 type View = 'companions' | 'animacoes' | 'biomas' | 'forja' | 'invocador' | 'arsenal' | 'servidor';
 const VIEWS: { key: View; label: string; hash: string; title: string; hint: string }[] = [
@@ -99,18 +98,23 @@ export function AdminPanel() {
   }
 
   // Modelo 3D (.GLB do Tripo) e animações: cada animação vem num .GLB separado do mesmo rig.
-  async function uploadModel(job: Job, file: File): Promise<boolean> {
+  // Modelo sem rig: depois de enviado, o rig automático (Mesh2Motion) encaixa o esqueleto humano e o modelo riggado
+  // substitui o enviado.
+  async function uploadModel(job: Job, file: File, opts: { rigged?: boolean } = {}): Promise<boolean> {
     if (!/\.glb$/i.test(file.name)) { setMsg('Envie o modelo em .GLB.'); return false; }
     setBusy(true); setMsg(null);
     try {
+      const rigged = opts.rigged ?? await glbHasRig(file);
       const modelPath = await put(job, file, 'model', 'model/gltf-binary');
       const kind = animKind(file.name);
       // o arquivo do corpo também costuma trazer uma animação (ex.: "parado"); entra na lista se o nome disser qual é
-      return await update(job, job.status === 'approved' ? 'approved' : 'review', { modelPath, ...(kind ? { addAnims: [{ path: modelPath, kind, name: file.name }] } : {}) });
+      const ok = await update(job, job.status === 'approved' ? 'approved' : 'review', { modelPath, ...(kind ? { addAnims: [{ path: modelPath, kind, name: file.name }] } : {}) });
+      if (ok && !rigged) setRigJob({ id: job.id, name: job.name, url: null, path: modelPath });
+      return ok;
     } catch (e) { setMsg((e as Error).message); setBusy(false); return false; }
   }
-  // rig no próprio Administrador (editor do Mesh2Motion): o modelo riggado volta e substitui o atual
-  const [rigJob, setRigJob] = useState<Job | null>(null);
+  // rig automático do modelo recém-enviado (ou refeito pelo botão); o endereço sai da lista de pedidos atualizada
+  const [rigJob, setRigJob] = useState<{ id: string; name: string; url: string | null; path: string | null } | null>(null);
   async function uploadAnims(job: Job, files: File[], opts: { dropPrefix?: string } = {}): Promise<boolean> {
     const glbs = files.filter((f) => /\.glb$/i.test(f.name));
     if (!glbs.length) { setMsg('Envie as animações em .GLB.'); return false; }
@@ -178,8 +182,8 @@ export function AdminPanel() {
                     <input type="file" accept=".glb,model/gltf-binary" disabled={busy} onChange={(e) => { const f = e.target.files?.[0]; if (f) void uploadModel(j, f); e.target.value = ''; }} />
                     {j.modelPath ? 'Trocar modelo .GLB' : 'Enviar modelo .GLB'}
                   </label>
-                  {j.model?.url && <button className="ghost" disabled={busy} onClick={() => setRigJob(j)} title="Encaixa o esqueleto humano no modelo (dispensa o rig do Tripo)">Fazer o rig aqui (Mesh2Motion)</button>}
-                  {j.model?.url && <button className="link" disabled={busy} onClick={() => { const u = j.model!.url; setBusy(true); setMsg(null); void fetch(u).then((r) => r.blob()).then((b) => saveRigPreset(b, j.name)).then(() => setMsg(`Esqueleto de ${j.name} guardado: os próximos rigs começam por ele.`), (e) => setMsg((e as Error).message)).finally(() => setBusy(false)); }} title="O encaixe deste modelo (feito aqui com o Mesh2Motion) vira o ponto de partida dos próximos">usar este rig como padrão dos próximos</button>}
+                  {j.model?.url && <button className="link" disabled={busy} onClick={() => setRigJob({ id: j.id, name: j.name, url: j.model!.url, path: null })} title="Encaixa o esqueleto humano de novo, sozinho (se o rig do modelo saiu torto)">refazer o rig automático</button>}
+                  <small className="hint">Envie o .GLB sem rig: o esqueleto é encaixado aqui, sozinho.</small>
                   <strong>Animações</strong>
                   {j.animPaths.length ? (
                     <ul className="anim-list">
@@ -251,12 +255,17 @@ export function AdminPanel() {
       {msg && <p className="msg err">{msg}</p>}
 
       {session && view === 'animacoes' && <AnimStudio jobs={jobs ?? []} onUploadAnims={uploadAnims} busy={busy} />}
-      {rigJob?.model?.url && (
-        <RigEditor url={rigJob.model.url} name={rigJob.name} who="companion" onClose={() => setRigJob(null)}
-          onDone={async (file) => {
-            if (await uploadModel(rigJob, file)) { setRigJob(null); setMsg(`Rig de ${rigJob.name} pronto e salvo como modelo. Agora em Animações → Aplicar o pacote padrão (e salve).`); }
-          }} />
-      )}
+      {rigJob && (() => {
+        const job = jobs?.find((x) => x.id === rigJob.id);
+        const url = rigJob.url ?? (job?.model?.url && (!rigJob.path || job.modelPath === rigJob.path) ? job.model.url : null);
+        if (!job || !url) return null;
+        return (
+          <AutoRig url={url} name={rigJob.name} rig="human" onClose={() => setRigJob(null)}
+            onDone={async (file) => {
+              if (await uploadModel(job, file, { rigged: true })) { setRigJob(null); setMsg(`Rig de ${job.name} pronto e salvo como modelo. Agora em Animações → Aplicar o pacote padrão (e salve).`); }
+            }} />
+        );
+      })()}
       {session && view === 'biomas' && <BiomeStudio />}
       {session && view === 'forja' && <ForgeStudio />}
       {session && view === 'invocador' && <SummonerStudio />}

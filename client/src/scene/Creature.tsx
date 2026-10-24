@@ -37,7 +37,11 @@ function ModelBody({ def, act }: { def: CreatureDef; act: CreatureAct }) {
     let alive = true;
     (async () => {
       const g = await loadGltf(def.model!.url);
-      const clips: Loaded['clips'] = g.animations.map((c) => ({ clip: c, kind: animKind(def.model!.url, c.name) ?? 'idle', src: 'corpo' }));
+      // o nome do clipe decide (o endereço do arquivo só quando o clipe não diz nada); o clipe com o nome exato do
+      // papel vem antes ("Walk" ganha de "Swim" no andar do kaiju)
+      const exact = /^(idle|walk|run|attack|death|hit|sleep)$/i;
+      const clips: Loaded['clips'] = g.animations.slice().sort((a, b) => Number(exact.test(b.name)) - Number(exact.test(a.name)))
+        .map((c) => ({ clip: c, kind: animKind(c.name) ?? (g.animations.length === 1 ? animKind(def.model!.url) ?? 'idle' : 'special'), src: 'corpo' }));
       for (const a of def.model!.anims) {
         if (a.url === def.model!.url) continue;
         try { const ga = await loadGltf(a.url); ga.animations.forEach((c) => clips.push({ clip: c, kind: a.kind, src: a.name })); } catch { /* fica sem essa */ }

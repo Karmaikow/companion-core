@@ -714,3 +714,21 @@ Prompt com o mundo de fantasia, regra explícita de pronomes ("mim" = a pessoa; 
   O retarget swing-twist supunha braços em pose T (eixo X fixo): em rigs com pose A os braços giravam demais e cruzavam
   na frente (o caso da Lunaya e da Mayuna). Braços e dedos agora tiram a direção da posição real das juntas
   (`Rig.buildItem`), e esqueletos do próprio Mesh2Motion também passam pelo swing-twist (antes copiavam as rotações).
+
+- **v1.35 — Arsenal, tiro com arco, rig automático sem cliques (Companions e monstros) e prompt de monstro.**
+  Treino do Arsenal/Forja carrega o pacote padrão e as escolhas da aba Animações. Armas e arco ficam presos no osso da
+  mão por um encaixe medido nos próprios ossos (pulso → dedo médio, mindinho → indicador), igual em pose T ou A.
+  Tiro com arco: o clipe `Archery` junta Bow Pull Back + Bow Pull Hold + Bow Release (mira em 38–52%, o jogo congela em
+  45% enquanto carrega). A corda do arco vai até os dedos da mão que puxa, o arco vira de frente para ela e a flecha
+  aparece encaixada; passou da puxada máxima (ao soltar), a corda volta e a flecha some.
+  Rig automático: o editor do Mesh2Motion embutido roda sozinho com `?sozinho=<tipo>&auto=1` (escolhe o esqueleto,
+  encaixa, liga a pele e devolve o arquivo; avisa o andamento por `m2m-progress`/`m2m-error`). Companion: enviar o
+  .GLB sem rig dispara o rig humano; o editor manual e o esqueleto salvo saíram do painel. Monstros: o encaixe dos
+  bichos (`CompanionCoreCreatureFit.ts`) compara o modelo com o modelo do próprio molde (caixa, manchas das patas no
+  chão, altura da barriga), leva as juntas por trechos retos eixo a eixo, põe cada pata na mancha dela, centraliza as
+  juntas na grossura da malha (de lado ao osso) e espelha esquerda/direita. O arquivo volta com todas as animações do
+  molde. Testado em cachorro, gato, panda, cavalo, t-rex, lagarto, águia, tubarão e baleia.
+  Invocador: escolha do esqueleto (raposa/cavalo, aranha, pássaro, dragão, cobra, peixe, bípede de cauda) e gerador
+  de prompt do modelo 3D (imagem de referência → descrição pela IA geral, `admin.ai.describe`; pose que o rig lê bem).
+  Nomes de clipe dos bichos: o clipe decide o papel (nadar/rastejar = andar, bater asas/voar = correr) e o clipe com o
+  nome exato do papel ganha.

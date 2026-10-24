@@ -10,9 +10,9 @@ export type AnimKind = 'idle' | 'walk' | 'run' | 'attack' | 'hurt' | 'faint' | '
   | 'cast' | 'shoot' | 'dodge' | 'block' | 'getup' | 'sit' | 'pickup' | 'wave' | 'talk' | 'special';
 
 export const ANIM_KINDS: { kind: AnimKind; label: string; words: string[] }[] = [
-  { kind: 'idle', label: 'Parado', words: ['idle', 'parado', 'parada', 'stand', 'breath', 'respira', 'espera', 'rest'] },
-  { kind: 'walk', label: 'Andando', words: ['walk', 'andar', 'andando', 'anda', 'caminha', 'trot', 'passo'] },
-  { kind: 'run', label: 'Correndo', words: ['run', 'corre', 'correndo', 'correr', 'sprint', 'gallop', 'galope'] },
+  { kind: 'idle', label: 'Parado', words: ['idle', 'parado', 'parada', 'stand', 'breath', 'respira', 'espera', 'rest', 'coiled', 'enrolad', 'glide', 'plana'] },
+  { kind: 'walk', label: 'Andando', words: ['walk', 'andar', 'andando', 'anda', 'caminha', 'trot', 'passo', 'swim', 'nada', 'nadando', 'slither', 'side winding', 'sidewinding', 'rasteja'] },
+  { kind: 'run', label: 'Correndo', words: ['run', 'corre', 'correndo', 'correr', 'sprint', 'gallop', 'galope', 'flap', 'fly', 'voa', 'voando', 'voo'] },
   { kind: 'attack', label: 'Ataque', words: ['attack', 'ataque', 'ataca', 'atacando', 'bite', 'mordida', 'claw', 'garra', 'golpe', 'stab', 'slash', 'sword', 'dagger', 'knife', 'mace', 'smash', 'spear', 'thrust', 'punch', 'soco', 'kick', 'chute', 'head but', 'headbutt', 'chifrada', 'espada', 'faca', 'adaga', 'maca', 'lanca', 'estoca', 'corte'] },
   { kind: 'hurt', label: 'Ferido', words: ['hurt', 'damage', 'hit', 'ferido', 'dano', 'apanha', 'hit to', 'hit by', 'stomach', 'impact', 'flinch', 'atingid'] },
   { kind: 'faint', label: 'Desmaiado', words: ['faint', 'die', 'death', 'dead', 'desmaia', 'desmaiado', 'desmaio', 'cai', 'knockout', 'ko', 'fall', 'queda', 'knocked'] },

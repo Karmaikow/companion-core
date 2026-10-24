@@ -1,5 +1,5 @@
 diff --git a/src/CustomModelUploadBootstrap.ts b/src/CustomModelUploadBootstrap.ts
-index f5f9e30..66f84f0 100644
+index f5f9e30..308f7c7 100644
 --- a/src/CustomModelUploadBootstrap.ts
 +++ b/src/CustomModelUploadBootstrap.ts
 @@ -1,7 +1,8 @@
@@ -12,7 +12,7 @@ index f5f9e30..66f84f0 100644
  
    constructor () {
      this.mesh2motion_engine = new Mesh2MotionEngine()
-@@ -10,3 +11,23 @@ export class CustomModelUploadBootstrap {
+@@ -10,3 +11,73 @@ export class CustomModelUploadBootstrap {
  
  // instantiate the class to setup event listeners
  const app = new CustomModelUploadBootstrap()
@@ -35,6 +35,56 @@ index f5f9e30..66f84f0 100644
 +;(window as unknown as { __cc_model_meshes: () => unknown }).__cc_model_meshes = () => {
 +  const meshes = app.mesh2motion_engine.load_model_step.model_meshes()
 +  return meshes.children.length === 0 ? null : meshes
++}
++
++// Companion Core: "?sozinho=<tipo>" faz tudo sem ninguém clicar: escolhe o esqueleto, encaixa (com "&auto=1"), liga a
++// malha aos ossos e devolve o arquivo ao Administrador. Companion (human) volta sem animações (o pacote padrão vem
++// depois); bicho volta com todas as animações do molde dele. Avisa o andamento e os erros por mensagem.
++const solo = new URLSearchParams(location.search).get('sozinho')
++if (solo !== null && model_url !== null) {
++  const eng = app.mesh2motion_engine
++  const host: Window | null = window.parent !== window ? window.parent : null
++  const say = (type: string, extra: Record<string, unknown> = {}): void => { host?.postMessage({ type, ...extra }, location.origin) }
++  const wait = async (ok: () => boolean, ms = 90000): Promise<void> => await new Promise((resolve, reject) => {
++    const t0 = performance.now()
++    const tick = (): void => { if (ok()) resolve(); else if (performance.now() - t0 > ms) reject(new Error('demorou demais')); else setTimeout(tick, 100) }
++    tick()
++  })
++  const step = (): string => String(eng.process_step)
++  let started = false
++  eng.load_model_step.addEventListener('modelLoaded', () => {
++    if (started) return
++    started = true
++    void (async () => {
++      try {
++        say('m2m-progress', { stage: 'esqueleto' })
++        await wait(() => step() === 'load-skeleton' || document.querySelector('#skeleton-selection') !== null)
++        const sel = document.querySelector<HTMLSelectElement>('#skeleton-selection')
++        const btn = document.querySelector<HTMLButtonElement>('#load-skeleton-button')
++        if (sel === null || btn === null) throw new Error('editor sem a escolha de esqueleto')
++        if (![...sel.options].some((o) => o.value === solo)) throw new Error('esqueleto desconhecido: ' + solo)
++        sel.value = solo
++        sel.dispatchEvent(new Event('change'))
++        await wait(() => !btn.disabled)
++        say('m2m-progress', { stage: 'encaixe' })
++        btn.click()
++        await wait(() => step() === 'edit-skeleton')
++        // deixa o encaixe aparecer um instante (a pessoa vê o que vai ser ligado)
++        await new Promise((resolve) => setTimeout(resolve, 600))
++        say('m2m-progress', { stage: 'pele', fit: (window as unknown as { __cc_autofit?: unknown }).__cc_autofit ?? null })
++        document.querySelector<HTMLButtonElement>('#action_bind_pose')?.click()
++        await wait(() => step() === 'animations-export')
++        const clips = (): ReturnType<typeof eng.animations_listing_step.animation_clips> => eng.animations_listing_step.animation_clips()
++        if (solo !== 'human') await wait(() => clips().length > 0, 60000)
++        const selections = solo === 'human' ? [] : clips().map((c, i) => ({ c, i })).filter(({ c }) => !/rest[ _]?pose/i.test(c.name)).map(({ i }) => ({ animation_index: i, mirror_export_mode: 'none' as const }))
++        say('m2m-progress', { stage: 'arquivo' })
++        eng.file_export_step.set_animation_clips_to_export(clips(), selections)
++        await eng.file_export_step.export(eng.animations_listing_step.active_skinned_meshes(), 'exported-model', eng.download_settings)
++      } catch (err) {
++        say('m2m-error', { message: err instanceof Error ? err.message : String(err) })
++      }
++    })()
++  })
 +}
 diff --git a/src/lib/CustomSkeletonHelper.ts b/src/lib/CustomSkeletonHelper.ts
 index ffceca8..a38b97f 100644
@@ -224,7 +274,7 @@ index 053adec..47cc36f 100644
        this.ui.dom_export_button_hidden_link.download = filename
 diff --git a/src/lib/processes/load-skeleton/CompanionCoreAutoFit.ts b/src/lib/processes/load-skeleton/CompanionCoreAutoFit.ts
 new file mode 100644
-index 0000000..28a2170
+index 0000000..a939992
 --- /dev/null
 +++ b/src/lib/processes/load-skeleton/CompanionCoreAutoFit.ts
 @@ -0,0 +1,257 @@
@@ -253,7 +303,7 @@ index 0000000..28a2170
 +}
 +
 +/** Triângulos no espaço do mundo (9 números cada), para cortar a malha em fatias de verdade. */
-+function triangles (root: Object3D): P {
++export function triangles (root: Object3D): P {
 +  const out: number[] = []
 +  const a = new Vector3(), b = new Vector3(), c = new Vector3()
 +  root.traverse((o) => {
@@ -275,7 +325,7 @@ index 0000000..28a2170
 +}
 +
 +/** Corte da malha no plano y: segmentos (x0, z0, x1, z1). */
-+function cut (t: P, y: number): number[] {
++export function cut (t: P, y: number): number[] {
 +  const seg: number[] = []
 +  for (let i = 0; i < t.length; i += 9) {
 +    const ys = [t[i + 1], t[i + 4], t[i + 7]]
@@ -485,8 +535,257 @@ index 0000000..28a2170
 +  }
 +  return { ok: true, crotch: (crotch - minY) / H, armpit_l: arm_l !== null ? (arm_l.armpit - minY) / H : null, armpit_r: arm_r !== null ? (arm_r.armpit - minY) / H : null, height: H }
 +}
+diff --git a/src/lib/processes/load-skeleton/CompanionCoreCreatureFit.ts b/src/lib/processes/load-skeleton/CompanionCoreCreatureFit.ts
+new file mode 100644
+index 0000000..31cc7f2
+--- /dev/null
++++ b/src/lib/processes/load-skeleton/CompanionCoreCreatureFit.ts
+@@ -0,0 +1,243 @@
++/**
++ * Companion Core: encaixe automático dos esqueletos de bicho do Mesh2Motion (raposa/cachorro, cavalo, aranha, pássaro,
++ * dragão, kaiju, cobra, tubarão). O molde vem com o modelo dele (models/model-<tipo>.glb), então a mesma régua mede os
++ * dois: caixa, patas no chão (cada pata é uma mancha no corte rente ao chão) e a barriga (onde as patas se juntam ao
++ * corpo). As juntas vão do modelo do molde para o modelo novo por esses pontos (eixo por eixo, em trechos retos), cada
++ * pata vai até a mancha dela, e depois cada junta é centralizada dentro da malha nos eixos de lado ao osso (osso
++ * comprido segue o corpo, só se ajeita na grossura). Lados esquerdo e direito ficam espelhados.
++ * Só mexe nas posições das juntas (como o editor manual); as rotações do molde ficam.
++ */
++import { Box3, Object3D, Vector3 } from 'three'
++import { cut, triangles } from './CompanionCoreAutoFit'
++
++type P = Float32Array
++interface Blob2 { x: number, z: number, n: number }
++interface Measure { box: Box3, feet: Blob2[], belly: number | null }
++
++/** Manchas ligadas de um corte horizontal (pontos dos segmentos numa grade, juntados por vizinhança). */
++function blobs (seg: number[], cell: number): Blob2[] {
++  const grid = new Map<string, [number, number]>()
++  for (let i = 0; i < seg.length; i += 4) {
++    const x0 = seg[i], z0 = seg[i + 1], x1 = seg[i + 2], z1 = seg[i + 3]
++    const steps = Math.max(1, Math.ceil(Math.hypot(x1 - x0, z1 - z0) / (cell * 0.5)))
++    for (let s = 0; s <= steps; s++) {
++      const x = x0 + (x1 - x0) * s / steps, z = z0 + (z1 - z0) * s / steps
++      grid.set(Math.floor(x / cell) + ',' + Math.floor(z / cell), [x, z])
++    }
++  }
++  const seen = new Set<string>()
++  const out: Blob2[] = []
++  for (const key of grid.keys()) {
++    if (seen.has(key)) continue
++    const stack = [key]; seen.add(key)
++    let sx = 0, sz = 0, n = 0
++    while (stack.length > 0) {
++      const k = stack.pop() as string
++      const [x, z] = grid.get(k) as [number, number]
++      sx += x; sz += z; n++
++      const [i, j] = k.split(',').map(Number)
++      for (let di = -1; di <= 1; di++) for (let dj = -1; dj <= 1; dj++) {
++        const nk = (i + di) + ',' + (j + dj)
++        if (!seen.has(nk) && grid.has(nk)) { seen.add(nk); stack.push(nk) }
++      }
++    }
++    out.push({ x: sx / n, z: sz / n, n })
++  }
++  return out
++}
++
++function measure (tri: P, box: Box3, with_feet: boolean): Measure {
++  const H = box.max.y - box.min.y
++  const size = box.getSize(new Vector3())
++  const cell = 0.012 * Math.max(size.x, size.z, H)
++  if (!with_feet) return { box, feet: [], belly: null }
++  const ground = box.min.y + 0.03 * H
++  let feet = blobs(cut(tri, ground), cell)
++  const big = Math.max(0, ...feet.map((f) => f.n))
++  feet = feet.filter((f) => f.n >= big * 0.15)
++  // barriga: subindo, a primeira altura em que tudo vira uma mancha só (e continua assim)
++  let belly: number | null = null
++  let run = 0
++  for (let y = ground; y < box.min.y + 0.8 * H; y += 0.01 * H) {
++    const bs = blobs(cut(tri, y), cell).filter((b) => b.n >= 3)
++    if (bs.length === 1) { if (++run >= 3) { belly = y - 0.02 * H; break } } else run = 0
++  }
++  return { box, feet, belly }
++}
++
++/** Mapa em trechos retos (pares origem → destino, em ordem). */
++function piecewise (pairs: Array<[number, number]>): (v: number) => number {
++  const ps = pairs.slice().sort((a, b) => a[0] - b[0])
++  const clean: Array<[number, number]> = []
++  for (const p of ps) { const l = clean[clean.length - 1]; if (l === undefined || (p[0] - l[0] > 1e-6 && p[1] - l[1] > 1e-6)) clean.push(p) }
++  if (clean.length < 2) return (v) => v
++  return (v: number) => {
++    let i = 0
++    while (i < clean.length - 2 && v > clean[i + 1][0]) i++
++    const [a0, b0] = clean[i], [a1, b1] = clean[i + 1]
++    return b0 + (v - a0) * (b1 - b0) / (a1 - a0)
++  }
++}
++
++/** Níveis de z das patas (frente, trás…): patas a menos de `gap` uma da outra no z são o mesmo nível. */
++function levels (feet: Blob2[], gap: number): number[] {
++  const zs = feet.map((f) => f.z).sort((a, b) => a - b)
++  const out: number[][] = []
++  for (const z of zs) { const l = out[out.length - 1]; if (l !== undefined && z - l[l.length - 1] < gap) l.push(z); else out.push([z]) }
++  return out.map((l) => l.reduce((a, b) => a + b, 0) / l.length)
++}
++
++/** Onde a reta paralela ao eixo `axis` passando por `p` cruza a malha (coordenadas nesse eixo). */
++function line_hits (tri: P, axis: 0 | 1 | 2, p: Vector3): number[] {
++  const u = axis === 0 ? 1 : 0, w = axis === 2 ? 1 : 2
++  const pu = p.getComponent(u), pw = p.getComponent(w)
++  const out: number[] = []
++  for (let i = 0; i < tri.length; i += 9) {
++    const au = tri[i + u], aw = tri[i + w], bu = tri[i + 3 + u], bw = tri[i + 3 + w], cu = tri[i + 6 + u], cw = tri[i + 6 + w]
++    if (pu < Math.min(au, bu, cu) || pu > Math.max(au, bu, cu) || pw < Math.min(aw, bw, cw) || pw > Math.max(aw, bw, cw)) continue
++    const d = (bw - cw) * (au - cu) + (cu - bu) * (aw - cw)
++    if (Math.abs(d) < 1e-12) continue
++    const l1 = ((bw - cw) * (pu - cu) + (cu - bu) * (pw - cw)) / d
++    const l2 = ((cw - aw) * (pu - cu) + (au - cu) * (pw - cw)) / d
++    const l3 = 1 - l1 - l2
++    if (l1 < 0 || l2 < 0 || l3 < 0) continue
++    out.push(l1 * tri[i + axis] + l2 * tri[i + 3 + axis] + l3 * tri[i + 6 + axis])
++  }
++  return out
++}
++
++/** Centro da grossura da malha em volta de `p` no eixo: entre a superfície mais perto de um lado e do outro. */
++function center_on (tri: P, axis: 0 | 1 | 2, p: Vector3, max_gap: number): number | null {
++  const v = p.getComponent(axis)
++  let lo = -Infinity, hi = Infinity
++  for (const h of line_hits(tri, axis, p)) { if (h <= v && h > lo) lo = h; if (h > v && h < hi) hi = h }
++  if (!Number.isFinite(lo) || !Number.isFinite(hi) || hi - lo > max_gap) return null
++  return (lo + hi) / 2
++}
++
++const partner = (name: string): string | null => {
++  const m = /^(.*[_.])([LlRr])$/.exec(name)
++  if (m === null) return null
++  const s = m[2]
++  return m[1] + (s === 'L' ? 'R' : s === 'R' ? 'L' : s === 'l' ? 'r' : 'l')
++}
++
++export interface CreatureFitReport { ok: boolean, type: string, feet_template: number, feet_model: number, belly: number | null, matched: number }
++
++const WITH_FEET = new Set(['fox', 'horse', 'spider', 'bird', 'dragon', 'kaiju'])
++
++export function companion_core_creature_fit (type: string, armature: Object3D, model: Object3D, template_model: Object3D): CreatureFitReport {
++  const with_feet = WITH_FEET.has(type)
++  const tri = triangles(model), ttri = triangles(template_model)
++  const box = new Box3().setFromObject(model), tbox = new Box3().setFromObject(template_model)
++  const H = box.max.y - box.min.y, tH = tbox.max.y - tbox.min.y
++  const report: CreatureFitReport = { ok: false, type, feet_template: 0, feet_model: 0, belly: null, matched: 0 }
++  if (tri.length < 9 * 50 || H <= 0 || tH <= 0) return report
++  const me = measure(tri, box, with_feet), tm = measure(ttri, tbox, with_feet)
++  report.feet_template = tm.feet.length; report.feet_model = me.feet.length
++  report.belly = me.belly !== null ? (me.belly - box.min.y) / H : null
++  const cx = (box.min.x + box.max.x) / 2, tcx = (tbox.min.x + tbox.max.x) / 2
++  const feet_ok = with_feet && me.feet.length >= 2 && tm.feet.length >= 2
++
++  // ---- mapa do molde para o modelo, eixo por eixo
++  const xp: Array<[number, number]> = [[tbox.min.x, box.min.x], [tcx, cx], [tbox.max.x, box.max.x]]
++  const yp: Array<[number, number]> = [[tbox.min.y, box.min.y], [tbox.max.y, box.max.y]]
++  const zp: Array<[number, number]> = [[tbox.min.z, box.min.z], [tbox.max.z, box.max.z]]
++  if (feet_ok) {
++    const fx = (fs: Blob2[], c: number): number => fs.reduce((a, f) => a + Math.abs(f.x - c), 0) / fs.length
++    const a = fx(tm.feet, tcx), b = fx(me.feet, cx)
++    if (a > 0.02 * tH && b > 0.02 * H) xp.push([tcx - a, cx - b], [tcx + a, cx + b])
++    const tl = levels(tm.feet, 0.12 * (tbox.max.z - tbox.min.z)), ml = levels(me.feet, 0.12 * (box.max.z - box.min.z))
++    if (tl.length === ml.length) tl.forEach((z, i) => zp.push([z, ml[i]]))
++    else if (tl.length >= 2 && ml.length >= 2) zp.push([tl[0], ml[0]], [tl[tl.length - 1], ml[ml.length - 1]])
++    if (tm.belly !== null && me.belly !== null) yp.push([tm.belly, me.belly])
++  }
++  const mx = piecewise(xp), my = piecewise(yp), mz = piecewise(zp)
++
++  armature.updateWorldMatrix(true, true)
++  const bones: Object3D[] = []
++  armature.traverse((o) => { if (o.type === 'Bone') bones.push(o) })
++  const tpl = new Map<Object3D, Vector3>()
++  const pos = new Map<Object3D, Vector3>()
++  for (const b of bones) {
++    const w = b.getWorldPosition(new Vector3())
++    tpl.set(b, w)
++    pos.set(b, new Vector3(mx(w.x), my(w.y), mz(w.z)))
++  }
++  const kids = (b: Object3D): Object3D[] => b.children.filter((c) => c.type === 'Bone')
++
++  // ---- cada pata até a mancha dela no chão
++  if (feet_ok) {
++    const tips = bones.filter((b) => kids(b).length === 0 && (tpl.get(b) as Vector3).y < tbox.min.y + 0.06 * tH)
++    const free = me.feet.slice()
++    // as pontas mais "certas" primeiro (a mais perto de uma mancha)
++    const pairs: Array<{ tip: Object3D, foot: Blob2, d: number }> = []
++    for (const t of tips) for (const f of free) { const p = pos.get(t) as Vector3; pairs.push({ tip: t, foot: f, d: Math.hypot(p.x - f.x, p.z - f.z) }) }
++    pairs.sort((a, b) => a.d - b.d)
++    const used_tip = new Set<Object3D>(), used_foot = new Set<Blob2>()
++    // a mancha é o pé inteiro; a ponta fica à frente do centro dele como no molde
++    for (const pr of pairs) {
++      if (used_tip.has(pr.tip) || used_foot.has(pr.foot) || pr.d > 0.35 * Math.max(H, box.max.z - box.min.z)) continue
++      used_tip.add(pr.tip); used_foot.add(pr.foot); report.matched++
++      // a corrente da pata: da ponta subindo enquanto o pai só tem esse filho
++      const chain: Object3D[] = [pr.tip]
++      let c = pr.tip
++      while (c.parent !== null && c.parent.type === 'Bone' && kids(c.parent).length === 1 && c.parent.parent?.type === 'Bone') { c = c.parent; chain.push(c) }
++      // o pé do molde (média da corrente perto do chão) vai para o centro da mancha
++      const low = chain.filter((b) => (tpl.get(b) as Vector3).y < tbox.min.y + 0.15 * tH)
++      const foot = (low.length > 0 ? low : [pr.tip]).reduce((a, b) => a.add(pos.get(b) as Vector3), new Vector3()).divideScalar(Math.max(1, low.length))
++      const dx = pr.foot.x - foot.x, dz = pr.foot.z - foot.z
++      const n = chain.length
++      chain.forEach((b, i) => {
++        const wgt = n <= 1 ? 1 : Math.min(1, 1.4 * (n - 1 - i) / (n - 1))
++        const p = pos.get(b) as Vector3; p.x += dx * wgt; p.z += dz * wgt
++      })
++    }
++  }
++
++  // ---- cada junta no meio da grossura, nos eixos de lado ao osso (pontas ficam onde estão: são as extremidades)
++  const gap = 0.6 * Math.max(H, box.max.x - box.min.x, box.max.z - box.min.z)
++  for (let pass = 0; pass < 2; pass++) {
++    for (const b of bones) {
++      const ks = kids(b)
++      if (ks.length === 0 || b.parent === null || b.parent.type !== 'Bone') continue
++      const p = pos.get(b) as Vector3
++      // direção do osso: do pai para a junta e da junta para os filhos
++      const dir = new Vector3()
++      dir.add(p.clone().sub(pos.get(b.parent) as Vector3))
++      for (const k of ks) dir.add((pos.get(k) as Vector3).clone().sub(p).divideScalar(ks.length))
++      if (dir.lengthSq() < 1e-12) continue
++      dir.normalize()
++      const mid = Math.abs((tpl.get(b) as Vector3).x - tcx) < 0.01 * tH
++      for (const axis of [0, 1, 2] as const) {
++        if (Math.abs(dir.getComponent(axis)) > 0.55) continue // ao longo do osso: não mexe
++        if (axis === 0 && mid) { p.x = cx; continue }
++        const c = center_on(tri, axis, p, gap)
++        if (c !== null) p.setComponent(axis, c)
++      }
++    }
++  }
++
++  // ---- espelha esquerda e direita
++  const byName = new Map(bones.map((b) => [b.name, b]))
++  const done = new Set<Object3D>()
++  for (const b of bones) {
++    const pn = partner(b.name); const o = pn !== null ? byName.get(pn) : undefined
++    if (o === undefined || done.has(b)) continue
++    done.add(b); done.add(o)
++    const a = pos.get(b) as Vector3, c = pos.get(o) as Vector3
++    const avg = new Vector3((a.x + (2 * cx - c.x)) / 2, (a.y + c.y) / 2, (a.z + c.z) / 2)
++    a.copy(avg); c.set(2 * cx - avg.x, avg.y, avg.z)
++  }
++
++  // ---- aplica dos pais para os filhos
++  for (const b of bones) {
++    const t = pos.get(b)
++    if (t === undefined || b.parent === null) continue
++    b.parent.updateWorldMatrix(true, false)
++    b.position.copy(b.parent.worldToLocal(t.clone()))
++    b.updateMatrixWorld(true)
++  }
++  report.ok = true
++  return report
++}
 diff --git a/src/lib/processes/load-skeleton/StepLoadSkeleton.ts b/src/lib/processes/load-skeleton/StepLoadSkeleton.ts
-index 89a5ca2..b3f5e89 100644
+index 89a5ca2..bf5ef04 100644
 --- a/src/lib/processes/load-skeleton/StepLoadSkeleton.ts
 +++ b/src/lib/processes/load-skeleton/StepLoadSkeleton.ts
 @@ -1,5 +1,5 @@
@@ -496,15 +795,16 @@ index 89a5ca2..b3f5e89 100644
  import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
  import { SkeletonType, type HandSkeletonType } from '../../enums/SkeletonType.js'
  import { RigConfig } from '../../RigConfig.ts'
-@@ -8,6 +8,7 @@ import type GLTFResult from './interfaces/GLTFResult.ts'
+@@ -8,6 +8,8 @@ import type GLTFResult from './interfaces/GLTFResult.ts'
  import { add_origin_markers, remove_origin_markers } from './OriginMarkerManager'
  import { add_preview_skeleton, remove_preview_skeleton } from './PreviewSkeletonManager.ts'
  import { HandHelper } from './HandHelper.ts'
 +import { companion_core_autofit } from './CompanionCoreAutoFit.ts'
++import { companion_core_creature_fit } from './CompanionCoreCreatureFit.ts'
  
  // Note: EventTarget is a built-ininterface and do not need to import it
  export class StepLoadSkeleton extends EventTarget {
-@@ -215,6 +216,22 @@ export class StepLoadSkeleton extends EventTarget {
+@@ -215,6 +217,22 @@ export class StepLoadSkeleton extends EventTarget {
    }
  
    public load_skeleton_file (file_path: string): void {
@@ -527,22 +827,45 @@ index 89a5ca2..b3f5e89 100644
      // load skeleton from GLB file
      this.loader.load(file_path, (gltf: GLTFResult) => {
        // traverse scene and find first bone object
-@@ -252,6 +269,14 @@ export class StepLoadSkeleton extends EventTarget {
+@@ -252,7 +270,36 @@ export class StepLoadSkeleton extends EventTarget {
        // scale the armature to what we picked using the scale slider/preview
        this.loaded_armature.scale.set(this.skeleton_scale(), this.skeleton_scale(), this.skeleton_scale())
  
-+      // Companion Core: "?auto=1" encaixa as juntas sozinho na malha (humano)
+-      this.dispatchEvent(new CustomEvent('skeletonLoaded', { detail: this.loaded_armature }))
++      // Companion Core: "?auto=1" encaixa as juntas sozinho na malha (humano pelas fatias do corpo; bichos comparando
++      // com o modelo do próprio molde)
 +      const model = (window as unknown as { __cc_model_meshes?: () => Object3D | null }).__cc_model_meshes?.() ?? null
-+      if (this.skeleton_file_path() === SkeletonType.Human && new URLSearchParams(location.search).get('auto') === '1' && model !== null) {
-+        const report = companion_core_autofit(this.loaded_armature, model)
-+        ;(window as unknown as { __cc_autofit: unknown }).__cc_autofit = report
-+        console.info('Companion Core: encaixe automático', report)
++      const type = this.skeleton_file_path()
++      const done = (): void => { this.dispatchEvent(new CustomEvent('skeletonLoaded', { detail: this.loaded_armature })) }
++      if (new URLSearchParams(location.search).get('auto') === '1' && model !== null) {
++        if (type === SkeletonType.Human) {
++          const report = companion_core_autofit(this.loaded_armature, model)
++          ;(window as unknown as { __cc_autofit: unknown }).__cc_autofit = report
++          console.info('Companion Core: encaixe automático', report)
++        } else {
++          const model_file = RigConfig.by_skeleton_type(type)?.model_file
++          if (model_file !== undefined) {
++            const armature = this.loaded_armature
++            this.loader.load(model_file, (tg: GLTFResult) => {
++              try {
++                tg.scene.scale.setScalar(this.skeleton_scale())
++                tg.scene.updateMatrixWorld(true)
++                const report = companion_core_creature_fit(type, armature, model, tg.scene)
++                ;(window as unknown as { __cc_autofit: unknown }).__cc_autofit = report
++                console.info('Companion Core: encaixe automático', report)
++              } catch (err) { console.warn('Companion Core: encaixe automático falhou', err) }
++              done()
++            }, undefined, () => { done() })
++            return
++          }
++        }
 +      }
 +
-       this.dispatchEvent(new CustomEvent('skeletonLoaded', { detail: this.loaded_armature }))
++      done()
      })
    }
-@@ -304,3 +329,66 @@ export class StepLoadSkeleton extends EventTarget {
+ 
+@@ -304,3 +351,66 @@ export class StepLoadSkeleton extends EventTarget {
      }
    }
  }

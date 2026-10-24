@@ -10,7 +10,7 @@ import {
   BANK_EVENTS, MOMENT_EVENTS, withXpMultiplier, combatXp, resolveEcos, type EcosConfig, resolvePacto, type PactoConfig, buildBarkBankPrompt, parseBarkBank, buildMomentPrompt, parseMoment, dossier, type BarkEvent,
   type BestiaryEntry, type CreatureDef, type SecretKey, type GameConfig, type IdentityContractV1, type QuestState, type Discoveries, type MemoryLite, type ChatLine,
 } from './rules/index.ts';
-import { complete, providerName, refreshAi, loadAiRow, targetFromRow, callTarget, listModels, envProviderName, envTarget, AI_PROVIDERS, AI_DEFAULTS, type AiProvider, type AiRow } from './llm.ts';
+import { complete, providerName, refreshAi, loadAiRow, targetFromRow, callTarget, listModels, describeImage, envProviderName, envTarget, AI_PROVIDERS, AI_DEFAULTS, type AiProvider, type AiRow } from './llm.ts';
 import { ecosAction, EcosError } from './ecos.ts';
 import { pactoAction, PactoError } from './pacto.ts';
 import { buildAction, BuildError, loadBuild } from './build.ts';
@@ -160,6 +160,24 @@ async function adminAiTest(db: SupabaseClient, body: Record<string, unknown>) {
     const code = Number(m.split(' ').pop());
     const why = code === 401 || code === 403 ? 'chave recusada' : code === 404 ? 'modelo ou endereço não encontrado' : code === 429 ? 'limite de uso da conta' : m.includes('Timeout') || m.includes('abort') ? 'demorou demais' : 'erro ' + m;
     return { ok: false, error: `Não funcionou (${why}).` };
+  }
+}
+
+// Referência de monstro → descrição em inglês para o prompt do modelo 3D (o painel monta a pose pelo esqueleto).
+async function adminAiDescribe(db: SupabaseClient, body: Record<string, unknown>) {
+  await refreshAi(db, true);
+  const image = typeof body.image === 'string' ? body.image : '';
+  if (image.length > 7_000_000) return { ok: false, error: 'Imagem grande demais (máx. 5 MB).' };
+  const kind = typeof body.kind === 'string' ? body.kind.slice(0, 80) : 'creature';
+  const instruction = `This image is the reference for a fantasy game monster (body type: ${kind}). Describe ONLY its look so a 3D artist can model it: what animal/creature it resembles, body shape and proportions, colors (name them), skin/fur/scales/feathers, and distinctive features (horns, spikes, crests, markings, glowing parts). One or two sentences in English, no more than 60 words. Do not describe the pose, the background, the lighting or the art style. Start directly with the description (e.g. "a stocky wolf-like beast with...").`;
+  try {
+    const text = await describeImage(image, instruction);
+    if (!text) return { ok: false, error: 'A IA respondeu vazio.' };
+    return { ok: true, description: text.replace(/\s+/g, ' ').replace(/^["']|["']$/g, '').slice(0, 500) };
+  } catch (e) {
+    const m = String((e as Error)?.message ?? e);
+    const code = Number(m.split(' ').pop());
+    return { ok: false, error: code === 400 || code === 404 || code === 422 ? 'A IA escolhida não lê imagens. Escreva a descrição (ou troque a IA geral no painel Servidor).' : 'Não consegui descrever (' + m + ').' };
   }
 }
 
@@ -722,6 +740,7 @@ Deno.serve(async (req) => {
       if (action === 'admin.ai.set') return json(200, await adminAiSet(db, userId, body));
       if (action === 'admin.ai.test') return json(200, await adminAiTest(db, body));
       if (action === 'admin.ai.models') return json(200, await adminAiModels(db, body));
+      if (action === 'admin.ai.describe') return json(200, await adminAiDescribe(db, body));
       if (action === 'admin.companions') return json(200, await adminCompanions(db, cfg));
       if (action === 'admin.companion') return json(200, await adminCompanion(db, cfg, String(body.companionId ?? '')));
       return json(404, { error: 'Ação desconhecida.' });
