@@ -6,7 +6,7 @@
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import type { ChatLine } from './rules/index.ts';
 
-export const AI_PROVIDERS = ['auto', 'anthropic', 'groq', 'openai', 'gemini', 'openrouter', 'custom'] as const;
+export const AI_PROVIDERS = ['auto', 'anthropic', 'groq', 'openai', 'gemini', 'openrouter', 'nvidia', 'custom'] as const;
 export type AiProvider = (typeof AI_PROVIDERS)[number];
 type Wire = 'anthropic' | 'openai';
 
@@ -17,6 +17,8 @@ export const AI_DEFAULTS: Record<Exclude<AiProvider, 'auto'>, { label: string; b
   openai: { label: 'OpenAI', baseUrl: 'https://api.openai.com/v1', model: 'gpt-4.1-mini', modelHq: 'gpt-4.1', wire: 'openai' },
   gemini: { label: 'Google Gemini', baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai', model: 'gemini-2.5-flash', modelHq: 'gemini-2.5-flash', wire: 'openai' },
   openrouter: { label: 'OpenRouter', baseUrl: 'https://openrouter.ai/api/v1', model: 'openai/gpt-4.1-mini', modelHq: 'openai/gpt-4.1', wire: 'openai' },
+  // Nemotron: o rápido (Lightning) conversa; o Super escreve encontros e conversas de grupo. Raciocínio desligado no jogo.
+  nvidia: { label: 'NVIDIA (Nemotron)', baseUrl: 'https://integrate.api.nvidia.com/v1', model: 'nvidia/nemotron-3.5-lightning-30b-a3b', modelHq: 'nvidia/nemotron-3-super-120b-a12b', wire: 'openai' },
   custom: { label: 'Outra compatível com OpenAI', baseUrl: '', model: '', modelHq: '', wire: 'openai' },
 };
 
@@ -46,7 +48,9 @@ export function targetFromRow(row: AiRow | null): AiTarget | null {
   const model = row.model?.trim() || d.model;
   const key = row.api_key?.trim() ?? '';
   if (!baseUrl || !model || (!key && row.provider !== 'custom')) return null;
-  return { provider: row.provider, key, baseUrl, model, modelHq: row.model_hq?.trim() || model };
+  // falas curtas: o modelo escolhido para elas; senão o mesmo da conversa (se o ADM trocou) ou o padrão da IA
+  const modelHq = row.model_hq?.trim() || (row.model?.trim() ? model : d.modelHq || model);
+  return { provider: row.provider, key, baseUrl, model, modelHq };
 }
 
 export async function loadAiRow(db: SupabaseClient): Promise<AiRow | null> {
@@ -106,9 +110,10 @@ export async function callTarget(t: AiTarget, system: string, history: ChatLine[
   }
 
   // Todas as outras falam o formato de chat da OpenAI.
-  const groq = t.provider === 'groq', openai = t.provider === 'openai';
+  const groq = t.provider === 'groq', openai = t.provider === 'openai', nvidia = t.provider === 'nvidia' || t.baseUrl.includes('api.nvidia.com');
   const max = opts.maxTokens ?? 1200;
-  const call = (json: boolean) => fetch(t.baseUrl + '/chat/completions', {
+  // extras: opções próprias de cada provedor; se o provedor recusar (400/422), a última tentativa vai sem elas
+  const call = (json: boolean, extras: boolean) => fetch(t.baseUrl + '/chat/completions', {
     method: 'POST',
     signal: signal(),
     headers: {
@@ -118,23 +123,40 @@ export async function callTarget(t: AiTarget, system: string, history: ChatLine[
     },
     body: JSON.stringify({
       model,
-      ...(groq ? { reasoning_effort: 'low', include_reasoning: false } : {}),
+      ...(extras && groq ? { reasoning_effort: 'low', include_reasoning: false } : {}),
+      // Nemotron pensa antes de responder por padrão: no jogo a resposta precisa ser direta e rápida
+      ...(extras && nvidia ? { chat_template_kwargs: { enable_thinking: false } } : {}),
       ...(groq || openai ? { max_completion_tokens: max } : { max_tokens: max }),
       ...(json ? { response_format: { type: 'json_object' } } : {}),
       messages: [{ role: 'system', content: system }, ...msgs, { role: 'user', content: user }],
     }),
   });
-  let r = await call(true);
+  let r = await call(true, true);
   // Limite de uso (429): espera o tempo pedido (até 6 s) e tenta mais uma vez.
   if (r.status === 429) {
     const wait = Math.min(6, Number(r.headers.get('retry-after')) || 2);
     await new Promise((ok) => setTimeout(ok, wait * 1000));
-    r = await call(true);
+    r = await call(true, true);
   }
-  // Modo JSON às vezes falha na validação do provedor (400/422): tenta de novo em texto livre;
+  // Modo JSON às vezes falha na validação do provedor (400/422): tenta em texto livre e, por fim, sem as opções extras;
   // parseModelTurn extrai o JSON da resposta ou usa o texto como fala.
-  if (r.status === 400 || r.status === 422) r = await call(false);
+  if (r.status === 400 || r.status === 422) r = await call(false, true);
+  if (r.status === 400 || r.status === 422) r = await call(false, false);
   if (!r.ok) throw new Error(t.provider + ' ' + r.status);
   const data = await r.json();
-  return data?.choices?.[0]?.message?.content || null;
+  return stripThinking(data?.choices?.[0]?.message?.content ?? '') || null;
+}
+
+/** Modelos que raciocinam às vezes devolvem o pensamento junto da resposta: o jogo só quer a fala. */
+export function stripThinking(text: string): string {
+  return text.replace(/<think>[\s\S]*?<\/think>/gi, '').replace(/^[\s\S]*?<\/think>/i, '').trim();
+}
+
+/** Lista de modelos da API (para o painel sugerir os nomes certos). */
+export async function listModels(t: AiTarget): Promise<string[]> {
+  if (AI_DEFAULTS[t.provider].wire === 'anthropic') return [];
+  const r = await fetch(t.baseUrl + '/models', { signal: AbortSignal.timeout(10_000), headers: t.key ? { Authorization: `Bearer ${t.key}` } : {} });
+  if (!r.ok) throw new Error(t.provider + ' ' + r.status);
+  const data = await r.json();
+  return ((data?.data ?? []) as { id?: string }[]).map((m) => String(m.id ?? '')).filter(Boolean).sort();
 }

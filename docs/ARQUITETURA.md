@@ -672,7 +672,7 @@ Prompt com o mundo de fantasia, regra explícita de pronomes ("mim" = a pessoa; 
 3. E-mail: o SMTP padrão do Supabase envia poucos e-mails por hora; para lançar, configurar SMTP próprio.
 4. Opcional: `ANTHROPIC_API_KEY` (modelo melhor para conversa e extração) — hoje usa `GROQ_API_KEY`.
 5. **IA geral pelo painel (v1.30):** no ADM → Servidor → *IA dos Companions* dá para trocar a API sem republicar:
-   Anthropic, Groq, OpenAI, Gemini, OpenRouter ou qualquer uma compatível com OpenAI (endereço próprio), com modelo
+   Anthropic, Groq, OpenAI, Gemini, OpenRouter, NVIDIA (Nemotron, com o raciocínio desligado para respostas rápidas) ou qualquer uma compatível com OpenAI (endereço próprio), com modelo
    da conversa e modelo das falas curtas, e um botão **Testar**. Fica na tabela `ai_settings` (sem acesso para
    `anon`/`authenticated`; a chave só volta ao navegador como `••••1234`). A função relê a cada 30 s (na hora ao
    salvar). *Padrão do servidor* usa os segredos acima; se a IA escolhida falhar numa chamada, os segredos viram reserva.

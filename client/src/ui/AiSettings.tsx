@@ -5,7 +5,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../backend/online';
 
-type Provider = 'auto' | 'anthropic' | 'groq' | 'openai' | 'gemini' | 'openrouter' | 'custom';
+type Provider = 'auto' | 'anthropic' | 'groq' | 'openai' | 'gemini' | 'openrouter' | 'nvidia' | 'custom';
 interface Defaults { label: string; baseUrl: string; model: string; modelHq: string }
 interface AiState {
   provider: Provider; model: string; modelHq: string; baseUrl: string; hasKey: boolean; keyHint: string;
@@ -13,14 +13,15 @@ interface AiState {
 }
 interface TestResult { ok: boolean; ms?: number; provider?: string; model?: string; sample?: string; error?: string }
 
-const ORDER: Provider[] = ['auto', 'anthropic', 'groq', 'openai', 'gemini', 'openrouter', 'custom'];
-const NAMES: Record<string, string> = { auto: 'Padrão do servidor', anthropic: 'Anthropic (Claude)', groq: 'Groq', openai: 'OpenAI', gemini: 'Google Gemini', openrouter: 'OpenRouter', custom: 'Outra (compatível com OpenAI)', offline: 'sem IA (respostas simples)' };
+const ORDER: Provider[] = ['auto', 'anthropic', 'groq', 'openai', 'gemini', 'openrouter', 'nvidia', 'custom'];
+const NAMES: Record<string, string> = { auto: 'Padrão do servidor', anthropic: 'Anthropic (Claude)', groq: 'Groq', openai: 'OpenAI', gemini: 'Google Gemini', openrouter: 'OpenRouter', nvidia: 'NVIDIA (Nemotron)', custom: 'Outra (compatível com OpenAI)', offline: 'sem IA (respostas simples)' };
 const KEY_HELP: Record<string, string> = {
   anthropic: 'console.anthropic.com → API Keys',
   groq: 'console.groq.com → API Keys',
   openai: 'platform.openai.com → API keys',
   gemini: 'aistudio.google.com → Get API key',
   openrouter: 'openrouter.ai → Keys',
+  nvidia: 'build.nvidia.com → Get API Key (começa com nvapi-)',
   custom: 'a chave do seu provedor (pode ficar vazia se ele não pedir)',
 };
 
@@ -44,6 +45,7 @@ export function AiSettings() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ text: string; ok?: boolean } | null>(null);
   const [test, setTest] = useState<TestResult | null>(null);
+  const [models, setModels] = useState<string[]>([]);
 
   const absorb = (r: AiState) => { setS(r); setProvider(r.provider); setModel(r.model); setModelHq(r.modelHq); setBaseUrl(r.baseUrl); setApiKey(''); };
   useEffect(() => { call<AiState>('admin.ai.get').then(absorb, (e) => setMsg({ text: (e as Error).message })); }, []);
@@ -59,6 +61,15 @@ export function AiSettings() {
     setBusy(true); setMsg(null); setTest(null);
     try { absorb(await call<AiState>('admin.ai.set', draft)); setMsg({ ok: true, text: 'IA salva: vale para todos os Companions em até 30 s.' }); }
     catch (e) { setMsg({ text: (e as Error).message }); }
+    finally { setBusy(false); }
+  }
+  async function loadModels() {
+    setBusy(true); setMsg(null);
+    try {
+      const r = await call<{ models: string[]; error?: string }>('admin.ai.models', draft);
+      setModels(r.models);
+      setMsg(r.error ? { text: r.error } : { ok: true, text: `${r.models.length} modelos: toque no campo do modelo para escolher.` });
+    } catch (e) { setMsg({ text: (e as Error).message }); }
     finally { setBusy(false); }
   }
   async function runTest() {
@@ -93,11 +104,11 @@ export function AiSettings() {
             <small className="hint">{KEY_HELP[provider]}</small>
           </label>
           <label>Modelo
-            <input value={model} onChange={(e) => setModel(e.target.value)} placeholder={d?.model || 'ex.: llama-3.3-70b'} spellCheck={false} />
+            <input list="ai-models" value={model} onChange={(e) => setModel(e.target.value)} placeholder={d?.model || 'ex.: llama-3.3-70b'} spellCheck={false} />
             <small className="hint">Conversa e diário.{d?.model ? ` Vazio = ${d.model}` : ''}</small>
           </label>
           <label>Modelo das falas curtas
-            <input value={modelHq} onChange={(e) => setModelHq(e.target.value)} placeholder={d?.modelHq || 'igual ao modelo'} spellCheck={false} />
+            <input list="ai-models" value={modelHq} onChange={(e) => setModelHq(e.target.value)} placeholder={d?.modelHq || 'igual ao modelo'} spellCheck={false} />
             <small className="hint">Encontros e conversas de grupo (vale um modelo melhor). Vazio = {d?.modelHq || 'o mesmo'}.</small>
           </label>
           {(provider === 'custom' || provider === 'openrouter' || baseUrl) && (
@@ -106,12 +117,14 @@ export function AiSettings() {
               <small className="hint">Base que termina antes de /chat/completions.{d?.baseUrl ? ` Vazio = ${d.baseUrl}` : ''}</small>
             </label>
           )}
+          <datalist id="ai-models">{models.map((m) => <option key={m} value={m} />)}</datalist>
         </div>
       )}
 
       <div className="row">
         <button className="primary" disabled={busy} onClick={() => void save()}>Salvar IA</button>
-        <button disabled={busy} onClick={() => void runTest()}>{busy ? 'Testando…' : 'Testar'}</button>
+        <button disabled={busy} onClick={() => void runTest()}>{busy ? 'Aguarde…' : 'Testar'}</button>
+        {provider !== 'auto' && provider !== 'anthropic' && <button disabled={busy} onClick={() => void loadModels()}>Ver modelos</button>}
         {s.provider !== 'auto' && keepsKey && <button className="link" disabled={busy} onClick={() => { if (confirm('Apagar a chave guardada e voltar ao padrão do servidor?')) { setBusy(true); call<AiState>('admin.ai.set', { provider: 'auto', clearKey: true }).then((r) => { absorb(r); setMsg({ ok: true, text: 'Voltou ao padrão do servidor.' }); }, (e) => setMsg({ text: (e as Error).message })).finally(() => setBusy(false)); } }}>apagar chave</button>}
       </div>
       {test && (
