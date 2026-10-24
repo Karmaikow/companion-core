@@ -260,12 +260,16 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
     const s = st.current;
     const next = actions.get(kind);
     // só pula se já estiver tocando de verdade (modelo trocado ou animação apagada por outra = toca de novo)
-    if (s.act === kind && (!next || next.isRunning())) return;
+    // "ativa" = agendada no mixer e ligada. Não dá para usar isRunning(): o "parado" de reserva (primeiro quadro do
+    // andar) tem timeScale 0 e nunca conta como rodando — o jogo reiniciava o parado a cada quadro e a corrida nunca
+    // terminava de sumir (corria parada e misturava as poses).
+    const live = (a: THREE.AnimationAction) => a.isScheduled() && a.enabled;
+    if (s.act === kind && (!next || live(next))) return;
     if (next) next.reset().setEffectiveWeight(1).fadeIn(fade).play();
     // apaga todas as outras (sem animação de parado, o corpo volta à pose de descanso e respira).
     // Compara a animação, não o nome: "attack" e "attack:faca" podem ser o mesmo clipe — apagar pelo nome apagava
     // o próprio golpe (braços abertos) ou a corrida (deslizava parado).
-    actions.forEach((a) => { if (a !== next && a.isRunning()) a.fadeOut(fade); });
+    actions.forEach((a) => { if (a !== next && live(a) && a.getEffectiveWeight() > 0) a.fadeOut(fade); });
     s.act = kind;
   };
   useEffect(() => { st.current.act = ''; return () => { mixer.stopAllAction(); }; }, [mixer]);
