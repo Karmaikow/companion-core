@@ -1094,3 +1094,6 @@ html:has(.admin), body:has(.admin), #root:has(.admin) { height: auto; min-height
 .rig-editor header b { font: 600 1rem var(--serif, serif); color: #f6dfa8; white-space: nowrap; }
 .rig-editor header ol { margin: 0; padding-left: 18px; display: grid; gap: 2px; font-size: .78rem; color: var(--mist, #b9c2e6); flex: 1; }
 .rig-editor iframe { width: 100%; height: 100%; border: 0; background: #2d3a55; }
+.rig-editor .rig-opts { display: grid; gap: 2px; font-size: .78rem; color: #f4ead2; }
+.rig-editor .rig-opts label { display: flex; gap: 6px; align-items: center; white-space: nowrap; }
+.rig-editor .rig-opts small { color: #9fe0a0; max-width: 260px; }

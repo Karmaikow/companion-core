@@ -700,3 +700,8 @@ Prompt com o mundo de fantasia, regra explícita de pronomes ("mim" = a pessoa; 
   no cartão do Companion (Fábrica) e no Invocador (`ui/RigEditor.tsx`): o arquivo riggado substitui o modelo. Companions
   riggados com o esqueleto humano do Mesh2Motion recebem o pacote padrão sem conversão (só rotações; o quadril na altura
   do modelo). Com isso o Tripo só precisa gerar a malha.
+- **Esqueleto salvo (v1.33):** o encaixe feito num Companion (ex.: Mayuna) vira o ponto de partida dos próximos rigs.
+  Guardado em `game_config.values.rigPresets.human` = { url (world-assets/rig-presets), box (caixa do modelo na pose
+  de encaixe), from, at } por "usar este rig como padrão dos próximos" (cartão da Fábrica) ou pela opção "guardar este
+  encaixe" no editor. O fork lê `?esqueleto=&tipo=human&caixa=` e, no lugar do molde, carrega esse esqueleto na pose de
+  encaixe (`skeleton.pose()`), esticado da caixa salva para a do modelo aberto (mesma altura, pé no mesmo lugar).
