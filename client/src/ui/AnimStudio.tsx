@@ -17,12 +17,15 @@ import { facingYaw, inPlace, restBox, sanitizeSkins } from '../scene/CompanionMo
 import { CreatureBody, type CreatureAct } from '../scene/Creature';
 import { useCatalog } from './catalog';
 import type { Job } from './AdminPanel';
+import { STANDARD_EXTRAS, STANDARD_PREFIX, STANDARD_SLOTS, STANDARD_VIRTUAL } from '../m2m/slots';
+import type { Retargeter } from '../m2m/standard';
 
 const loader = new GLTFLoader(); loader.setMeshoptDecoder(MeshoptDecoder);
 const loadOnce = (() => { const c = new Map<string, Promise<GLTF>>(); return (u: string) => { const k = u.split('?')[0]; if (!c.has(k)) { const p = loader.loadAsync(u); c.set(k, p); p.catch(() => c.delete(k)); } return c.get(k)!; }; })();
 
 interface Clip { file: string; clip: THREE.AnimationClip; kind: string; stride: number }
 type Mode = 'slot' | 'idle' | 'walk' | 'run' | 'sim';
+type Upload = (job: Job, files: File[], opts?: { dropPrefix?: string }) => Promise<boolean>;
 
 /** Qual clipe o jogo usaria sozinho (pelo nome) para um papel. */
 function autoClip(clips: Clip[], key: string): Clip | null {
@@ -34,7 +37,7 @@ function autoClip(clips: Clip[], key: string): Clip | null {
   return clips.find((c) => c.kind === kind) ?? null;
 }
 
-export function AnimStudio({ jobs, onUploadAnims, busy }: { jobs: Job[]; onUploadAnims: (job: Job, files: File[]) => Promise<void>; busy: boolean }) {
+export function AnimStudio({ jobs, onUploadAnims, busy }: { jobs: Job[]; onUploadAnims: Upload; busy: boolean }) {
   const [who, setWho] = useState<'companions' | 'monstros'>('companions');
   return (
     <div className="anim-studio">
@@ -50,7 +53,7 @@ export function AnimStudio({ jobs, onUploadAnims, busy }: { jobs: Job[]; onUploa
 // ---------------------------------------------------------------------------------------------------------------
 // Companions
 
-function CompanionAnims({ jobs, onUploadAnims, busy }: { jobs: Job[]; onUploadAnims: (job: Job, files: File[]) => Promise<void>; busy: boolean }) {
+function CompanionAnims({ jobs, onUploadAnims, busy }: { jobs: Job[]; onUploadAnims: Upload; busy: boolean }) {
   const withModel = useMemo(() => { const seen = new Set<string>(); return jobs.filter((j) => j.model?.url && !seen.has(j.companionId) && seen.add(j.companionId)); }, [jobs]);
   const [cid, setCid] = useState<string | null>(null);
   const job = withModel.find((j) => j.companionId === cid) ?? withModel[0] ?? null;
@@ -62,6 +65,47 @@ function CompanionAnims({ jobs, onUploadAnims, busy }: { jobs: Job[]; onUploadAn
   const [sel, setSel] = useState<string>('idle');
   const [mode, setMode] = useState<Mode>('slot');
   const files = useRef<HTMLInputElement>(null);
+  // animações padrão (Mesh2Motion): a biblioteca convertida para este Companion, só enquanto a aba está aberta
+  const [rt, setRt] = useState<Retargeter | null>(null);
+  const [rtNote, setRtNote] = useState<string | null>(null);
+  const [rtBusy, setRtBusy] = useState(false);
+  const stdCache = useRef(new Map<string, Clip>());
+  useEffect(() => { setRt(null); setRtNote(null); stdCache.current.clear(); }, [job?.companionId]);
+  const stdClip = (name: string): Clip | null => {
+    if (!rt) return null;
+    const hit = stdCache.current.get(name);
+    if (hit) return hit;
+    const c = rt.get(name);
+    if (!c) return null;
+    const cl = c.clone();
+    const out: Clip = { file: STANDARD_VIRTUAL, clip: cl, kind: animKind(name) ?? 'special', stride: inPlace(cl) / Math.max(0.01, cl.duration) };
+    stdCache.current.set(name, out);
+    return out;
+  };
+  const isStd = (v: string | undefined) => { const r = parseAnimRef(v); return !!r && r !== 'procedural' && (r.file === STANDARD_VIRTUAL || r.file.startsWith(STANDARD_PREFIX)) ? r : null; };
+
+  async function openStandard(fill: boolean) {
+    if (!gltf || rtBusy) return;
+    setRtBusy(true); setRtNote('Carregando a biblioteca do Mesh2Motion (uns 9 MB, só aqui no Administrador)…');
+    try {
+      const m2m = await import('../m2m/standard');
+      const r = rt ?? await m2m.makeRetargeter(gltf.scene);
+      setRt(r);
+      if (fill) {
+        const next = { ...map };
+        const keys = Object.keys(STANDARD_SLOTS);
+        for (let i = 0; i < keys.length; i++) {
+          setRtNote(`Convertendo para ${job?.name ?? 'o Companion'}: ${i + 1} de ${keys.length}…`);
+          await new Promise((ok) => setTimeout(ok, 0));
+          if (r.get(STANDARD_SLOTS[keys[i]])) next[keys[i]] = animRef(STANDARD_VIRTUAL, STANDARD_SLOTS[keys[i]]);
+        }
+        setMap(next);
+      }
+      const rig = r.rigType === 'mixamo' ? 'Mixamo' : r.rigType === 'rigify' ? 'Rigify' : 'próprio';
+      setRtNote(`Esqueleto ${rig}: ${r.mapped} de ${r.bones} ossos ligados. ${fill ? 'Os 20 papéis usam o pacote padrão — confira no campo de treino e salve.' : 'A biblioteca (165 animações) aparece em cada papel.'}`);
+    } catch (e) { setRtNote((e as Error).message); }
+    finally { setRtBusy(false); }
+  }
 
   const modelKey = job ? job.model!.url.split('?')[0] + '|' + (job.model as { anims?: { url: string }[] }).anims?.map((a) => a.url.split('?')[0]).join(',') : '';
   useEffect(() => {
@@ -87,6 +131,7 @@ function CompanionAnims({ jobs, onUploadAnims, busy }: { jobs: Job[]; onUploadAn
 
   const pick = (key: string): Clip | null => {
     const ref = parseAnimRef(map[key]);
+    if (ref && ref !== 'procedural' && ref.file === STANDARD_VIRTUAL) return stdClip(ref.clip);
     if (ref && ref !== 'procedural') return clips.find((c) => c.clip.name === ref.clip && (ref.file === '*' || c.file === ref.file)) ?? null;
     return autoClip(clips, key);
   };
@@ -96,12 +141,36 @@ function CompanionAnims({ jobs, onUploadAnims, busy }: { jobs: Job[]; onUploadAn
   async function save() {
     if (!job) return;
     setNote(null);
+    // clipes do pacote padrão ainda não gravados: um .GLB só de animação com todos os do pacote em uso (troca o anterior)
+    let slots = map, file: File | null = null, count = 0;
+    if (Object.values(map).some((v) => isStd(v)?.file === STANDARD_VIRTUAL)) {
+      if (!rt || !gltf) { setNote('Abra as animações padrão de novo para gravar.'); return; }
+      setNote('Gravando o arquivo de animações…');
+      const m2m = await import('../m2m/standard');
+      const name = `${STANDARD_PREFIX}-${Date.now()}.glb`;
+      const used = new Set<string>(STANDARD_EXTRAS), conv: Record<string, string> = {};
+      for (const [k, v] of Object.entries(map)) { const r = isStd(v); if (r) { used.add(r.clip); conv[k] = animRef(name, r.clip); } }
+      const out = [...used].map((n) => rt.get(n)).filter((c): c is THREE.AnimationClip => !!c);
+      count = out.length;
+      file = new File([await m2m.exportClips(gltf.scene, out)], name, { type: 'model/gltf-binary' });
+      slots = { ...map, ...conv };
+    }
     const uid = (await supabase().auth.getUser()).data.user?.id;
     const keep = Object.fromEntries(Object.entries(all).filter(([k]) => !k.startsWith('slot:')));
-    const next = { ...keep, ...Object.fromEntries(Object.entries(map).filter(([, v]) => v).map(([k, v]) => ['slot:' + k, v])) };
+    const next = { ...keep, ...Object.fromEntries(Object.entries(slots).filter(([, v]) => v).map(([k, v]) => ['slot:' + k, v])) };
     const r = await supabase().from('companion_skill_anims').upsert({ companion_id: job.companionId, anims: next, updated_at: new Date().toISOString(), updated_by: uid });
     if (r.error) { setNote('Não deu para salvar: ' + r.error.message); return; }
-    setAll(next); setNote('Salvo. Vale na próxima vez que o jogo do dono abrir (ou ao recarregar).');
+    if (file) {
+      // as escolhas já apontam para o arquivo novo; se o envio falhar, voltam as anteriores
+      if (!(await onUploadAnims(job, [file], { dropPrefix: STANDARD_PREFIX }))) {
+        await supabase().from('companion_skill_anims').upsert({ companion_id: job.companionId, anims: all, updated_at: new Date().toISOString(), updated_by: uid });
+        setNote('Não deu para enviar o arquivo de animações; as escolhas anteriores continuam valendo.');
+        return;
+      }
+      setMap(slots);
+    }
+    setAll(next);
+    setNote(file ? `Salvo: ${count} animações do Mesh2Motion (${Math.round(file.size / 1024)} KB) no arquivo do jogo. Vale na próxima vez que o jogo do dono abrir.` : 'Salvo. Vale na próxima vez que o jogo do dono abrir (ou ao recarregar).');
   }
 
   if (!withModel.length) return <p className="hint">Nenhum Companion com modelo 3D ainda. Envie o .GLB na aba Companions (Fábrica).</p>;
@@ -117,6 +186,15 @@ function CompanionAnims({ jobs, onUploadAnims, busy }: { jobs: Job[]; onUploadAn
           </select>
         </label>
         <small>{clips.length} animações em {new Set(clips.map((c) => c.file)).size} arquivo(s).</small>
+        <div className="model-box m2m-box">
+          <strong>Animações padrão (Mesh2Motion)</strong>
+          <small>As mesmas animações para todos os Companions, convertidas para o esqueleto deste modelo. As animações que vieram no .GLB continuam na lista, mas não são usadas nos papéis trocados.</small>
+          <div className="row">
+            <button className="primary" disabled={!gltf || rtBusy} onClick={() => void openStandard(true)}>{rtBusy ? 'Convertendo…' : 'Aplicar o pacote padrão'}</button>
+            {!rt && <button className="link" disabled={!gltf || rtBusy} onClick={() => void openStandard(false)}>só abrir a biblioteca</button>}
+          </div>
+          {rtNote && <small role="status">{rtNote}</small>}
+        </div>
         {missingIdle && clips.length > 0 && <p className="hint warn">Sem "Parado": no jogo ele fica com o primeiro quadro do andar. Escolha um clipe para Parado.</p>}
         <ul className="anim-map slots">
           {COMPANION_ANIM_SLOTS.map((s) => {
@@ -126,7 +204,9 @@ function CompanionAnims({ jobs, onUploadAnims, busy }: { jobs: Job[]; onUploadAn
                 <button className="slot-name" onClick={() => { setSel(s.key); setMode('slot'); }}><b>{s.label}</b><small>{s.hint}</small></button>
                 <select value={val} onChange={(e) => { setMap({ ...map, [s.key]: e.target.value }); setSel(s.key); setMode('slot'); }} aria-label={'Clipe para ' + s.label}>
                   <option value="">{(() => { const a = autoClip(clips, s.key); return a ? `automático: ${a.clip.name}` : 'automático: nenhum'; })()}</option>
-                  {clips.map((c) => <option key={c.file + '|' + c.clip.name} value={animRef(c.file, c.clip.name)}>{c.file === 'corpo' ? '' : c.file.replace(/\.glb$/i, '') + ' · '}{c.clip.name}</option>)}
+                  {clips.map((c) => <option key={c.file + '|' + c.clip.name} value={animRef(c.file, c.clip.name)}>{c.file === 'corpo' ? '' : c.file.startsWith(STANDARD_PREFIX) ? 'padrão · ' : c.file.replace(/\.glb$/i, '') + ' · '}{c.clip.name}</option>)}
+                  {rt && <optgroup label="Biblioteca Mesh2Motion">{rt.names.map((n) => <option key={'m2m|' + n} value={animRef(STANDARD_VIRTUAL, n)}>{n}</option>)}</optgroup>}
+                  {!rt && val && isStd(val)?.file === STANDARD_VIRTUAL && <option value={val}>{isStd(val)!.clip}</option>}
                 </select>
                 <span className={'slot-state' + (p ? ' ok' : '')} aria-label={p ? 'tem animação' : 'sem animação'}>{p ? '●' : '○'}</span>
               </li>
@@ -134,7 +214,7 @@ function CompanionAnims({ jobs, onUploadAnims, busy }: { jobs: Job[]; onUploadAn
           })}
         </ul>
         <div className="row">
-          <button className="primary" disabled={!dirty} onClick={() => void save()}>Salvar animações</button>
+          <button className="primary" disabled={!dirty || busy} onClick={() => void save()}>Salvar animações</button>
           {dirty && <button className="link" onClick={() => setMap(saved)}>desfazer</button>}
         </div>
         {note && <small>{note}</small>}
@@ -268,7 +348,7 @@ function CreatureAnims() {
     return () => { alive = false; };
   }, [row?.slug, row?.updated_at]); // eslint-disable-line react-hooks/exhaustive-deps
   if (cat.rows === null) return <p className="hint">Carregando o catálogo…</p>;
-  if (!list.length) return <p className="hint">Nenhum monstro com modelo .GLB. No Invocador, envie o modelo; criaturas sem modelo usam o slime (todo por código).</p>;
+  if (!list.length) return <div className="anim-side"><M2mGuide open /><p className="hint">Nenhum monstro com modelo .GLB ainda. No Invocador, envie o modelo; criaturas sem modelo usam o slime (todo por código).</p></div>;
   const def: CreatureDef | null = row ? { ...row.data, animMap: Object.fromEntries(Object.entries(map).filter(([, v]) => v)) } : null;
   const saved = row?.data.animMap ?? {};
   const clean = (o: Record<string, string>) => JSON.stringify(Object.fromEntries(Object.entries(o).filter(([, v]) => v).sort()));
@@ -280,6 +360,7 @@ function CreatureAnims() {
   return (
     <div className="anim-grid">
       <aside className="anim-side">
+        <M2mGuide open={!list.some((r) => (r.data.model?.anims.length ?? 0) > 0)} />
         <label>Monstro
           <select value={row?.slug ?? ''} onChange={(e) => setSlug(e.target.value)}>
             {list.map((r) => <option key={r.slug} value={r.slug}>{r.name}{r.status === 'draft' ? ' (rascunho)' : ''}</option>)}
@@ -321,6 +402,23 @@ function CreatureAnims() {
         <small>{CREATURE_ANIM_SLOTS.find((s) => s.key === sel)?.label}: {map[sel] === 'procedural' ? 'movimento por código' : parseAnimRef(map[sel]) && parseAnimRef(map[sel]) !== 'procedural' ? (parseAnimRef(map[sel]) as { clip: string }).clip : 'automático'}</small>
       </section>
     </div>
+  );
+}
+
+/** Passo a passo para animar um monstro no editor do Mesh2Motion (aparece mesmo sem nenhum monstro com modelo). */
+function M2mGuide({ open }: { open: boolean }) {
+  return (
+    <details className="model-box m2m-box" open={open}>
+    <summary><strong>Animar um monstro com o Mesh2Motion</strong></summary>
+    <ol className="m2m-steps">
+      <li>Exporte o monstro do Tripo <b>só o modelo, sem rig</b>, em .GLB.</li>
+      <li>No editor, importe o .GLB e escolha o esqueleto: quadrúpede (raposa ou cavalo), aranha, dragão, pássaro, cobra, tubarão ou kaiju.</li>
+      <li>Encaixe os ossos no corpo (arraste as juntas), teste e marque as animações: parado, andar, correr, ataque ou mordida, dano, morte, dormir.</li>
+      <li>Exporte em .GLB e envie no Invocador, na seção do modelo do monstro. Os papéis daqui se preenchem pelos nomes; ajuste o que quiser e salve.</li>
+    </ol>
+    <a className="button" href="https://app.mesh2motion.org/" target="_blank" rel="noreferrer">Abrir o editor do Mesh2Motion ↗</a>
+    <small>Código aberto (MIT) e animações livres (CC0): pode usar no jogo.</small>
+  </details>
   );
 }
 
