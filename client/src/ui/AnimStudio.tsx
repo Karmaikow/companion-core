@@ -101,7 +101,7 @@ function CompanionAnims({ jobs, onUploadAnims, busy }: { jobs: Job[]; onUploadAn
         }
         setMap(next);
       }
-      const rig = r.rigType === 'mixamo' ? 'Mixamo' : r.rigType === 'rigify' ? 'Rigify' : 'próprio';
+      const rig = r.rigType === 'mixamo' ? 'Mixamo' : r.rigType === 'rigify' ? 'Rigify' : r.rigType === 'mesh2motion' ? 'do Mesh2Motion (encaixe perfeito)' : 'próprio';
       setRtNote(`Esqueleto ${rig}: ${r.mapped} de ${r.bones} ossos ligados. ${fill ? 'Os 20 papéis usam o pacote padrão — confira no campo de treino e salve.' : 'A biblioteca (165 animações) aparece em cada papel.'}`);
     } catch (e) { setRtNote((e as Error).message); }
     finally { setRtBusy(false); }
