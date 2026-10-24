@@ -73,9 +73,17 @@ export async function makeRetargeter(model: THREE.Object3D): Promise<Retargeter>
   const names: string[] = [];
   target.traverse((o) => { if ((o as THREE.Bone).isBone) names.push(o.name); });
   const srcNames: string[] = []; lib.rig.traverse((o) => { if ((o as THREE.Bone).isBone) srcNames.push(o.name); });
-  // esqueleto do próprio Mesh2Motion (modelo riggado no editor deles): os clipes servem direto, sem conversão
+  // que esqueleto é: o do próprio Mesh2Motion (riggado no editor), Mixamo/Tripo, Rigify ou outro
   svc.set_target_mapping_type(Mesh2MotionMapper.is_source_bones_same_as_target(srcNames, names) ? TargetBoneMappingType.Mesh2Motion : MixamoMapper.is_target_valid_skeleton(names) ? TargetBoneMappingType.Mixamo : RigifyMapper.is_target_valid_skeleton(names) ? TargetBoneMappingType.Rigify : TargetBoneMappingType.Custom);
-  const map = BoneAutoMapper.auto_map_bones();
+  let map = BoneAutoMapper.auto_map_bones();
+  // Esqueleto do próprio Mesh2Motion: os nomes são os mesmos, mas as juntas foram encaixadas noutro corpo (braços em
+  // pose A, ombros noutro lugar). Copiar as rotações do molde giraria os braços demais (cruzam na frente); a conversão
+  // por direção dos ossos (swing-twist) acompanha o encaixe. Mapa de nomes iguais, tipo "próprio" para usá-la.
+  const sameSkeleton = svc.get_target_mapping_type() === TargetBoneMappingType.Mesh2Motion;
+  if (sameSkeleton) {
+    map = new Map(names.filter((n) => srcNames.includes(n)).map((n) => [n, n]));
+    svc.set_target_mapping_type(TargetBoneMappingType.Custom);
+  }
   svc.set_bone_mappings(map);
   // Rigs com os lados trocados no nome ("Left" no braço direito): os pés dizem para onde o corpo olha; se a esquerda
   // dos nomes cair do lado direito, troca _l/_r no mapa (senão os clipes saem espelhados e torcidos).
@@ -86,11 +94,8 @@ export async function makeRetargeter(model: THREE.Object3D): Promise<Retargeter>
   if (map.size < 12) throw new Error(`Não reconheci o esqueleto (${map.size} ossos ligados de ${names.length}). Ele precisa ser humanoide, como o rig do Tripo, do Mixamo ou do Mesh2Motion.`);
 
   const cache = new Map<string, THREE.AnimationClip>();
-  // altura do quadril do modelo ÷ a do molde (para o deslocamento do quadril no esqueleto do Mesh2Motion)
-  const pelvisTrack = 'pelvis.position';
-  const tgtPelvis = target.getObjectByName('pelvis'), srcPelvis = lib.rig.getObjectByName('pelvis');
-  const hipK = tgtPelvis && srcPelvis && srcPelvis.position.length() > 1e-6 ? tgtPelvis.position.length() / srcPelvis.position.length() : 1;
-  const rigType = svc.get_target_mapping_type();
+  const svcType = svc.get_target_mapping_type();
+  const rigType = sameSkeleton ? TargetBoneMappingType.Mesh2Motion : svcType;
   return {
     names: [...lib.clips.keys()].sort((a, b) => a.localeCompare(b)),
     mapped: map.size, bones: names.length, rigType, mirrored,
@@ -99,20 +104,11 @@ export async function makeRetargeter(model: THREE.Object3D): Promise<Retargeter>
       const src = lib.clips.get(name);
       if (!src) return null;
       // o serviço é único: garante que ele ainda aponta para este modelo (outro Companion pode ter sido aberto)
-      if (svc.get_target_armature() !== target) { svc.set_source_armature(lib.rig.clone() as THREE.Group); svc.set_target_armature(target); svc.set_target_mapping_type(rigType as TargetBoneMappingType); svc.set_bone_mappings(map); svc.set_skeleton_type(SkeletonType.Human); }
+      if (svc.get_target_armature() !== target) { svc.set_source_armature(lib.rig.clone() as THREE.Group); svc.set_target_armature(target); svc.set_target_mapping_type(svcType); svc.set_bone_mappings(map); svc.set_skeleton_type(SkeletonType.Human); }
       const quiet = console.log; console.log = () => {};
       let out: THREE.AnimationClip;
       try { out = svc.retarget_animation_clip(src); } finally { console.log = quiet; }
       out.name = name; // sem o " RT": o nome é a chave nas escolhas do Administrador
-      if (rigType === TargetBoneMappingType.Mesh2Motion) {
-        // mesmo esqueleto, outro corpo: só rotações (posições e escalas do molde deformariam as proporções do modelo),
-        // e o quadril sobe e desce na proporção da altura dele
-        out.tracks = out.tracks.filter((t) => t.name.endsWith('.quaternion') || t.name === pelvisTrack).map((t) => {
-          if (t.name !== pelvisTrack) return t;
-          const v = Float32Array.from(t.values as ArrayLike<number>).map((x) => x * hipK);
-          return new THREE.VectorKeyframeTrack(t.name, Float32Array.from(t.times as ArrayLike<number>), v);
-        });
-      }
       slimClip(out, rest); // ossos parados viram 2 chaves; quadros que a interpolação refaz saem (o arquivo do jogo fica leve)
       cache.set(name, out);
       return out;

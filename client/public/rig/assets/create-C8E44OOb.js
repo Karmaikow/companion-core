@@ -1,2 +1,0 @@
-import{N as e,t}from"./offline-DywCtIwX.js";/* empty css              */var n=new class{constructor(){this.mesh2motion_engine=new t}},r=new URLSearchParams(location.search).get(`modelo`);r!==null&&n.mesh2motion_engine.load_model_step.load_model_file(new URL(r,location.href).href,`glb`),window.__cc_model_box=()=>{let t=n.mesh2motion_engine.load_model_step.model_meshes();return t.children.length===0?null:new e().setFromObject(t)};
-//# sourceMappingURL=create-C8E44OOb.js.map

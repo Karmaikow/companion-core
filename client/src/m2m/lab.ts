@@ -34,14 +34,16 @@ const loader = new GLTFLoader(); loader.setMeshoptDecoder(MeshoptDecoder);
   scene.add(new THREE.HemisphereLight(0xffffff, 0x445566, 2.2)); const dl = new THREE.DirectionalLight(0xffffff, 1.6); dl.position.set(2, 4, 3); scene.add(dl);
   const big = new URLSearchParams(location.search).get('so');
   const box = new THREE.Box3().setFromObject(body), c = box.getCenter(new THREE.Vector3()), h = box.getSize(new THREE.Vector3()).y;
-  const cam = new THREE.PerspectiveCamera(35, 200 / 250, 0.01, 100); const look = big ? new THREE.Vector3(c.x, c.y - h * 0.3, c.z) : c;
-  cam.position.set(look.x + h * 0.2, look.y + h * 0.15, look.z + h * (big ? 1.4 : 2.2)); cam.lookAt(look);
+  const cam = new THREE.PerspectiveCamera(35, 200 / 250, 0.01, 100); const look = c;
+  if (big) cam.position.set(c.x, c.y + h * 0.05, c.z + h * 2.3); else cam.position.set(look.x + h * 0.2, look.y + h * 0.15, look.z + h * 2.2);
+  cam.lookAt(look);
   const W = big ? 600 : 200, H = big ? 600 : 250;
   cam.aspect = W / H; cam.updateProjectionMatrix();
   const r = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true }); r.setSize(W, H);
   const mixer = new THREE.AnimationMixer(body);
   const grid = document.getElementById('grid')!;
   let bound = 0;
+  if (big === 'rest') { r.render(scene, cam); const f = document.createElement('figure'); f.style.width = W + 'px'; f.innerHTML = `<img src="${r.domElement.toDataURL()}"><figcaption>sem animação</figcaption>`; grid.appendChild(f); }
   for (const [slot, name] of Object.entries(STANDARD_SLOTS).filter(([k]) => !big || k === big)) {
     const clip = anim.animations.find((a) => a.name === name);
     if (!clip) { log('faltou no arquivo: ' + name); continue; }
