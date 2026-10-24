@@ -17,6 +17,7 @@ export function RigEditor({ url, name, who, onDone, onClose }: {
   const [preset, setPreset] = useState<RigPreset | null | undefined>(who === 'companion' ? undefined : null);
   const [usePreset, setUsePreset] = useState(true);
   const [keep, setKeep] = useState(false);
+  const [auto, setAuto] = useState(true);
   const [note, setNote] = useState<string | null>(null);
   useEffect(() => {
     if (who !== 'companion') return;
@@ -52,7 +53,7 @@ export function RigEditor({ url, name, who, onDone, onClose }: {
         <ol>
           {who === 'companion' ? <>
             <li>Gire o modelo para olhar para a linha azul, se precisar, e escolha o esqueleto <b>Human</b>{preset && usePreset ? <> (ele já vem com o encaixe de {preset.from}, esticado para este modelo)</> : null}.</li>
-            <li><b>Edit Skeleton</b>: arraste as juntas para dentro do corpo (ombros, cotovelos, punhos, quadril, joelhos, pés). Ative o espelho para fazer os dois lados de uma vez.</li>
+            <li><b>Edit Skeleton</b>: {auto && !(preset && usePreset) ? <>as juntas já vêm encaixadas pelo corpo; confira e ajuste só o que precisar.</> : <>arraste as juntas para dentro do corpo (ombros, cotovelos, punhos, quadril, joelhos, pés).</>} O espelho faz os dois lados de uma vez.</li>
             <li><b>Finish</b> e depois <b>Download</b> (não precisa marcar animações): o modelo riggado volta sozinho para cá.</li>
           </> : <>
             <li>Escolha o esqueleto do monstro (quadrúpede, aranha, dragão, pássaro, cobra, tubarão ou kaiju).</li>
@@ -62,6 +63,7 @@ export function RigEditor({ url, name, who, onDone, onClose }: {
         </ol>
         {who === 'companion' && (
           <div className="rig-opts">
+            <label><input type="checkbox" checked={auto && !(preset && usePreset)} disabled={!!(preset && usePreset)} onChange={(e) => setAuto(e.target.checked)} /> encaixe automático (mede o corpo e põe as juntas)</label>
             {preset && <label><input type="checkbox" checked={usePreset} onChange={(e) => setUsePreset(e.target.checked)} /> começar pelo esqueleto de {preset.from}</label>}
             <label><input type="checkbox" checked={keep} onChange={(e) => setKeep(e.target.checked)} /> guardar este encaixe para os próximos</label>
             {note && <small role="status">{note}</small>}
@@ -70,7 +72,7 @@ export function RigEditor({ url, name, who, onDone, onClose }: {
         <button className="ghost" disabled={saving} onClick={onClose}>{saving ? 'Gravando…' : 'Fechar'}</button>
       </header>
       {preset === undefined ? <p className="hint" style={{ padding: 16 }}>Carregando…</p> : (
-        <iframe key={usePreset ? 'p' : 'm'} ref={frame} title="Editor de rig (Mesh2Motion)" src={`/rig/create.html?modelo=${encodeURIComponent(url)}${usePreset ? presetQuery(preset) : ''}`} />
+        <iframe key={(usePreset ? 'p' : 'm') + (auto ? 'a' : '')} ref={frame} title="Editor de rig (Mesh2Motion)" src={`/rig/create.html?modelo=${encodeURIComponent(url)}${preset && usePreset ? presetQuery(preset) : who === 'companion' && auto ? '&auto=1' : ''}`} />
       )}
     </div>
   );

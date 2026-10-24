@@ -705,3 +705,12 @@ Prompt com o mundo de fantasia, regra explícita de pronomes ("mim" = a pessoa; 
   de encaixe), from, at } por "usar este rig como padrão dos próximos" (cartão da Fábrica) ou pela opção "guardar este
   encaixe" no editor. O fork lê `?esqueleto=&tipo=human&caixa=` e, no lugar do molde, carrega esse esqueleto na pose de
   encaixe (`skeleton.pose()`), esticado da caixa salva para a do modelo aberto (mesma altura, pé no mesmo lugar).
+- **Rig automático e braços em pose A (v1.34):** `?auto=1` no editor encaixa o esqueleto humano sozinho
+  (`CompanionCoreAutoFit.ts` no fork): corta os triângulos da malha em fatias horizontais e acha a virilha (vão entre as
+  pernas, tolerando joelhos encostados), a axila (vão entre tronco e braço, mesma altura dos dois lados), as mãos (pontos
+  mais de fora), os pés (base e ponta) e o topo; põe as juntas aí e gira o desenho dos dedos para a direção do braço.
+  Opção "encaixe automático" no editor do Administrador (ligada por padrão; desliga com o esqueleto salvo).
+  O editor agora exporta os ossos na pose de encaixe (antes saía o quadro da prévia que estava tocando).
+  O retarget swing-twist supunha braços em pose T (eixo X fixo): em rigs com pose A os braços giravam demais e cruzavam
+  na frente (o caso da Lunaya e da Mayuna). Braços e dedos agora tiram a direção da posição real das juntas
+  (`Rig.buildItem`), e esqueletos do próprio Mesh2Motion também passam pelo swing-twist (antes copiavam as rotações).

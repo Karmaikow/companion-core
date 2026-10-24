@@ -108,12 +108,40 @@ export class Rig {
     const rig_items: RigItem[] = []
     let j
 
-    for (const n of names) {
-      j = this.tpose.getJoint(n)
+    // Companion Core: braços e dedos têm o "swing" ao longo do osso. O original supõe pose T (braço reto no eixo X);
+    // num rig em pose A (braço para baixo) isso erra a referência e os braços giram demais (cruzam na frente).
+    // Aqui a direção sai da posição real das juntas (junta → próxima), e o "twist" é endireitado contra ela.
+    const along_bone = k === 'armL' || k === 'armR' || k.startsWith('fingers')
+    const joints = names.map((n) => this.tpose.getJoint(n))
+
+    for (let i = 0; i < names.length; i++) {
+      j = joints[i]
       if (j === null) {
         // some bones won't be mapped, so they will just be empty placeholders
         // console.log('Error - Rig.buildLimb : Joint name not found in tpose, ', n)
         continue
+      }
+
+      if (along_bone) {
+        const next = joints.slice(i + 1).find((x) => x !== null) ?? null
+        const prev = [...joints.slice(0, i)].reverse().find((x) => x !== null) ?? null
+        const dir = new Vec3()
+        if (next !== null) dir.fromSub(next.world.pos, j.world.pos)
+        else if (prev !== null) dir.fromSub(j.world.pos, prev.world.pos)
+        if (Vec3.lenSqr(dir) > 1e-12) {
+          dir.norm()
+          // só troca se a direção real não for quase o contrário da esperada (rig estranho: mantém o original)
+          if (Vec3.dot(dir, swing) > -0.2) {
+            const tw = new Vec3(twist[0], twist[1], twist[2])
+            const d = Vec3.dot(tw, dir)
+            tw.sub(new Vec3(dir[0] * d, dir[1] * d, dir[2] * d))
+            if (Vec3.lenSqr(tw) > 1e-8) {
+              tw.norm()
+              rig_items.push(new RigItem().fromJoint(j, dir, tw))
+              continue
+            }
+          }
+        }
       }
 
       rig_items.push(new RigItem().fromJoint(j, swing, twist))

@@ -1,5 +1,5 @@
 diff --git a/src/CustomModelUploadBootstrap.ts b/src/CustomModelUploadBootstrap.ts
-index f5f9e30..6a344a6 100644
+index f5f9e30..66f84f0 100644
 --- a/src/CustomModelUploadBootstrap.ts
 +++ b/src/CustomModelUploadBootstrap.ts
 @@ -1,7 +1,8 @@
@@ -12,7 +12,7 @@ index f5f9e30..6a344a6 100644
  
    constructor () {
      this.mesh2motion_engine = new Mesh2MotionEngine()
-@@ -10,3 +11,17 @@ export class CustomModelUploadBootstrap {
+@@ -10,3 +11,23 @@ export class CustomModelUploadBootstrap {
  
  // instantiate the class to setup event listeners
  const app = new CustomModelUploadBootstrap()
@@ -29,6 +29,12 @@ index f5f9e30..6a344a6 100644
 +  const meshes = app.mesh2motion_engine.load_model_step.model_meshes()
 +  if (meshes.children.length === 0) return null
 +  return new Box3().setFromObject(meshes)
++}
++
++// Companion Core: a malha aberta (para o encaixe automático)
++;(window as unknown as { __cc_model_meshes: () => unknown }).__cc_model_meshes = () => {
++  const meshes = app.mesh2motion_engine.load_model_step.model_meshes()
++  return meshes.children.length === 0 ? null : meshes
 +}
 diff --git a/src/lib/CustomSkeletonHelper.ts b/src/lib/CustomSkeletonHelper.ts
 index ffceca8..a38b97f 100644
@@ -181,10 +187,10 @@ index c5f60ad..e7341ee 100644
    private _added_event_listeners: boolean = false
    private readonly preview_plane_manager: PreviewPlaneManager = PreviewPlaneManager.getInstance()
 diff --git a/src/lib/processes/export-to-file/StepExportToFile.ts b/src/lib/processes/export-to-file/StepExportToFile.ts
-index 053adec..07bf627 100644
+index 053adec..47cc36f 100644
 --- a/src/lib/processes/export-to-file/StepExportToFile.ts
 +++ b/src/lib/processes/export-to-file/StepExportToFile.ts
-@@ -47,7 +47,7 @@ export class StepExportToFile extends EventTarget {
+@@ -47,11 +47,15 @@ export class StepExportToFile extends EventTarget {
      filename: string = 'exported_model',
      download_settings: DownloadSettings): Promise<void> {
  
@@ -193,7 +199,15 @@ index 053adec..07bf627 100644
        console.log('ERROR: No animation clips added to export')
        return Promise.reject(new Error('No animation clips added to export'))
      }
-@@ -204,6 +204,14 @@ export class StepExportToFile extends EventTarget {
+ 
++    // Companion Core: grava os ossos na pose de encaixe (a prévia pode estar no meio de uma animação). Sem isso,
++    // quem lê o arquivo e não tem trilha para um osso fica com o quadro em que a prévia estava.
++    skinned_meshes.forEach((mesh) => { mesh.skeleton.pose() })
++
+     const export_scene = new Scene()
+ 
+     const export_clips = this.animation_clips_to_export.map((clip) => {
+@@ -204,6 +208,14 @@ export class StepExportToFile extends EventTarget {
    }
  
    private save_file (blob: Blob, filename: string): void {
@@ -208,8 +222,271 @@ index 053adec..07bf627 100644
      if (this.ui.dom_export_button_hidden_link != null) {
        this.ui.dom_export_button_hidden_link.href = URL.createObjectURL(blob)
        this.ui.dom_export_button_hidden_link.download = filename
+diff --git a/src/lib/processes/load-skeleton/CompanionCoreAutoFit.ts b/src/lib/processes/load-skeleton/CompanionCoreAutoFit.ts
+new file mode 100644
+index 0000000..28a2170
+--- /dev/null
++++ b/src/lib/processes/load-skeleton/CompanionCoreAutoFit.ts
+@@ -0,0 +1,257 @@
++/**
++ * Companion Core: encaixe automático do esqueleto humano do Mesh2Motion numa malha humanoide (pose A ou T, olhando
++ * para +Z). Mede a malha por fatias horizontais — onde as pernas se separam (virilha), onde o braço se solta do tronco
++ * (axila), as mãos (pontos mais de fora), os pés (base) e o topo — e põe as juntas do molde nesses lugares. Só mexe nas
++ * posições das juntas (como o editor manual); as rotações do molde ficam.
++ */
++import { Box3, Mesh, Object3D, Quaternion, Vector3 } from 'three'
++
++type P = Float32Array
++
++/** Pontos (x, y, z) da malha no espaço do mundo (vértices; para extremos como ponta da mão e do pé). */
++function sample_points (root: Object3D): P {
++  root.updateWorldMatrix(true, true)
++  const out: number[] = []
++  const v = new Vector3()
++  root.traverse((o) => {
++    const m = o as Mesh
++    if (!m.isMesh || m.geometry?.attributes.position === undefined) return
++    const pos = m.geometry.attributes.position
++    for (let i = 0; i < pos.count; i++) { v.fromBufferAttribute(pos, i).applyMatrix4(m.matrixWorld); out.push(v.x, v.y, v.z) }
++  })
++  return new Float32Array(out)
++}
++
++/** Triângulos no espaço do mundo (9 números cada), para cortar a malha em fatias de verdade. */
++function triangles (root: Object3D): P {
++  const out: number[] = []
++  const a = new Vector3(), b = new Vector3(), c = new Vector3()
++  root.traverse((o) => {
++    const m = o as Mesh
++    const g = m.geometry
++    if (!m.isMesh || g?.attributes.position === undefined) return
++    const pos = g.attributes.position
++    const idx = g.index
++    const n = idx !== null ? idx.count : pos.count
++    for (let i = 0; i + 2 < n; i += 3) {
++      const ia = idx !== null ? idx.getX(i) : i, ib = idx !== null ? idx.getX(i + 1) : i + 1, ic = idx !== null ? idx.getX(i + 2) : i + 2
++      a.fromBufferAttribute(pos, ia).applyMatrix4(m.matrixWorld)
++      b.fromBufferAttribute(pos, ib).applyMatrix4(m.matrixWorld)
++      c.fromBufferAttribute(pos, ic).applyMatrix4(m.matrixWorld)
++      out.push(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z)
++    }
++  })
++  return new Float32Array(out)
++}
++
++/** Corte da malha no plano y: segmentos (x0, z0, x1, z1). */
++function cut (t: P, y: number): number[] {
++  const seg: number[] = []
++  for (let i = 0; i < t.length; i += 9) {
++    const ys = [t[i + 1], t[i + 4], t[i + 7]]
++    const lo = Math.min(ys[0], ys[1], ys[2]), hi = Math.max(ys[0], ys[1], ys[2])
++    if (y < lo || y > hi || hi === lo) continue
++    const pts: number[] = []
++    for (const [u, w] of [[0, 1], [1, 2], [2, 0]]) {
++      const y0 = t[i + u * 3 + 1], y1 = t[i + w * 3 + 1]
++      if ((y0 <= y && y1 >= y) || (y1 <= y && y0 >= y)) {
++        if (y1 === y0) continue
++        const k = (y - y0) / (y1 - y0)
++        pts.push(t[i + u * 3] + (t[i + w * 3] - t[i + u * 3]) * k, t[i + u * 3 + 2] + (t[i + w * 3 + 2] - t[i + u * 3 + 2]) * k)
++      }
++      if (pts.length === 4) break
++    }
++    if (pts.length === 4) seg.push(pts[0], pts[1], pts[2], pts[3])
++  }
++  return seg
++}
++
++interface Run { x0: number, x1: number, z0: number, z1: number }
++/** Faixas de x ocupadas no corte (segmentos juntados), com a faixa de z de cada uma. */
++function runs (seg: number[], keep: (x: number) => boolean, join: number): Run[] {
++  const iv: Run[] = []
++  for (let i = 0; i < seg.length; i += 4) {
++    const xa = seg[i], za = seg[i + 1], xb = seg[i + 2], zb = seg[i + 3]
++    if (!keep((xa + xb) / 2)) continue
++    iv.push({ x0: Math.min(xa, xb), x1: Math.max(xa, xb), z0: Math.min(za, zb), z1: Math.max(za, zb) })
++  }
++  iv.sort((m, n) => m.x0 - n.x0)
++  const out: Run[] = []
++  for (const r of iv) {
++    const last = out[out.length - 1]
++    if (last !== undefined && r.x0 <= last.x1 + join) { last.x1 = Math.max(last.x1, r.x1); last.z0 = Math.min(last.z0, r.z0); last.z1 = Math.max(last.z1, r.z1) } else out.push({ ...r })
++  }
++  return out
++}
++
++export interface AutoFitReport { ok: boolean, crotch: number, armpit_l: number | null, armpit_r: number | null, height: number }
++
++export function companion_core_autofit (armature: Object3D, model: Object3D): AutoFitReport {
++  const p = sample_points(model)
++  const tri = triangles(model)
++  const box = new Box3().setFromObject(model)
++  const H = box.max.y - box.min.y
++  const minY = box.min.y
++  const cx = (box.min.x + box.max.x) / 2
++  const cz = (box.min.z + box.max.z) / 2
++  if (p.length < 300 || H <= 0) return { ok: false, crotch: 0, armpit_l: null, armpit_r: null, height: H }
++
++  armature.updateWorldMatrix(true, true)
++  const bone = (n: string): Object3D | undefined => armature.getObjectByName(n) ?? undefined
++  const W = (n: string): Vector3 | null => { const b = bone(n); return b !== undefined ? b.getWorldPosition(new Vector3()) : null }
++
++  // lado "esquerdo" do molde (o braço _l fica em +x ou −x?)
++  const ul = W('upperarm_l'), ur = W('upperarm_r')
++  const sign_l = ul !== null && ur !== null && ul.x < ur.x ? -1 : 1
++  const side_of = (s: 'l' | 'r'): number => (s === 'l' ? sign_l : -sign_l)
++
++  const join = 0.002 * H
++  // ---- virilha: subindo, a última altura em que o corte tem um vão perto do meio (entre as pernas); tolera
++  // algumas fatias sem vão (joelhos encostando) e para depois de várias seguidas (já é o tronco)
++  let crotch = -1
++  let misses = 0
++  for (let y = minY + 0.05 * H; y < minY + 0.7 * H; y += 0.004 * H) {
++    const rs = runs(cut(tri, y), (x) => Math.abs(x - cx) < 0.25 * H, join)
++    let split = false
++    for (let i = 1; i < rs.length; i++) {
++      const g0 = rs[i - 1].x1, g1 = rs[i].x0
++      if (g1 - g0 > join && g1 > cx - 0.05 * H && g0 < cx + 0.05 * H) { split = true; break }
++    }
++    if (split) { crotch = y; misses = 0 } else if (crotch > 0 && ++misses > 6) break
++  }
++  if (crotch < 0) crotch = minY + 0.42 * H // sem vão entre as pernas (saia longa): proporção típica
++
++  // ---- braços: subindo da virilha, o vão entre o tronco e o braço; a axila é o fim desse vão
++  interface Arm { armpit: number, torso_edge: number, arm_inner: number }
++  const arm_of = (s: 'l' | 'r'): Arm | null => {
++    const sg = side_of(s)
++    let run = false
++    let last: Arm | null = null
++    for (let y = crotch - 0.04 * H; y < minY + 0.97 * H; y += 0.004 * H) {
++      const rs = runs(cut(tri, y), (x) => (x - cx) * sg > 0, join)
++        .map((r) => (sg > 0 ? { a: r.x0 - cx, b: r.x1 - cx } : { a: cx - r.x1, b: cx - r.x0 }))
++        .sort((m, n) => m.a - n.a)
++      const gap = rs.length >= 2 && rs[0].a < 0.12 * H && rs[1].a - rs[0].b > 0.008 * H
++      if (gap) { run = true; last = { armpit: y, torso_edge: rs[0].b, arm_inner: rs[1].a } } else if (run) break
++    }
++    return last
++  }
++  let arm_l = arm_of('l'), arm_r = arm_of('r')
++  // corpo simétrico: um lado pode parar antes (mecha de cabelo, fita); vale a axila mais alta para os dois
++  if (arm_l !== null && arm_r !== null && Math.abs(arm_l.armpit - arm_r.armpit) > 0.03 * H) {
++    const hi = arm_l.armpit > arm_r.armpit ? arm_l : arm_r
++    arm_l = { ...hi }; arm_r = { ...hi }
++  } else if (arm_l === null && arm_r !== null) arm_l = { ...arm_r }
++  else if (arm_r === null && arm_l !== null) arm_r = { ...arm_l }
++
++  // ---- mão: os pontos mais de fora de cada lado
++  const hand_tip_of = (s: 'l' | 'r'): Vector3 => {
++    const sg = side_of(s)
++    let maxd = 0
++    for (let i = 0; i < p.length; i += 3) maxd = Math.max(maxd, (p[i] - cx) * sg)
++    const acc = new Vector3(); let n = 0
++    for (let i = 0; i < p.length; i += 3) if ((p[i] - cx) * sg > 0.96 * maxd) { acc.x += p[i]; acc.y += p[i + 1]; acc.z += p[i + 2]; n++ }
++    return n > 0 ? acc.divideScalar(n) : new Vector3(cx + sg * 0.3 * H, minY + 0.5 * H, cz)
++  }
++
++  // ---- alturas do tronco
++  const armpit = arm_l !== null && arm_r !== null ? (arm_l.armpit + arm_r.armpit) / 2 : (arm_l ?? arm_r)?.armpit ?? (minY + 0.62 * H)
++  const shoulder_y = armpit + 0.03 * H
++  const neck_y = shoulder_y + 0.035 * H
++  const pelvis_y = crotch + 0.05 * H
++  const top = box.max.y
++
++  // centro (z) do tronco numa altura
++  const torso_z = (y: number): number => {
++    const rs = runs(cut(tri, y), (x) => Math.abs(x - cx) < 0.06 * H, join)
++    return rs.length > 0 ? (Math.min(...rs.map((r) => r.z0)) + Math.max(...rs.map((r) => r.z1))) / 2 : cz
++  }
++  // centro de um membro de um lado numa altura: a faixa mais de dentro (perna) ou a mais de fora (braço)
++  const limb_at = (s: 'l' | 'r', y: number, which: 'inner' | 'outer' = 'inner'): Vector3 | null => {
++    const sg = side_of(s)
++    const rs = runs(cut(tri, y), (x) => (x - cx) * sg > 0.003 * H, join).sort((m, n) => (m.x0 - n.x0) * sg)
++    if (rs.length === 0) return null
++    const r = which === 'inner' ? rs[0] : rs[rs.length - 1]
++    return new Vector3((r.x0 + r.x1) / 2, y, (r.z0 + r.z1) / 2)
++  }
++
++  const targets = new Map<string, Vector3>()
++  // coluna e cabeça
++  const pel = new Vector3(cx, pelvis_y, torso_z(pelvis_y))
++  const nek = new Vector3(cx, neck_y, torso_z(neck_y))
++  targets.set('pelvis', pel)
++  ;['spine_01', 'spine_02', 'spine_03'].forEach((n, i) => { const t = (i + 1) / 4; const y = pel.y + (nek.y - pel.y) * t; targets.set(n, new Vector3(cx, y, torso_z(y))) })
++  targets.set('neck_01', nek)
++  const head_y = neck_y + 0.03 * H
++  targets.set('head', new Vector3(cx, head_y, torso_z(head_y)))
++  targets.set('head_leaf', new Vector3(cx, top - 0.01 * H, torso_z(head_y)))
++
++  // pernas
++  for (const s of ['l', 'r'] as const) {
++    const hip_y = crotch + 0.02 * H
++    const thigh = limb_at(s, crotch - 0.04 * H) ?? new Vector3(cx + side_of(s) * 0.08 * H, 0, cz)
++    thigh.y = hip_y
++    const ankle_y = minY + 0.07 * H
++    const ankle = limb_at(s, ankle_y) ?? new Vector3(thigh.x, ankle_y, cz)
++    const knee_y = (hip_y + ankle_y) / 2
++    const knee = limb_at(s, knee_y) ?? new Vector3(thigh.x, knee_y, cz)
++    knee.z += 0.01 * H // dobra para a frente
++    // ponta do pé: o ponto mais para a frente (+z) na base daquele lado
++    const sg = side_of(s)
++    let toe_z = -Infinity
++    for (let i = 0; i < p.length; i += 3) if (p[i + 1] < minY + 0.04 * H && (p[i] - cx) * sg > 0) toe_z = Math.max(toe_z, p[i + 2])
++    if (!Number.isFinite(toe_z)) toe_z = ankle.z + 0.08 * H
++    const ball = new Vector3(ankle.x, minY + 0.02 * H, ankle.z + (toe_z - ankle.z) * 0.6)
++    const tip = new Vector3(ankle.x, minY + 0.015 * H, toe_z)
++    targets.set('thigh_' + s, thigh); targets.set('calf_' + s, knee); targets.set('foot_' + s, ankle)
++    targets.set('ball_' + s, ball); targets.set('ball_leaf_' + s, tip)
++  }
++
++  // braços: ombro na raiz do braço, mão a caminho da ponta (o resto é dedo), cotovelo no meio
++  const finger_rot = new Map<'l' | 'r', { q: Quaternion, k: number, hand_from: Vector3, hand_to: Vector3 }>()
++  for (const s of ['l', 'r'] as const) {
++    const sg = side_of(s)
++    const arm = s === 'l' ? arm_l : arm_r
++    const tip = hand_tip_of(s)
++    const sh_d = arm !== null ? (arm.torso_edge + arm.arm_inner) / 2 : Math.max(0.06 * H, Math.abs(tip.x - cx) * 0.25)
++    const sh_probe = limb_at(s, shoulder_y, 'outer')
++    const shoulder = new Vector3(cx + sg * sh_d, shoulder_y, sh_probe?.z ?? torso_z(shoulder_y))
++    // quanto do braço é mão no molde (do ombro à ponta do dedo médio)
++    const t_up = W('upperarm_' + s), t_hand = W('hand_' + s), t_tip = W('middle_04_leaf_' + s) ?? W('middle_03_' + s)
++    const hand_frac = t_up !== null && t_hand !== null && t_tip !== null ? t_up.distanceTo(t_hand) / Math.max(1e-6, t_up.distanceTo(t_tip)) : 0.8
++    const wrist = shoulder.clone().lerp(tip, hand_frac)
++    const elbow = shoulder.clone().lerp(wrist, 0.5)
++    elbow.z -= 0.01 * H // dobra para trás
++    targets.set('upperarm_' + s, shoulder)
++    targets.set('lowerarm_' + s, elbow)
++    targets.set('hand_' + s, wrist)
++    const clav = new Vector3(cx + sg * Math.min(0.02 * H, sh_d * 0.25), shoulder_y - 0.005 * H, shoulder.z + 0.01 * H)
++    targets.set('clavicle_' + s, clav)
++    if (t_up !== null && t_hand !== null) {
++      const from = t_hand.clone().sub(t_up).normalize(), to = wrist.clone().sub(shoulder).normalize()
++      finger_rot.set(s, { q: new Quaternion().setFromUnitVectors(from, to), k: shoulder.distanceTo(wrist) / Math.max(1e-6, t_up.distanceTo(t_hand)), hand_from: t_hand, hand_to: wrist })
++    }
++  }
++
++  // dedos: o desenho do molde em volta da mão, girado para a direção nova do braço e na escala nova
++  armature.traverse((o) => {
++    const m = /_(l|r)$/.exec(o.name)
++    if (m === null || !/^(thumb|index|middle|ring|pinky)_/.test(o.name)) return
++    const fr = finger_rot.get(m[1] as 'l' | 'r')
++    const w = o.getWorldPosition(new Vector3())
++    if (fr === undefined) return
++    targets.set(o.name, w.sub(fr.hand_from).multiplyScalar(fr.k).applyQuaternion(fr.q).add(fr.hand_to))
++  })
++
++  // aplica dos pais para os filhos (cada junta no lugar; quem não tem alvo acompanha o pai)
++  const order: Object3D[] = []
++  armature.traverse((o) => { if (o.type === 'Bone') order.push(o) })
++  for (const b of order) {
++    const t = targets.get(b.name)
++    if (t === undefined || b.parent === null) continue
++    b.parent.updateWorldMatrix(true, false)
++    b.position.copy(b.parent.worldToLocal(t.clone()))
++    b.updateMatrixWorld(true)
++  }
++  return { ok: true, crotch: (crotch - minY) / H, armpit_l: arm_l !== null ? (arm_l.armpit - minY) / H : null, armpit_r: arm_r !== null ? (arm_r.armpit - minY) / H : null, height: H }
++}
 diff --git a/src/lib/processes/load-skeleton/StepLoadSkeleton.ts b/src/lib/processes/load-skeleton/StepLoadSkeleton.ts
-index 89a5ca2..331c6e0 100644
+index 89a5ca2..b3f5e89 100644
 --- a/src/lib/processes/load-skeleton/StepLoadSkeleton.ts
 +++ b/src/lib/processes/load-skeleton/StepLoadSkeleton.ts
 @@ -1,5 +1,5 @@
@@ -219,7 +496,15 @@ index 89a5ca2..331c6e0 100644
  import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
  import { SkeletonType, type HandSkeletonType } from '../../enums/SkeletonType.js'
  import { RigConfig } from '../../RigConfig.ts'
-@@ -215,6 +215,22 @@ export class StepLoadSkeleton extends EventTarget {
+@@ -8,6 +8,7 @@ import type GLTFResult from './interfaces/GLTFResult.ts'
+ import { add_origin_markers, remove_origin_markers } from './OriginMarkerManager'
+ import { add_preview_skeleton, remove_preview_skeleton } from './PreviewSkeletonManager.ts'
+ import { HandHelper } from './HandHelper.ts'
++import { companion_core_autofit } from './CompanionCoreAutoFit.ts'
+ 
+ // Note: EventTarget is a built-ininterface and do not need to import it
+ export class StepLoadSkeleton extends EventTarget {
+@@ -215,6 +216,22 @@ export class StepLoadSkeleton extends EventTarget {
    }
  
    public load_skeleton_file (file_path: string): void {
@@ -242,7 +527,22 @@ index 89a5ca2..331c6e0 100644
      // load skeleton from GLB file
      this.loader.load(file_path, (gltf: GLTFResult) => {
        // traverse scene and find first bone object
-@@ -304,3 +320,66 @@ export class StepLoadSkeleton extends EventTarget {
+@@ -252,6 +269,14 @@ export class StepLoadSkeleton extends EventTarget {
+       // scale the armature to what we picked using the scale slider/preview
+       this.loaded_armature.scale.set(this.skeleton_scale(), this.skeleton_scale(), this.skeleton_scale())
+ 
++      // Companion Core: "?auto=1" encaixa as juntas sozinho na malha (humano)
++      const model = (window as unknown as { __cc_model_meshes?: () => Object3D | null }).__cc_model_meshes?.() ?? null
++      if (this.skeleton_file_path() === SkeletonType.Human && new URLSearchParams(location.search).get('auto') === '1' && model !== null) {
++        const report = companion_core_autofit(this.loaded_armature, model)
++        ;(window as unknown as { __cc_autofit: unknown }).__cc_autofit = report
++        console.info('Companion Core: encaixe automático', report)
++      }
++
+       this.dispatchEvent(new CustomEvent('skeletonLoaded', { detail: this.loaded_armature }))
+     })
+   }
+@@ -304,3 +329,66 @@ export class StepLoadSkeleton extends EventTarget {
      }
    }
  }
