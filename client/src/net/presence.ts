@@ -16,13 +16,16 @@ import { create } from 'zustand';
 import { supabase } from '../backend/online';
 import type { CompanionModelFiles } from '../backend/types';
 import { companionFocus, companionPose } from '../scene/world';
+import { vitals } from '../scene/vitals';
 
 export interface RemoteInfo { id: string; name: string; color: string; model: CompanionModelFiles | null; pronoun?: string; /** clipes escolhidos no Administrador para parado/andando/correndo ({ idle: "anim:<arquivo>|<clipe>" }) */ slots?: Record<string, string> }
-export interface RemotePose { x: number; z: number; yaw: number; down: boolean; t: number }
+export interface RemotePose { x: number; z: number; yaw: number; down: boolean; t: number; /** vida 0–1 (para o painel do grupo) */ hp?: number }
 interface Hello { type: 'hello'; info: RemoteInfo; ask?: boolean }
-interface Pose { type: 'pose'; id: string; x: number; z: number; yaw: number; down: boolean }
+interface Pose { type: 'pose'; id: string; x: number; z: number; yaw: number; down: boolean; hp?: number }
+/** "mudou algo social com você": quem recebe atualiza o painel na hora (sem esperar a próxima consulta) */
+interface Poke { type: 'poke'; from: string; to: string[] | '*' }
 interface Bye { type: 'bye'; id: string }
-type Msg = Hello | Pose | Bye;
+type Msg = Hello | Pose | Bye | Poke;
 
 interface Transport { send(m: Msg): void; close(): void }
 
@@ -32,6 +35,11 @@ export const usePresence = create<{ others: RemoteInfo[]; online: boolean }>(() 
 export const remotePoses = new Map<string, RemotePose & { px: number; pz: number; pt: number }>();
 
 const STALE_MS = 8000;
+let current: { t: Transport; id: string } | null = null;
+const pokeHandlers = new Set<() => void>();
+/** Avisa os outros jogos (todos ou só alguns Companions) que algo social mudou para eles. */
+export function pokeOthers(to: string[] | '*' = '*') { if (current) current.t.send({ type: 'poke', from: current.id, to }); }
+export function onPoke(cb: () => void) { pokeHandlers.add(cb); return () => { pokeHandlers.delete(cb); }; }
 const POSE_MS = 250;
 const HELLO_MS = 10000;
 
@@ -85,20 +93,24 @@ export function joinWorld(me: RemoteInfo, local = false): () => void {
     } else if (m.type === 'pose') {
       if (m.id === info.id || ![m.x, m.z, m.yaw].every(Number.isFinite)) return;
       const cur = remotePoses.get(m.id), now = performance.now();
-      if (cur) Object.assign(cur, { px: Number.isFinite(cur.x) ? cur.x : m.x, pz: Number.isFinite(cur.z) ? cur.z : m.z, pt: cur.t, x: m.x, z: m.z, yaw: m.yaw, down: !!m.down, t: now });
-      else remotePoses.set(m.id, { x: m.x, z: m.z, yaw: m.yaw, down: !!m.down, t: now, px: m.x, pz: m.z, pt: now });
+      if (cur) Object.assign(cur, { px: Number.isFinite(cur.x) ? cur.x : m.x, pz: Number.isFinite(cur.z) ? cur.z : m.z, pt: cur.t, x: m.x, z: m.z, yaw: m.yaw, down: !!m.down, t: now, hp: Number.isFinite(m.hp) ? m.hp : cur.hp });
+      else remotePoses.set(m.id, { x: m.x, z: m.z, yaw: m.yaw, down: !!m.down, t: now, px: m.x, pz: m.z, pt: now, hp: Number.isFinite(m.hp) ? m.hp : undefined });
       if (!infos.has(m.id)) t.send({ type: 'hello', info, ask: true }); // posição de quem eu ainda não conheço: pede a ficha
+    } else if (m.type === 'poke') {
+      if (m.from !== info.id && (m.to === '*' || (Array.isArray(m.to) && m.to.includes(info.id)))) pokeHandlers.forEach((f) => f());
     } else if (m.type === 'bye') {
       infos.delete(m.id); remotePoses.delete(m.id); publish();
     }
   };
   const t = local ? localTransport(onMsg) : supabaseTransport(onMsg);
+  current = { t, id: info.id };
   t.send({ type: 'hello', info, ask: true });
-  let last = { x: NaN, z: NaN, yaw: NaN, down: false, at: 0 };
+  let last = { x: NaN, z: NaN, yaw: NaN, down: false, at: 0, hp: -1 };
   const poseTimer = window.setInterval(() => {
     const now = performance.now(), x = +companionFocus.x.toFixed(2), z = +companionFocus.z.toFixed(2), yaw = +companionPose.yaw.toFixed(2), down = companionPose.down;
-    const moved = Math.hypot(x - last.x, z - last.z) > 0.03 || Math.abs(yaw - last.yaw) > 0.05 || down !== last.down;
-    if (moved || now - last.at > 2000) { t.send({ type: 'pose', id: info.id, x, z, yaw, down }); last = { x, z, yaw, down, at: now }; }
+    const hp = +(vitals.hp / Math.max(1, vitals.hpMax)).toFixed(2);
+    const moved = Math.hypot(x - last.x, z - last.z) > 0.03 || Math.abs(yaw - last.yaw) > 0.05 || down !== last.down || Math.abs(hp - last.hp) > 0.02;
+    if (moved || now - last.at > 2000) { t.send({ type: 'pose', id: info.id, x, z, yaw, down, hp }); last = { x, z, yaw, down, at: now, hp }; }
     // some quem parou de mandar
     let gone = false;
     remotePoses.forEach((p, id) => { if (now - p.t > STALE_MS) { remotePoses.delete(id); infos.delete(id); gone = true; } });
@@ -109,7 +121,7 @@ export function joinWorld(me: RemoteInfo, local = false): () => void {
   window.addEventListener('pagehide', leave);
   return () => {
     window.clearInterval(poseTimer); window.clearInterval(helloTimer); window.removeEventListener('pagehide', leave);
-    leave(); t.close();
+    leave(); t.close(); if (current?.t === t) current = null;
     infos.clear(); remotePoses.clear(); publish();
   };
 }

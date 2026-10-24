@@ -5,7 +5,11 @@
  * - troca de itens: só pessoas — propõe, a outra responde com a parte dela, as duas confirmam.
  * Não existe chat entre pessoas: as conversas são dos Companions (Encontros).
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { GROUP_ACTIVITY } from '@rules';
+import { remotePoses } from '../net/presence';
+import { companionFocus, socialHold } from '../scene/world';
+import { vitals } from '../scene/vitals';
 import { blueprintById } from '@rules';
 import { batchLabel } from '../ecos/ecosStore';
 import { socialCall, useSocial, type SocialCard, type SocialState, type TradeView } from '../net/social';
@@ -61,7 +65,7 @@ export function SocialPanel() {
         <h3>Grupo</h3>
         {data.party ? (
           <div className="soc-card">
-            {data.party.members.map((m) => <Who key={m.id} c={m}>{m.id === data.party!.leader && <small>líder</small>}{m.id === data.me && <small>você</small>}</Who>)}
+            <PartyCard party={data.party} me={data.me} />
             <div className="soc-row"><button disabled={busy} onClick={() => void socialCall('social.party.leave')}>Sair do grupo</button></div>
           </div>
         ) : <p className="hint">Sem grupo agora. O seu Companion pode montar um sozinho, ou você chama alguém que ele conhece.</p>}
@@ -179,5 +183,52 @@ function TradeEditor({ data, to, counter, onClose }: { data: SocialState; to: So
         <button onClick={onClose}>Fechar</button>
       </div>
     </section>
+  );
+}
+
+/** Membros do grupo: retrato redondo, vida, onde está (radar em volta de você) e o que o grupo está fazendo. */
+function PartyCard({ party, me }: { party: NonNullable<SocialState['party']>; me: string }) {
+  const [, tick] = useState(0);
+  useEffect(() => { const t = window.setInterval(() => tick((x) => x + 1), 1000); return () => window.clearInterval(t); }, []);
+  const group = useSocial((s) => s.group);
+  const paused = performance.now() < socialHold.pausedUntil;
+  const R = 34, range = 40; // radar: 40 m até a borda
+  const dirName = (dx: number, dz: number) => { const a = (Math.atan2(dx, -dz) * 180) / Math.PI; const n = ['norte', 'nordeste', 'leste', 'sudeste', 'sul', 'sudoeste', 'oeste', 'noroeste']; return n[(Math.round(((a + 360) % 360) / 45)) % 8]; };
+  const rows = party.members.map((m) => {
+    const mine = m.id === me, p = mine ? null : remotePoses.get(m.id);
+    const here = mine || (!!p && Number.isFinite(p.x));
+    const dx = p && here ? p.x - companionFocus.x : 0, dz = p && here ? p.z - companionFocus.z : 0, d = Math.hypot(dx, dz);
+    const hp = mine ? vitals.hp / Math.max(1, vitals.hpMax) : p?.hp;
+    return { m, mine, here, dx, dz, d, hp, down: mine ? vitals.down > 0 : !!p?.down };
+  });
+  return (
+    <div className="party">
+      <div className="party-top">
+        <svg className="party-radar" viewBox={`${-R - 4} ${-R - 4} ${2 * R + 8} ${2 * R + 8}`} aria-label="Onde está cada um do grupo">
+          <circle r={R} className="rr" /><circle r={R / 2} className="rr in" />
+          <text y={-R + 8} className="rn">N</text>
+          {rows.filter((r) => r.here).map((r) => {
+            const k = Math.min(1, r.d / range) * R / Math.max(0.001, r.d || 1);
+            return <circle key={r.m.id} cx={r.mine ? 0 : r.dx * k} cy={r.mine ? 0 : r.dz * k} r={r.mine ? 4.5 : 4} fill={r.m.color} stroke="#fff" strokeWidth={r.mine ? 1.5 : 0.8} />;
+          })}
+        </svg>
+        <div className="party-doing">
+          <b>{group ? GROUP_ACTIVITY[group.activity].label : '—'}</b>
+          <small>{paused ? 'Você está no controle; o grupo espera.' : group ? `O grupo está ${GROUP_ACTIVITY[group.activity].doing}.` : 'No Companion World o grupo age junto.'}</small>
+        </div>
+      </div>
+      <ul className="party-list">
+        {rows.map(({ m, mine, here, dx, dz, d, hp, down }) => (
+          <li key={m.id}>
+            <span className="party-face" style={{ ['--c' as string]: m.color }}>{m.art ? <img src={m.art} alt="" /> : <i>{m.name.slice(0, 1)}</i>}</span>
+            <div className="party-info">
+              <b>{m.name}{m.id === party.leader && <small> · líder</small>}{mine && <small> · você</small>}</b>
+              <div className="party-hp" aria-label={hp !== undefined ? `Vida ${Math.round(hp * 100)}%` : 'Vida desconhecida'}><i style={{ width: `${Math.round((hp ?? 0) * 100)}%` }} className={down ? 'down' : ''} /></div>
+              <small>{mine ? 'aqui' : !here ? 'fora do mundo (no Refúgio)' : down ? 'desmaiado' : d < 3 ? 'do seu lado' : `a ${Math.round(d)} m, ${dirName(dx, dz)}`}</small>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }

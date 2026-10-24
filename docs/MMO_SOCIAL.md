@@ -56,6 +56,16 @@ Decididas em 23/10/2026. O protagonista social é o **Companion**: as pessoas cu
 - **As duas telas em sincronia**: cada fala sai no mesmo horário nas duas (hora do encontro no servidor + 2 s + 3,4 s
   por fala) e some quando a próxima começa. Antes cada jogo começava quando recebia o encontro e mostrava outra fala.
 
+- **Telas sempre atualizadas** (v1.28): uma ação social (aceitar amizade, entrar/sair do grupo, troca, encontro) manda
+  um aviso pelo canal de presença e as outras telas atualizam na hora; também ao voltar para a janela e a cada 12 s.
+  Encontros e conversas feitos pelo outro jogo tocam quando chegam (se ainda estão acontecendo).
+- **Grupo no piloto automático**: a atividade (`groupActivity`: caçar, explorar e coletar, ou conversar) sai do id do
+  grupo e do relógio — a mesma em todas as telas — e muda a cada 2,5 min (grupos sociáveis conversam mais). Caçar: todos
+  caçam perto do líder (o líder explora atrás de monstros). Explorar: o líder explora e os outros vão junto. Conversar:
+  ficam juntos, de frente, e o líder pede ao servidor uma conversa nova a cada ~70 s (`social.party.talk`, falas
+  sincronizadas nas telas, sem gravar memória). A pessoa mexeu → o grupo espera 15 s.
+- **Painel do grupo**: retrato redondo, vida (vai na presença), distância e direção de cada um, radar e a atividade.
+
 ## Como vai funcionar
 
 ### Fase 1 — Presença (ver os outros)

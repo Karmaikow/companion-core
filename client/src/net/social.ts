@@ -9,9 +9,9 @@
 import { useEffect } from 'react';
 import { create } from 'zustand';
 import { useGame } from '../store';
-import { remotePoses, usePresence } from './presence';
+import { remotePoses, usePresence, pokeOthers, onPoke } from './presence';
 import { companionFocus, socialHold } from '../scene/world';
-import { SOCIAL } from '@rules';
+import { SOCIAL, groupActivity, type GroupActivity } from '@rules';
 
 export interface SocialCard { id: string; name: string; color: string; pronoun: 'ela' | 'ele'; stage: string; form: string | null }
 export interface MeetingView { id: number; at: string; with: SocialCard | null; lines: { cid: string; name: string; text: string }[] }
@@ -24,7 +24,7 @@ export interface SocialState {
   known: SocialCard[];
   friendRequests: { id: string; from: SocialCard; at: string; text: string }[];
   friendRequestsSent: { id: string; to: SocialCard; at: string }[];
-  party: { id: string; leader: string; members: SocialCard[] } | null;
+  party: { id: string; leader: string; members: (SocialCard & { art?: string | null; traits?: string[] })[] } | null;
   partyInvites: { id: string; from: SocialCard; by: 'companion' | 'player'; at: string }[];
   partyInvitesSent: { id: string; to: SocialCard; by: 'companion' | 'player'; at: string }[];
   trades: TradeView[];
@@ -42,9 +42,9 @@ function sayRemote(cid: string, text: string, ms?: number) {
   window.setTimeout(() => { if (useRemoteSpeech.getState()[cid]?.id === id) useRemoteSpeech.setState((s) => { const n = { ...s }; delete n[cid]; return n; }); }, ms ?? Math.max(3200, text.length * 70));
 }
 
-if (import.meta.env.DEV && typeof window !== 'undefined') (window as unknown as { __social: unknown }).__social = { useRemoteSpeech, remotePoses, usePresence };
+if (import.meta.env.DEV && typeof window !== 'undefined') (window as unknown as { __social: unknown }).__social = { useRemoteSpeech, remotePoses, usePresence, useSocial: null as unknown };
 
-export const useSocial = create<{ data: SocialState | null; busy: boolean; error: string | null; available: boolean }>(() => ({ data: null, busy: false, error: null, available: false }));
+export const useSocial = create<{ data: SocialState | null; busy: boolean; error: string | null; available: boolean; /** o que o grupo está fazendo agora (mesmo valor em todas as telas) */ group: { activity: GroupActivity; role: 'leader' | 'member' } | null }>(() => ({ data: null, busy: false, error: null, available: false, group: null }));
 
 const seen = { requests: new Set<string>(), invites: new Set<string>(), trades: new Set<string>(), meetings: new Set<number>(), first: true };
 
@@ -58,7 +58,8 @@ function absorb(data: SocialState) {
   data.friendRequests.forEach((r) => seen.requests.add(r.id));
   data.partyInvites.forEach((i) => seen.invites.add(i.id));
   data.trades.forEach((t) => seen.trades.add(t.id));
-  data.meetings.forEach((m) => seen.meetings.add(m.id));
+  // encontros/conversas novas que chegaram pelo estado (feitas pelo outro jogo): tocam se ainda estão acontecendo
+  for (const m of data.meetings) if (!seen.meetings.has(m.id)) { if (!seen.first && Date.now() - Date.parse(m.at) < 60_000) playMeeting(m, data.me); else seen.meetings.add(m.id); }
   seen.first = false;
   useSocial.setState({ data, error: null });
 }
@@ -71,6 +72,8 @@ export async function socialCall(action: string, body: Record<string, unknown> =
   try {
     const r = await b.social(action, body);
     if (r.social) absorb(r.social as SocialState);
+    // mudou algo social: avisa os outros jogos para atualizarem na hora (amizade, grupo, troca)
+    if (action !== 'social.state') pokeOthers('*');
     return r;
   } catch (e) {
     const msg = (e as Error).message;
@@ -113,8 +116,12 @@ export function useSocialLoop(opts: { on: boolean; inWorld: boolean; me: string 
     useSocial.setState({ available: on });
     if (!on) return;
     void socialCall('social.state');
-    const t = window.setInterval(() => { if (document.visibilityState === 'visible') void socialCall('social.state'); }, 20_000);
-    return () => window.clearInterval(t);
+    let pending = 0;
+    const refresh = () => { window.clearTimeout(pending); pending = window.setTimeout(() => void socialCall('social.state'), 300); };
+    const t = window.setInterval(() => void socialCall('social.state'), 12_000);
+    const offPoke = onPoke(refresh);
+    window.addEventListener('focus', refresh);
+    return () => { window.clearInterval(t); offPoke(); window.removeEventListener('focus', refresh); window.clearTimeout(pending); };
   }, [on]);
   useEffect(() => {
     if (!on || !inWorld || !me) return;
@@ -122,10 +129,7 @@ export function useSocialLoop(opts: { on: boolean; inWorld: boolean; me: string 
     let inflight = false;
     const t = window.setInterval(async () => {
       const now = performance.now();
-      // grupo: quem não é o líder vai junto com ele (caçar e coletar perto dele)
-      const party = useSocial.getState().data?.party;
-      const lp = party && party.leader !== me ? remotePoses.get(party.leader) : undefined;
-      socialHold.follow = lp && Number.isFinite(lp.x) && !lp.down ? { x: lp.x, z: lp.z, t: now } : null;
+      groupTick(me, now);
       let target: string | null = null;
       remotePoses.forEach((p, id) => {
         const d = Number.isFinite(p.x) ? Math.hypot(p.x - companionFocus.x, p.z - companionFocus.z) : Infinity;
@@ -152,10 +156,54 @@ export function useSocialLoop(opts: { on: boolean; inWorld: boolean; me: string 
           if (fr?.from === me && m.with) useGame.getState().toast(`Seu Companion pediu ${m.with.name} em amizade 💌`, 'gold');
           const pt = r?.party as { from: string; to: string; status: string } | undefined;
           if (pt && m.with) useGame.getState().toast(pt.status === 'joined' ? (pt.from === me ? `${m.with.name} entrou no grupo do seu Companion!` : `Seu Companion entrou no grupo de ${m.with.name}!`) : pt.from === me ? `Seu Companion chamou ${m.with.name} para um grupo.` : `${m.with.name} chamou seu Companion para um grupo.`, 'soft');
+          pokeOthers([target]);
           void socialCall('social.state');
         }
       } catch { /* sem encontro agora */ } finally { inflight = false; }
     }, 1000);
-    return () => { window.clearInterval(t); socialHold.follow = null; socialHold.until = 0; };
+    return () => { window.clearInterval(t); socialHold.follow = null; socialHold.until = 0; socialHold.group = null; useSocial.setState({ group: null }); };
   }, [on, inWorld, me]);
 }
+
+/**
+ * Grupo no piloto automático (até a pessoa mexer): a atividade sai do id do grupo e do relógio, então é a mesma em
+ * todas as telas. Caçar: todos caçam perto do líder. Explorar: o líder explora e os outros vão junto. Conversar: ficam
+ * juntos, de frente, e o líder pede ao servidor uma conversa nova a cada ~70 s (as outras telas recebem pelo aviso).
+ */
+let lastTalk = 0, talking = false;
+function groupTick(me: string, now: number) {
+  const party = useSocial.getState().data?.party;
+  if (!party || party.members.length < 2) {
+    socialHold.follow = null; socialHold.group = null;
+    if (useSocial.getState().group) useSocial.setState({ group: null });
+    return;
+  }
+  const role: 'leader' | 'member' = party.leader === me ? 'leader' : 'member';
+  const activity = groupActivity(party.id, Date.now(), party.members.map((m) => m.traits ?? []));
+  const g = useSocial.getState().group;
+  if (!g || g.activity !== activity || g.role !== role) useSocial.setState({ group: { activity, role } });
+  const paused = now < socialHold.pausedUntil;
+  socialHold.group = paused ? null : { role, activity };
+  if (paused) { socialHold.follow = null; return; }
+  // quem não é líder segue o líder; o líder conversando fica de frente para o membro mais perto
+  const lp = role === 'member' ? remotePoses.get(party.leader) : undefined;
+  socialHold.follow = lp && Number.isFinite(lp.x) && !lp.down ? { x: lp.x, z: lp.z, t: now } : null;
+  if (activity === 'conversar') {
+    let near: { x: number; z: number; d: number } | null = null;
+    for (const m of party.members) { if (m.id === me) continue; const p = remotePoses.get(m.id); if (!p || !Number.isFinite(p.x)) continue; const d = Math.hypot(p.x - companionFocus.x, p.z - companionFocus.z); if (!near || d < near.d) near = { x: p.x, z: p.z, d }; }
+    if (near && near.d < 4.5) Object.assign(socialHold, { until: Math.max(socialHold.until, now + 1500), x: near.x, z: near.z });
+  }
+  // o líder puxa a conversa do grupo (mais vezes quando a atividade é conversar)
+  const every = (activity === 'conversar' ? SOCIAL.partyTalkEvery : SOCIAL.partyTalkEvery * 2.5) * 1000;
+  if (role === 'leader' && !talking && now - lastTalk > every) {
+    const together = party.members.some((m) => { if (m.id === me) return false; const p = remotePoses.get(m.id); return !!p && Number.isFinite(p.x) && Math.hypot(p.x - companionFocus.x, p.z - companionFocus.z) < 12; });
+    if (!together) return;
+    lastTalk = now; talking = true;
+    const b = useGame.getState().backend;
+    void (b?.social ? b.social('social.party.talk', { activity }) : Promise.resolve(null)).then((r) => {
+      const m = r?.meeting as MeetingView | null | undefined;
+      if (m) { playMeeting(m, me); pokeOthers(party.members.map((x) => x.id).filter((x) => x !== me)); }
+    }).catch(() => {}).finally(() => { talking = false; });
+  }
+}
+if (import.meta.env.DEV && typeof window !== 'undefined') (window as unknown as { __social: Record<string, unknown> }).__social.useSocial = useSocial;

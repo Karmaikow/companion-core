@@ -16,7 +16,9 @@ export const SOCIAL = {
   /** validade do aviso "estou perto de X" (s): os dois lados precisam avisar dentro dessa janela */
   pingWindow: 45,
   /** um encontro por par a cada N minutos; teto de encontros com IA por Companion por dia */
-  pairCooldownMin: 10, dailyMeetings: 30,
+  pairCooldownMin: 10, dailyMeetings: 60,
+  /** conversa do grupo: uma a cada N segundos, enquanto o grupo está conversando */
+  partyTalkEvery: 70,
   /** falas por encontro */
   minLines: 2, maxLines: 6,
   maxParty: 4,
@@ -262,3 +264,57 @@ export function tradeStep(t: { status: TradeStatus; fromOk: boolean; toOk: boole
 export function friendRequestText(fromName: string, toName: string, toPronoun?: 'ela' | 'ele'): string {
   return `${fromName} quer ser ${toPronoun === 'ele' ? 'amigo' : 'amiga'} de ${toName}. Você aceita?`;
 }
+
+// ---------------------------------------------------------------------------
+// O que o grupo faz junto (igual nas telas de todos: sai do id do grupo e do relógio)
+
+export type GroupActivity = 'cacar' | 'explorar' | 'conversar';
+export const GROUP_ACTIVITY: Record<GroupActivity, { label: string; doing: string }> = {
+  cacar: { label: 'Caçar', doing: 'caçando monstros juntos' },
+  explorar: { label: 'Explorar e coletar', doing: 'explorando e coletando juntos' },
+  conversar: { label: 'Conversar', doing: 'conversando sem parar' },
+};
+/** Janela de cada atividade (s); a atividade muda sozinha de tempos em tempos, a mesma para todo o grupo. */
+export const GROUP_ACTIVITY_WINDOW = 150;
+export function groupActivity(partyId: string, nowMs: number, traits: string[][] = []): GroupActivity {
+  const slot = Math.floor(nowMs / 1000 / GROUP_ACTIVITY_WINDOW);
+  // grupos mais sociáveis conversam mais; os menos, caçam e exploram mais
+  const soc = traits.length ? traits.reduce((t, x) => t + sociability(x), 0) / traits.length : 0.5;
+  const r = socialRoll(partyId, slot);
+  const talk = 0.2 + soc * 0.25;
+  return r < talk ? 'conversar' : r < talk + (1 - talk) / 2 ? 'cacar' : 'explorar';
+}
+
+/** Prompt da conversa de grupo (curta, sobre o que estão fazendo agora). */
+export function buildPartyTalkPrompt(a: MeetSide, b: MeetSide, activity: GroupActivity, recent: string[]): string {
+  const who = (s: MeetSide) => `${s.name} (${s.discoveries.pronoun === 'ele' ? 'menino' : 'menina'}; traços: ${traitText(s.discoveries)})`;
+  return `Dois Companions (seres mágicos e gentis de um jogo aconchegante) estão num grupo no Companion World, ${GROUP_ACTIVITY[activity].doing}. As pessoas que cuidam deles não participam.
+A = ${who(a)}
+B = ${who(b)}
+O que já disseram há pouco (não repita):
+${recent.slice(-6).map((l) => '- ' + l).join('\n') || '- (nada)'}
+Escreva a continuação: 2 a 4 falas alternadas, curtas (até 120 caracteres), naturais, no jeito de cada um, sobre o que estão fazendo agora ou o que veem por perto. Sem convidar para grupo nem pedir amizade. Português do Brasil.
+Responda só com JSON: {"lines":[{"who":"a","text":"..."},{"who":"b","text":"..."}]}`;
+}
+export function offlinePartyTalk(a: MeetSide, b: MeetSide, activity: GroupActivity, seed: string): MeetLine[] {
+  const r = (k: string) => socialRoll(seed, k);
+  const pick = <T,>(l: T[], k: string) => l[Math.floor(r(k) * l.length) % l.length];
+  const by: Record<GroupActivity, [string[], string[]]> = {
+    cacar: [['Olha ali, uma Bruma! Vamos acalmar ela?', 'Fica do meu lado, eu cuido da frente!', 'Essa foi por pouco, hein?'], ['Pode deixar, eu vou pelo outro lado!', 'Estou com você!', 'Juntos a gente é imbatível. ✨']],
+    explorar: [['Será que tem algo brilhando perto daquelas pedras?', 'Esse caminho parece novo, vamos ver?', 'Olha quantas flores por aqui!'], ['Vamos! Eu carrego o que a gente achar.', 'Adoro explorar com você.', 'Guarda uma para mim!']],
+    conversar: [['Sabe o que eu mais gosto daqui? O vento à tarde.', 'Você já viu o céu à noite daqui de cima?', 'Me conta uma coisa que te deixou feliz hoje.'], ['Eu também! Parece que ele canta.', 'Já! As estrelas parecem mais perto.', 'Te encontrar de novo, claro!']],
+  };
+  const [as, bs] = by[activity];
+  return [{ who: 'a', text: pick(as, 'a') }, { who: 'b', text: pick(bs, 'b') }];
+}
+export function parsePartyTalk(raw: string): MeetLine[] | null {
+  const m = raw.match(/\{[\s\S]*\}/);
+  if (!m) return null;
+  try {
+    const o = JSON.parse(m[0]) as { lines?: { who?: unknown; text?: unknown }[] };
+    const lines = (o.lines ?? []).filter((l) => (l.who === 'a' || l.who === 'b') && typeof l.text === 'string' && l.text.trim().length > 1).slice(0, 4)
+      .map((l) => ({ who: l.who as 'a' | 'b', text: clampText(String(l.text), 140) }));
+    return lines.length >= 2 ? lines : null;
+  } catch { return null; }
+}
+
