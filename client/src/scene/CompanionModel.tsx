@@ -11,7 +11,7 @@ import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.j
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { animKind, attackVariant, strideSpeed, gameTime, COMPANION_ANIM_SLOTS, parseAnimRef, gatherSlot, type AnimKind } from '@rules';
 import type { CompanionModelFiles } from '../backend/types';
-import { CLEAR_R, companionFocus, companionPose, moveRequest, attackRequest, attackPick, teleport, resolveCollisions, platformHeight, type WorldShape } from './world';
+import { CLEAR_R, companionFocus, companionPose, socialHold, moveRequest, attackRequest, attackPick, teleport, resolveCollisions, platformHeight, type WorldShape } from './world';
 import { work } from '../ecos/ecosStore';
 import { SpeechBubble } from './SpeechBubble';
 import { Appendages, findAnchors, type AppendageSpec } from './Appendages';
@@ -371,7 +371,8 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
           if (lowHp && performance.now() - ai.lowSaid > 15000) { ai.lowSaid = performance.now(); say('low-hp', {}, { force: true }); }
         } else {
           const exploring = !!roam.goal?.current;
-          const hunting = order?.kind === 'attack' || order?.kind === 'hunt' || (exploring && conf.posture === 'cacadora');
+          // em grupo (seguindo o líder) também caça o que aparecer perto, junto com ele
+          const hunting = order?.kind === 'attack' || order?.kind === 'hunt' || (exploring && conf.posture === 'cacadora') || (!!socialHold.follow && conf.posture !== 'pacifica');
           if (hunting && prey) ai.target = prey;
           else if (conf.posture !== 'pacifica' && threat && td < 7) ai.target = threat; // se defende de quem vem brigar
         }
@@ -410,6 +411,20 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
         if (used) say('skill', {}, { chance: 0.45 });
       }
     } else if (!ai.target) ai.engaged = null;
+    // MMO: encontrou outro Companion → para e conversa olhando para ele; em grupo → vai junto com o líder.
+    // A pessoa manda mais: andar (teclado, joystick, clique) cancela.
+    if (driving) { socialHold.until = 0; }
+    let holdYaw: number | null = null;
+    if (!driving && !ai.target && !ai.fleeing && !cs.charging) {
+      const nowMs = performance.now();
+      if (socialHold.until > nowMs) {
+        s.target.copy(r.position); s.player = false; s.sitting = false; s.wait = Math.max(s.wait, 1.2);
+        holdYaw = Math.atan2(socialHold.x - r.position.x, socialHold.z - r.position.z);
+      } else if (socialHold.follow && nowMs - socialHold.follow.t < 3000) {
+        const f = socialHold.follow, dx = f.x - r.position.x, dz = f.z - r.position.z, dd = Math.hypot(dx, dz);
+        if (dd > 3.2) { s.target.set(f.x - (dx / dd) * 2, 0, f.z - (dz / dd) * 2); s.running = dd > 6; s.player = false; s.sitting = false; s.wait = 1; }
+      }
+    }
 
     // apertar guarda o pedido por um instante (não perde o clique feito no fim do golpe anterior);
     // segurar F/Espaço continua atacando no ritmo da arma
@@ -568,6 +583,12 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
       const night = gameTime(Date.now()).phase === 'madrugada';
       // falando (balão aberto): gesticula, se tiver a animação
       if (s.jumpT >= 0 && actions.has('jump')) { /* pulando parado */ }
+      else if (holdYaw !== null) {
+        // conversando com outro Companion: vira para ele
+        let dy = holdYaw - s.yaw; while (dy > Math.PI) dy -= 2 * Math.PI; while (dy < -Math.PI) dy += 2 * Math.PI;
+        s.yaw += dy * Math.min(1, dt * 5);
+        play(speech && actions.has('talk') ? 'talk' : 'idle');
+      }
       else if (work.on && !s.player) {
         // coletando (Ecos da Terra): olha para o recurso e trabalha
         const want = Math.atan2(work.at.x - r.position.x, work.at.z - r.position.z); let dy = want - s.yaw; while (dy > Math.PI) dy -= 2 * Math.PI; while (dy < -Math.PI) dy += 2 * Math.PI;

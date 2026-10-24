@@ -9,8 +9,8 @@
 import { useEffect } from 'react';
 import { create } from 'zustand';
 import { useGame } from '../store';
-import { remotePoses } from './presence';
-import { companionFocus } from '../scene/world';
+import { remotePoses, usePresence } from './presence';
+import { companionFocus, socialHold } from '../scene/world';
 import { SOCIAL } from '@rules';
 
 export interface SocialCard { id: string; name: string; color: string; pronoun: 'ela' | 'ele'; stage: string; form: string | null }
@@ -41,6 +41,8 @@ function sayRemote(cid: string, text: string) {
   useRemoteSpeech.setState({ [cid]: { text, id } });
   window.setTimeout(() => { if (useRemoteSpeech.getState()[cid]?.id === id) useRemoteSpeech.setState((s) => { const n = { ...s }; delete n[cid]; return n; }); }, Math.max(3200, text.length * 70));
 }
+
+if (import.meta.env.DEV && typeof window !== 'undefined') (window as unknown as { __social: unknown }).__social = { useRemoteSpeech, remotePoses, usePresence };
 
 export const useSocial = create<{ data: SocialState | null; busy: boolean; error: string | null; available: boolean }>(() => ({ data: null, busy: false, error: null, available: false }));
 
@@ -83,6 +85,9 @@ function playMeeting(m: MeetingView, me: string) {
   if (seen.meetings.has(m.id)) return;
   seen.meetings.add(m.id);
   const g = useGame.getState();
+  // fica parado conversando enquanto as falas passam (a pessoa pode tirar dali andando)
+  const other = m.with ? remotePoses.get(m.with.id) : undefined;
+  if (other && Number.isFinite(other.x)) Object.assign(socialHold, { until: performance.now() + 900 + m.lines.length * 3400 + 1500, x: other.x, z: other.z });
   m.lines.forEach((l, i) => window.setTimeout(() => { if (l.cid === me) useGame.getState().sayBark(l.text); else sayRemote(l.cid, l.text); }, 600 + i * 3400));
   if (m.with) g.toast(`${m.lines.find((l) => l.cid === me)?.name ?? 'Seu Companion'} conversou com ${m.with.name} ✨`, 'soft');
 }
@@ -105,10 +110,18 @@ export function useSocialLoop(opts: { on: boolean; inWorld: boolean; me: string 
     let inflight = false;
     const t = window.setInterval(async () => {
       const now = performance.now();
+      // grupo: quem não é o líder vai junto com ele (caçar e coletar perto dele)
+      const party = useSocial.getState().data?.party;
+      const lp = party && party.leader !== me ? remotePoses.get(party.leader) : undefined;
+      socialHold.follow = lp && Number.isFinite(lp.x) && !lp.down ? { x: lp.x, z: lp.z, t: now } : null;
       let target: string | null = null;
       remotePoses.forEach((p, id) => {
         const d = Number.isFinite(p.x) ? Math.hypot(p.x - companionFocus.x, p.z - companionFocus.z) : Infinity;
-        if (d <= SOCIAL.nearMeters && !p.down) { if (!since.has(id)) since.set(id, now); }
+        if (d <= SOCIAL.nearMeters && !p.down) {
+          if (!since.has(id)) since.set(id, now);
+          // notou o outro: para e olha para ele enquanto o encontro acontece (cada aviso segura mais um pouco)
+          if (now - (lastPing.get(id) ?? -1e9) > 0 && socialHold.until < now + 2500) Object.assign(socialHold, { until: now + 3000, x: p.x, z: p.z });
+        }
         else since.delete(id);
         const s = since.get(id);
         if (s !== undefined && now - s >= SOCIAL.nearSeconds * 1000 && now - (lastPing.get(id) ?? -1e9) > 6000 && !target) target = id;
@@ -131,6 +144,6 @@ export function useSocialLoop(opts: { on: boolean; inWorld: boolean; me: string 
         }
       } catch { /* sem encontro agora */ } finally { inflight = false; }
     }, 1000);
-    return () => window.clearInterval(t);
+    return () => { window.clearInterval(t); socialHold.follow = null; socialHold.until = 0; };
   }, [on, inWorld, me]);
 }

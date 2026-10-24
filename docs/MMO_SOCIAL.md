@@ -45,6 +45,11 @@ Decididas em 23/10/2026. O protagonista social é o **Companion**: as pessoas cu
 - **Troca**: só com quem o Companion já conhece; materiais da mochila e peças do Pacto; até 8 itens por lado e 5 trocas
   abertas por pessoa.
 
+- **Parar para conversar** (v1.26): quando outro Companion fica perto, o seu para e olha para ele enquanto o encontro
+  acontece e durante as falas (`socialHold` em `scene/world.ts`); a pessoa tira dali andando (teclado, joystick, clique).
+- **Grupo vai junto**: quem não é o líder segue o líder no mundo (a ~2 m, correndo se ficar longe) e caça o que
+  aparecer perto com ele (menos na postura pacífica). Sem grupo, eles só conversam e cada um segue o seu caminho.
+
 ## Como vai funcionar
 
 ### Fase 1 — Presença (ver os outros)

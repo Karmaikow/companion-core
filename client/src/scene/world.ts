@@ -78,6 +78,11 @@ export function withWind<T extends THREE.Material>(m: T, opts: { height: number;
 export const companionFocus = new THREE.Vector3();
 /** Para onde o Companion olha e se está caído (a presença manda isso para os outros jogadores). */
 export const companionPose = { yaw: 0, down: false };
+/**
+ * MMO: quando outro Companion está perto, o seu para e conversa com ele (até `until`, olhando para x/z) — a não ser
+ * que a pessoa mande andar. `follow`: posição do líder do grupo, para ir junto (caçar/coletar); null = sem grupo.
+ */
+export const socialHold = { until: 0, x: 0, z: 0, follow: null as null | { x: number; z: number; t: number } };
 
 /** Pedido de "anda até aqui" (clique/toque no chão). O id muda a cada clique. */
 export const moveRequest = { id: 0, point: new THREE.Vector3() };
