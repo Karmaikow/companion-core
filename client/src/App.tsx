@@ -82,7 +82,7 @@ export function App() {
     const line = he ? masculinize(barkMsg.text) : barkMsg.text; // "ele": fala de si no masculino (também as falas da IA)
     setBubble(line);
     speak(line);
-    const t = setTimeout(() => setBubble((b) => (b === line ? null : b)), Math.max(2600, barkMsg.text.length * 75));
+    const t = setTimeout(() => setBubble((b) => (b === line ? null : b)), barkMsg.ms ?? Math.max(2600, barkMsg.text.length * 75));
     return () => clearTimeout(t);
   }, [barkMsg]);
   // segure V (fora de campos de texto) para falar com ela

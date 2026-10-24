@@ -65,7 +65,20 @@ export interface MeetContext {
 }
 
 export interface MeetLine { who: 'a' | 'b'; text: string }
-export interface MeetProposal { lines: MeetLine[]; memoryA: string | null; memoryB: string | null; friendRequest: 'a' | 'b' | null; partyInvite: 'a' | 'b' | null; mood?: string }
+export interface MeetProposal { lines: MeetLine[]; memoryA: string | null; memoryB: string | null; friendRequest: 'a' | 'b' | null; partyInvite: 'a' | 'b' | null; /** o convidado aceitou o grupo na conversa */ partyAccepted: boolean; mood?: string }
+/**
+ * O roteiro do encontro, decidido ANTES da conversa pelas regras (jeito de cada um, histórico): quem pede amizade,
+ * quem chama para o grupo e se o outro aceita. A IA só escreve as falas seguindo o roteiro — assim o que eles dizem
+ * e o que acontece no jogo batem (antes a IA escrevia "vamos!" e o sorteio do grupo podia dar "não").
+ */
+export interface MeetPlan { friendRequest: 'a' | 'b' | null; partyInvite: 'a' | 'b' | null; partyAccepted: boolean }
+
+export function planMeeting(a: MeetSide, b: MeetSide, ctx: MeetContext): MeetPlan {
+  const dec = companionDecisions(a, b, ctx);
+  const invited = dec.partyInvite === 'a' ? b : dec.partyInvite === 'b' ? a : null;
+  const partyAccepted = !!invited && companionAcceptsParty(invited.discoveries, { friends: ctx.friends, meetings: ctx.meetings, seed: ctx.seed + 'accept' });
+  return { ...dec, partyAccepted };
+}
 
 /** O que as regras deixam acontecer neste encontro (a IA só pode propor dentro disso). */
 export function meetAllowance(a: MeetSide, b: MeetSide, ctx: MeetContext) {
@@ -115,8 +128,7 @@ export function companionAcceptsParty(me: Discoveries, opts: { friends: boolean;
 const traitText = (d: Discoveries) => (d.traits ?? []).join(', ') || 'ainda descobrindo';
 
 /** Prompt do encontro: a IA escreve a conversinha e o que cada um guarda; as regras dizem o que é permitido. */
-export function buildMeetPrompt(a: MeetSide, b: MeetSide, ctx: MeetContext): string {
-  const al = meetAllowance(a, b, ctx);
+export function buildMeetPrompt(a: MeetSide, b: MeetSide, ctx: MeetContext, plan: MeetPlan = planMeeting(a, b, ctx)): string {
   const who = (s: MeetSide) => `${s.name} (${s.discoveries.pronoun === 'ele' ? 'menino, fala de si no masculino' : 'menina, fala de si no feminino'}; traços: ${traitText(s.discoveries)}${s.discoveries.colorName ? '; cor favorita: ' + s.discoveries.colorName : ''}${s.discoveries.element ? '; essência: ' + s.discoveries.element : ''}${s.discoveries.dream ? '; sonho: ' + s.discoveries.dream : ''})`;
   const mem = (s: MeetSide) => [...s.about.map((m) => '- (sobre o outro) ' + m), ...s.memories.slice(0, 5).map((m) => '- ' + m)].join('\n') || '- (nada ainda)';
   return `Você escreve um encontro curto entre dois Companions (seres mágicos e gentis de um jogo de fantasia aconchegante) que se cruzaram no Companion World. As pessoas que cuidam deles NÃO participam.
@@ -133,13 +145,27 @@ Regras:
 - Se já se conhecem, retome algo das memórias; se é a primeira vez, se apresentam.
 - Não invente nomes de pessoas nem fatos sobre as pessoas que cuidam deles.
 - memoryA: o que A guarda deste encontro, em terceira pessoa com os nomes (ex.: "Maya conheceu Luna perto do rio; Luna adora a cor azul."). memoryB: o mesmo para B. Até 200 caracteres.
-- friendRequest: ${al.canFriend ? '"a" ou "b" se um deles pedir para ser amigo do outro (só se a conversa levar a isso), senão null' : 'sempre null'}.
-- partyInvite: ${al.inviteA || al.inviteB ? `${[al.inviteA ? '"a"' : '', al.inviteB ? '"b"' : ''].filter(Boolean).join(' ou ')} se chamar o outro para explorar junto num grupo, senão null` : 'sempre null'}.
-Responda só com JSON: {"lines":[{"who":"a","text":"..."},{"who":"b","text":"..."}],"memoryA":"...","memoryB":"...","friendRequest":null,"partyInvite":null}`;
+- Roteiro (obrigatório, a conversa precisa levar a isto e terminar assim):
+${plotLines(a, b, plan)}
+Responda só com JSON: {"lines":[{"who":"a","text":"..."},{"who":"b","text":"..."}],"memoryA":"...","memoryB":"..."}`;
+}
+
+function plotLines(a: MeetSide, b: MeetSide, plan: MeetPlan): string {
+  const n = (w: 'a' | 'b') => (w === 'a' ? a.name : b.name), o = (w: 'a' | 'b') => (w === 'a' ? 'b' : 'a');
+  const out: string[] = [];
+  if (plan.friendRequest) out.push(`  • ${n(plan.friendRequest)} pergunta se ${n(o(plan.friendRequest))} quer ser amigo(a) dele(a); ${n(o(plan.friendRequest))} fica feliz com o pedido (a resposta final não é dada agora).`);
+  if (plan.partyInvite) {
+    const inv = plan.partyInvite, guest = o(inv);
+    out.push(plan.partyAccepted
+      ? `  • ${n(inv)} chama ${n(guest)} para explorar e caçar juntos agora, num grupo; ${n(guest)} ACEITA animado(a) e eles combinam de ir juntos (essa é a última fala).`
+      : `  • ${n(inv)} chama ${n(guest)} para explorar juntos; ${n(guest)} RECUSA com carinho (quer ficar por aqui, descansar ou explorar sozinho(a) hoje) e eles se despedem.`);
+  }
+  if (!plan.partyInvite) out.push('  • Ninguém chama o outro para um grupo nem combina de ir junto a algum lugar: eles só conversam e se despedem (sem "vamos juntos?").');
+  return out.join('\n');
 }
 
 /** Lê o JSON da IA e aplica as regras (o que não é permitido vira null). */
-export function parseMeet(raw: string, a: MeetSide, b: MeetSide, ctx: MeetContext): MeetProposal | null {
+export function parseMeet(raw: string, a: MeetSide, b: MeetSide, ctx: MeetContext, plan: MeetPlan = planMeeting(a, b, ctx)): MeetProposal | null {
   const m = raw.match(/\{[\s\S]*\}/);
   if (!m) return null;
   let o: Record<string, unknown>;
@@ -150,15 +176,14 @@ export function parseMeet(raw: string, a: MeetSide, b: MeetSide, ctx: MeetContex
     .slice(0, SOCIAL.maxLines)
     .map((l) => ({ who: l.who as 'a' | 'b', text: clampText(String(l.text).replace(/^\s*(A|B)\s*[:\-–]\s*/i, ''), 160) }));
   if (lines.length < SOCIAL.minLines || !lines.some((l) => l.who === 'a') || !lines.some((l) => l.who === 'b')) return null;
-  const al = meetAllowance(a, b, ctx);
+  void ctx;
   const mem = (v: unknown) => (typeof v === 'string' && v.trim().length >= 8 ? clampText(v, 220) : null);
-  const fr = o.friendRequest === 'a' || o.friendRequest === 'b' ? o.friendRequest : null;
-  const pi = o.partyInvite === 'a' ? (al.inviteA ? 'a' : null) : o.partyInvite === 'b' ? (al.inviteB ? 'b' : null) : null;
-  return { lines, memoryA: mem(o.memoryA), memoryB: mem(o.memoryB), friendRequest: al.canFriend ? fr : null, partyInvite: pi };
+  // o que acontece no jogo vem do roteiro (as regras), não do que a IA escreveu
+  return { lines, memoryA: mem(o.memoryA), memoryB: mem(o.memoryB), ...plan };
 }
 
 /** Encontro sem IA: falas prontas pelo jeito de cada um, e as decisões pelas regras. */
-export function offlineMeet(a: MeetSide, b: MeetSide, ctx: MeetContext): MeetProposal {
+export function offlineMeet(a: MeetSide, b: MeetSide, ctx: MeetContext, plan: MeetPlan = planMeeting(a, b, ctx)): MeetProposal {
   const r = (k: string) => socialRoll(ctx.seed, k);
   const pick = <T,>(list: T[], k: string) => list[Math.floor(r(k) * list.length) % list.length];
   const first = ctx.meetings === 0;
@@ -174,16 +199,21 @@ export function offlineMeet(a: MeetSide, b: MeetSide, ctx: MeetContext): MeetPro
       'Estou explorando este lugar com calma, tem tanta coisa para ver.',
     ], s.id + 'talk' + ctx.meetings);
   };
-  const dec = companionDecisions(a, b, ctx);
+  const dec = plan;
   const lines: MeetLine[] = [{ who: 'a', text: hi(a, b) }, { who: 'b', text: hi(b, a) }, { who: 'a', text: talk(a) }, { who: 'b', text: talk(b) }];
   if (dec.friendRequest) { const other = dec.friendRequest === 'a' ? b : a; lines.push({ who: dec.friendRequest, text: `${other.name}, quer ser ${other.discoveries.pronoun === 'ele' ? 'meu amigo' : 'minha amiga'}? ✨` }); }
-  else if (dec.partyInvite) lines.push({ who: dec.partyInvite, text: 'Vamos explorar juntos um pouco?' });
+  if (dec.partyInvite) {
+    const g: 'a' | 'b' = dec.partyInvite === 'a' ? 'b' : 'a';
+    if (lines.length >= SOCIAL.maxLines - 1) lines.splice(2, 2);
+    lines.push({ who: dec.partyInvite, text: 'Vamos explorar e caçar juntos um pouco?' });
+    lines.push({ who: g, text: dec.partyAccepted ? pick(['Vamos! Eu vou com você. ✨', 'Bora! Fico do seu lado.', 'Sim! Juntos é mais divertido.'], 'yes') : pick(['Hoje não, vou ficar por aqui… mas foi bom te ver!', 'Agora não, quero descansar um pouco. Até a próxima!'], 'no') });
+  }
   const where = 'no Companion World';
   return {
     lines,
     memoryA: first ? `${a.name} conheceu ${b.name} ${where}.` : `${a.name} reencontrou ${b.name} ${where} e conversaram de novo.`,
     memoryB: first ? `${b.name} conheceu ${a.name} ${where}.` : `${b.name} reencontrou ${a.name} ${where} e conversaram de novo.`,
-    ...dec,
+    friendRequest: dec.friendRequest, partyInvite: dec.partyInvite, partyAccepted: dec.partyAccepted,
   };
 }
 

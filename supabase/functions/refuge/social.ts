@@ -6,7 +6,7 @@
 // - Troca: só pessoas; a outra responde com a parte dela e as duas confirmam; o banco troca tudo de uma vez.
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import {
-  SOCIAL, pairKey, buildMeetPrompt, parseMeet, offlineMeet, companionAcceptsParty, parseTradeItems, tradeStep, masculinize, friendRequestText,
+  SOCIAL, pairKey, buildMeetPrompt, parseMeet, offlineMeet, planMeeting, companionAcceptsParty, parseTradeItems, tradeStep, masculinize, friendRequestText,
   type MeetSide, type MeetContext, type MeetProposal, type Discoveries, type TradeStatus,
 } from './rules/index.ts';
 import { complete, providerName } from './llm.ts';
@@ -82,7 +82,7 @@ async function joinParty(db: SupabaseClient, inviter: string, invitee: string, i
 }
 
 /** Convite de grupo para `to`: o Companion convidado decide sozinho; se não quiser agora, fica para a pessoa. */
-async function inviteToParty(ctx: Ctx, from: string, to: string, by: 'companion' | 'player') {
+async function inviteToParty(ctx: Ctx, from: string, to: string, by: 'companion' | 'player', decided?: boolean) {
   const { db } = ctx;
   if (await partyOf(db, to)) return { status: 'busy' as const };
   const fp = await partyOf(db, from);
@@ -91,7 +91,7 @@ async function inviteToParty(ctx: Ctx, from: string, to: string, by: 'companion'
   if (dup) return { status: 'pending' as const, id: dup.id as string };
   const target = await companionRow(db, to);
   const friends = await areFriends(db, from, to);
-  const yes = companionAcceptsParty((target.discoveries ?? {}) as Discoveries, { friends, meetings: await meetingCount(db, from, to), seed: from + to + new Date().toISOString().slice(0, 13) });
+  const yes = decided ?? companionAcceptsParty((target.discoveries ?? {}) as Discoveries, { friends, meetings: await meetingCount(db, from, to), seed: from + to + new Date().toISOString().slice(0, 13) });
   const { data: inv } = await db.from('companion_party_invites').insert({ from_cid: from, to_cid: to, by }).select('id').single();
   if (yes) {
     const r = await joinParty(db, from, to, by, 'companion');
@@ -140,12 +140,14 @@ async function near(ctx: Ctx, body: Record<string, unknown>) {
   ]);
   const A: MeetSide = { id: a, name: na, discoveries: da, ...ma }, B: MeetSide = { id: b, name: nb, discoveries: dbb, ...mb };
   const mctx: MeetContext = { meetings, friends, pendingFriend: !!pend.data?.length, partyA: pa && { id: pa.id, size: pa.size }, partyB: pb && { id: pb.id, size: pb.size }, seed: a + b + meetings };
+  // o roteiro (amizade, grupo e se o outro aceita) é decidido antes; a IA só escreve as falas seguindo ele
+  const plan = planMeeting(A, B, mctx);
   let prop: MeetProposal | null = null, source = 'offline';
   try {
-    const raw = await complete(buildMeetPrompt(A, B, mctx), [], 'Escreva o encontro agora.', { maxTokens: 700, quality: true, timeoutMs: 15_000 });
-    if (raw) { prop = parseMeet(raw, A, B, mctx); if (prop) source = providerName(); }
+    const raw = await complete(buildMeetPrompt(A, B, mctx, plan), [], 'Escreva o encontro agora.', { maxTokens: 700, quality: true, timeoutMs: 15_000 });
+    if (raw) { prop = parseMeet(raw, A, B, mctx, plan); if (prop) source = providerName(); }
   } catch { prop = null; }
-  prop ??= offlineMeet(A, B, mctx);
+  prop ??= offlineMeet(A, B, mctx, plan);
   const speak = (who: 'a' | 'b', t: string) => ((who === 'a' ? da : dbb).pronoun === 'ele' ? masculinize(t) : t);
   const lines = prop.lines.map((l) => ({ cid: l.who === 'a' ? a : b, name: l.who === 'a' ? na : nb, text: speak(l.who, l.text) }));
   const { data: mt, error } = await db.from('companion_meetings').insert({ a, b, lines, source }).select('id,a,b,lines,created_at').single();
@@ -163,7 +165,8 @@ async function near(ctx: Ctx, body: Record<string, unknown>) {
   }
   if (prop.partyInvite) {
     const from = prop.partyInvite === 'a' ? a : b, to = from === a ? b : a;
-    try { out.party = { from, to, ...(await inviteToParty(ctx, from, to, 'companion')) }; } catch { /* grupo cheio etc. */ }
+    // aceitou na conversa: entra no grupo na hora; recusou: o convite fica para a pessoa decidir (ela pode querer)
+    try { out.party = { from, to, ...(await inviteToParty(ctx, from, to, 'companion', prop.partyAccepted)) }; } catch { /* grupo cheio etc. */ }
   }
   return { meeting: await meetingView(db, mt, me), ...out };
 }

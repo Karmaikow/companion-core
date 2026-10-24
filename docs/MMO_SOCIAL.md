@@ -50,6 +50,12 @@ Decididas em 23/10/2026. O protagonista social é o **Companion**: as pessoas cu
 - **Grupo vai junto**: quem não é o líder segue o líder no mundo (a ~2 m, correndo se ficar longe) e caça o que
   aparecer perto com ele (menos na postura pacífica). Sem grupo, eles só conversam e cada um segue o seu caminho.
 
+- **Roteiro antes da conversa** (v1.27): as regras decidem primeiro quem pede amizade, quem chama para o grupo e se
+  o outro aceita (`planMeeting`); a IA só escreve as falas seguindo esse roteiro. Aceitou na conversa → entra no grupo
+  na hora; recusou → o convite fica para a pessoa decidir. Antes a conversa dizia "vamos!" e o sorteio podia dar "não".
+- **As duas telas em sincronia**: cada fala sai no mesmo horário nas duas (hora do encontro no servidor + 2 s + 3,4 s
+  por fala) e some quando a próxima começa. Antes cada jogo começava quando recebia o encontro e mostrava outra fala.
+
 ## Como vai funcionar
 
 ### Fase 1 — Presença (ver os outros)
