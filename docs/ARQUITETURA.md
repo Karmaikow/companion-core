@@ -743,3 +743,26 @@ Prompt com o mundo de fantasia, regra explícita de pronomes ("mim" = a pessoa; 
   mochila) que abre o painel; os indícios não abrem mais sozinhos. O painel do recurso só abre quando a pessoa toca
   num recurso e fecha ao começar a coleta (a coleta da Companion não abre nada); cada abordagem mostra o resumo e os
   detalhes (propriedades, ambiente, risco) ficam em "detalhes".
+
+- **v1.38 — Batalha: monstros usam habilidades; bolsa, peso, elementos e oito espaços.**
+  Monstros: no ritmo da velocidade de ataque, sorteiam a próxima habilidade pela frequência entre as abertas no nível
+  (`pickCreatureSkill`), com recarga por habilidade e alcance (`reachOf`). `castCreatureSkill` (Combat.tsx) mostra o
+  aviso lavanda no chão durante a preparação e só causa dano se o Companion ainda estiver dentro da forma (dá para
+  desviar); dano = poder da criatura × (poder da habilidade / 30); habilidade de cura cura a criatura. Atiradoras param
+  no alcance da habilidade de distância; medrosas com tiro atiram de longe e só fogem de perto. Sem habilidade possível,
+  golpe simples como antes.
+  Itens (`equipment.ts`): quatro categorias — **Materiais** (coleta e drops), **Diversos** (comida, poção, chave,
+  lembrança), **Equipamentos** e **Armas** — e tipos novos (elmo, armadura, túnica, botas, capa, bracelete; madeira,
+  minério, pedra, fibra, erva, gema, essência, parte de monstro; comida, poção, chave, lembrança, outro). Todo item tem
+  **peso** (kg; padrão do tipo). Oito espaços: chapéu, acessório 1 e 2, capa, armadura, mão direita, mão esquerda (arma
+  secundária de uma mão ou escudo/grimório/orbe), sapatos (`EQUIP_SLOTS`, `slotsFor`, `equip`; os conjuntos salvos com
+  os nomes antigos são lidos por `normalizeEquipped`). **Conjuntos de elemento**: peças equipadas do mesmo elemento dão
+  bônus com 2, 4 e 6 peças (×1, ×2,5, ×4,5 do bônus base do elemento: fogo dano, terra defesa, vento agilidade…).
+  **Peso**: capacidade = 30 + 2×Força + Vitalidade (+15 com mochila); carga = bolsa + peças forjadas + mochila do vale;
+  acima da capacidade "pesado" (passo ×0,8, agilidade −10%), acima de 1,5× "sobrecarregado" (×0,55, −25%).
+  **Bolsa**: os drops agora são sorteados no servidor (`combat.kill`) e guardados em `companion_inventory` (o nome do
+  drop vira o item do Arsenal; nome fora do catálogo vira material avulso). Ações `inventory.discard` (jogar fora; peça
+  equipada precisa ser tirada antes) e `inventory.grant` (só ADM, para testar itens do Arsenal). Inventário novo:
+  boneco com os oito espaços, resumo (golpe, bônus, conjuntos, carga) e a bolsa por categoria com detalhes e ações.
+  Arsenal: itens de todas as categorias, peso, elemento, espaço; "pôr na minha bolsa". Invocador: drops sugerem os itens
+  do Arsenal e mostram se o nome casa. Capa e elmo aparecem no corpo; armadura, botas e acessórios só dão atributos.

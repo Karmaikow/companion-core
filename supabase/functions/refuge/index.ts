@@ -5,7 +5,7 @@ import {
   resolveConfig, levelForXp, levelProgress, initialQuests, applyTurn, parseModelTurn, buildChatSystemPrompt,
   offlineTurn, assistDiscoveries, buildDreamPrompt, parseDream, checkAwakening, buildIdentityContract, gameTime, companionDay, clampText,
   QUESTS, QUEST_REWARDS, validateSetup, evaluateSecrets, isQuestionAboutCompanion, buildMusePrompt,
-  SECRET_BY_KEY, SECRET_XP, SECRET_BOOST_TURNS, buildArtPrompt, ANIM_KINDS, SPECIES, DEFAULT_CREATURES, sanitizeCreature, recordKill, combatMemoryLines, combatMemoryText,
+  SECRET_BY_KEY, SECRET_XP, SECRET_BOOST_TURNS, buildArtPrompt, ANIM_KINDS, SPECIES, DEFAULT_CREATURES, sanitizeCreature, recordKill, rollDrops, DEFAULT_ITEMS, sanitizeItem, findItem, dropKey, categoryOf, isWearable, type ItemDef, combatMemoryLines, combatMemoryText,
   masculinize, secretBonus, resolveBalance, type BalanceConfig, budget, deriveStats, progressionStage,
   BANK_EVENTS, MOMENT_EVENTS, withXpMultiplier, combatXp, resolveEcos, type EcosConfig, resolvePacto, type PactoConfig, buildBarkBankPrompt, parseBarkBank, buildMomentPrompt, parseMoment, dossier, type BarkEvent,
   type BestiaryEntry, type CreatureDef, type SecretKey, type GameConfig, type IdentityContractV1, type QuestState, type Discoveries, type MemoryLite, type ChatLine,
@@ -338,6 +338,34 @@ async function creatureDefs(db: SupabaseClient): Promise<CreatureDef[]> {
   return list.length ? list : DEFAULT_CREATURES;
 }
 
+/** Catálogo de itens (Arsenal publicado) mais os de reserva que não foram trocados. */
+async function itemDefs(db: SupabaseClient): Promise<ItemDef[]> {
+  const { data } = await db.from('items').select('slug,name,data').eq('status', 'published');
+  const list = (data ?? []).map((r) => sanitizeItem({ ...(r.data as object), slug: r.slug, name: r.name })).filter((x): x is ItemDef => !!x);
+  if (!list.length) return DEFAULT_ITEMS;
+  // como no jogo: com o Arsenal publicado, os materiais e diversos de reserva continuam (drops dos monstros de exemplo)
+  return [...list, ...DEFAULT_ITEMS.filter((d) => !isWearable(d.type) && !list.some((x) => x.slug === d.slug))];
+}
+
+/** Soma (ou tira) itens da bolsa do Companion. Devolve as quantidades novas. */
+async function addToBag(db: SupabaseClient, cid: string, adds: { key: string; qty: number; label: string; category: string }[]) {
+  const keys = [...new Set(adds.map((a) => a.key))];
+  if (!keys.length) return {};
+  const { data } = await db.from('companion_inventory').select('item_key,qty,meta').eq('companion_id', cid).in('item_key', keys);
+  const cur = new Map((data ?? []).map((r) => [r.item_key as string, r as { qty: number; meta: Record<string, unknown> }]));
+  const out: Record<string, number> = {};
+  const rows = keys.map((k) => {
+    const add = adds.filter((a) => a.key === k).reduce((t, a) => t + a.qty, 0);
+    const a0 = adds.find((a) => a.key === k)!;
+    const qty = Math.max(0, Math.min(9999, (cur.get(k)?.qty ?? 0) + add));
+    out[k] = qty;
+    return { companion_id: cid, item_key: k, qty, meta: { ...(cur.get(k)?.meta ?? {}), label: a0.label, category: a0.category }, acquired_at: new Date().toISOString() };
+  });
+  const { error } = await db.from('companion_inventory').upsert(rows);
+  if (error) throw new HttpError(500, 'Não consegui guardar na bolsa.');
+  return out;
+}
+
 const bestiaryRow = (r: Record<string, unknown>): BestiaryEntry => ({ slug: r.creature_slug as string, name: r.name as string, kills: r.kills as number, particles: r.particles as number, firstAt: r.first_at as string, lastAt: r.last_at as string });
 
 async function loadBestiary(db: SupabaseClient, cid: string): Promise<BestiaryEntry[]> {
@@ -376,7 +404,12 @@ async function actCombatKill(db: SupabaseClient, c: Record<string, unknown>, bod
   const now = new Date().toISOString();
   const r = recordKill(prev, all, { slug, name, level }, now);
   await db.from('companion_bestiary').upsert({ companion_id: cid, creature_slug: slug, name, kills: r.entry.kills, particles: r.entry.particles, first_at: r.entry.firstAt, last_at: now });
-  const ev = await event(db, cid, 'system', 'combat.kill', { slug, level, first: r.first, analyzed: r.analyzedNow });
+  // drops sorteados aqui (no servidor) e guardados na bolsa: o nome do drop vira o item do catálogo (Arsenal)
+  const catalog = def ? await itemDefs(db) : [];
+  const rolled = def ? rollDrops(def, () => crypto.getRandomValues(new Uint32Array(1))[0] / 2 ** 32) : [];
+  const drops = rolled.map((d) => { const it = findItem(d.item, catalog); return { key: dropKey(d.item, catalog), label: it?.name ?? d.item, qty: d.qty, category: it ? categoryOf(it.type) : 'material' }; });
+  if (drops.length) await addToBag(db, cid, drops);
+  const ev = await event(db, cid, 'system', 'combat.kill', { slug, level, first: r.first, analyzed: r.analyzedNow, drops: drops.map((d) => ({ key: d.key, qty: d.qty })) });
   const me = (c.discoveries as Discoveries).name ?? 'O Companion';
   const mems: { subject: string; content: string; importance: number; source_event_ids: number[]; origin: string; companion_id: string }[] = [];
   if (r.first) mems.push({ companion_id: cid, subject: 'companion', content: combatMemoryText('first', me, def, name, level), importance: 3, source_event_ids: [ev], origin: 'combat' });
@@ -395,7 +428,7 @@ async function actCombatKill(db: SupabaseClient, c: Record<string, unknown>, bod
       if (la > lb) levelUp = la;
     }
   }
-  return { entry: r.entry, first: r.first, analyzed: r.analyzedNow, analyzedCount: r.analyzedCount, milestone: r.milestone, xp, levelUp };
+  return { entry: r.entry, first: r.first, analyzed: r.analyzedNow, analyzedCount: r.analyzedCount, milestone: r.milestone, xp, levelUp, drops: drops.map((d) => ({ key: d.key, label: d.label, qty: d.qty })) };
 }
 
 /** Falas geradas pela IA: estoque por evento ("bank") ou uma fala de momento com contexto ("moment"). Não grava nada além do registro de uso. */
@@ -773,6 +806,29 @@ Deno.serve(async (req) => {
     if (action === 'combat.kill') {
       const r = await actCombatKill(db, c, body, cfg);
       return json(200, { ...(await snapshot(db, c, cfg)), combat: r });
+    }
+    if (action === 'inventory.discard') {
+      // jogar fora: tira da bolsa (a peça equipada precisa ser tirada antes de jogar a última fora)
+      const key = typeof body.key === 'string' ? body.key.slice(0, 80) : '';
+      const qty = Math.max(1, Math.min(9999, Math.round(Number(body.qty) || 1)));
+      const { data: row } = await db.from('companion_inventory').select('qty,meta').eq('companion_id', c.id).eq('item_key', key).maybeSingle();
+      if (!row || row.qty <= 0) throw new HttpError(404, 'Esse item não está na bolsa.');
+      if ((row.meta as Record<string, unknown>)?.rare || (row.meta as Record<string, unknown>)?.secret) throw new HttpError(409, 'Descobertas e raros não podem ser jogados fora.');
+      if (row.qty - qty <= 0) {
+        const { data: eq } = await db.from('companion_equipment').select('equipped').eq('companion_id', c.id).maybeSingle();
+        if (Object.values((eq?.equipped ?? {}) as Record<string, string>).includes(key)) throw new HttpError(409, 'Tire a peça do equipamento antes de jogar fora.');
+      }
+      await db.from('companion_inventory').update({ qty: Math.max(0, row.qty - qty) }).eq('companion_id', c.id).eq('item_key', key);
+      return json(200, await snapshot(db, c, cfg));
+    }
+    if (action === 'inventory.grant') {
+      // só ADM: põe um item do catálogo na própria bolsa (para testar equipamentos novos do Arsenal)
+      if (!(await isAdmin(db, userId))) throw new HttpError(403, 'Só o Administrador.');
+      const catalog = await itemDefs(db);
+      const it = typeof body.slug === 'string' ? catalog.find((i) => i.slug === body.slug) : null;
+      if (!it) throw new HttpError(404, 'Item não encontrado no catálogo (publique no Arsenal).');
+      await addToBag(db, c.id as string, [{ key: it.slug, label: it.name, qty: Math.max(1, Math.min(99, Math.round(Number(body.qty) || 1))), category: categoryOf(it.type) }]);
+      return json(200, await snapshot(db, c, cfg));
     }
     if (action === 'barks') return json(200, await actBarks(db, c, body));
     if (action.startsWith('ecos.')) {

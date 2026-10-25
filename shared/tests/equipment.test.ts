@@ -27,17 +27,17 @@ describe('equipamento', () => {
   it('arma de duas mãos tira a mão secundária e vice-versa', () => {
     let e = equip({}, by('espada-de-madeira'), DEFAULT_ITEMS);
     e = equip(e, by('escudo-de-folha'), DEFAULT_ITEMS);
-    expect(e).toEqual({ weapon: 'espada-de-madeira', offhand: 'escudo-de-folha' });
+    expect(e).toEqual({ mainhand: 'espada-de-madeira', offhand: 'escudo-de-folha' });
     e = equip(e, by('arco-curto'), DEFAULT_ITEMS);
-    expect(e).toEqual({ weapon: 'arco-curto' });
+    expect(e).toEqual({ mainhand: 'arco-curto' });
     e = equip(e, by('aljava-de-couro'), DEFAULT_ITEMS);
     e = equip(e, by('orbe-de-luz'), DEFAULT_ITEMS);
-    expect(e).toEqual({ back: 'aljava-de-couro', offhand: 'orbe-de-luz' });
+    expect(e).toEqual({ cape: 'aljava-de-couro', offhand: 'orbe-de-luz' });
   });
   it('valida conjunto salvo e soma bônus com raridade', () => {
     const owned = new Set(['adaga-de-cristal', 'escudo-de-folha']);
     const v = validateEquipped({ weapon: 'adaga-de-cristal', head: 'escudo-de-folha', accessory: 'amuleto-do-vinculo' }, DEFAULT_ITEMS, (s) => owned.has(s));
-    expect(v).toEqual({ weapon: 'adaga-de-cristal' });
+    expect(v).toEqual({ mainhand: 'adaga-de-cristal' });
     expect(equipmentBonus(v, DEFAULT_ITEMS)).toEqual({ agilidade: 11 }); // 5% × rara (2,2)
   });
   it('golpe básico pela arma e afinidade da classe', () => {

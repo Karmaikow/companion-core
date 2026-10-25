@@ -6,7 +6,7 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import {
   DEFAULT_CREATURES, DEFAULT_SKILLS, WORLD_FALLBACK_BIOMES, ELEMENTS, BODIES, ARCHETYPES, TEMPERAMENTS, BATTLE_STYLES, TIMES, ANIM_KINDS,
-  sanitizeCreature, sanitizeSkill, rigForBody, type CreatureRig, sanitizeBiome, kitFor, MOTIONS, biomeSlug, animKind, creatureStatsAt, creatureSkillsAt, mitigate,
+  sanitizeCreature, sanitizeSkill, sanitizeItem, findItem, DEFAULT_ITEMS, ITEM_TYPES, type ItemDef, rigForBody, type CreatureRig, sanitizeBiome, kitFor, MOTIONS, biomeSlug, animKind, creatureStatsAt, creatureSkillsAt, mitigate,
   type CreatureDef, type Motion, type Archetype, type Temperament, type BattleStyle, type TimeOfDay, type Element, type BodyPlan, type SkillDef,
 } from '@rules';
 import { supabase } from '../backend/online';
@@ -23,6 +23,9 @@ const ACTS: [string, string][] = [['idle', 'Parado'], ['walk', 'Andando'], ['run
 export function SummonerStudio() {
   const cat = useCatalog<CreatureDef>('creatures', sanitizeCreature);
   const skills = useCatalog<SkillDef>('skills', sanitizeSkill);
+  // itens para os drops: o nome do drop vira o item do Arsenal (sugestões na digitação)
+  const itemCat = useCatalog<ItemDef>('items', sanitizeItem);
+  const dropItems = useMemo(() => { const list = (itemCat.rows ?? []).map((r) => r.data); return [...list, ...DEFAULT_ITEMS.filter((d) => !list.some((x) => x.slug === d.slug))]; }, [itemCat.rows]);
   const [biomes, setBiomes] = useState<{ slug: string; name: string }[]>([]);
   useEffect(() => {
     void supabase().from('biomes').select('slug,name,settings,status').then(({ data }) => {
@@ -293,12 +296,14 @@ export function SummonerStudio() {
               <legend>O que solta ao ser acalmada</legend>
               {draft.drops.map((d, i) => (
                 <div key={i} className="list-row">
-                  <input className="grow" value={d.item} onChange={(e) => edit({ drops: draft.drops.map((x, j) => (j === i ? { ...x, item: e.target.value } : x)) })} placeholder="Item (ex.: Pelo gelado)" maxLength={40} aria-label="Item" />
+                  <input className="grow" list="drop-items" value={d.item} onChange={(e) => edit({ drops: draft.drops.map((x, j) => (j === i ? { ...x, item: e.target.value } : x)) })} placeholder="Item (ex.: Pelo gelado)" maxLength={40} aria-label="Item" />
+                  {d.item.trim() && (() => { const it = findItem(d.item, dropItems); return <small className={it ? 'ok' : 'hint'} title={it ? 'O drop cai na bolsa como este item do Arsenal' : 'Não está no Arsenal: cai na bolsa como material avulso (0,2 kg)'}>{it ? `✓ ${ITEM_TYPES[it.type].label}` : 'avulso'}</small>; })()}
                   <label>chance <input type="number" min={0} max={100} value={Math.round(d.chance * 100)} onChange={(e) => edit({ drops: draft.drops.map((x, j) => (j === i ? { ...x, chance: Number(e.target.value) / 100 } : x)) })} />%</label>
                   <label>qtd <input type="number" min={1} max={99} value={d.min} onChange={(e) => edit({ drops: draft.drops.map((x, j) => (j === i ? { ...x, min: Number(e.target.value) } : x)) })} />–<input type="number" min={1} max={99} value={d.max} onChange={(e) => edit({ drops: draft.drops.map((x, j) => (j === i ? { ...x, max: Number(e.target.value) } : x)) })} /></label>
                   <button className="link" onClick={() => edit({ drops: draft.drops.filter((_, j) => j !== i) })}>tirar</button>
                 </div>
               ))}
+              <datalist id="drop-items">{dropItems.map((it) => <option key={it.slug} value={it.name}>{ITEM_TYPES[it.type].label}</option>)}</datalist>
               <button className="link" disabled={draft.drops.length >= 10} onClick={() => edit({ drops: [...draft.drops, { item: '', chance: 0.5, min: 1, max: 1 }] })}>+ item</button>
               <small className="hint">Ingredientes das receitas e materiais. Itens vazios são ignorados ao salvar.</small>
             </fieldset>

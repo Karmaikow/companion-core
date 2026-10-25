@@ -184,40 +184,9 @@ export function RecipesPanel() {
   );
 }
 
+/** Inventário: bolsa por categoria (Materiais, Diversos, Equipamentos, Armas) e os oito espaços do equipamento. */
 export function InventoryPanel() {
-  const inv = useGame((s) => s.snap?.inventory ?? []);
-  const tint = useGame((s) => s.snap?.companion?.discoveries.color ?? '#9fc9ff');
-  const slots = Object.values(QUEST_REWARDS);
-  const rare = inv.filter((i) => i.meta.rare);
-  return (
-    <div className="inventory-wrap">
-      <EquipmentPanel />
-      <h3 className="rare-title">Descobertas</h3>
-      <div className="inventory">
-        {slots.map((r) => {
-          const it = inv.find((i) => i.item_key === r.item);
-          return (
-            <div key={r.item} className={'slot' + (it ? ' has' : '')} title={it ? r.description : 'Ainda não descoberto'}>
-              <ItemIcon item={r.item} tint={tint} size={44} locked={!it} />
-              <strong>{it ? r.label : '???'}</strong>
-              <small>{it ? r.description : 'Conclua uma quest para encontrar'}</small>
-            </div>
-          );
-        })}
-      </div>
-      <h3 className="rare-title">Raros <small>{rare.length}/{SECRETS.length}</small></h3>
-      <div className="inventory">
-        {rare.map((it) => (
-          <div key={it.item_key} className="slot has rare" title={String(it.meta.description ?? '')}>
-            <ItemIcon item={it.item_key} tint={tint} size={44} />
-            <strong>{String(it.meta.label ?? it.item_key)}</strong>
-            <small>{String(it.meta.description ?? '')}</small>
-          </div>
-        ))}
-        {rare.length < SECRETS.length && <div className="slot rare-locked"><ItemIcon item="?" locked size={44} /><strong>???</strong><small>Itens raros vêm de quests secretas.</small></div>}
-      </div>
-    </div>
-  );
+  return <div className="inventory-wrap"><EquipmentPanel /></div>;
 }
 
 export function BondPanel() {

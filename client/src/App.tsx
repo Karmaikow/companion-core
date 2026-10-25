@@ -1,5 +1,5 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { canCompleteEquipment, masculinize, ELEMENTS, derivePalette, refugeFeatures, animKind, sanitizeBiome, sanitizeCreature, makeCompanionWorld, characterSheet, sanitizeItem, validateEquipped, equipmentBonus, ITEM_TYPES, sanitizeWeather, weatherAt, WEATHERS, DEFAULT_WEATHER, DEFAULT_BIOME_WEATHER, type ItemDef, type WeatherConfig, WORLD_SEED, REFUGE_BIOME, WORLD_FALLBACK_BIOMES, DEFAULT_CREATURES, type BiomeConfig, type CreatureDef, type WorldSite } from '@rules';
+import { canCompleteEquipment, masculinize, ELEMENTS, derivePalette, refugeFeatures, animKind, sanitizeBiome, sanitizeCreature, makeCompanionWorld, characterSheet, sanitizeItem, DEFAULT_ITEMS, isWearable, validateEquipped, equipmentBonus, equippedItems, ITEM_TYPES, sanitizeWeather, weatherAt, WEATHERS, DEFAULT_WEATHER, DEFAULT_BIOME_WEATHER, type ItemDef, type WeatherConfig, WORLD_SEED, REFUGE_BIOME, WORLD_FALLBACK_BIOMES, DEFAULT_CREATURES, type BiomeConfig, type CreatureDef, type WorldSite } from '@rules';
 import { Refuge } from './scene/Refuge';
 import { WorldScene } from './scene/World';
 import { WorldMap } from './ui/WorldMap';
@@ -34,6 +34,7 @@ import { VitalsBars, TouchMoves, FaintCounter } from './ui/VitalsHud';
 import { useSkillSync } from './ui/skillState';
 import { pressAttack, releaseAttack } from './scene/Combat';
 import { ownsItem } from './ui/EquipmentPanel';
+import { useCarry } from './ui/bag';
 import { WeatherOverlay } from './ui/WeatherOverlay';
 import { supabase } from './backend/online';
 
@@ -279,7 +280,8 @@ export function App() {
   useEffect(() => {
     supabase().from('items').select('slug,name,data').eq('status', 'published').then(({ data }) => {
       const list = (data ?? []).map((r) => sanitizeItem({ ...(r.data as object), slug: r.slug, name: r.name })).filter((x): x is ItemDef => !!x);
-      if (list.length) useGame.getState().setItems(list);
+      // materiais e diversos de reserva continuam valendo (são os drops dos monstros de exemplo)
+      if (list.length) useGame.getState().setItems([...list, ...DEFAULT_ITEMS.filter((d) => !isWearable(d.type) && !list.some((x) => x.slug === d.slug))]);
     }, () => {});
   }, []);
   useEffect(() => {
@@ -296,13 +298,22 @@ export function App() {
     return () => { alive = false; };
   }, [c?.id, backend?.kind, items]);
   const gear = useMemo(() => {
-    const list = Object.values(equipped).map((slug) => items.find((i) => i.slug === slug)).filter((x): x is ItemDef => !!x);
-    const weapon = list.find((i) => ITEM_TYPES[i.type].slot === 'weapon') ?? null;
-    return { items: list, weapon, species: d.form ?? null, color: visual.color, poder: equipmentBonus(equipped, items).poder ?? 0, modelKey: c?.id ?? null };
+    const worn = equippedItems(equipped, items);
+    const list = worn.map((w) => w.item);
+    const slots = Object.fromEntries(worn.map((w) => [w.item.slug, w.slot]));
+    // a arma que ataca é a da mão direita (a secundária soma atributos e aparece na mão esquerda)
+    const weapon = worn.find((w) => w.slot === 'mainhand' && ITEM_TYPES[w.item.type].weapon)?.item ?? null;
+    return { items: list, slots, weapon, species: d.form ?? null, color: visual.color, poder: equipmentBonus(equipped, items).poder ?? 0, modelKey: c?.id ?? null };
   }, [equipped, items, d.form, visual.color, c?.id]);
   // Constelação Viva: números de combate da build ativa (+ árvore e equipamento); HP/SP/ST máximos sem curar na troca
-  const equipBonus = useMemo(() => equipmentBonus(equipped, items), [equipped, items]);
-  const built = useBuildSync(equipBonus);
+  // carga: pesado demais tira agilidade e o passo fica mais lento
+  const carry = useCarry();
+  const equipBonus = useMemo(() => {
+    const b = equipmentBonus(equipped, items);
+    return carry.load.agilityPct ? { ...b, agilidade: Math.round(((b.agilidade ?? 0) + carry.load.agilityPct) * 10) / 10 } : b;
+  }, [equipped, items, carry.load.agilityPct]);
+  const built0 = useBuildSync(equipBonus);
+  const built = useMemo(() => (carry.load.moveMul === 1 ? built0 : { ...built0, moveSpeed: built0.moveSpeed * carry.load.moveMul }), [built0, carry.load.moveMul]);
   const bowEquipped = gear.weapon?.type === 'arco';
   // teclado: F ataca (segurar carrega o arco); Espaço pula, E defende e C senta ficam no Companion; ignorado enquanto digita
   useEffect(() => {

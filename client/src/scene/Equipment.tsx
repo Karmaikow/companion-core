@@ -6,7 +6,7 @@
 import { Suspense, useMemo, useRef } from 'react';
 import { createPortal, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { ITEM_TYPES, SLOTS_EQ, gripFor, type Bone, type ItemDef } from '@rules';
+import { ITEM_TYPES, SLOTS_EQ, gripFor, type Bone, type EquipSlot, type ItemDef } from '@rules';
 import { ItemModel } from './ItemModel';
 import { AssetBoundary } from './Biome';
 
@@ -33,12 +33,14 @@ function baseRotation(item: ItemDef): THREE.Euler {
   if (item.type === 'arco') return new THREE.Euler(0, -Math.PI / 2, 0.08);
   if (item.type === 'escudo') return new THREE.Euler(0, Math.PI * 0.32, 0);
   if (item.type === 'grimorio') return new THREE.Euler(-0.3, 0.5, 0);
-  if (ITEM_TYPES[item.type].slot === 'weapon') return new THREE.Euler(0.45, 0, 0);
+  if (ITEM_TYPES[item.type].weapon) return new THREE.Euler(0.45, 0, 0);
   return new THREE.Euler(0, 0, 0);
 }
-export function boneFor(item: ItemDef): Bone {
+/** Osso onde a peça fica: o do espaço em que foi equipada (arma secundária vai na mão esquerda). */
+export function boneFor(item: ItemDef, slot?: EquipSlot): Bone {
   if (item.type === 'arco') return 'mao_esquerda'; // arco na mão esquerda, a direita puxa a corda
-  return SLOTS_EQ[ITEM_TYPES[item.type].slot].bone;
+  const sl = slot ?? ITEM_TYPES[item.type].slot;
+  return sl ? SLOTS_EQ[sl].bone : 'nenhum';
 }
 
 const v = new THREE.Vector3(), q = new THREE.Quaternion(), rq = new THREE.Quaternion(), sc = new THREE.Vector3(), m4 = new THREE.Matrix4();
@@ -123,9 +125,9 @@ function handSocket(hand: THREE.Object3D, root: THREE.Object3D, kind: 'arma' | '
  * pegada (Arsenal) fica no espaço da mão em A-pose: igual para todo rig humanoide. A escala do osso é compensada para
  * o item ter o tamanho de mundo dele. O ajuste fino continua na pegada (posição, giro, tamanho).
  */
-function Attached({ item, bones, root, charge, showSocket }: { item: ItemDef; bones: GearBones | null; root: React.RefObject<THREE.Group | null>; charge?: { current: number }; showSocket?: boolean }) {
+function Attached({ item, slot, bones, root, charge, showSocket }: { item: ItemDef; slot?: EquipSlot; bones: GearBones | null; root: React.RefObject<THREE.Group | null>; charge?: { current: number }; showSocket?: boolean }) {
   const g = useRef<THREE.Group>(null);
-  const bone = boneFor(item);
+  const bone = boneFor(item, slot);
   const base = useMemo(() => new THREE.Quaternion().setFromEuler(baseRotation(item)), [item]);
   const b = bone === 'nenhum' ? null : bones?.[bone] ?? null;
   const local = useRef<THREE.Quaternion | null>(null);
@@ -136,7 +138,7 @@ function Attached({ item, bones, root, charge, showSocket }: { item: ItemDef; bo
     if (b) {
       if (!local.current) {
         // mãos com arma ou arco: encaixe medido na própria mão (igual em qualquer rig e pose de ligação)
-        const hand = (bone === 'mao_direita' || bone === 'mao_esquerda') && (item.type === 'arco' || ITEM_TYPES[item.type].slot === 'weapon');
+        const hand = (bone === 'mao_direita' || bone === 'mao_esquerda') && (item.type === 'arco' || !!ITEM_TYPES[item.type].weapon);
         const sock = hand ? handSocket(b, r, item.type === 'arco' ? 'arco' : 'arma') : null;
         const Mb = sock ? bindWorld(b, r) : null;
         if (sock && Mb) {
@@ -175,6 +177,7 @@ function Attached({ item, bones, root, charge, showSocket }: { item: ItemDef; bo
 }
 
 /** `modelKey`: id do Companion — usa a pegada ajustada para aquele modelo no Arsenal, se houver. */
-export function EquipmentLayer({ items, bones, root, charge, modelKey, showSocket }: { items: ItemDef[]; bones: GearBones | null; root: React.RefObject<THREE.Group | null>; charge?: { current: number }; modelKey?: string | null; showSocket?: boolean }) {
-  return <>{items.filter((i) => boneFor(i) !== 'nenhum').map((i) => { const it = { ...i, grip: gripFor(i, modelKey) }; return <Attached key={i.slug + JSON.stringify(it.grip)} item={it} bones={bones} root={root} charge={charge} showSocket={showSocket} />; })}</>;
+/** `slots`: em que espaço cada peça foi equipada (slug → espaço); sem ele, o espaço natural do tipo. */
+export function EquipmentLayer({ items, slots, bones, root, charge, modelKey, showSocket }: { items: ItemDef[]; slots?: Record<string, EquipSlot>; bones: GearBones | null; root: React.RefObject<THREE.Group | null>; charge?: { current: number }; modelKey?: string | null; showSocket?: boolean }) {
+  return <>{items.filter((i) => boneFor(i, slots?.[i.slug]) !== 'nenhum').map((i) => { const it = { ...i, grip: gripFor(i, modelKey) }; return <Attached key={i.slug + (slots?.[i.slug] ?? '') + JSON.stringify(it.grip)} item={it} slot={slots?.[i.slug]} bones={bones} root={root} charge={charge} showSocket={showSocket} />; })}</>;
 }

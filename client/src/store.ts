@@ -42,6 +42,8 @@ interface State {
   sayBark(text: string, ms?: number): void;
   /** Criatura derrotada: registra no bestiário (sem travar a conversa) e comemora o que for novo. */
   recordKill(slug: string, level: number): Promise<import('./backend/types').CombatResult | null>;
+  /** Bolsa: jogar fora um item ou (ADM) pôr um item do catálogo. Devolve a mensagem de erro, se houver. */
+  bagAction(action: 'inventory.discard' | 'inventory.grant', body: Record<string, unknown>): Promise<string | null>;
   dismissCelebration(): void;
   dismissAwakenCall(): void;
   openAwakenCall(): void;
@@ -87,7 +89,7 @@ export const useGame = create<State>((set, get) => ({
       // mantém a resposta da conversa em andamento; só troca bestiário e memórias
       const cur = get().snap;
       // mantém a conversa; troca bestiário, memórias, vínculo (XP da luta) e o progresso do despertar
-      set({ snap: cur ? { ...cur, bestiary: snap.bestiary, memories: snap.memories, companion: snap.companion ?? cur.companion, awakening: snap.awakening ?? cur.awakening } : snap });
+      set({ snap: cur ? { ...cur, bestiary: snap.bestiary, memories: snap.memories, inventory: snap.inventory ?? cur.inventory, companion: snap.companion ?? cur.companion, awakening: snap.awakening ?? cur.awakening } : snap });
       const r = snap.combat ?? null;
       if (r?.levelUp) get().toast(`Vínculo nível ${r.levelUp}`, 'gold');
       if (r?.first) get().toast(`Memória de Combate: ${r.entry.name}`, 'soft');
@@ -95,6 +97,16 @@ export const useGame = create<State>((set, get) => ({
       if (r?.milestone) get().celebrate({ kind: 'secret', eyebrow: 'Quest: Análise de Partículas', title: `${r.milestone} espécie${r.milestone > 1 ? 's' : ''} analisada${r.milestone > 1 ? 's' : ''}`, subtitle: 'As partículas da Bruma contam quem são as criaturas do mundo.' });
       return r;
     } catch { return null; }
+  },
+  bagAction: async (action, body) => {
+    const b = get().backend;
+    if (!b?.inventory) return 'Não disponível neste modo.';
+    try {
+      const snap = await b.inventory(action, body);
+      const cur = get().snap;
+      set({ snap: cur ? { ...cur, inventory: snap.inventory ?? cur.inventory } : snap });
+      return null;
+    } catch (e) { return e instanceof Error ? e.message : 'Não deu.'; }
   },
   dismissCelebration: () => set({ celebrations: get().celebrations.slice(1) }),
   dismissAwakenCall: () => {

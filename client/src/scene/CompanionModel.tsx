@@ -26,11 +26,11 @@ import { spendSp } from './vitals';
 import type { Target } from './Combat';
 import { gameVfx } from './vfx/engine';
 import { Shield } from './vfx/recipes';
-import { basicAttack, bowShot, ELEMENTS, RANK_POWER, type ItemDef, type SpeciesKey } from '@rules';
+import { basicAttack, bowShot, ELEMENTS, RANK_POWER, type EquipSlot, type ItemDef, type SpeciesKey } from '@rules';
 import { basicHit, castSkill, combat } from '../build/combatStats';
 
 /** O que o Companion carrega: itens visíveis, a arma (escolhe o ataque) e o que muda o dano. */
-export interface Gear { items: ItemDef[]; weapon: ItemDef | null; species: SpeciesKey | null; color: string; poder: number; /** id do Companion: pegada ajustada para este modelo */ modelKey?: string | null }
+export interface Gear { items: ItemDef[]; /** espaço de cada peça (slug → espaço) */ slots?: Record<string, EquipSlot>; weapon: ItemDef | null; species: SpeciesKey | null; color: string; poder: number; /** id do Companion: pegada ajustada para este modelo */ modelKey?: string | null }
 
 const loader = new GLTFLoader();
 loader.setMeshoptDecoder(MeshoptDecoder);
@@ -648,7 +648,7 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
   return (
     <>
     {appendages && (appendages.tail || appendages.wings) && <Appendages spec={appendages} anchors={anchors} root={root} heightAt={world.heightAt} />}
-    {gear && gear.items.length > 0 && <EquipmentLayer items={gear.items} bones={gearBones} root={root} charge={charge} modelKey={gear.modelKey} />}
+    {gear && gear.items.length > 0 && <EquipmentLayer items={gear.items} slots={gear.slots} bones={gearBones} root={root} charge={charge} modelKey={gear.modelKey} />}
     <group ref={root} position={[start[0], 0, start[1]]}>
       <group ref={pose} scale={scale}>
         <primitive object={model} />

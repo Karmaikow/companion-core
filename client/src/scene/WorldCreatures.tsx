@@ -1,5 +1,7 @@
 /**
- * Criaturas andando no Companion World (v0, sem luta ainda). Quem aparece em cada chunk vem de `chunkSpawns`
+ * Criaturas andando no Companion World. Lutam com as habilidades da árvore delas (Invocador): sorteio pela frequência
+ * entre as abertas no nível, com recarga, aviso no chão e preparação (dá para desviar); sem habilidade possível, golpe
+ * simples. Quem aparece em cada chunk vem de `chunkSpawns`
  * (determinístico); o jeito de andar segue o temperamento: passivo passeia, medroso foge, territorial defende o seu
  * canto e agressivo vem desafiar o Companion (um "!" e a animação de ataque — a batalha entra numa próxima fatia).
  */
@@ -7,16 +9,29 @@ import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 import * as THREE from 'three';
-import { chunkSpawns, CHUNK, ARCHETYPES, creatureStatsAt, mitigate, rollDrops, resolveHit, affinity, type CompanionWorld, type CreatureDef, type Spawn } from '@rules';
+import { chunkSpawns, CHUNK, ARCHETYPES, creatureStatsAt, creatureSkillsAt, pickCreatureSkill, mitigate, resolveHit, affinity, DEFAULT_SKILLS, ELEMENTS, type CompanionWorld, type CreatureDef, type Spawn, type SkillDef } from '@rules';
 import { companionFocus, resolveCollisions } from './world';
 import { CreatureBody, type CreatureAct } from './Creature';
 import { AssetBoundary } from './Biome';
-import { numQueue, skillInput, targets } from './Combat';
+import { castCreatureSkill, numQueue, skillInput, targets } from './Combat';
+import { useSkills } from '../ui/skillState';
 import { gameVfx } from './vfx/engine';
 import { burst } from './vfx/recipes';
 import { hurtCompanion, vitals, companionResting } from './vitals';
 import { brain, onKill, say, sayMoment } from './brain';
 import { useGame } from '../store';
+
+/** Habilidade do catálogo (o publicado na Forja; sem ele, as de exemplo). */
+const skillDef = (slug: string): SkillDef | null => useSkills.getState().catalog.find((k) => k.slug === slug) ?? DEFAULT_SKILLS.find((k) => k.slug === slug) ?? null;
+/** De que distância a criatura consegue usar a habilidade. */
+function reachOf(sk: SkillDef, bodyR: number): number {
+  switch (sk.shape) {
+    case 'melee': return sk.range + bodyR + 0.6;
+    case 'aura': return sk.radius + 0.3;
+    case 'circle': case 'leap': return Math.max(sk.range, sk.radius + 1);
+    default: return sk.range;
+  }
+}
 
 const ESSENCE_STYLE: Record<string, string> = { fogo: 'chamas', agua: 'gotas', terra: 'pedras', vento: 'vento', luz: 'luz', sombra: 'sombra', gelo: 'gelo', raio: 'raios', natureza: 'folhas', veneno: 'veneno' };
 
@@ -48,7 +63,9 @@ function WorldCreature({ cw, def, spawn }: { cw: CompanionWorld; def: CreatureDe
   const R = Math.max(0.25, def.size * 0.35);
   // vida no nível dela; os golpes do Companion descontam a defesa. Zerou: explode em névoa e volta depois de um tempo.
   const stats = useMemo(() => creatureStatsAt(def, spawn.level), [def, spawn.level]);
-  const life = useRef({ hp: stats.vida, dead: 0, provoked: false, atk: 0.8, swing: -1, engaged: false, returning: false, faint: vitals.faintId, dots: [] as { key: string; left: number; dps: number; stacks: number; tick: number }[] });
+  const life = useRef({ hp: stats.vida, dead: 0, provoked: false, atk: 0.8, swing: -1, engaged: false, returning: false, faint: vitals.faintId, dots: [] as { key: string; left: number; dps: number; stacks: number; tick: number }[], casting: 0, cds: {} as Record<string, number> });
+  // alcance da melhor habilidade de distância aberta no nível (as atiradoras ficam longe e usam ela)
+  const ranged = useMemo(() => Math.max(0, ...creatureSkillsAt(def, spawn.level).map((x) => skillDef(x.slug)).filter((k): k is SkillDef => !!k && k.shape !== 'melee' && k.shape !== 'aura' && k.power > 0).map((k) => k.range)), [def, spawn.level]);
   const [hpPct, setHpPct] = useState(1);
   const [dead, setDead] = useState(false);
   const hurt = useRef(0);
@@ -81,12 +98,13 @@ function WorldCreature({ cw, def, spawn }: { cw: CompanionWorld; def: CreatureDe
           // explosão: estouro grande na cor dela + fumaça do estilo + um segundo estouro de névoa
           burst(gameVfx, style, at, def.color, 1.3 + def.size * 0.4, gy);
           gameVfx.after(0.12, () => burst(gameVfx, 'sombra', at.clone().setY(at.y + 0.2), def.color, 0.9, gy));
-          rollDrops(def, Math.random).forEach((d, i) => numQueue.push({ pos: at.clone().setY(at.y + 0.6 + i * 0.32), text: `+${d.qty} ${d.item}`, kind: 'drop' }));
           L.dead = def.respawn; setDead(true);
           // bestiário (Análise de Partículas), caçada e fala
           onKill(def.slug, def.name);
           void useGame.getState().recordKill(def.slug, spawn.level).then((r) => {
-            if (r?.xp) numQueue.push({ pos: at.clone().setY(at.y + 1.1), text: `+${r.xp} vínculo`, kind: 'drop' });
+            // o que caiu foi sorteado no servidor e já está na bolsa
+            (r?.drops ?? []).forEach((d, i) => numQueue.push({ pos: at.clone().setY(at.y + 0.6 + i * 0.32), text: `+${d.qty} ${d.label}`, kind: 'drop' }));
+            if (r?.xp) numQueue.push({ pos: at.clone().setY(at.y + 0.6 + (r.drops?.length ?? 0) * 0.32 + 0.2), text: `+${r.xp} vínculo`, kind: 'drop' });
             if (r?.analyzed) sayMoment('analyzed', { m: def.name }, def.slug);
             else if (r?.first) sayMoment('first-kill', { m: def.name }, def.slug);
             else say('kill', { m: def.name }, { chance: 0.6 });
@@ -136,6 +154,8 @@ function WorldCreature({ cw, def, spawn }: { cw: CompanionWorld; def: CreatureDe
     if (def.temperament === 'medroso' && dC < def.aggroRange) mode = 'flee';
     if (def.temperament === 'passivo' && dC < 2.5) mode = 'face';
     if (L.provoked && dC < def.aggroRange * 1.6 && def.temperament !== 'medroso') mode = 'chase'; // provocado: vem brigar
+    // medrosa com tiro: provocada, atira de longe e só foge quando chegam perto demais
+    if (L.provoked && def.temperament === 'medroso' && ranged > 0 && dC >= Math.min(ranged * 0.45, 3) && dC < def.aggroRange * 2) mode = 'chase';
     // o Companion desmaiou: todo mundo se dispersa e volta para casa (não fica esperando ele levantar). Logo depois de
     // levantar (invencível), ninguém vem brigar por conta própria; só quem for provocado de novo.
     if (L.faint !== vitals.faintId) { L.faint = vitals.faintId; L.engaged = false; L.provoked = false; L.returning = true; L.swing = -1; }
@@ -161,18 +181,46 @@ function WorldCreature({ cw, def, spawn }: { cw: CompanionWorld; def: CreatureDe
       }
     }
     let speed = L.returning ? def.speed * 1.4 : def.speed, want: CreatureAct = 'idle';
+    for (const k in L.cds) L.cds[k] -= dt;
     if (mode === 'chase') {
-      const stop = 1.4 + R;
-      if (dC > stop) { s.tx = fx; s.tz = fz; speed = def.speed * 1.6; } else { s.tx = s.x; s.tz = s.z; }
+      const melee = 1.4 + R;
+      // quem luta de longe para no alcance da sua habilidade de distância
+      const stop = def.style === 'distancia' && ranged > 0 ? Math.max(melee, Math.min(ranged * 0.75, def.aggroRange)) : melee;
+      if (dC > stop && L.casting <= 0) { s.tx = fx; s.tz = fz; speed = def.speed * 1.6; } else { s.tx = s.x; s.tz = s.z; }
       want = dC > stop ? 'run' : 'attack';
-      // golpe no Companion no ritmo da velocidade de ataque (só com corpo 3D; a defesa segurada corta 75%)
       L.atk -= dt;
-      if (dC <= stop + 0.1 && L.atk <= 0 && skillInput.body) { L.atk = 1 / Math.max(0.1, stats.atkSpeed); L.swing = 0.28; s.yaw = Math.atan2(fx - s.x, fz - s.z); }
+      if (L.casting > 0) {
+        // preparando uma habilidade: parada, virada para o alvo
+        L.casting -= dt; want = 'attack';
+      } else if (L.atk <= 0 && skillInput.body && !companionResting()) {
+        // a próxima habilidade pela frequência (entre as abertas no nível); se não der (recarga, longe), golpe simples
+        const slug = pickCreatureSkill(def, Math.random(), spawn.level);
+        const sk = slug ? skillDef(slug) : null;
+        if (sk && (L.cds[sk.slug] ?? 0) <= 0 && dC <= reachOf(sk, R) && (sk.power > 0 || sk.heal > 0)) {
+          s.yaw = Math.atan2(fx - s.x, fz - s.z);
+          const color = def.essence ? ELEMENTS[def.essence].glow : def.color;
+          const windup = castCreatureSkill({
+            skill: sk, from: { x: s.x, z: s.z }, yaw: s.yaw, target: { x: fx, z: fz }, size: def.size, color, heightAt: cw.heightAt,
+            // dano: o poder da criatura na escala da habilidade (o golpe básico, poder 30, vale 1×)
+            damage: sk.power > 0 ? Math.max(1, Math.round(stats.poder * (sk.power / 30))) : 0,
+            heal: sk.heal > 0 ? Math.round(stats.vida * Math.min(0.4, sk.heal / 300)) : 0,
+            onHeal: (n) => { L.hp = Math.min(stats.vida, L.hp + n); setHpPct(Math.max(0, L.hp / stats.vida)); },
+            alive: () => L.dead <= 0 && !companionResting(),
+          });
+          L.casting = windup + 0.25;
+          L.cds[sk.slug] = Math.max(sk.cooldown, 1 / Math.max(0.1, stats.atkSpeed));
+          L.atk = 1 / Math.max(0.1, stats.atkSpeed);
+          want = 'attack';
+        } else if (dC <= melee + 0.1) {
+          // golpe no Companion no ritmo da velocidade de ataque (só com corpo 3D; a defesa segurada corta 75%)
+          L.atk = 1 / Math.max(0.1, stats.atkSpeed); L.swing = 0.28; s.yaw = Math.atan2(fx - s.x, fz - s.z);
+        }
+      }
       if (L.swing > 0) {
         L.swing -= dt;
         if (L.swing <= 0) {
           L.swing = -1;
-          if (Math.hypot(companionFocus.x - s.x, companionFocus.z - s.z) <= stop + 0.7) {
+          if (Math.hypot(companionFocus.x - s.x, companionFocus.z - s.z) <= melee + 0.7) {
             const got = hurtCompanion(stats.poder);
             if (got > 0) {
               const cy = companionFocus.y;
