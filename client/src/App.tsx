@@ -31,6 +31,7 @@ import { speak, sendPlayerMessage, stopConversation, useConversation, useMic } f
 import { brain } from './scene/brain';
 import { SkillBar } from './ui/SkillBar';
 import { HudEditor } from './ui/HudEditor';
+import { SafeStage, glLostBefore } from './scene/SafeStage';
 import { useHud } from './ui/hudLayout';
 import { VitalsBars, TouchMoves, FaintCounter } from './ui/VitalsHud';
 import { useSkillSync } from './ui/skillState';
@@ -54,6 +55,7 @@ const TABS = TAB_GROUPS.flatMap((g) => g.tabs);
 function quality(): 'high' | 'low' {
   const q = new URLSearchParams(location.search).get('q');
   if (q === 'low' || q === 'high') return q;
+  if (glLostBefore()) return 'low';
   const mobile = matchMedia('(pointer: coarse)').matches;
   return mobile && (navigator.hardwareConcurrency ?? 8) <= 6 ? 'low' : 'high';
 }
@@ -348,11 +350,13 @@ export function App() {
   return (
     <div className={'app game-ui' + (tab && !minimized ? ' has-panel' : '') + (place === 'world' ? ' in-world' : '') + (model ? ' with-vitals' : '') + (touchLand ? ' touch-land' : '') + (hudEditing ? ' hud-editing' : '') + (railOpen ? ' rail-open' : '') + (chatOpen ? ' chat-open' : '')}>
       <div className="stage">
+        <SafeStage>
         <Suspense fallback={null}>
           {place === 'world' && model ? (
             <WorldScene world={companionWorld} creatures={creatures} model={model} appendages={appendages} speed={built.moveSpeed} gear={gear} weather={weather} speech={bubble} burstKey={burst} color={visual.color} quality={quality()} discovered={discovered} explore={explore || groupExplore} onRegion={enterRegion} onDiscover={discover} onHome={goHome} />
           ) : <Refuge color={visual.color} glow={visual.glow} element={d.element} energy={energy} pulseKey={pulse} burstKey={burst} features={passage && !features.window ? { ...features, window: true } : features} contract={c?.stage === 'awakened' ? c.identityContract : null} speech={bubble} model={model} seed={seed} biome={biome} quality={quality()} appendages={appendages} speed={built.moveSpeed} gear={gear} weather={weather} />}
         </Suspense>
+        </SafeStage>
       </div>
 
       <WeatherOverlay />

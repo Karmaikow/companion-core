@@ -1176,3 +1176,10 @@ html:has(.admin), body:has(.admin), #root:has(.admin) { height: auto; min-height
 .bag-detail p { margin: 0; } .bag-detail .stats { color: #f6dfa8; }
 .bag-detail .row { display: flex; flex-wrap: wrap; gap: 6px; }
 @media (max-width: 520px) { .doll { grid-template-columns: 76px 1fr 76px; } .doll-slot small { max-width: 70px; } }
+
+/* aviso quando o 3D do navegador cai (SafeStage) */
+/* no topo, para não tapar o login nem os botões */
+.gl-down { position: fixed; left: 50%; top: max(8px, env(safe-area-inset-top)); transform: translateX(-50%); width: min(460px, calc(100vw - 32px)); padding: 10px 14px; z-index: 60; border-radius: 16px; background: #0d1638f2; border: 1px solid #b79d61; color: #f4ead2; box-shadow: 0 12px 30px #000a; display: grid; gap: 6px; text-align: center; }
+.gl-down b { font: 600 1.05rem var(--serif); color: #f6dfa8; }
+.gl-down p { margin: 0; font-size: 0.8rem; line-height: 1.4; color: #d7dcea; }
+.gl-down button { justify-self: center; }

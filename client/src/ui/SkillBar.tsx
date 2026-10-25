@@ -4,6 +4,8 @@
  * A recarga aparece como um relógio escurecendo o ícone, com os segundos que faltam.
  */
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { useTouchLandscape } from './TouchControls';
 import { ELEMENTS, RANK_COOLDOWN, RANK_POWER, SHAPES, SKILL_CHARGE_MAX, skillCharge, skillChargeMultiplier, type SkillDef } from '@rules';
 import { castSkill } from '../build/combatStats';
 import { useGame } from '../store';
@@ -29,6 +31,7 @@ export function SkillBar({ color }: { color: string }) {
   const [flash, setFlash] = useState<number | null>(null);
   const [short, setShort] = useState<number | null>(null);
   const sp = useVitals((v) => v.sp);
+  const touch = useTouchLandscape();
   const toast = useGame((s) => s.toast);
   const hold = useRef<number | null>(null), longPress = useRef(false);
 
@@ -130,11 +133,13 @@ export function SkillBar({ color }: { color: string }) {
     saveBar(companion.id, slots, [...new Set([...removed, slug])]);
   };
   const free = unlocked.filter((u) => !bar.includes(u.skill.slug));
+  // no celular deitado o painel abre no meio da tela (fora da barra, que fica no canto)
+  const wrapPick = (el: React.ReactElement) => (touch ? createPortal(<div className="sb-pick-backdrop" onClick={(e) => { if (e.target === e.currentTarget) setPick(null); }}>{el}</div>, document.body) : el);
 
   return (
     <div className="skill-bar" role="toolbar" aria-label="Habilidades (teclas 1 a 9)">
-      {pick !== null && (
-        <div className="sb-pick" role="dialog" aria-label={`Escolher habilidade para o espaço ${pick + 1}`}>
+      {pick !== null && wrapPick(
+        <div className={'sb-pick' + (touch ? ' float' : '')} role="dialog" aria-label={`Escolher habilidade para o espaço ${pick + 1}`}>
           <header><b>Espaço {pick + 1}</b><button className="link" onClick={() => setPick(null)} aria-label="Fechar">✕</button></header>
           {unlocked.length === 0 && <p>Nenhuma habilidade aberta ainda. Distribua pontos na árvore (aba Habilidades).</p>}
           {unlocked.map((u) => (
@@ -145,7 +150,7 @@ export function SkillBar({ color }: { color: string }) {
             </button>
           ))}
           {pick !== null && bar[pick] && <button className="sb-clear" onClick={() => { clear(pick); setPick(null); }}>Tirar da barra</button>}
-        </div>
+        </div>,
       )}
       {Array.from({ length: BAR_SIZE }, (_, i) => {
         const u = info(bar[i]);

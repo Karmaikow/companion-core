@@ -549,8 +549,6 @@ canvas.cursor-attack { cursor: none !important; }
 .game-ui.touch-land .skill-bar .sb-slot:nth-child(7) { right: var(--ui-s7-r); bottom: var(--ui-s7-b); }
 .game-ui.touch-land .skill-bar .sb-slot:nth-child(8) { right: var(--ui-s8-r); bottom: var(--ui-s8-b); }
 .game-ui.touch-land .skill-bar .sb-slot:nth-child(9) { right: var(--ui-s9-r); bottom: var(--ui-s9-b); }
-/* o painel de escolher habilidade, que antes ficava em cima da barra, abre no meio da tela */
-.game-ui.touch-land .skill-bar .sb-pick { position: fixed; left: 50%; top: 50%; bottom: auto; transform: translate(-50%, -50%); max-height: 78vh; z-index: 30; pointer-events: auto; }
 .game-ui.touch-land.hud-editing .joy-zone, .game-ui.touch-land.hud-editing .skill-bar, .game-ui.touch-land.hud-editing .attack-btn, .game-ui.touch-land.hud-editing .touch-moves { visibility: hidden; pointer-events: none; }
 
 /* ---------- editor da posição dos botões ---------- */
@@ -567,3 +565,7 @@ canvas.cursor-attack { cursor: none !important; }
 .hud-ghost.drag { cursor: grabbing; border-style: solid; background: radial-gradient(circle at 40% 35%, #fff2c966, #dcbc7a88); z-index: 3; }
 .hud-ghost.bad { border-color: #ff8f8f; background: #ff6a6a44; }
 .hud-ghost.attack { background: radial-gradient(circle at 40% 35%, #f3d48d, #c99a4c); color: #2a1e08; text-shadow: none; }
+
+/* painel de escolher habilidade no celular: no meio da tela, por cima de tudo */
+.sb-pick-backdrop { position: fixed; inset: 0; z-index: 50; background: #0508147a; display: grid; place-items: center; }
+.sb-pick.float { position: relative; left: auto; bottom: auto; transform: none; width: min(380px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); }
