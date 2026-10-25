@@ -149,6 +149,49 @@ function ProcItem({ item, size, charge, draw }: { item: ItemDef; size: number; c
         {[-0.02, 0.02, 0].map((x, i) => <group key={i} position={[x, s * 0.42, (i - 1) * 0.015]}><mesh material={mats.metal}><cylinderGeometry args={[0.005, 0.005, s * 0.25, 5]} /></mesh><mesh material={mats.b} position={[0, s * 0.12, 0]} scale={[0.02, 0.05, 0.005]}><sphereGeometry args={[1, 8, 6]} /></mesh></group>)}
       </group>
     );
+    // capa: um manto preso nos ombros, caindo atrás (peça rígida, levemente curva)
+    case 'capa': return (
+      <group position={[0, 0.08, -0.13]} rotation={[0.12, 0, 0]}>
+        <mesh material={mats.a} position={[0, -s * 0.45, 0]} castShadow><cylinderGeometry args={[s * 0.32, s * 0.42, s * 0.9, 16, 1, true, Math.PI * 0.6, Math.PI * 0.8]} /></mesh>
+        <mesh material={mats.metal} position={[0, 0.02, 0.07]}><sphereGeometry args={[0.025, 10, 8]} /></mesh>
+        <mesh material={mats.b} position={[0, 0, 0]} rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[s * 0.3, 0.012, 6, 20, Math.PI]} /></mesh>
+      </group>
+    );
+    case 'elmo': return (
+      <group>
+        <mesh material={mats.metal} castShadow><sphereGeometry args={[s / 2, 20, 12, 0, Math.PI * 2, 0, Math.PI / 2]} /></mesh>
+        <mesh material={mats.a} position={[0, s * 0.42, 0]} scale={[0.03, s * 0.25, s * 0.35]}><sphereGeometry args={[1, 10, 8]} /></mesh>
+        <Gem p={[0, s * 0.18, s * 0.46]} />
+      </group>
+    );
+    // sem osso no corpo (só atributos por enquanto): formas para a prévia e o ícone
+    case 'armadura': case 'tunica': return (
+      <group>
+        <mesh material={mats.a} castShadow scale={[s * 0.42, s * 0.5, s * 0.25]}><sphereGeometry args={[1, 16, 12]} /></mesh>
+        {item.type === 'armadura' && [-1, 1].map((k) => <mesh key={k} material={mats.metal} position={[k * s * 0.38, s * 0.32, 0]} scale={[s * 0.16, s * 0.1, s * 0.16]}><sphereGeometry args={[1, 10, 8]} /></mesh>)}
+        <mesh material={mats.b} position={[0, -s * 0.2, 0]} rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[s * 0.36, 0.02, 6, 24]} /></mesh>
+        <Gem p={[0, s * 0.15, s * 0.25]} />
+      </group>
+    );
+    case 'botas': return (
+      <group>
+        {[-1, 1].map((k) => <group key={k} position={[k * 0.08, 0, 0]}><mesh material={mats.a} castShadow position={[0, s * 0.25, 0]}><cylinderGeometry args={[0.045, 0.05, s * 0.5, 10]} /></mesh><mesh material={mats.b} position={[0, 0.02, 0.04]} scale={[0.055, 0.035, 0.09]}><sphereGeometry args={[1, 10, 8]} /></mesh></group>)}
+      </group>
+    );
+    case 'bracelete': return <mesh material={mats.metal} rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[0.05, 0.014, 8, 20]} /></mesh>;
+    // materiais e diversos: formas simples para a prévia (um .GLB pode substituir)
+    case 'madeira': return <group rotation={[0, 0, Math.PI / 2]}><mesh material={mats.a} castShadow><cylinderGeometry args={[0.06, 0.065, s, 10]} /></mesh><mesh material={mats.b} position={[0, s / 2, 0]}><cylinderGeometry args={[0.055, 0.055, 0.005, 10]} /></mesh></group>;
+    case 'minerio': case 'pedra': return <mesh material={item.type === 'minerio' ? mats.metal : mats.a} castShadow scale={[s * 0.4, s * 0.3, s * 0.35]}><dodecahedronGeometry args={[1, 0]} /></mesh>;
+    case 'fibra': return <mesh material={mats.a} rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[s * 0.25, s * 0.08, 8, 20]} /></mesh>;
+    case 'erva': return <group>{[0, 1, 2, 3].map((i) => <mesh key={i} material={i % 2 ? mats.a : mats.b} rotation={[0.4, (i * Math.PI) / 2, 0]} position={[0, s * 0.2, 0]} scale={[0.04, s * 0.35, 0.012]}><sphereGeometry args={[1, 8, 6]} /></mesh>)}</group>;
+    case 'gema': return <mesh material={mats.gem} scale={[s * 0.25, s * 0.38, s * 0.25]}><octahedronGeometry args={[1, 0]} /></mesh>;
+    case 'essencia': return <group><mesh material={mats.gem} scale={s * 0.22}><icosahedronGeometry args={[1, 1]} /></mesh><mesh scale={s * 0.32}><icosahedronGeometry args={[1, 0]} /><meshStandardMaterial color={secondary} transparent opacity={0.25} /></mesh></group>;
+    case 'parte': return <group rotation={[0, 0, 0.5]}><mesh material={mats.a}><capsuleGeometry args={[0.03, s * 0.6, 4, 8]} /></mesh>{[-1, 1].map((k) => <mesh key={k} material={mats.a} position={[0, k * s * 0.33, 0]} scale={0.05}><sphereGeometry args={[1, 8, 6]} /></mesh>)}</group>;
+    case 'comida': return <mesh material={mats.a} castShadow scale={s * 0.35}><sphereGeometry args={[1, 14, 10]} /></mesh>;
+    case 'pocao': return <group><mesh material={mats.gem} scale={[s * 0.3, s * 0.32, s * 0.3]}><sphereGeometry args={[1, 14, 10]} /></mesh><mesh material={mats.b} position={[0, s * 0.38, 0]}><cylinderGeometry args={[0.025, 0.03, s * 0.2, 8]} /></mesh></group>;
+    case 'chave': return <group rotation={[0, 0, Math.PI / 2]}><mesh material={mats.metal} position={[0, s * 0.3, 0]}><torusGeometry args={[0.04, 0.012, 6, 16]} /></mesh><mesh material={mats.metal}><boxGeometry args={[0.018, s * 0.5, 0.012]} /></mesh><mesh material={mats.metal} position={[0.025, -s * 0.2, 0]}><boxGeometry args={[0.04, 0.02, 0.012]} /></mesh></group>;
+    case 'lembranca': return <group rotation={[0, 0, Math.PI / 2]}><mesh material={mats.b}><cylinderGeometry args={[0.035, 0.035, s * 0.7, 12]} /></mesh>{[-1, 1].map((k) => <mesh key={k} material={mats.a} position={[0, k * s * 0.36, 0]}><cylinderGeometry args={[0.045, 0.045, 0.02, 12]} /></mesh>)}</group>;
+    case 'outro': return <mesh material={mats.a} castShadow scale={s * 0.3}><boxGeometry args={[1, 1, 1]} /></mesh>;
     default: return null;
   }
 }

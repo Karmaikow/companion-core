@@ -6,7 +6,7 @@ export interface InventoryRow { item_key: string; qty: number; meta: { label?: s
 export interface RecipeRow { id: number; name: string; description: string; ingredients: { name: string; where?: string }[]; created_at: string }
 export interface TimelineRow { id: number; actor: string; kind: string; payload: Record<string, unknown>; created_at: string }
 
-export interface CombatResult { entry: BestiaryEntry; first: boolean; analyzed: boolean; analyzedCount: number; milestone: number | null; xp?: number; levelUp?: number | null }
+export interface CombatResult { entry: BestiaryEntry; first: boolean; analyzed: boolean; analyzedCount: number; milestone: number | null; xp?: number; levelUp?: number | null; /** o que caiu e foi para a bolsa */ drops?: { key: string; label: string; qty: number }[] }
 
 export interface Snapshot {
   companion: null | {
@@ -51,6 +51,8 @@ export interface Backend {
   muse?(): Promise<Snapshot>;
   /** Uma criatura derrotada no mundo: bestiário, partículas e Memórias de Combate. */
   combatKill?(slug: string, level: number): Promise<Snapshot>;
+  /** Bolsa: jogar fora (`inventory.discard`) ou, só ADM, pôr um item do catálogo (`inventory.grant`). */
+  inventory?(action: 'inventory.discard' | 'inventory.grant', body: Record<string, unknown>): Promise<Snapshot>;
   /** falas pela IA: estoque por evento, ou uma fala de momento com contexto (só online) */
   barks?(req: BarksRequest): Promise<{ lines?: Record<string, string[]>; line?: string | null }>;
   /** Ecos da Terra: coleta, descoberta, receitas, jardim e obra (online: servidor; offline: simulado no aparelho) */

@@ -16,22 +16,30 @@ import type { SpeciesKey, AttrKey } from './species.ts';
 import type { AnimKind } from './anim.ts';
 import { sanitizeLook, type ModelLook } from './look.ts';
 
-export type EquipSlot = 'weapon' | 'offhand' | 'head' | 'back' | 'accessory';
-export type ItemType =
-  | 'espada' | 'faca' | 'maca' | 'lanca' | 'cajado' | 'varinha' | 'arco'
-  | 'escudo' | 'grimorio' | 'orbe'
-  | 'chapeu' | 'tiara' | 'laco' | 'coroa'
-  | 'mochila' | 'aljava'
-  | 'amuleto' | 'anel';
 export type Rarity = 'comum' | 'incomum' | 'rara' | 'lendaria';
 export type Bone = 'mao_direita' | 'mao_esquerda' | 'cabeca' | 'peito' | 'nenhum';
 
-export const SLOTS_EQ: Record<EquipSlot, { label: string; bone: Bone }> = {
-  weapon: { label: 'Arma', bone: 'mao_direita' },
-  offhand: { label: 'Mão secundária', bone: 'mao_esquerda' },
-  head: { label: 'Cabeça', bone: 'cabeca' },
-  back: { label: 'Costas', bone: 'peito' },
-  accessory: { label: 'Acessório', bone: 'nenhum' },
+/** Os quatro tipos de item da bolsa. */
+export type ItemCategory = 'material' | 'diversos' | 'equipamento' | 'arma';
+export const ITEM_CATEGORIES: Record<ItemCategory, { label: string; hint: string; icon: string }> = {
+  material: { label: 'Materiais', hint: 'coleta e drops: madeira, minério, ervas, partes de monstro; vão para receitas e para a Forja', icon: '🪵' },
+  diversos: { label: 'Diversos', hint: 'itens normais: comida, poções, chaves, lembranças e descobertas', icon: '🎁' },
+  equipamento: { label: 'Equipamentos', hint: 'para vestir: chapéu, armadura, sapatos, capa, acessórios e escudos', icon: '🛡' },
+  arma: { label: 'Armas', hint: 'mão direita e, se for de uma mão, também a esquerda', icon: '⚔' },
+};
+
+/** Os oito espaços do equipamento, na ordem do boneco. */
+export type EquipSlot = 'head' | 'cape' | 'acc1' | 'acc2' | 'armor' | 'mainhand' | 'offhand' | 'feet';
+export const EQUIP_SLOTS: EquipSlot[] = ['head', 'acc1', 'acc2', 'cape', 'armor', 'mainhand', 'offhand', 'feet'];
+export const SLOTS_EQ: Record<EquipSlot, { label: string; short: string; bone: Bone }> = {
+  head: { label: 'Chapéu', short: 'Cabeça', bone: 'cabeca' },
+  acc1: { label: 'Acessório 1', short: 'Acess. 1', bone: 'nenhum' },
+  acc2: { label: 'Acessório 2', short: 'Acess. 2', bone: 'nenhum' },
+  cape: { label: 'Capa', short: 'Costas', bone: 'peito' },
+  armor: { label: 'Armadura', short: 'Corpo', bone: 'nenhum' },
+  mainhand: { label: 'Mão direita (arma)', short: 'Mão dir.', bone: 'mao_direita' },
+  offhand: { label: 'Mão esquerda (arma secundária ou escudo)', short: 'Mão esq.', bone: 'mao_esquerda' },
+  feet: { label: 'Sapatos', short: 'Pés', bone: 'nenhum' },
 };
 
 export interface WeaponProfile {
@@ -43,26 +51,65 @@ export interface WeaponProfile {
   ranged: 'none' | 'magic' | 'charged';
 }
 
-export const ITEM_TYPES: Record<ItemType, { label: string; slot: EquipSlot; weapon?: WeaponProfile; size: number }> = {
-  espada: { label: 'Espada', slot: 'weapon', size: 0.75, weapon: { anim: 'attack', range: 1.7, cadence: 1.1, power: 1.0, twoHanded: false, ranged: 'none' } },
-  faca: { label: 'Faca / adaga', slot: 'weapon', size: 0.38, weapon: { anim: 'attack', range: 1.3, cadence: 1.7, power: 0.7, twoHanded: false, ranged: 'none' } },
-  maca: { label: 'Maça', slot: 'weapon', size: 0.65, weapon: { anim: 'attack', range: 1.6, cadence: 0.75, power: 1.45, twoHanded: false, ranged: 'none' } },
-  lanca: { label: 'Lança', slot: 'weapon', size: 1.35, weapon: { anim: 'attack', range: 2.4, cadence: 0.95, power: 1.05, twoHanded: true, ranged: 'none' } },
-  cajado: { label: 'Cajado', slot: 'weapon', size: 1.25, weapon: { anim: 'cast', range: 7, cadence: 0.8, power: 1.1, twoHanded: true, ranged: 'magic' } },
-  varinha: { label: 'Varinha', slot: 'weapon', size: 0.36, weapon: { anim: 'cast', range: 6, cadence: 1.2, power: 0.75, twoHanded: false, ranged: 'magic' } },
-  arco: { label: 'Arco', slot: 'weapon', size: 0.95, weapon: { anim: 'shoot', range: 16, cadence: 0.7, power: 1.0, twoHanded: true, ranged: 'charged' } },
-  escudo: { label: 'Escudo', slot: 'offhand', size: 0.55 },
-  grimorio: { label: 'Grimório', slot: 'offhand', size: 0.28 },
-  orbe: { label: 'Orbe', slot: 'offhand', size: 0.2 },
-  chapeu: { label: 'Chapéu', slot: 'head', size: 0.42 },
-  tiara: { label: 'Tiara', slot: 'head', size: 0.26 },
-  laco: { label: 'Laço', slot: 'head', size: 0.2 },
-  coroa: { label: 'Coroa de flores', slot: 'head', size: 0.3 },
-  mochila: { label: 'Mochila', slot: 'back', size: 0.36 },
-  aljava: { label: 'Aljava', slot: 'back', size: 0.5 },
-  amuleto: { label: 'Amuleto', slot: 'accessory', size: 0.1 },
-  anel: { label: 'Anel', slot: 'accessory', size: 0.05 },
-};
+export interface TypeInfo { label: string; category: ItemCategory; slot: EquipSlot | null; weapon?: WeaponProfile; size: number; weight: number }
+const W = (label: string, size: number, weight: number, weapon: WeaponProfile): TypeInfo => ({ label, category: 'arma', slot: 'mainhand', weapon, size, weight });
+const E = (label: string, slot: EquipSlot, size: number, weight: number): TypeInfo => ({ label, category: 'equipamento', slot, size, weight });
+const M = (label: string, weight: number): TypeInfo => ({ label, category: 'material', slot: null, size: 0.3, weight });
+const D = (label: string, weight: number): TypeInfo => ({ label, category: 'diversos', slot: null, size: 0.25, weight });
+
+/** Tipos de item: categoria, espaço (se veste), golpe (se é arma), tamanho na mão e peso padrão (kg). */
+const TYPES = {
+  espada: W('Espada', 0.75, 2.5, { anim: 'attack', range: 1.7, cadence: 1.1, power: 1.0, twoHanded: false, ranged: 'none' }),
+  faca: W('Faca / adaga', 0.38, 0.8, { anim: 'attack', range: 1.3, cadence: 1.7, power: 0.7, twoHanded: false, ranged: 'none' }),
+  maca: W('Maça', 0.65, 4, { anim: 'attack', range: 1.6, cadence: 0.75, power: 1.45, twoHanded: false, ranged: 'none' }),
+  lanca: W('Lança', 1.35, 3, { anim: 'attack', range: 2.4, cadence: 0.95, power: 1.05, twoHanded: true, ranged: 'none' }),
+  cajado: W('Cajado', 1.25, 2, { anim: 'cast', range: 7, cadence: 0.8, power: 1.1, twoHanded: true, ranged: 'magic' }),
+  varinha: W('Varinha', 0.36, 0.4, { anim: 'cast', range: 6, cadence: 1.2, power: 0.75, twoHanded: false, ranged: 'magic' }),
+  arco: W('Arco', 0.95, 1.5, { anim: 'shoot', range: 16, cadence: 0.7, power: 1.0, twoHanded: true, ranged: 'charged' }),
+  escudo: E('Escudo', 'offhand', 0.55, 4),
+  grimorio: E('Grimório', 'offhand', 0.28, 1),
+  orbe: E('Orbe', 'offhand', 0.2, 0.5),
+  chapeu: E('Chapéu', 'head', 0.42, 0.4),
+  tiara: E('Tiara', 'head', 0.26, 0.2),
+  laco: E('Laço', 'head', 0.2, 0.05),
+  coroa: E('Coroa de flores', 'head', 0.3, 0.1),
+  elmo: E('Elmo', 'head', 0.38, 2),
+  armadura: E('Armadura', 'armor', 0.6, 8),
+  tunica: E('Túnica / veste', 'armor', 0.6, 1.5),
+  botas: E('Botas / sapatos', 'feet', 0.25, 1.2),
+  capa: E('Capa', 'cape', 0.7, 1),
+  mochila: E('Mochila', 'cape', 0.36, 1.5),
+  aljava: E('Aljava', 'cape', 0.5, 1),
+  amuleto: E('Amuleto', 'acc1', 0.1, 0.1),
+  anel: E('Anel', 'acc1', 0.05, 0.02),
+  bracelete: E('Bracelete', 'acc1', 0.1, 0.15),
+  madeira: M('Madeira', 1),
+  minerio: M('Minério / metal', 1.5),
+  pedra: M('Pedra', 2),
+  fibra: M('Fibra / couro / pelo', 0.3),
+  erva: M('Erva / planta', 0.1),
+  gema: M('Gema / cristal', 0.2),
+  essencia: M('Essência', 0.05),
+  parte: M('Parte de monstro', 0.4),
+  comida: D('Comida', 0.3),
+  pocao: D('Poção', 0.3),
+  chave: D('Chave', 0.05),
+  lembranca: D('Lembrança', 0.1),
+  outro: D('Outro', 0.2),
+} satisfies Record<string, TypeInfo>;
+export type ItemType = keyof typeof TYPES;
+export const ITEM_TYPES: Record<ItemType, TypeInfo> = TYPES;
+export const categoryOf = (t: ItemType): ItemCategory => ITEM_TYPES[t].category;
+/** Pode ser vestido/empunhado? */
+export const isWearable = (t: ItemType) => ITEM_TYPES[t].slot !== null;
+/** Espaços onde o item entra: arma de uma mão vai também na mão esquerda (arma secundária); acessório em qualquer um dos dois. */
+export function slotsFor(t: ItemType): EquipSlot[] {
+  const i = ITEM_TYPES[t];
+  if (!i.slot) return [];
+  if (i.weapon) return i.weapon.twoHanded ? ['mainhand'] : ['mainhand', 'offhand'];
+  if (i.slot === 'acc1' || i.slot === 'acc2') return ['acc1', 'acc2'];
+  return [i.slot];
+}
 
 export const RARITIES: Record<Rarity, { label: string; color: string; statMul: number }> = {
   comum: { label: 'Comum', color: '#c9c3b6', statMul: 1 },
@@ -83,6 +130,8 @@ export interface ItemDef {
   type: ItemType;
   rarity: Rarity;
   essence: Element | null;
+  /** peso (kg): soma na carga do Companion */
+  weight: number;
   stats: Partial<Record<AttrKey, number>>;   // % (leves: 2–12 numa arma comum/rara)
   proc: { primary: string; secondary: string; metal: string; gem: boolean; variant: number }; // modelo gerado por código
   model?: { url: string; path?: string };    // .GLB (no lugar do gerado)
@@ -122,7 +171,7 @@ export const DEFAULT_GRIP: ItemDef['grip'] = { pos: [0, 0, 0], rot: [0, 0, 0], s
 
 const R = (ingredients: [string, number][], minBond = 2, seconds = 30) => ({ ingredients: ingredients.map(([item, qty]) => ({ item, qty })), minBond, seconds });
 const I = (slug: string, name: string, type: ItemType, o: Partial<ItemDef> & { description: string }): ItemDef => ({
-  slug, name, type, rarity: 'rara', essence: null, stats: {}, proc: { primary: '#b98c5c', secondary: '#e8e2d0', metal: '#c9d2e0', gem: false, variant: 0 },
+  slug, name, type, rarity: 'rara', essence: null, stats: {}, weight: ITEM_TYPES[type].weight, proc: { primary: '#b98c5c', secondary: '#e8e2d0', metal: '#c9d2e0', gem: false, variant: 0 },
   grip: DEFAULT_GRIP, starter: false, obtain: 'Forja (Taurina)', recipe: R([['Fragmento de Bruma', 3]]), ...o,
 });
 
@@ -144,42 +193,177 @@ export const DEFAULT_ITEMS: ItemDef[] = [
   I('mochila-de-viagem', 'Mochila de Viagem', 'mochila', { recipe: R([['Pelo gelado', 3], ['Fragmento de Bruma', 2]], 2), description: 'Cabe mais do que parece.', stats: { vida: 3 }, proc: { primary: '#b98c5c', secondary: '#7a5232', metal: '#e7d3a8', gem: false, variant: 0 } }),
   I('aljava-de-couro', 'Aljava de Couro', 'aljava', { recipe: R([['Pelo gelado', 2], ['Fragmento de Bruma', 2]], 3), description: 'Flechas sempre à mão.', stats: { agilidade: 2 }, proc: { primary: '#8a5a3a', secondary: '#f3efe0', metal: '#e7d3a8', gem: false, variant: 0 } }),
   I('amuleto-do-vinculo', 'Amuleto do Vínculo', 'amuleto', { recipe: R([['Cristal de geada', 2], ['Semente brilhante', 2], ['Fragmento de Bruma', 5]], 5, 90), description: 'Esquenta quando você está por perto.', stats: { sintonia: 4 }, rarity: 'lendaria', proc: { primary: '#ffd56b', secondary: '#ff7fb0', metal: '#ffd56b', gem: true, variant: 0 } }),
+  // equipamentos novos (oito espaços): armadura, sapatos, capa e acessórios — um de cada elemento para os conjuntos
+  I('veste-de-casca', 'Veste de Casca', 'armadura', { recipe: R([['Musgo macio', 4], ['Fragmento de Bruma', 3]], 3), description: 'Placas de casca de árvore costuradas com musgo.', stats: { defesa: 5, agilidade: -1 }, essence: 'terra', rarity: 'incomum', proc: { primary: '#7a5a3a', secondary: '#6fbf5a', metal: '#c9a36a', gem: false, variant: 0 } }),
+  I('botas-de-vento', 'Botas de Vento', 'botas', { recipe: R([['Pelo gelado', 2], ['Fragmento de Bruma', 2]], 2), description: 'Leves como uma brisa.', stats: { agilidade: 3 }, essence: 'vento', rarity: 'incomum', proc: { primary: '#d8e8f0', secondary: '#7ab8d8', metal: '#e7d3a8', gem: false, variant: 0 } }),
+  I('capa-do-orvalho', 'Capa do Orvalho', 'capa', { recipe: R([['Musgo macio', 2], ['Semente brilhante', 1], ['Fragmento de Bruma', 2]], 3), description: 'Sempre um pouco úmida, sempre fresca.', stats: { energia: 3 }, essence: 'agua', rarity: 'incomum', proc: { primary: '#4a7ab8', secondary: '#bfe9ff', metal: '#e7d3a8', gem: false, variant: 0 } }),
+  I('anel-de-brasa', 'Anel de Brasa', 'anel', { recipe: R([['Pó de brasa', 3], ['Fragmento de Bruma', 2]], 3), description: 'Morno ao toque.', stats: { poder: 2 }, essence: 'fogo', rarity: 'incomum', proc: { primary: '#ffb347', secondary: '#ff5a3a', metal: '#ffd56b', gem: true, variant: 0 } }),
+  // materiais (drops dos monstros): o nome é o mesmo dos drops do Invocador, então o drop cai na bolsa como este item
+  I('fragmento-de-bruma', 'Fragmento de Bruma', 'essencia', { description: 'O que sobra de uma Bruma acalmada. Ingrediente de quase tudo na Forja.', rarity: 'comum', recipe: R([], 1, 0), obtain: 'Drop de monstro', proc: { primary: '#c9b8ff', secondary: '#ffffff', metal: '#c9b8ff', gem: true, variant: 0 } }),
+  I('musgo-macio', 'Musgo macio', 'erva', { description: 'Verde, fofo e úmido.', rarity: 'comum', essence: 'natureza', recipe: R([], 1, 0), obtain: 'Drop de monstro', proc: { primary: '#6fbf5a', secondary: '#3f7a3a', metal: '#6fbf5a', gem: false, variant: 0 } }),
+  I('semente-brilhante', 'Semente brilhante', 'erva', { description: 'Pisca devagar, como se respirasse.', rarity: 'incomum', essence: 'luz', recipe: R([], 1, 0), obtain: 'Drop de monstro', proc: { primary: '#ffe68a', secondary: '#7be36b', metal: '#ffe68a', gem: true, variant: 0 } }),
+  I('po-de-brasa', 'Pó de brasa', 'essencia', { description: 'Esquenta a palma da mão.', rarity: 'comum', essence: 'fogo', recipe: R([], 1, 0), obtain: 'Drop de monstro', proc: { primary: '#ff8a3a', secondary: '#ffd56b', metal: '#ff8a3a', gem: false, variant: 0 } }),
+  I('pelo-gelado', 'Pelo gelado', 'fibra', { description: 'Macio e frio, não derrete.', rarity: 'comum', essence: 'gelo', recipe: R([], 1, 0), obtain: 'Drop de monstro', proc: { primary: '#d8f4ff', secondary: '#a8e4ff', metal: '#d8f4ff', gem: false, variant: 0 } }),
+  I('cristal-de-geada', 'Cristal de geada', 'gema', { description: 'Raro: nunca perde o frio.', rarity: 'rara', essence: 'gelo', recipe: R([], 1, 0), obtain: 'Drop de monstro', proc: { primary: '#bfe9ff', secondary: '#ffffff', metal: '#bfe9ff', gem: true, variant: 0 } }),
 ];
 
 // ---------------------------------------------------------------------------
 
-export interface Equipped { weapon?: string; offhand?: string; head?: string; back?: string; accessory?: string }
+// ---------------------------------------------------------------------------
+// Equipamento: oito espaços
+// ---------------------------------------------------------------------------
 
-/** Equipar: cada item no seu espaço; arma de duas mãos libera a mão secundária. Devolve o novo conjunto. */
-export function equip(current: Equipped, item: ItemDef, catalog: ItemDef[]): Equipped {
-  const slot = ITEM_TYPES[item.type].slot;
-  const next: Equipped = { ...current, [slot]: item.slug };
-  const w = catalog.find((x) => x.slug === next.weapon);
-  if (slot === 'weapon' && ITEM_TYPES[item.type].weapon?.twoHanded) delete next.offhand;
-  if (slot === 'offhand' && w && ITEM_TYPES[w.type].weapon?.twoHanded) delete next.weapon;
+export type Equipped = Partial<Record<EquipSlot, string>>;
+/** Nomes antigos dos espaços (cinco espaços, até 24/10) → os de agora. */
+const OLD_SLOTS: Record<string, EquipSlot> = { weapon: 'mainhand', offhand: 'offhand', head: 'head', back: 'cape', accessory: 'acc1' };
+
+/** Lê um conjunto salvo (com os nomes de agora ou os antigos). */
+export function normalizeEquipped(raw: unknown): Equipped {
+  const out: Equipped = {};
+  if (!raw || typeof raw !== 'object') return out;
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    if (typeof v !== 'string' || !v) continue;
+    const slot = (EQUIP_SLOTS as string[]).includes(k) ? (k as EquipSlot) : OLD_SLOTS[k];
+    if (slot && !out[slot]) out[slot] = v;
+  }
+  return out;
+}
+
+/**
+ * Equipar: o item vai para o espaço pedido (ou o primeiro livre dos que aceitam); a mesma peça não fica em dois
+ * espaços; arma de duas mãos libera a mão esquerda, e o que vai para a mão esquerda tira a arma de duas mãos.
+ */
+export function equip(current: Equipped, item: ItemDef, catalog: ItemDef[], slot?: EquipSlot): Equipped {
+  const allowed = slotsFor(item.type);
+  if (!allowed.length) return current;
+  const target = slot && allowed.includes(slot) ? slot : allowed.find((s) => !current[s]) ?? allowed[0];
+  const next: Equipped = { ...current };
+  for (const k of EQUIP_SLOTS) if (next[k] === item.slug) delete next[k];
+  next[target] = item.slug;
+  const main = catalog.find((x) => x.slug === next.mainhand);
+  if (target === 'mainhand' && ITEM_TYPES[item.type].weapon?.twoHanded) delete next.offhand;
+  if (target === 'offhand' && main && ITEM_TYPES[main.type].weapon?.twoHanded) delete next.mainhand;
   return next;
 }
 
-/** Confere um conjunto salvo (itens que existem, no espaço certo, sem conflito de duas mãos). */
-export function validateEquipped(eq: Equipped, catalog: ItemDef[], owned: (slug: string) => boolean): Equipped {
+/** Tira o que estiver no espaço. */
+export function unequip(current: Equipped, slot: EquipSlot): Equipped {
+  const next = { ...current }; delete next[slot]; return next;
+}
+
+/** Confere um conjunto salvo (itens que existem, no espaço certo, que a pessoa tem, sem conflito de duas mãos). */
+export function validateEquipped(raw: unknown, catalog: ItemDef[], owned: (slug: string) => boolean): Equipped {
+  const eq = normalizeEquipped(raw);
   let out: Equipped = {};
-  for (const slot of ['weapon', 'offhand', 'head', 'back', 'accessory'] as EquipSlot[]) {
+  for (const slot of EQUIP_SLOTS) {
     const it = catalog.find((x) => x.slug === eq[slot]);
-    if (it && ITEM_TYPES[it.type].slot === slot && owned(it.slug)) out = equip(out, it, catalog);
+    if (it && slotsFor(it.type).includes(slot) && owned(it.slug)) out = equip(out, it, catalog, slot);
   }
   return out;
 }
 
-/** Bônus de atributos (%) do que está equipado, já com a raridade. */
-export function equipmentBonus(eq: Equipped, catalog: ItemDef[]): Partial<Record<AttrKey, number>> {
-  const out: Partial<Record<AttrKey, number>> = {};
-  for (const slug of Object.values(eq)) {
-    const it = catalog.find((x) => x.slug === slug);
-    if (!it) continue;
-    for (const [k, v] of Object.entries(it.stats)) out[k as AttrKey] = Math.round(((out[k as AttrKey] ?? 0) + (v as number) * RARITIES[it.rarity].statMul) * 10) / 10;
-  }
+/** As peças equipadas (com o espaço de cada uma). */
+export function equippedItems(eq: Equipped, catalog: ItemDef[]): { slot: EquipSlot; item: ItemDef }[] {
+  const out: { slot: EquipSlot; item: ItemDef }[] = [];
+  for (const slot of EQUIP_SLOTS) { const it = catalog.find((x) => x.slug === eq[slot]); if (it) out.push({ slot, item: it }); }
   return out;
 }
+
+// ---------------------------------------------------------------------------
+// Conjuntos de elemento: quanto mais peças da mesma essência, maior o bônus
+// ---------------------------------------------------------------------------
+
+/** Bônus por "degrau" de cada elemento (em %); o degrau multiplica (2 peças ×1, 4 ×2,5, 6 ×4,5). */
+export const ELEMENT_SETS: Record<Element, { label: string; stats: Partial<Record<AttrKey, number>>; note: string }> = {
+  fogo: { label: 'Conjunto da Chama', stats: { poder: 4 }, note: 'mais dano' },
+  agua: { label: 'Conjunto da Maré', stats: { energia: 4, vida: 2 }, note: 'mais SP e um pouco de vida' },
+  terra: { label: 'Conjunto da Rocha', stats: { defesa: 5 }, note: 'mais defesa' },
+  vento: { label: 'Conjunto do Vento', stats: { agilidade: 5 }, note: 'mais agilidade (golpes e passos mais rápidos)' },
+  luz: { label: 'Conjunto da Aurora', stats: { sintonia: 4, vida: 2 }, note: 'mais sintonia (magia e cura) e vida' },
+  sombra: { label: 'Conjunto da Penumbra', stats: { poder: 3, agilidade: 2 }, note: 'dano e agilidade' },
+  gelo: { label: 'Conjunto da Geada', stats: { defesa: 3, vida: 3 }, note: 'defesa e vida' },
+  raio: { label: 'Conjunto da Tempestade', stats: { agilidade: 3, poder: 2 }, note: 'agilidade e dano' },
+  natureza: { label: 'Conjunto do Bosque', stats: { vida: 5 }, note: 'mais vida' },
+  veneno: { label: 'Conjunto da Peçonha', stats: { poder: 2, sintonia: 3 }, note: 'dano e sintonia' },
+};
+export const SET_TIERS: { pieces: number; mul: number }[] = [{ pieces: 2, mul: 1 }, { pieces: 4, mul: 2.5 }, { pieces: 6, mul: 4.5 }];
+
+export interface ActiveSet { element: Element; pieces: number; tier: number; next: number | null; bonus: Partial<Record<AttrKey, number>> }
+/** Elementos das peças equipadas: quantas de cada e o bônus que já vale (tier 0 = ainda sem bônus). */
+export function elementSets(eq: Equipped, catalog: ItemDef[]): ActiveSet[] {
+  const count = new Map<Element, number>();
+  for (const { item } of equippedItems(eq, catalog)) if (item.essence) count.set(item.essence, (count.get(item.essence) ?? 0) + 1);
+  return [...count.entries()].map(([element, pieces]) => {
+    let tier = 0;
+    SET_TIERS.forEach((t, i) => { if (pieces >= t.pieces) tier = i + 1; });
+    const mul = tier ? SET_TIERS[tier - 1].mul : 0;
+    const bonus: Partial<Record<AttrKey, number>> = {};
+    for (const [k, v] of Object.entries(ELEMENT_SETS[element].stats)) if (mul) bonus[k as AttrKey] = Math.round((v as number) * mul * 10) / 10;
+    return { element, pieces, tier, next: SET_TIERS[tier]?.pieces ?? null, bonus };
+  }).sort((a, b) => b.pieces - a.pieces);
+}
+
+/** Bônus de atributos (%) do que está equipado: cada peça (× raridade) + os conjuntos de elemento. */
+export function equipmentBonus(eq: Equipped, catalog: ItemDef[]): Partial<Record<AttrKey, number>> {
+  const out: Partial<Record<AttrKey, number>> = {};
+  const add = (k: AttrKey, v: number) => { out[k] = Math.round(((out[k] ?? 0) + v) * 10) / 10; };
+  for (const { item } of equippedItems(eq, catalog)) for (const [k, v] of Object.entries(item.stats)) add(k as AttrKey, (v as number) * RARITIES[item.rarity].statMul);
+  for (const s of elementSets(eq, catalog)) for (const [k, v] of Object.entries(s.bonus)) add(k as AttrKey, v as number);
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// Peso
+// ---------------------------------------------------------------------------
+
+/** Quanto o Companion carrega sem perder ritmo (kg): base + Força + um pouco de Vitalidade; a mochila soma. */
+export const MOCHILA_CAPACITY = 15;
+export function carryCapacity(attrs: { forca?: number; vitalidade?: number }, eq?: Equipped, catalog?: ItemDef[]): number {
+  const backpack = eq && catalog ? equippedItems(eq, catalog).some(({ item }) => item.type === 'mochila') : false;
+  return Math.round((30 + 2 * (attrs.forca ?? 0) + 1 * (attrs.vitalidade ?? 0) + (backpack ? MOCHILA_CAPACITY : 0)) * 10) / 10;
+}
+
+export type LoadLevel = 'leve' | 'pesado' | 'sobrecarregado';
+export const LOAD_LABEL: Record<LoadLevel, string> = { leve: 'Leve', pesado: 'Pesado: anda e golpeia um pouco mais devagar', sobrecarregado: 'Sobrecarregado: anda e golpeia bem mais devagar' };
+/** Efeito da carga (tudo o que leva: bolsa + equipado) sobre o passo e a agilidade. */
+export function loadState(carried: number, capacity: number): { ratio: number; level: LoadLevel; moveMul: number; agilityPct: number } {
+  const ratio = capacity > 0 ? carried / capacity : 0;
+  if (ratio <= 1) return { ratio, level: 'leve', moveMul: 1, agilityPct: 0 };
+  if (ratio <= 1.5) return { ratio, level: 'pesado', moveMul: 0.8, agilityPct: -10 };
+  return { ratio, level: 'sobrecarregado', moveMul: 0.55, agilityPct: -25 };
+}
+
+// ---------------------------------------------------------------------------
+// Bolsa (inventário): linhas guardadas → itens do catálogo
+// ---------------------------------------------------------------------------
+
+const fold = (x: string) => x.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+/** Item do catálogo pelo slug ou pelo nome (os drops do Invocador são nomes). */
+export function findItem(ref: string, catalog: ItemDef[]): ItemDef | null {
+  const f = fold(ref);
+  return catalog.find((i) => i.slug === ref) ?? catalog.find((i) => fold(i.name) === f) ?? null;
+}
+/** Chave da bolsa de um drop: o slug do item do catálogo, ou "drop:<nome>" para um nome que não está no catálogo. */
+export const dropKey = (ref: string, catalog: ItemDef[]) => findItem(ref, catalog)?.slug ?? 'drop:' + ref.trim().slice(0, 40);
+
+export interface BagRow { item_key: string; qty: number; meta: Record<string, unknown> }
+export interface BagEntry { key: string; item: ItemDef | null; label: string; description: string; category: ItemCategory; qty: number; unitWeight: number; rarity: Rarity; essence: Element | null }
+/**
+ * Linhas da bolsa (servidor) → entradas com categoria e peso. Item do catálogo usa os dados dele; um drop fora do
+ * catálogo vira material de 0,2 kg; descobertas e raros das quests são Diversos sem peso (lembranças).
+ */
+export function bagEntries(rows: BagRow[], catalog: ItemDef[]): BagEntry[] {
+  return rows.filter((r) => r.qty > 0).map((r) => {
+    const it = r.item_key.startsWith('drop:') ? findItem(r.item_key.slice(5), catalog) : catalog.find((i) => i.slug === r.item_key) ?? null;
+    if (it) return { key: r.item_key, item: it, label: it.name, description: it.description, category: categoryOf(it.type), qty: r.qty, unitWeight: itemWeight(it), rarity: it.rarity, essence: it.essence };
+    const isDrop = r.item_key.startsWith('drop:');
+    const label = String(r.meta.label ?? (isDrop ? r.item_key.slice(5) : r.item_key));
+    return { key: r.item_key, item: null, label, description: String(r.meta.description ?? (isDrop ? 'Drop de monstro.' : '')), category: isDrop ? 'material' : 'diversos', qty: r.qty, unitWeight: isDrop ? 0.2 : 0, rarity: r.meta.rare ? 'rara' : 'comum', essence: null };
+  });
+}
+
+/** Peso (kg) de um item do catálogo. */
+export const itemWeight = (it: Pick<ItemDef, 'weight' | 'type'>) => (Number.isFinite(it.weight) ? it.weight : ITEM_TYPES[it.type].weight);
 
 /** Golpe básico com a arma (ou desarmado). */
 export function basicAttack(weapon: ItemDef | null, species?: SpeciesKey | null): WeaponProfile & { affinity: number; label: string } {
@@ -237,6 +421,7 @@ export function sanitizeItem(input: unknown): ItemDef | null {
     type,
     rarity: (s.rarity && s.rarity in RARITIES ? s.rarity : 'comum') as Rarity,
     essence: s.essence && ELEMENT_KEYS.includes(s.essence) ? s.essence : null,
+    weight: Math.round(n(s.weight, 0, 500, ITEM_TYPES[type].weight) * 100) / 100,
     stats,
     proc: {
       primary: typeof p.primary === 'string' && HEX.test(p.primary) ? p.primary : '#b98c5c',

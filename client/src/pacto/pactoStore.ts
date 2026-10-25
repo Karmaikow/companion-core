@@ -4,7 +4,7 @@
  * request_id é reenviado e o servidor devolve o resultado guardado (nada duplica).
  */
 import { create } from 'zustand';
-import { DEFAULT_ITEMS, instanceSlug, blueprintById, type ItemDef, type ItemType, type MarkConfig } from '@rules';
+import { DEFAULT_ITEMS, ITEM_TYPES, instanceSlug, blueprintById, type ItemDef, type ItemType, type MarkConfig } from '@rules';
 import { useGame } from '../store';
 import { useEcos, classSource } from '../ecos/ecosStore';
 import type { EquipmentView, PactoReply, PactoView } from './types';
@@ -77,6 +77,8 @@ function toItem(e: EquipmentView, base: ItemDef[]): ItemDef | null {
   return {
     ...like, slug: instanceSlug(e.id), name: e.name ?? bp?.name ?? like.name, type: e.itemType as ItemType, rarity: e.rarity ?? 'comum', essence: e.affinity ?? null,
     stats: e.stats ?? {}, starter: false, obtain: 'Forja Primordial',
+    // peso da peça: o do tipo, mais leve ou mais pesado conforme a forja
+    weight: Math.round(ITEM_TYPES[e.itemType as ItemType].weight * ({ leve: 0.7, medio: 1, pesado: 1.4 } as Record<string, number>)[(e as { weight?: string }).weight ?? 'medio'] * 100) / 100 || ITEM_TYPES[e.itemType as ItemType].weight,
     description: `${bp?.description ?? ''}${e.mark ? ` Marca: ${e.mark.label}.` : ''} Durabilidade ${e.durability}/${e.maxDurability}.${sig}`.trim(),
   };
 }

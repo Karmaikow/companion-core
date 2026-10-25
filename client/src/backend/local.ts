@@ -9,7 +9,7 @@ import { localBuild } from '../build/localBuild';
 import {
   DEFAULT_CONFIG, initialQuests, applyTurn, offlineTurn, levelForXp, levelProgress, checkAwakening,
   buildIdentityContract, companionDay, QUEST_REWARDS, validateSetup, evaluateSecrets, isQuestionAboutCompanion, gameTime,
-  SECRET_BY_KEY, SECRET_XP, SECRET_BOOST_TURNS, DEFAULT_CREATURES, recordKill, combatMemoryText, combatXp, withXpMultiplier, type BestiaryEntry, type SecretKey, type Discoveries, type QuestState, type IdentityContractV1,
+  SECRET_BY_KEY, SECRET_XP, SECRET_BOOST_TURNS, DEFAULT_CREATURES, DEFAULT_ITEMS, rollDrops, findItem, dropKey, categoryOf, recordKill, combatMemoryText, combatXp, withXpMultiplier, type BestiaryEntry, type SecretKey, type Discoveries, type QuestState, type IdentityContractV1,
   type CompanionSetup,
 } from '@rules';
 import type { Backend, Snapshot, MemoryRow, DiaryRow, InventoryRow, TimelineRow } from './types';
@@ -99,6 +99,29 @@ export class LocalBackend implements Backend {
 
   async state() { return this.snap(); }
 
+  private addBag(s: LocalSave, key: string, qty: number, meta: Record<string, unknown>) {
+    const row = s.inventory.find((i) => i.item_key === key);
+    if (row) { row.qty = Math.max(0, Math.min(9999, row.qty + qty)); row.meta = { ...row.meta, ...meta }; }
+    else if (qty > 0) s.inventory.push({ item_key: key, qty: Math.min(9999, qty), meta, acquired_at: new Date().toISOString() });
+  }
+
+  /** Bolsa offline: jogar fora; "pôr item" vale para teste (o jogo offline não tem economia). */
+  async inventory(action: 'inventory.discard' | 'inventory.grant', body: Record<string, unknown>) {
+    const s = this.s; if (!s) return this.snap();
+    if (action === 'inventory.discard') {
+      const row = s.inventory.find((i) => i.item_key === body.key);
+      if (!row || row.qty <= 0) throw new Error('Esse item não está na bolsa.');
+      if (row.meta.rare || row.meta.secret) throw new Error('Descobertas e raros não podem ser jogados fora.');
+      row.qty = Math.max(0, row.qty - Math.max(1, Math.round(Number(body.qty) || 1)));
+    } else {
+      const it = DEFAULT_ITEMS.find((i) => i.slug === body.slug);
+      if (!it) throw new Error('Item não encontrado no catálogo.');
+      this.addBag(s, it.slug, Math.max(1, Math.round(Number(body.qty) || 1)), { label: it.name, category: categoryOf(it.type) });
+    }
+    save(s);
+    return this.snap();
+  }
+
   /** Ecos da Terra offline: simulado neste aparelho (não vale na economia online). */
   ecos(action: string, body: Record<string, unknown> = {}) { return localEcos(action, body); }
   pacto(action: string, body: Record<string, unknown> = {}) { return localPacto(action, body); }
@@ -113,6 +136,9 @@ export class LocalBackend implements Backend {
     const now = new Date().toISOString();
     const r = recordKill(prev, all, { slug, name: def?.name ?? slug, level }, now);
     if (prev) Object.assign(prev, r.entry); else all.push(r.entry);
+    // drops na bolsa (offline: catálogo de reserva)
+    const drops = def ? rollDrops(def, Math.random).map((d) => { const it = findItem(d.item, DEFAULT_ITEMS); return { key: dropKey(d.item, DEFAULT_ITEMS), label: it?.name ?? d.item, qty: d.qty, category: it ? categoryOf(it.type) : 'material' }; }) : [];
+    for (const d of drops) this.addBag(s, d.key, d.qty, { label: d.label, category: d.category });
     const ev = this.ev(s, 'system', 'combat.kill', { slug, level, first: r.first, analyzed: r.analyzedNow });
     const me = s.discoveries.name ?? 'O Companion';
     if (r.first) s.memories.push({ id: ++s.seq, subject: 'companion', content: combatMemoryText('first', me, def, r.entry.name, level), importance: 3, source_event_ids: [ev], origin: 'combat', created_at: now });
@@ -122,7 +148,7 @@ export class LocalBackend implements Backend {
     if (xp > 0) { s.bondXp += xp; this.ev(s, 'system', 'bond.xp', { total: xp, reason: 'combate', meaningful: false, slug }); }
     const la = levelForXp(s.bondXp, cfg);
     save(s);
-    return this.snap({ combat: { entry: r.entry, first: r.first, analyzed: r.analyzedNow, analyzedCount: r.analyzedCount, milestone: r.milestone, xp, levelUp: la > lb ? la : null } });
+    return this.snap({ combat: { entry: r.entry, first: r.first, analyzed: r.analyzedNow, analyzedCount: r.analyzedCount, milestone: r.milestone, xp, levelUp: la > lb ? la : null, drops: drops.map((d) => ({ key: d.key, label: d.label, qty: d.qty })) } });
   }
 
   async create(setup?: CompanionSetup) {

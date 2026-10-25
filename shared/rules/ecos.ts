@@ -22,6 +22,9 @@ export type PropKey =
   | 'composicao' | 'resistencia' | 'pureza' | 'flexibilidade' | 'afinidade' | 'parte' | 'potencia' | 'estabilidade'
   | 'material' | 'conservacao' | 'aplicacao' | 'integridade' | 'efeito' | 'estabilizacao';
 
+/** Peso (kg) de uma unidade de material do vale, pela categoria (soma na carga do Companion). */
+export const RES_WEIGHT: Record<ResCategory, number> = { pedra: 2, minerio: 1.5, madeira: 1, planta: 0.1, caca: 0.4, gema: 0.2, magico: 0.05 };
+
 export const CATEGORIES: Record<ResCategory, { label: string; icon: string; props: PropKey[] }> = {
   pedra: { label: 'Pedra', icon: '🪨', props: ['composicao', 'resistencia'] },
   minerio: { label: 'Minério', icon: '⛏️', props: ['composicao', 'pureza'] },

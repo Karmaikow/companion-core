@@ -1,10 +1,13 @@
 /**
- * Arsenal (painel do ADM): armas e equipamentos. Cada item tem tipo (escolhe o espaço, a animação e o golpe),
- * raridade, essência, atributos leves, modelo (gerado por código com cores, ou .GLB), aparência, a pegada (ajuste
- * na mão/osso — o rig é o mesmo para todos, então vale para todo Companion) e a receita da Forja (só Taurinas forjam).
+ * Arsenal (painel do ADM): todos os itens do jogo, em quatro categorias — Materiais (coleta e drops), Diversos (itens
+ * normais), Equipamentos e Armas. Cada item tem tipo (escolhe a categoria, o espaço, a animação e o golpe), peso,
+ * raridade, elemento (peças do mesmo elemento formam conjuntos), atributos leves, modelo (gerado por código com cores,
+ * ou .GLB), aparência; o que se veste tem a pegada (ajuste na mão/osso) e a receita da Forja (só Taurinas forjam).
  */
 import { lazy, Suspense, useMemo, useState } from 'react';
-import { DEFAULT_ITEMS, ITEM_TYPES, RARITIES, ELEMENTS, SLOTS_EQ, DEFAULT_GRIP, sanitizeItem, biomeSlug, basicAttack, type ItemDef, type ItemType, type Rarity, type Element, type EquipSlot } from '@rules';
+import { DEFAULT_ITEMS, ITEM_TYPES, ITEM_CATEGORIES, ELEMENT_SETS, RARITIES, ELEMENTS, SLOTS_EQ, DEFAULT_GRIP, sanitizeItem, biomeSlug, basicAttack, isWearable, slotsFor, type ItemDef, type ItemType, type ItemCategory, type Rarity, type Element } from '@rules';
+import { supabase } from '../backend/online';
+import { boneFor } from '../scene/Equipment';
 import { useCatalog, uploadWorldAsset, safeName } from './catalog';
 import { LookEditor } from './BiomeStudio';
 
@@ -12,6 +15,9 @@ import { useCompanionModels } from './companionModels';
 const ItemPreview = lazy(() => import('../scene/ItemPreview').then((m) => ({ default: m.ItemPreview })));
 const ATTRS = ['vida', 'energia', 'poder', 'defesa', 'agilidade', 'sintonia'] as const;
 const ESS = Object.keys(ELEMENTS) as Element[];
+const CATS: ItemCategory[] = ['arma', 'equipamento', 'material', 'diversos'];
+const FIRST_TYPE: Record<ItemCategory, ItemType> = { arma: 'espada', equipamento: 'armadura', material: 'madeira', diversos: 'outro' };
+const typesOf = (c: ItemCategory) => (Object.keys(ITEM_TYPES) as ItemType[]).filter((t) => ITEM_TYPES[t].category === c);
 
 export function ArsenalStudio() {
   const cat = useCatalog<ItemDef>('items', sanitizeItem);
@@ -22,6 +28,7 @@ export function ArsenalStudio() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ text: string; ok?: boolean } | null>(null);
   const [newName, setNewName] = useState('');
+  const [newCat, setNewCat] = useState<ItemCategory>('arma');
   const [charge, setCharge] = useState(0);
   const [lookOpen, setLookOpen] = useState(false);
   const models = useCompanionModels();
@@ -41,14 +48,26 @@ export function ArsenalStudio() {
     const slug = biomeSlug(newName);
     if (!newName.trim()) return;
     if (cat.rows?.some((r) => r.slug === slug)) { setMsg({ text: `Já existe "${slug}".` }); return; }
-    setSel(slug); setDraft(sanitizeItem({ ...DEFAULT_ITEMS[0], slug, name: newName.trim(), description: '' })!); setStatus('draft'); setDirty(true); setNewName('');
+    const type = FIRST_TYPE[newCat];
+    const base = DEFAULT_ITEMS.find((i) => i.type === type) ?? DEFAULT_ITEMS[0];
+    setSel(slug); setDraft(sanitizeItem({ ...base, slug, name: newName.trim(), description: '', type, weight: ITEM_TYPES[type].weight, stats: {}, essence: null, model: undefined, gripByModel: undefined, recipe: isWearable(type) ? base.recipe : { ingredients: [], minBond: 1, seconds: 0 } })!); setStatus('draft'); setDirty(true); setNewName('');
   }
   async function uploadModel(f: File) {
     if (!draft) return;
     await run(async () => { const up = await uploadWorldAsset(`items/${draft.slug}/${Date.now()}-${safeName(f.name)}.glb`, f); edit({ model: up }); }, 'Modelo enviado. Ajuste a pegada e salve.');
   }
   const clean = useMemo(() => (draft ? sanitizeItem(draft) : null), [draft]);
-  const bySlot = (slot: EquipSlot) => (cat.rows ?? []).filter((r) => ITEM_TYPES[r.data.type].slot === slot);
+  const byCat = (c: ItemCategory) => (cat.rows ?? []).filter((r) => ITEM_TYPES[r.data.type].category === c);
+  const missing = DEFAULT_ITEMS.filter((d) => cat.rows && !cat.rows.some((r) => r.slug === d.slug));
+  const wear = clean ? isWearable(clean.type) : false;
+  const onBone = clean ? wear && boneFor(clean) !== 'nenhum' : false;
+  // ADM testa: põe o item publicado na própria bolsa (vai para o Inventário do jogo)
+  async function grant() {
+    if (!draft) return;
+    const { data, error } = await supabase().functions.invoke('refuge', { body: { action: 'inventory.grant', slug: draft.slug, qty: 1 } });
+    if (error) { let m = 'Não deu.'; try { const b = await (error as { context?: Response }).context?.json(); if (b?.error) m = b.error; } catch { /* mantém */ } throw new Error(m); }
+    return data;
+  }
   const atk = clean && ITEM_TYPES[clean.type].weapon ? basicAttack(clean) : null;
   // pegada: com um modelo escolhido no campo de treino, edita a pegada só daquele modelo (o padrão fica para os outros)
   const grip = draft ? (trainer && draft.gripByModel?.[trainer]) || draft.grip : DEFAULT_GRIP;
@@ -67,23 +86,25 @@ export function ArsenalStudio() {
     <div className="biome-studio">
       <aside className="biome-list">
         <h2>Arsenal</h2>
-        <small className="hint">Itens são raros e só nascem na Forja — e só Companions da classe Taurina forjam. Cada item tem receita com ingredientes (drops dos monstros).</small>
+        <small className="hint">Materiais e diversos caem dos monstros (o nome do drop no Invocador é o nome do item) e vêm da coleta; equipamentos e armas nascem na Forja (só Taurinas) — ou caem de monstro, se você puser no drop.</small>
         {cat.error && <p className="msg err">{cat.error}</p>}
         {cat.rows && !cat.rows.length && <button className="primary" disabled={busy} onClick={() => void run(() => cat.saveMany(DEFAULT_ITEMS, 'published'), `${DEFAULT_ITEMS.length} itens carregados.`)}>Carregar o arsenal inicial ({DEFAULT_ITEMS.length} itens)</button>}
-        {(Object.keys(SLOTS_EQ) as EquipSlot[]).map((slot) => bySlot(slot).length > 0 && (
-          <div key={slot} className="biome-group">
-            <h3>{SLOTS_EQ[slot].label}</h3>
+        {cat.rows && cat.rows.length > 0 && missing.length > 0 && <button className="ghost" disabled={busy} onClick={() => void run(() => cat.saveMany(missing, 'published'), `${missing.length} itens de exemplo adicionados.`)}>+ itens de exemplo novos ({missing.length}: armadura, botas, capa, anel e materiais)</button>}
+        {CATS.map((c) => byCat(c).length > 0 && (
+          <div key={c} className="biome-group">
+            <h3>{ITEM_CATEGORIES[c].icon} {ITEM_CATEGORIES[c].label}</h3>
             <ul>
-              {bySlot(slot).map((r) => (
+              {byCat(c).map((r) => (
                 <li key={r.slug}><button className={sel === r.slug ? 'on' : ''} onClick={() => pick(r.slug)}>
                   <strong><i className="look-dot" style={{ background: RARITIES[r.data.rarity].color }} />{r.name}</strong>
-                  <small>{ITEM_TYPES[r.data.type].label} · {RARITIES[r.data.rarity].label}{r.data.model ? ' · .GLB' : ''}{r.status === 'draft' ? ' · rascunho' : ''}</small>
+                  <small>{ITEM_TYPES[r.data.type].label} · {RARITIES[r.data.rarity].label}{r.data.essence ? ' · ' + ELEMENTS[r.data.essence].label : ''} · {String(r.data.weight).replace('.', ',')} kg{r.data.model ? ' · .GLB' : ''}{r.status === 'draft' ? ' · rascunho' : ''}</small>
                 </button></li>
               ))}
             </ul>
           </div>
         ))}
         <form className="biome-new" onSubmit={(e) => { e.preventDefault(); create(); }}>
+          <select value={newCat} onChange={(e) => setNewCat(e.target.value as ItemCategory)} aria-label="Categoria do novo item">{CATS.map((c) => <option key={c} value={c}>{ITEM_CATEGORIES[c].label}</option>)}</select>
           <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Novo item" maxLength={40} aria-label="Nome do novo item" />
           <button className="primary" disabled={!newName.trim()}>Criar</button>
         </form>
@@ -104,7 +125,7 @@ export function ArsenalStudio() {
             </div>
           </div>
           <div className="biome-form">
-            <fieldset className="grip-box">
+            {onBone && <fieldset className="grip-box">
               <legend>Pegada (ajuste na mão / no osso){trainerModel ? ` — ${trainerModel.name}` : ' — padrão'}</legend>
               {trainerModel && <small className="hint">{ownGrip ? `Ajuste próprio de ${trainerModel.name}: vale só para este modelo.` : `${trainerModel.name} usa a pegada padrão. Mexa nos controles para criar um ajuste só dele.`}</small>}
               <div className="look-sliders">
@@ -118,24 +139,31 @@ export function ArsenalStudio() {
                 {trainerModel && !ownGrip && <button className="link" onClick={() => putGrip(structuredClone(draft.grip))}>criar ajuste só para {trainerModel.name}</button>}
               </div>
               <small className="hint">A peça fica presa direto no osso (mão, cabeça ou peito) e acompanha toda animação. A pegada parte da pose de ligação (A-pose), igual para todo rig: em geral basta o Tamanho e um pouco de Posição. Pegadas salvas antes desta versão podem precisar de “zerar pegada”. Escolha um Companion no campo de treino para ver a arma na mão dele, golpeando. Modelos de tamanhos diferentes podem ter a pegada ajustada um a um; salve o item para valer no jogo.{draft.gripByModel && Object.keys(draft.gripByModel).length ? ` Ajustes por modelo: ${Object.keys(draft.gripByModel).map((k) => models?.find((m) => m.companionId === k)?.name ?? k.slice(0, 6)).join(', ')}.` : ''}</small>
-            </fieldset>
+            </fieldset>}
 
             <div className="row-3">
               <label>Nome<input value={draft.name} onChange={(e) => edit({ name: e.target.value })} maxLength={40} /></label>
-              <label>Tipo<select value={draft.type} onChange={(e) => edit({ type: e.target.value as ItemType, grip: DEFAULT_GRIP })}>{(Object.keys(ITEM_TYPES) as ItemType[]).map((k) => <option key={k} value={k}>{ITEM_TYPES[k].label} ({SLOTS_EQ[ITEM_TYPES[k].slot].label})</option>)}</select></label>
+              <label>Tipo<select value={draft.type} onChange={(e) => { const t = e.target.value as ItemType; edit({ type: t, grip: DEFAULT_GRIP, ...(draft.weight === ITEM_TYPES[draft.type].weight ? { weight: ITEM_TYPES[t].weight } : {}) }); }}>
+                {CATS.map((c) => <optgroup key={c} label={ITEM_CATEGORIES[c].label}>{typesOf(c).map((k) => <option key={k} value={k}>{ITEM_TYPES[k].label}{slotsFor(k).length ? ` (${slotsFor(k).map((x) => SLOTS_EQ[x].short).join(' ou ')})` : ''}</option>)}</optgroup>)}
+              </select></label>
               <label>Status<span className={'pill ' + status}>{status === 'published' ? 'Publicado' : 'Rascunho'}</span></label>
             </div>
             <label>Descrição<textarea rows={2} value={draft.description} onChange={(e) => edit({ description: e.target.value })} maxLength={200} /></label>
+            <div className="row-3">
+              <label>Peso (kg)<input type="number" min={0} max={500} step={0.05} value={draft.weight} onChange={(e) => edit({ weight: Number(e.target.value) })} /><small className="hint">padrão do tipo: {String(ITEM_TYPES[draft.type].weight).replace('.', ',')} kg</small></label>
+              <label>Categoria<span className="pill">{ITEM_CATEGORIES[ITEM_TYPES[draft.type].category].label}</span><small className="hint">{ITEM_CATEGORIES[ITEM_TYPES[draft.type].category].hint}</small></label>
+              {wear && <label>Espaço<span className="pill">{slotsFor(draft.type).map((x) => SLOTS_EQ[x].label).join(' ou ')}</span></label>}
+            </div>
             {atk && <small className="hint">Golpe: {atk.label} · alcance {atk.range} m · {atk.cadence} golpes/s · dano ×{atk.power} · animação {atk.anim}{atk.twoHanded ? ' · duas mãos' : ''}{atk.ranged === 'charged' ? ' · tiro carregado' : ''}</small>}
 
             <fieldset>
-              <legend>Raridade, essência e atributos</legend>
+              <legend>Raridade, elemento{wear ? ' e atributos' : ''}</legend>
               <div className="grid-form">
                 <label>Raridade<select value={draft.rarity} onChange={(e) => edit({ rarity: e.target.value as Rarity })}>{(Object.keys(RARITIES) as Rarity[]).map((k) => <option key={k} value={k}>{RARITIES[k].label} (×{RARITIES[k].statMul})</option>)}</select></label>
-                <label>Essência<select value={draft.essence ?? ''} onChange={(e) => edit({ essence: (e.target.value || null) as Element | null })}><option value="">Nenhuma</option>{ESS.map((e) => <option key={e} value={e}>{ELEMENTS[e].label}</option>)}</select></label>
-                {ATTRS.map((k) => <label key={k}>{k[0].toUpperCase() + k.slice(1)} (%)<input type="number" min={-20} max={40} value={draft.stats[k] ?? 0} onChange={(e) => edit({ stats: { ...draft.stats, [k]: Number(e.target.value) } })} /></label>)}
+                <label>Elemento<select value={draft.essence ?? ''} onChange={(e) => edit({ essence: (e.target.value || null) as Element | null })}><option value="">Nenhuma</option>{ESS.map((e) => <option key={e} value={e}>{ELEMENTS[e].label}</option>)}</select></label>
+                {wear && ATTRS.map((k) => <label key={k}>{k[0].toUpperCase() + k.slice(1)} (%)<input type="number" min={-20} max={40} value={draft.stats[k] ?? 0} onChange={(e) => edit({ stats: { ...draft.stats, [k]: Number(e.target.value) } })} /></label>)}
               </div>
-              <small className="hint">Atributos leves: o valor é multiplicado pela raridade.</small>
+              {wear && <small className="hint">Atributos leves: o valor é multiplicado pela raridade. Elemento: peças equipadas do mesmo elemento formam um conjunto (2, 4 e 6 peças){draft.essence ? ` — ${ELEMENT_SETS[draft.essence].label}: ${ELEMENT_SETS[draft.essence].note}` : ''}.</small>}
             </fieldset>
 
             <fieldset>
@@ -163,7 +191,7 @@ export function ArsenalStudio() {
               {draft.model && lookOpen && <LookEditor look={draft.look} onChange={(look) => edit({ look })} />}
             </fieldset>
 
-            <fieldset>
+            {wear && <fieldset>
               <legend>Receita da Forja (só Taurinas)</legend>
               {draft.recipe.ingredients.map((g, i) => (
                 <div key={i} className="list-row">
@@ -178,7 +206,7 @@ export function ArsenalStudio() {
                 <label>Tempo na forja (s) <input type="number" min={0} max={3600} value={draft.recipe.seconds} onChange={(e) => edit({ recipe: { ...draft.recipe, seconds: Number(e.target.value) } })} style={{ width: 70 }} /></label>
               </div>
               <label><input type="checkbox" checked={draft.starter} onChange={(e) => edit({ starter: e.target.checked })} /> Dar a todos os Companions (só para eventos)</label>
-            </fieldset>
+            </fieldset>}
 
             {msg && <p className={'msg' + (msg.ok ? ' ok' : ' err')}>{msg.text}</p>}
             <div className="row">
@@ -186,6 +214,7 @@ export function ArsenalStudio() {
               {status === 'draft'
                 ? <button className="secondary" disabled={busy} onClick={() => void run(async () => { await cat.save(draft, 'published'); setStatus('published'); setDirty(false); }, 'Publicado.')}>Salvar e publicar</button>
                 : <button className="ghost" disabled={busy} onClick={() => void run(async () => { await cat.save(draft, 'draft'); setStatus('draft'); setDirty(false); }, 'Tirado do jogo.')}>Tirar do jogo</button>}
+              {status === 'published' && !dirty && <button className="ghost" disabled={busy} onClick={() => void run(grant, `${draft.name} foi para a bolsa do seu Companion (Inventário no jogo).`)} title="Para testar: põe 1 unidade na bolsa do seu Companion">pôr na minha bolsa</button>}
               <button className="link" disabled={busy} onClick={() => { if (window.confirm(`Apagar "${draft.name}"?`)) void run(async () => { await cat.remove(draft.slug); setSel(null); setDraft(null); setDirty(false); }, 'Apagado.'); }}>apagar</button>
             </div>
           </div>

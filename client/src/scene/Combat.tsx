@@ -15,7 +15,7 @@ import { VfxLayer } from './vfx/VfxLayer';
 import { area, aura, beam, burst, Charge, cone, Missile, missile, slash } from './vfx/recipes';
 import { K } from './vfx/engine';
 import { healCompanion, hurtCompanion, vitals } from './vitals';
-import type { HitInfo, SkillDef } from '@rules';
+import { inferModality, type HitInfo, type SkillDef } from '@rules';
 import { markCombat } from '../build/combatStats';
 import { attackPick, companionFocus, type WorldShape } from './world';
 
@@ -353,6 +353,99 @@ function runSkill(ev: Extract<FxEvent, { kind: 'skill' }>, world: WorldShape, po
     // cura: soma no HP do Companion (antes só mostrava o número verde)
     if (ev.heal > 0) V.after(0.15, () => { healCompanion(ev.heal); pop(chest.clone().setY(chest.y + 0.7), '+' + ev.heal, 'heal'); });
   });
+}
+
+/**
+ * Habilidade lançada por um monstro no Companion: o mesmo aviso no chão e os mesmos efeitos das habilidades do
+ * Companion, mas o alvo é o Companion. O aviso (área, linha, cone ou o ponto de queda) aparece durante a preparação, e o
+ * dano só entra se o Companion ainda estiver dentro da forma quando a habilidade sai: dá para desviar.
+ * `onHeal` recebe a cura da própria criatura (habilidades de cura).
+ */
+export interface CreatureCast {
+  skill: SkillDef; from: { x: number; z: number }; yaw: number; target: { x: number; z: number };
+  damage: number; heal: number; color: string; heightAt: (x: number, z: number) => number; size: number;
+  onHeal?: (n: number) => void; alive: () => boolean;
+}
+const COMPANION_R = 0.4;
+export function castCreatureSkill(c: CreatureCast) {
+  const s = c.skill, st = s.vfx.style, col = c.color, V = gameVfx;
+  const fw = new THREE.Vector3(Math.sin(c.yaw), 0, Math.cos(c.yaw));
+  const gy = c.heightAt;
+  const feet = new THREE.Vector3(c.from.x, gy(c.from.x, c.from.z), c.from.z);
+  const chest = feet.clone().add(new THREE.Vector3(0, Math.max(0.35, c.size * 0.55), 0));
+  // área no alvo e salto miram onde o Companion estava no começo (por isso dá para sair do círculo)
+  const tp = new THREE.Vector3(c.target.x, gy(c.target.x, c.target.z), c.target.z);
+  const windup = Math.max(0.35, s.windup || 0.5);
+  const inShape = () => {
+    const t = companionFocus, dx = t.x - feet.x, dz = t.z - feet.z, f = dx * fw.x + dz * fw.z, l = Math.abs(dx * fw.z - dz * fw.x), dist = Math.hypot(dx, dz);
+    const ang = (Math.atan2(l, f) * 180) / Math.PI;
+    switch (s.shape) {
+      case 'melee': return dist <= s.range + COMPANION_R + c.size * 0.3 && ang <= 70;
+      case 'cone': return dist <= s.range + COMPANION_R && ang <= s.angle / 2 + 8;
+      case 'line': case 'dash': return f >= 0 && f <= s.range + COMPANION_R && l <= s.radius + COMPANION_R;
+      case 'circle': case 'leap': return Math.hypot(t.x - tp.x, t.z - tp.z) <= s.radius + COMPANION_R;
+      case 'aura': return dist <= s.radius + COMPANION_R;
+      case 'projectile': return false;
+    }
+  };
+  const modality = s.modality ?? inferModality(s);
+  const strike = (delay: number) => V.after(delay, () => {
+    if (!c.alive() || c.damage <= 0 || !inShape()) return;
+    const got = hurtCompanion(c.damage, modality === 'hibrida' ? 'fisica' : modality);
+    const at = new THREE.Vector3(companionFocus.x, companionFocus.y + 0.7, companionFocus.z);
+    if (got > 0) numQueue.push({ pos: at.clone().setY(at.y + 0.6), text: '-' + got, kind: 'hurt' });
+    burst(V, st, at, col, 0.45, companionFocus.y);
+  });
+  // aviso no chão (lavanda, como o GDD pede para as Brumas): enche durante a preparação
+  const warn = '#c9b8ff';
+  if (s.shape === 'circle' || s.shape === 'leap' || s.shape === 'aura') {
+    const p = s.shape === 'aura' ? feet : tp;
+    V.emit({ k: K.RING, flat: true, pos: { x: p.x, y: p.y + 0.05, z: p.z }, life: windup, size: s.radius * 2.1, c1: warn, alpha: 0.75 });
+    V.emit({ k: K.RING, flat: true, pos: { x: p.x, y: p.y + 0.06, z: p.z }, life: windup, size: 0.2, size1: s.radius * 2.1, c1: warn, alpha: 0.55 });
+  } else if (s.shape === 'line' || s.shape === 'dash' || s.shape === 'cone' || s.shape === 'melee') {
+    // trilha de anéis pequenos marcando a direção e o alcance
+    const reach = s.shape === 'melee' ? s.range + 0.4 : s.range;
+    const steps = Math.max(2, Math.min(8, Math.round(reach / 0.8)));
+    for (let i = 1; i <= steps; i++) {
+      const p = feet.clone().addScaledVector(fw, (reach * i) / steps);
+      const w = s.shape === 'cone' ? Math.max(0.4, 2 * Math.tan(((s.angle || 60) * Math.PI) / 360) * (reach * i) / steps) : s.shape === 'melee' ? 1 : Math.max(0.4, s.radius * 2);
+      V.emit({ k: K.RING, flat: true, pos: { x: p.x, y: gy(p.x, p.z) + 0.05, z: p.z }, life: windup, size: w, c1: warn, alpha: 0.5 });
+    }
+  }
+  V.after(windup, () => {
+    if (!c.alive()) return;
+    switch (s.shape) {
+      case 'melee': slash(V, chest, c.yaw, s.range, col, s.power >= 40); strike(0.07); break;
+      case 'cone': cone(V, st, chest.clone().addScaledVector(fw, 0.3), c.yaw, s.angle, s.range, col); strike(0.2); break;
+      case 'line': beam(V, st, chest, chest.clone().addScaledVector(fw, s.range), s.radius, col); strike(0.05); break;
+      case 'dash': missile(V, { style: st, color: col, from: chest, to: chest.clone().addScaledVector(fw, s.range), duration: 0.3, size: 0.6 }); strike(0.2); break;
+      case 'projectile': {
+        // vai até onde o Companion está agora; acerta se ele ainda estiver perto quando chegar
+        const to = new THREE.Vector3(companionFocus.x, companionFocus.y + 0.7, companionFocus.z);
+        if (chest.distanceTo(to) > s.range + 1.5) to.copy(chest).addScaledVector(fw, s.range);
+        const aim = to.clone();
+        missile(V, { style: st, color: col, from: chest.clone().addScaledVector(fw, 0.3), to, duration: Math.max(0.2, chest.distanceTo(to) / 9), arc: 0.3, size: Math.max(0.5, s.radius * 1.2), onArrive: (p) => {
+          burst(V, st, p, col, 0.8, gy(p.x, p.z));
+          if (!c.alive() || c.damage <= 0) return;
+          if (Math.hypot(companionFocus.x - aim.x, companionFocus.z - aim.z) <= Math.max(0.6, s.radius) + COMPANION_R) {
+            const got = hurtCompanion(c.damage, modality === 'hibrida' ? 'fisica' : modality);
+            if (got > 0) numQueue.push({ pos: new THREE.Vector3(companionFocus.x, companionFocus.y + 1.3, companionFocus.z), text: '-' + got, kind: 'hurt' });
+          }
+        } });
+        break;
+      }
+      case 'circle': {
+        const land = () => { area(V, st, tp, s.radius, col, tp.y); strike(0); };
+        if (['chamas', 'pedras', 'raios', 'gelo', 'gotas'].includes(st)) missile(V, { style: st, color: col, from: tp.clone().add(new THREE.Vector3(-1.2, 6, -0.8)), to: tp.clone().setY(tp.y + 0.3), duration: 0.3, size: 0.8, onArrive: land });
+        else land();
+        break;
+      }
+      case 'leap': V.after(0.3, () => { area(V, st, tp, s.radius, col, tp.y); strike(0); }); break;
+      case 'aura': aura(V, st, feet, s.radius, col, feet.y); strike(0.1); break;
+    }
+    if (c.heal > 0 && c.onHeal) V.after(0.15, () => { c.onHeal!(c.heal); numQueue.push({ pos: chest.clone().setY(chest.y + 0.7), text: '+' + c.heal, kind: 'heal' }); });
+  });
+  return windup;
 }
 
 const devLog: { kind: string; yaw: number; x: number; z: number; t: number }[] = [];
