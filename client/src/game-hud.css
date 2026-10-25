@@ -569,3 +569,5 @@ canvas.cursor-attack { cursor: none !important; }
 /* painel de escolher habilidade no celular: no meio da tela, por cima de tudo */
 .sb-pick-backdrop { position: fixed; inset: 0; z-index: 50; background: #0508147a; display: grid; place-items: center; }
 .sb-pick.float { position: relative; left: auto; bottom: auto; transform: none; width: min(380px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); }
+/* dois dedos ao mesmo tempo (joystick + botão) não podem virar gesto de zoom do navegador */
+.game-ui.touch-land .skill-bar .sb-slot, .game-ui.touch-land .touch-moves button, .game-ui.touch-land .attack-btn { touch-action: none; }

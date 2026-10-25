@@ -33,7 +33,7 @@ export function SkillBar({ color }: { color: string }) {
   const sp = useVitals((v) => v.sp);
   const touch = useTouchLandscape();
   const toast = useGame((s) => s.toast);
-  const hold = useRef<number | null>(null), longPress = useRef(false);
+  const hold = useRef<number | null>(null), longPress = useRef(false), touchAt = useRef(0);
 
   // relógio da recarga: só anima enquanto alguma habilidade está recarregando
   const waiting = Object.values(ready).some((t) => t > now);
@@ -162,10 +162,14 @@ export function SkillBar({ color }: { color: string }) {
             title={u ? `${u.skill.name} — ${u.skill.description} (SP ${castSkill(u.skill, 1).cost})` : free.length ? 'Escolher habilidade' : 'Espaço livre'}
             aria-label={u ? `${i + 1}: ${u.skill.name}${left > 0 ? `, recarregando ${Math.ceil(left / 1000)} s` : ''}` : `${i + 1}: vazio`}
             style={u ? { ['--sk' as string]: colorOf(u.skill, color) } : undefined}
-            onClick={() => { if (longPress.current) { longPress.current = false; return; } cast(i); }}
-            onContextMenu={(e) => { e.preventDefault(); if (u) clear(i); else setPick(i); }}
+            onClick={() => { if (performance.now() - touchAt.current < 800) return; if (longPress.current) { longPress.current = false; return; } cast(i); }}
+            onContextMenu={(e) => { e.preventDefault(); if (touch) return; if (u) clear(i); else setPick(i); }}
             onPointerDown={() => { longPress.current = false; hold.current = window.setTimeout(() => { hold.current = null; longPress.current = true; setPick(i); }, 550); }}
-            onPointerUp={() => { if (hold.current) window.clearTimeout(hold.current); hold.current = null; }}
+            onPointerUp={(e) => {
+              // toque: lança ao soltar o dedo (o navegador não gera "clique" quando outro dedo está no joystick)
+              if (e.pointerType !== 'mouse') { touchAt.current = performance.now(); if (hold.current && !longPress.current) cast(i); }
+              if (hold.current) window.clearTimeout(hold.current); hold.current = null;
+            }}
             onPointerLeave={() => { if (hold.current) window.clearTimeout(hold.current); hold.current = null; }}>
             <kbd>{i + 1}</kbd>
             {u ? <span className="sb-icon" aria-hidden>{ICON[u.skill.vfx.style] ?? '✦'}</span> : <span className="sb-plus" aria-hidden>{free.length ? '+' : ''}</span>}
