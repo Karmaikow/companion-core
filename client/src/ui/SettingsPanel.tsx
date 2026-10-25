@@ -2,6 +2,8 @@
 import { useEffect, useState } from 'react';
 import { useSettings, type Settings } from '../settings';
 import { useGame } from '../store';
+import { useHud } from './hudLayout';
+import { useTouchLandscape } from './TouchControls';
 import { VOICE_OUT_ENABLED, micSupported, speak, voiceGender, voicesPtBr } from './voice';
 
 function Choice<K extends keyof Settings>({ k, label, options, hint }: { k: K; label: string; options: [Settings[K], string][]; hint?: string }) {
@@ -18,6 +20,8 @@ function Choice<K extends keyof Settings>({ k, label, options, hint }: { k: K; l
 export function SettingsPanel() {
   const s = useSettings();
   const [voices, setVoices] = useState(voicesPtBr());
+  const touch = useTouchLandscape();
+  const customHud = useHud((h) => Object.keys(h.pos).length > 0 || h.size !== 1);
   const he = useGame((g) => g.snap?.companion?.discoveries.pronoun === 'ele');
   useEffect(() => {
     if (typeof speechSynthesis === 'undefined') return;
@@ -61,6 +65,14 @@ export function SettingsPanel() {
       {s.micMode === 'uma' && <Choice k="voiceAutoSend" label="Ao terminar a frase" options={[[true, 'Envia sozinho'], [false, 'Deixa na caixa']]} />}
 
       <h3>Tela</h3>
+      <fieldset className="set-row">
+        <legend>Botões de ação (celular deitado)</legend>
+        <div className="chips">
+          <button type="button" className="chip on" disabled={!touch} onClick={() => useHud.getState().edit(true)}>Editar posição dos botões</button>
+          {customHud && <button type="button" className="chip" onClick={() => useHud.getState().reset()}>Voltar ao padrão</button>}
+        </div>
+        <small className="hint">{touch ? 'Arraste ataque, pular, defender, sentar e as habilidades para onde ficar melhor para o dedo; dá para mudar o tamanho também.' : 'Disponível no celular deitado, onde os botões aparecem na tela.'}</small>
+      </fieldset>
       <Choice k="damageNumbers" label="Números de dano" options={[[true, 'Mostrar'], [false, 'Esconder']]} />
       <button type="button" className="link" onClick={() => s.reset()}>voltar tudo ao padrão</button>
     </div>

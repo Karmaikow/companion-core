@@ -30,6 +30,8 @@ import { EcosHud } from './ui/EcosHud';
 import { speak, sendPlayerMessage, stopConversation, useConversation, useMic } from './ui/voice';
 import { brain } from './scene/brain';
 import { SkillBar } from './ui/SkillBar';
+import { HudEditor } from './ui/HudEditor';
+import { useHud } from './ui/hudLayout';
 import { VitalsBars, TouchMoves, FaintCounter } from './ui/VitalsHud';
 import { useSkillSync } from './ui/skillState';
 import { pressAttack, releaseAttack } from './scene/Combat';
@@ -331,6 +333,9 @@ export function App() {
   const touchLand = useTouchLandscape();
   const [railOpen, setRailOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
+  const hudEditing = useHud((h) => h.editing) && touchLand;
+  useEffect(() => { if (hudEditing) { setTab(null); setRailOpen(false); } }, [hudEditing]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (!touchLand && useHud.getState().editing) useHud.getState().edit(false); }, [touchLand]);
   useEffect(() => { if (tab) setRailOpen(false); }, [tab]);
   // Taurina (classe real, de teste ou linhagem): a Oficina vira a Forja Primordial, com menu próprio
   const taurina = canCompleteEquipment(pactoForms.length ? pactoForms : d.form ? [d.form] : []);
@@ -341,7 +346,7 @@ export function App() {
   const Panel = tab ? panel[tab] : null;
 
   return (
-    <div className={'app game-ui' + (tab && !minimized ? ' has-panel' : '') + (place === 'world' ? ' in-world' : '') + (model ? ' with-vitals' : '') + (touchLand ? ' touch-land' : '') + (railOpen ? ' rail-open' : '') + (chatOpen ? ' chat-open' : '')}>
+    <div className={'app game-ui' + (tab && !minimized ? ' has-panel' : '') + (place === 'world' ? ' in-world' : '') + (model ? ' with-vitals' : '') + (touchLand ? ' touch-land' : '') + (hudEditing ? ' hud-editing' : '') + (railOpen ? ' rail-open' : '') + (chatOpen ? ' chat-open' : '')}>
       <div className="stage">
         <Suspense fallback={null}>
           {place === 'world' && model ? (
@@ -422,6 +427,7 @@ export function App() {
               <button className="mm-leave" onClick={() => void leave()}>⎋ Sair da conta</button>
             </div>
           )}
+          {hudEditing && <HudEditor />}
           {model && <AttackCursor />}
           {model && <FaintCounter onReturn={place === 'world' ? goHome : undefined} />}
           {model && (

@@ -372,22 +372,9 @@ canvas.cursor-attack { cursor: none !important; }
 .joy-base { position: absolute; width: 112px; height: 112px; margin: -56px 0 0 -56px; border-radius: 50%; background: radial-gradient(circle, #0d163855 40%, #0d163899); border: 2px solid #dcbc7a88; box-shadow: 0 0 0 4px #0b133055, inset 0 0 18px #0007; opacity: 0.55; transition: opacity 0.15s; pointer-events: none; }
 .joy-base.on { opacity: 1; }
 .joy-knob { position: absolute; left: 50%; top: 50%; width: 50px; height: 50px; margin: -25px 0 0 -25px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #fff2c9, #dcbc7a 60%, #a07c3c); border: 2px solid #fff3cf; box-shadow: 0 4px 12px #0008; }
-.game-ui.touch-land .attack-btn { display: grid; right: 24px; bottom: 20px; width: 80px; height: 80px; border-radius: 50%; z-index: 5; }
 .game-ui.touch-land .skill-bar { position: absolute; left: auto; right: 0; bottom: 0; transform: none; width: 250px; height: 250px; padding: 0; gap: 0; background: none; border: 0; box-shadow: none; backdrop-filter: none; pointer-events: none; z-index: 5; display: block; }
 .game-ui.touch-land .skill-bar .sb-slot { position: absolute; width: 48px; height: 48px; border-radius: 50%; pointer-events: auto; }
-.game-ui.touch-land .skill-bar .sb-slot:nth-child(n+6) { width: 42px; height: 42px; }
 .game-ui.touch-land .skill-bar .sb-slot kbd { display: none; }
-.game-ui.touch-land .skill-bar .sb-slot:nth-child(1) { right: 144px; bottom: 36px; }
-.game-ui.touch-land .skill-bar .sb-slot:nth-child(2) { right: 136px; bottom: 76px; }
-.game-ui.touch-land .skill-bar .sb-slot:nth-child(3) { right: 114px; bottom: 110px; }
-.game-ui.touch-land .skill-bar .sb-slot:nth-child(4) { right: 80px; bottom: 132px; }
-.game-ui.touch-land .skill-bar .sb-slot:nth-child(5) { right: 40px; bottom: 140px; }
-.game-ui.touch-land .skill-bar .sb-slot:nth-child(6) { right: 201px; bottom: 73px; }
-.game-ui.touch-land .skill-bar .sb-slot:nth-child(7) { right: 177px; bottom: 130px; }
-.game-ui.touch-land .skill-bar .sb-slot:nth-child(8) { right: 134px; bottom: 173px; }
-.game-ui.touch-land .skill-bar .sb-slot:nth-child(9) { right: 77px; bottom: 197px; }
-.game-ui.touch-land .touch-moves { flex-direction: row; right: 258px; bottom: 12px; gap: 8px; z-index: 5; }
-.game-ui.touch-land .touch-moves button { width: 46px; height: 46px; }
 .game-ui.touch-land .touch-quick { display: flex; gap: 6px; position: absolute; left: var(--hud-edge); top: calc(var(--hud-top) + 150px); z-index: 7; }
 .game-ui.touch-land .touch-quick button { width: 42px; height: 42px; border-radius: 50%; border: 1px solid #b79d61; background: #0d1638e6; color: #f6dfa8; font-size: 1.1rem; display: grid; place-items: center; box-shadow: 0 4px 10px #0007; }
 .game-ui.touch-land .touch-quick button.on { background: #2a3570; border-color: #ffd77a; }
@@ -492,26 +479,10 @@ canvas.cursor-attack { cursor: none !important; }
 .game-ui.touch-land .mobile-menu-btn { display: grid; place-items: center; position: absolute; top: calc(max(8px, env(safe-area-inset-top)) + 56px); left: max(10px, env(safe-area-inset-left)); width: 40px; height: 40px; border-radius: 50%; border: 1px solid #b79d61; background: #0b1330cc; color: #f6dfa8; font-size: 1.15rem; z-index: 7; box-shadow: 0 3px 10px #0007; }
 .game-ui.touch-land .mobile-menu-btn .dot { position: absolute; right: 2px; top: 2px; }
 /* ação: ataque menor e habilidades em dois arcos mais juntos */
-.game-ui.touch-land .attack-btn { right: 22px; bottom: 20px; width: 64px; height: 64px; }
 .game-ui.touch-land .attack-btn .hud-glyph { width: 30px; height: 30px; }
 .game-ui.touch-land .attack-btn small { display: none; }
-.game-ui.touch-land .skill-bar { width: 200px; height: 200px; }
-.game-ui.touch-land .skill-bar .sb-slot { width: 40px; height: 40px; }
-.game-ui.touch-land .skill-bar .sb-slot:nth-child(n+6) { width: 34px; height: 34px; }
 .game-ui.touch-land .skill-bar .sb-icon { font-size: 1.1rem; }
 .game-ui.touch-land .skill-bar .sb-icon .hud-glyph { width: 22px; height: 22px; }
-.game-ui.touch-land .skill-bar .sb-slot:nth-child(1) { right: 114px; bottom: 32px; }
-.game-ui.touch-land .skill-bar .sb-slot:nth-child(2) { right: 108px; bottom: 63px; }
-.game-ui.touch-land .skill-bar .sb-slot:nth-child(3) { right: 91px; bottom: 89px; }
-.game-ui.touch-land .skill-bar .sb-slot:nth-child(4) { right: 65px; bottom: 106px; }
-.game-ui.touch-land .skill-bar .sb-slot:nth-child(5) { right: 34px; bottom: 112px; }
-.game-ui.touch-land .skill-bar .sb-slot:nth-child(6) { right: 158px; bottom: 61px; }
-.game-ui.touch-land .skill-bar .sb-slot:nth-child(7) { right: 140px; bottom: 104px; }
-.game-ui.touch-land .skill-bar .sb-slot:nth-child(8) { right: 106px; bottom: 138px; }
-.game-ui.touch-land .skill-bar .sb-slot:nth-child(9) { right: 63px; bottom: 156px; }
-.game-ui.touch-land .touch-moves { right: 196px; bottom: 10px; gap: 6px; }
-.game-ui.touch-land .touch-moves button { width: 38px; height: 38px; font-size: 0.95rem; }
-.game-ui.touch-land .touch-moves button small { display: none; }
 .game-ui.touch-land .joy-zone { width: 38vw; height: 55vh; }
 .game-ui.touch-land .joy-base { width: 96px; height: 96px; margin: -48px 0 0 -48px; }
 .game-ui.touch-land .joy-knob { width: 42px; height: 42px; margin: -21px 0 0 -21px; }
@@ -554,3 +525,45 @@ canvas.cursor-attack { cursor: none !important; }
 .soc-modal-box .soc-row { justify-content: center; margin-top: 4px; }
 .soc-modal-box .soc-row button { min-width: 96px; }
 .soc-modal-box button.danger { background: linear-gradient(#7a2f2a, #4e1b18); border-color: #c98a7c; color: #ffe3dc; }
+
+
+/* ---------- celular deitado: posição dos botões vem das variáveis de hudLayout.ts (padrão ou editada pela pessoa) ----------
+   Cada botão fica com o CENTRO a --ui-<id>-r / --ui-<id>-b do canto de baixo à direita; --ui-s muda o tamanho de todos. */
+.game-ui.touch-land .attack-btn,
+.game-ui.touch-land .touch-moves button,
+.game-ui.touch-land .skill-bar .sb-slot { position: absolute; translate: 50% 50%; scale: var(--ui-s, 1); }
+.game-ui.touch-land .attack-btn { display: grid; width: 64px; height: 64px; border-radius: 50%; z-index: 5; right: var(--ui-attack-r); bottom: var(--ui-attack-b); }
+.game-ui.touch-land .skill-bar .sb-slot { width: 44px; height: 44px; border-radius: 50%; pointer-events: auto; }
+.game-ui.touch-land .touch-moves { position: absolute; right: 0; bottom: 0; width: 0; height: 0; display: block; z-index: 5; }
+.game-ui.touch-land .touch-moves button { width: 42px; height: 42px; font-size: 1rem; border-radius: 50%; }
+.game-ui.touch-land .touch-moves button small { display: none; }
+.game-ui.touch-land .touch-moves button:nth-child(1) { right: var(--ui-jump-r); bottom: var(--ui-jump-b); }
+.game-ui.touch-land .touch-moves button:nth-child(2) { right: var(--ui-block-r); bottom: var(--ui-block-b); }
+.game-ui.touch-land .touch-moves button:nth-child(3) { right: var(--ui-sit-r); bottom: var(--ui-sit-b); }
+.game-ui.touch-land .skill-bar .sb-slot:nth-child(1) { right: var(--ui-s1-r); bottom: var(--ui-s1-b); }
+.game-ui.touch-land .skill-bar .sb-slot:nth-child(2) { right: var(--ui-s2-r); bottom: var(--ui-s2-b); }
+.game-ui.touch-land .skill-bar .sb-slot:nth-child(3) { right: var(--ui-s3-r); bottom: var(--ui-s3-b); }
+.game-ui.touch-land .skill-bar .sb-slot:nth-child(4) { right: var(--ui-s4-r); bottom: var(--ui-s4-b); }
+.game-ui.touch-land .skill-bar .sb-slot:nth-child(5) { right: var(--ui-s5-r); bottom: var(--ui-s5-b); }
+.game-ui.touch-land .skill-bar .sb-slot:nth-child(6) { right: var(--ui-s6-r); bottom: var(--ui-s6-b); }
+.game-ui.touch-land .skill-bar .sb-slot:nth-child(7) { right: var(--ui-s7-r); bottom: var(--ui-s7-b); }
+.game-ui.touch-land .skill-bar .sb-slot:nth-child(8) { right: var(--ui-s8-r); bottom: var(--ui-s8-b); }
+.game-ui.touch-land .skill-bar .sb-slot:nth-child(9) { right: var(--ui-s9-r); bottom: var(--ui-s9-b); }
+/* o painel de escolher habilidade, que antes ficava em cima da barra, abre no meio da tela */
+.game-ui.touch-land .skill-bar .sb-pick { position: fixed; left: 50%; top: 50%; bottom: auto; transform: translate(-50%, -50%); max-height: 78vh; z-index: 30; pointer-events: auto; }
+.game-ui.touch-land.hud-editing .joy-zone, .game-ui.touch-land.hud-editing .skill-bar, .game-ui.touch-land.hud-editing .attack-btn, .game-ui.touch-land.hud-editing .touch-moves { visibility: hidden; pointer-events: none; }
+
+/* ---------- editor da posição dos botões ---------- */
+.hud-edit { position: fixed; inset: 0; z-index: 40; background: #050814b8; touch-action: none; user-select: none; -webkit-user-select: none; }
+.hud-edit-bar { position: absolute; left: 50%; top: max(8px, env(safe-area-inset-top)); transform: translateX(-50%); width: max-content; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center; max-width: calc(100vw - 24px); padding: 6px 12px; border-radius: 14px; background: #0d1638f2; border: 1px solid #b79d61; box-shadow: 0 8px 24px #000a; color: #f4ead2; z-index: 2; }
+.hud-edit-bar b { font: 600 0.9rem var(--serif); color: #f6dfa8; }
+.hud-edit-bar label { display: flex; align-items: center; gap: 6px; font-size: 0.78rem; }
+.hud-edit-bar input[type=range] { width: 110px; }
+.hud-edit-bar button { padding: 7px 12px; border-radius: 10px; border: 1px solid #b79d61; background: #1a2350; color: #f6dfa8; font-size: 0.82rem; }
+.hud-edit-bar button.primary { background: #c99a4c; color: #2a1e08; border-color: #f7e2a8; font-weight: 700; }
+.hud-edit-hint { position: absolute; left: max(12px, env(safe-area-inset-left)); bottom: max(10px, env(safe-area-inset-bottom)); max-width: 34vw; font-size: 0.74rem; color: #cfd6ea; background: #0d1638cc; padding: 4px 10px; border-radius: 10px; }
+.hud-ghost { position: absolute; translate: 50% 50%; scale: var(--ui-s, 1); border-radius: 50%; display: grid; place-items: center; background: radial-gradient(circle at 40% 35%, #fff2c933, #dcbc7a55); border: 2px dashed #f7e2a8; color: #fff3cf; font: 700 0.85rem var(--sans, sans-serif); text-shadow: 0 1px 2px #000; touch-action: none; cursor: grab; box-shadow: 0 4px 12px #0008; }
+.hud-ghost small { display: block; font-size: 0.55rem; font-weight: 600; opacity: 0.85; margin-top: -2px; }
+.hud-ghost.drag { cursor: grabbing; border-style: solid; background: radial-gradient(circle at 40% 35%, #fff2c966, #dcbc7a88); z-index: 3; }
+.hud-ghost.bad { border-color: #ff8f8f; background: #ff6a6a44; }
+.hud-ghost.attack { background: radial-gradient(circle at 40% 35%, #f3d48d, #c99a4c); color: #2a1e08; text-shadow: none; }
