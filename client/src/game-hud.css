@@ -571,3 +571,9 @@ canvas.cursor-attack { cursor: none !important; }
 .sb-pick.float { position: relative; left: auto; bottom: auto; transform: none; width: min(380px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); }
 /* dois dedos ao mesmo tempo (joystick + botão) não podem virar gesto de zoom do navegador */
 .game-ui.touch-land .skill-bar .sb-slot, .game-ui.touch-land .touch-moves button, .game-ui.touch-land .attack-btn { touch-action: none; }
+
+/* celular deitado: fechar a conversa (o × fica à direita da caixa); com ela aberta, pular/defender/sentar saem de baixo da caixa */
+.chat-close { display: none; }
+.game-ui.touch-land .chat-close { display: grid; place-items: center; position: absolute; left: calc(50% + min(190px, 22vw) + 8px); bottom: 12px; width: 40px; height: 40px; border-radius: 50%; border: 1px solid #b79d61; background: #0b1330e6; color: #f6dfa8; font-size: 1.4rem; line-height: 1; z-index: 7; box-shadow: 0 3px 10px #0007; }
+.game-ui.touch-land.chat-open .touch-moves { display: none; }
+.game-ui.touch-land.has-panel .chat-close { display: none; }
