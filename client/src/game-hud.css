@@ -582,3 +582,41 @@ canvas.cursor-attack { cursor: none !important; }
 .soc-leave { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; margin-top: 10px; padding: 10px 12px; border-radius: 10px; border: 1px solid #c98a7c; background: #3a1a1f88; color: #ffb3a8; font-size: 0.9rem; }
 .soc-kick { margin: 4px 0 2px; padding: 4px 10px; border-radius: 8px; border: 1px solid #c98a7c; background: #3a1a1f88; color: #ffb3a8; font-size: 0.76rem; }
 .soc-kick:disabled, .soc-leave:disabled { opacity: 0.5; }
+
+/* ---------- Modo GOD (Administrador) ---------- */
+.god-btn { position: absolute; left: var(--hud-edge, 12px); top: calc(var(--hud-top, 12px) + 190px); z-index: 7; width: 46px; height: 46px; border-radius: 50%; border: 1px solid #c9a24c; background: #1b1330e6; color: #ffd77a; font-size: 1.15rem; line-height: 1; display: grid; place-items: center; box-shadow: 0 4px 12px #0008; }
+.god-btn small { font-size: 0.5rem; letter-spacing: 0.08em; margin-top: -4px; }
+.god-btn.on { background: radial-gradient(circle at 40% 35%, #ffe9a3, #d79a2d); color: #2a1604; border-color: #fff0b8; box-shadow: 0 0 14px #ffd77aaa; }
+.game-ui.touch-land .god-btn { left: max(10px, env(safe-area-inset-left)); top: calc(max(8px, env(safe-area-inset-top)) + 104px); width: 40px; height: 40px; }
+.game-ui.touch-land.has-panel .god-btn, .game-ui.touch-land.rail-open .god-btn { display: none; }
+.god-backdrop { position: fixed; inset: 0; z-index: 45; background: #0508149a; display: grid; place-items: center; }
+.god-panel { width: min(520px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); display: flex; flex-direction: column; border-radius: 14px; background: #0d1638; border: 1px solid #c9a24c; box-shadow: 0 12px 34px #000b; color: #f4ead2; overflow: hidden; }
+.god-panel header { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-bottom: 1px solid #c9a24c55; }
+.god-panel header b { font: 600 1rem var(--serif); color: #ffd77a; }
+.god-panel header small { font: 0.65rem var(--sans, sans-serif); color: #cfd6ea; margin-left: 6px; }
+.god-panel header button { width: 34px; height: 34px; border-radius: 50%; border: 1px solid #b79d61; background: #1a2350; color: #f6dfa8; font-size: 1.2rem; }
+.god-tabs { display: flex; gap: 4px; padding: 6px 8px; overflow-x: auto; border-bottom: 1px solid #c9a24c33; }
+.god-tabs button { flex: none; padding: 6px 12px; border-radius: 99px; border: 1px solid #3a4a78; background: transparent; color: #cfd6ea; font-size: 0.82rem; }
+.god-tabs button.on { background: linear-gradient(#e2bf78, #b58f4c); color: #1d1408; border-color: transparent; font-weight: 700; }
+.god-body { padding: 10px 12px 14px; overflow-y: auto; }
+.god-col { display: grid; gap: 10px; }
+.god-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.god-panel button:not(.god-switch) { padding: 7px 12px; border-radius: 10px; border: 1px solid #b79d61; background: #1a2350; color: #f6dfa8; font-size: 0.82rem; }
+.god-panel button.on { background: #c99a4c; color: #2a1e08; font-weight: 700; }
+.god-panel button.primary { background: #c99a4c; color: #2a1e08; font-weight: 700; border-color: #f7e2a8; }
+.god-panel button:disabled { opacity: 0.45; }
+.god-panel select, .god-panel input { background: #0a1020; color: #f4ead2; border: 1px solid #3a4a78; border-radius: 8px; padding: 7px 9px; font: inherit; font-size: 0.85rem; min-width: 0; }
+.god-panel input[type=number] { width: 64px; }
+.god-panel label { display: grid; gap: 4px; font-size: 0.78rem; color: #cfd6ea; }
+.god-switch { display: grid; gap: 2px; padding: 14px; border-radius: 12px; border: 2px solid #5a4a2a; background: #1a1830; color: #cfd6ea; text-align: center; }
+.god-switch b { font: 700 1.1rem var(--serif); }
+.god-switch small { font-size: 0.72rem; opacity: 0.8; }
+.god-switch.on { background: radial-gradient(circle at 40% 30%, #ffe9a3, #d79a2d); color: #2a1604; border-color: #fff0b8; box-shadow: 0 0 18px #ffd77a88; }
+.god-list { margin: 0; padding-left: 18px; font-size: 0.82rem; color: #d7dcea; display: grid; gap: 2px; }
+.god-warn { margin: 0; padding: 8px 10px; border-radius: 10px; background: #3a2a1a; border: 1px solid #c98a4c; font-size: 0.8rem; color: #ffd9a8; }
+.god-hint { font-size: 0.78rem; color: #b9c2d8; margin: 0; }
+.god-items { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; max-height: min(46dvh, 360px); overflow-y: auto; }
+.god-items li { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 10px; background: #141d44; border: 1px solid #2c3b5c; }
+.god-items li > span:first-child { display: grid; min-width: 0; }
+.god-items li b { font-size: 0.86rem; }
+.god-items li small { font-size: 0.7rem; color: #aab4cc; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }

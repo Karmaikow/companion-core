@@ -20,6 +20,8 @@ import { burst } from './vfx/recipes';
 import { hurtCompanion, vitals, companionResting } from './vitals';
 import { brain, onKill, say, sayMoment } from './brain';
 import { useGame } from '../store';
+import { godFlags } from './god';
+import { useGod } from '../ui/godMode';
 
 /** Habilidade do catálogo (o publicado na Forja; sem ele, as de exemplo). */
 const skillDef = (slug: string): SkillDef | null => useSkills.getState().catalog.find((k) => k.slug === slug) ?? DEFAULT_SKILLS.find((k) => k.slug === slug) ?? null;
@@ -44,9 +46,10 @@ export function WorldCreatures({ cw, creatures, center, night, high }: { cw: Com
     for (let dz = -R; dz <= R; dz++) for (let dx = -R; dx <= R; dx++) out.push(...chunkSpawns(cw.seed + 17, center[0] + dx, center[1] + dz, CHUNK, creatures, biomeAt, blocked, night));
     return out;
   }, [cw, creatures, center, night, high]);
+  const summoned = useGod((g) => g.spawns);
   return (
     <group>
-      {spawns.map((s) => {
+      {[...spawns, ...summoned].map((s) => {
         const def = bySlug.get(s.slug);
         return def ? <AssetBoundary key={s.id + s.slug}><Suspense fallback={null}><WorldCreature cw={cw} def={def} spawn={s} /></Suspense></AssetBoundary> : null;
       })}
@@ -82,9 +85,10 @@ function WorldCreature({ cw, def, spawn }: { cw: CompanionWorld; def: CreatureDe
         else L.dots.push({ key, left: seconds, dps, stacks: 1, tick: 1 });
         L.provoked = true;
       },
-      hit: (damage, info) => {
+      hit: (damage0, info) => {
         const L = life.current;
         if (L.dead > 0) return 0;
+        const damage = godFlags.on ? damage0 * godFlags.dmgMul : damage0;
         // Constelação Viva: física passa pela defesa; mágica pela resistência (sem campo próprio, a criatura usa a
         // defesa — pendência de balanceamento); afinidade da essência e precisão nas fraquezas
         const dealt = info

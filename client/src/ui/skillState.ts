@@ -14,6 +14,7 @@ import {
 import { useGame } from '../store';
 import { castSkill } from '../build/combatStats';
 import { supabase } from '../backend/online';
+import { useGod } from './godMode';
 
 export const BAR_SIZE = 9;
 const allocKey = (id: string) => 'companion-core:skill-alloc:' + id;
@@ -66,13 +67,20 @@ export function useSkillData() {
   const secrets = snap?.secrets?.length ?? 0;
   const bond = c?.bond.level ?? 1, points = skillPoints(bond, 0, secrets);
   const catalog = useSkills((s) => s.catalog), alloc = useSkills((s) => s.alloc);
+  const granted = useGod((g) => g.skills);
   const tree: SkillTree | null = useMemo(() => (species ? buildSkillTree(catalog, { essence, species }) : null), [catalog, essence, species]);
   const fx = useMemo(() => (tree ? treeEffects(tree, alloc) : null), [tree, alloc]);
   /** habilidades abertas, na ordem da árvore, com o nível */
   const unlocked = useMemo(() => {
-    if (!fx) return [] as { skill: SkillDef; level: number }[];
-    return [...fx.skills.entries()].map(([slug, level]) => ({ skill: catalog.find((s) => s.slug === slug)!, level })).filter((x) => !!x.skill);
-  }, [fx, catalog]);
+    const base = fx ? [...fx.skills.entries()].map(([slug, level]) => ({ skill: catalog.find((s) => s.slug === slug)!, level })).filter((x) => !!x.skill) : [] as { skill: SkillDef; level: number }[];
+    // Modo GOD: habilidades dadas pelo painel do Administrador (valem mesmo fora da árvore)
+    for (const [slug, level] of Object.entries(granted)) {
+      const sk = catalog.find((x) => x.slug === slug), at = base.findIndex((b) => b.skill.slug === slug);
+      if (!sk) continue;
+      if (at >= 0) base[at] = { skill: sk, level: Math.max(level, base[at].level) }; else base.push({ skill: sk, level });
+    }
+    return base;
+  }, [fx, catalog, granted]);
   return { companion: c ?? null, species, essence, bond, points, secrets, tree, fx, unlocked, catalog, alloc };
 }
 

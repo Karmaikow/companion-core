@@ -12,6 +12,7 @@
 import { create } from 'zustand';
 import { applyBuildToResources, incomingDamage, type DerivedStats, type Modality } from '@rules';
 import { combat, markCombat } from '../build/combatStats';
+import { godFlags } from './god';
 
 export interface VitalsView { /** Barreira Breve: segundos ativos restantes e de recarga */ shield: number; shieldCd: number; hp: number; hpMax: number; sp: number; spMax: number; st: number; stMax: number; down: boolean; hitId: number; /** segundos até levantar (desmaiado) */ wake: number; /** desmaiado, contagem terminada: esperando a escolha */ ready: boolean; /** segundos de invencibilidade restantes */ invuln: number }
 
@@ -51,11 +52,13 @@ export function setMaxima(d: Pick<DerivedStats, 'hpMax' | 'spMax' | 'stMax'>) {
 
 /** Gasta stamina (pulo, golpe, defesa). Sem o suficiente, não faz. */
 export function spendStamina(n: number): boolean {
+  if (godFlags.on) return vitals.down <= 0;
   if (vitals.down > 0 || vitals.st < n) return false;
   vitals.st -= n; vitals.rest = 0.7; publish();
   return true;
 }
 export function spendSp(n: number): boolean {
+  if (godFlags.on) return vitals.down <= 0;
   if (vitals.down > 0 || vitals.sp < n) return false;
   vitals.sp -= n; publish();
   return true;
@@ -66,6 +69,7 @@ export function canAct() { return vitals.down <= 0; }
 export function hurtCompanion(damage: number, modality: Modality = 'fisica'): number {
   const v = vitals;
   if (v.down > 0) return 0;
+  if (godFlags.on) { v.hitId++; publish(); return 0; } // modo GOD: ninguém te arranha
   if (performance.now() < v.invulnUntil) { v.hitId++; publish(); return 0; } // acabou de levantar: invencível
   markCombat();
   const now = performance.now();
@@ -101,6 +105,7 @@ export function healCompanion(n: number) { vitals.hp = Math.min(vitals.hpMax, vi
 /** Chamado a cada quadro pelo Companion. */
 export function tickVitals(dt: number) {
   const v = vitals;
+  if (godFlags.on && v.down <= 0) { v.hp = v.hpMax; v.sp = v.spMax; v.st = v.stMax; }
   if (v.down > 0) {
     // a stamina enche; cheia, ele continua deitado esperando a escolha (levantar ou voltar ao Refúgio)
     v.st = Math.min(v.stMax, v.st + (v.stMax / DOWN_SECONDS) * dt);

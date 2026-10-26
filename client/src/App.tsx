@@ -31,6 +31,8 @@ import { speak, sendPlayerMessage, stopConversation, useConversation, useMic } f
 import { brain } from './scene/brain';
 import { SkillBar } from './ui/SkillBar';
 import { HudEditor } from './ui/HudEditor';
+import { GodMode } from './ui/GodPanel';
+import { useGod } from './ui/godMode';
 import { SafeStage, glLostBefore } from './scene/SafeStage';
 import { useHud } from './ui/hudLayout';
 import { VitalsBars, TouchMoves, FaintCounter } from './ui/VitalsHud';
@@ -167,7 +169,8 @@ export function App() {
   }, []);
 
   // ---- Companion World: o mundo aberto além da passagem na muralha
-  const model = testModel ?? snap?.visualJob?.model;
+  const godModel = useGod((g) => g.model);
+  const model = godModel ?? testModel ?? snap?.visualJob?.model;
   const testWorld = useMemo(() => new URLSearchParams(location.search).has('mundo'), []);
   const passage = features.window || testWorld;
   const [place, setPlace] = useState<'refuge' | 'world'>('refuge');
@@ -436,6 +439,7 @@ export function App() {
             </div>
           )}
           {hudEditing && <HudEditor />}
+          {model && !hudEditing && <GodMode inWorld={place === 'world'} />}
           {model && <AttackCursor />}
           {model && <FaintCounter onReturn={place === 'world' ? goHome : undefined} />}
           {model && (

@@ -765,6 +765,7 @@ Deno.serve(async (req) => {
     const action = String(body.action ?? 'state');
     const cfg = await loadConfig(db);
     await refreshAi(db);
+    if (action === 'whoami') return json(200, { admin: await isAdmin(db, userId) }); // o jogo mostra o Modo GOD só ao Administrador
     if (action.startsWith('admin.')) {
       if (!(await isAdmin(db, userId))) return json(403, { error: 'Esta conta não é administradora.' });
       if (action === 'admin.jobs') return json(200, await adminJobs(db));

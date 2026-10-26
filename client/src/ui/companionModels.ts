@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../backend/online';
 
-export interface CompanionModelRef { companionId: string; name: string; url: string; status: string; anims: { url: string; name: string; kind: string }[] }
+export interface CompanionModelRef { companionId: string; name: string; url: string; status: string; anims: { url: string; name: string; kind: string }[]; /** todas as animações do modelo, inclusive a do próprio corpo (para usar como modelo do Companion) */ all?: { url: string; name: string; kind: string }[] }
 
 /** Modelo já carregado na lista (com as animações extras, como o pacote padrão). */
 export const companionModelById = (id: string | null | undefined) => (id ? cache?.find((m) => m.companionId === id) ?? null : null);
@@ -17,7 +17,7 @@ export function useCompanionModels() {
     supabase().functions.invoke('refuge', { body: { action: 'admin.jobs' } }).then(({ data }) => {
       const jobs = ((data as { jobs?: { companionId: string; name: string; status: string; model?: { url: string; anims?: { url: string; name: string; kind: string }[] } }[] })?.jobs ?? []);
       const seen = new Set<string>(), out: CompanionModelRef[] = [];
-      for (const j of jobs) if (j.model?.url && !seen.has(j.companionId)) { seen.add(j.companionId); out.push({ companionId: j.companionId, name: j.name, url: j.model.url, status: j.status, anims: (j.model.anims ?? []).filter((a) => a.url !== j.model!.url) }); }
+      for (const j of jobs) if (j.model?.url && !seen.has(j.companionId)) { seen.add(j.companionId); out.push({ companionId: j.companionId, name: j.name, url: j.model.url, status: j.status, anims: (j.model.anims ?? []).filter((a) => a.url !== j.model!.url), all: j.model.anims ?? [] }); }
       cache = out; if (alive) setList(out);
     }, () => alive && setList([]));
     return () => { alive = false; };
