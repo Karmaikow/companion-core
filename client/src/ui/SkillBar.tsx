@@ -12,6 +12,7 @@ import { useGame } from '../store';
 import { requestSkill, skillChargeState, skillInput } from '../scene/Combat';
 import { BAR_SIZE, saveBar, useSkillData, useSkills } from './skillState';
 import { canAct, spendSp, useVitals } from '../scene/vitals';
+import { godFlags } from '../scene/god';
 
 const ICON: Record<string, string> = { impacto: '💥', chamas: '🔥', gotas: '💧', folhas: '🍃', pedras: '🪨', gelo: '❄️', raios: '⚡', vento: '🌪️', luz: '✨', sombra: '🌑', faiscas: '🎆', veneno: '🧪' };
 
@@ -62,7 +63,7 @@ export function SkillBar({ color }: { color: string }) {
     if (mult > 1 && frozen.damage > 0) { frozen.damage = Math.round(frozen.damage * mult); toast(`${u.skill.name} concentrada: ×${mult.toFixed(2).replace('.', ',')} de dano`, 'gold'); }
     if (!spendSp(frozen.cost)) { setShort(i); window.setTimeout(() => setShort((f) => (f === i ? null : f)), 500); return; }
     requestSkill({ skill: u.skill, level: u.level, color: colorOf(u.skill, color), frozen });
-    useSkills.getState().setReady(u.skill.slug, t + (cooldownOf(u.skill, u.level) + frozen.windup) * 1000);
+    useSkills.getState().setReady(u.skill.slug, godFlags.on ? 0 : t + (cooldownOf(u.skill, u.level) + frozen.windup) * 1000);
     setNow(t); setFlash(i); window.setTimeout(() => setFlash((f) => (f === i ? null : f)), 180);
   };
   const castRef = useRef(cast); castRef.current = cast;

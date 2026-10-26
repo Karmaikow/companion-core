@@ -766,3 +766,11 @@ Prompt com o mundo de fantasia, regra explícita de pronomes ("mim" = a pessoa; 
   boneco com os oito espaços, resumo (golpe, bônus, conjuntos, carga) e a bolsa por categoria com detalhes e ações.
   Arsenal: itens de todas as categorias, peso, elemento, espaço; "pôr na minha bolsa". Invocador: drops sugerem os itens
   do Arsenal e mostram se o nome casa. Capa e elmo aparecem no corpo; armadura, botas e acessórios só dão atributos.
+- **v1.39 — Celular: botões, conversa, grupo e Modo GOD.** Botões de ação do celular deitado em arco com folga e editor de
+  posição/tamanho nos Ajustes (`ui/hudLayout.ts`, `HudEditor.tsx`; variáveis CSS `--ui-<id>-r/-b`, `--ui-s`; posição salva
+  neste navegador). Habilidades disparam ao soltar o dedo (funciona com o joystick em uso). Conversa no celular ganhou o ×.
+  `scene/SafeStage.tsx`: se o WebGL cai ou é bloqueado, aviso com "Tentar de novo" em vez de tela escura (e qualidade leve
+  na aba). Grupo: botão "Sair do grupo" visível e `social.party.kick` (só o líder). **Modo GOD** (`ui/GodPanel.tsx`,
+  `ui/godMode.ts`, `scene/god.ts`): ação `whoami` do servidor diz se a conta é ADM; só então aparece o botão ⚡ no jogo, com
+  poderes (vida/SP/stamina cheios, sem recarga, dano ×20), invocar monstros do Invocador perto de você, dar itens do Arsenal
+  (`inventory.grant`), trocar o modelo 3D por um da Fábrica (só na aba) e dar habilidades da Forja (valem na barra 1–9).
