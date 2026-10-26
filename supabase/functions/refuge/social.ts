@@ -345,6 +345,18 @@ export async function socialAction(action: string, body: Record<string, unknown>
       return state(ctx);
     }
 
+    // o líder tira alguém do grupo
+    case 'social.party.kick': {
+      const target = uuidOf(body.id);
+      const p = await partyOf(db, me);
+      if (!p || p.leader !== me) throw new SocialError(403, 'Só o líder do grupo pode tirar alguém.');
+      if (target === me || !p.members.includes(target)) throw new SocialError(400, 'Esse Companion não está no seu grupo.');
+      await db.from('companion_party_members').delete().eq('companion_id', target).eq('party_id', p.id);
+      if (p.members.length - 1 <= 1) await db.from('companion_parties').delete().eq('id', p.id);
+      await ctx.event(target, 'social.party.left', { party: p.id, kickedBy: me });
+      return state(ctx);
+    }
+
     // troca (só pessoas)
     case 'social.trade.propose': {
       const to = uuidOf(body.to);
