@@ -335,6 +335,7 @@ export function App() {
   const touchLand = useTouchLandscape();
   const [railOpen, setRailOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
+  useEffect(() => { if (!touchLand) setChatOpen(false); }, [touchLand]);
   const hudEditing = useHud((h) => h.editing) && touchLand;
   useEffect(() => { if (hudEditing) { setTab(null); setRailOpen(false); } }, [hudEditing]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (!touchLand && useHud.getState().editing) useHud.getState().edit(false); }, [touchLand]);
@@ -399,8 +400,11 @@ export function App() {
           {model && <SkillBar color={visual.glow} />}
           {model && <TouchMoves />}
           {model && touchLand && <Joystick />}
+          {touchLand && chatOpen && (
+            <button className="chat-close" onClick={() => setChatOpen(false)} aria-label="Fechar a conversa">×</button>
+          )}
           {touchLand && (
-            <button className="mobile-menu-btn" onClick={() => setRailOpen(true)} aria-label="Abrir o menu" aria-expanded={railOpen}>☰{socialBadge > 0 && <em className="dot" aria-label={socialBadge + ' pedidos'} />}</button>
+            <button className="mobile-menu-btn" onClick={() => { setChatOpen(false); setRailOpen(true); }} aria-label="Abrir o menu" aria-expanded={railOpen}>☰{socialBadge > 0 && <em className="dot" aria-label={socialBadge + ' pedidos'} />}</button>
           )}
           {touchLand && railOpen && (
             <div className="mobile-menu" role="dialog" aria-label="Menu">
