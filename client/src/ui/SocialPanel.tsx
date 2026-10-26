@@ -41,6 +41,7 @@ export function SocialPanel() {
   const [trading, setTrading] = useState<{ to: SocialCard; counter?: string } | null>(null);
   const [openMeet, setOpenMeet] = useState<number | null>(null);
   const [confirmLeave, setConfirmLeave] = useState(false);
+  const [confirmKick, setConfirmKick] = useState<{ id: string; name: string } | null>(null);
   if (!available) return <p className="hint">Amigos e grupos acontecem no modo online, depois do despertar: o seu Companion conhece outros no Companion World.</p>;
   if (!data) return <p className="hint">Carregando…</p>;
   const inParty = (id: string) => !!data.party?.members.some((m) => m.id === id);
@@ -70,8 +71,8 @@ export function SocialPanel() {
         <h3>Grupo</h3>
         {data.party ? (
           <div className="soc-card soc-party-card">
-            <button className="soc-icon danger soc-corner" disabled={busy} onClick={() => setConfirmLeave(true)} title="Sair do grupo" aria-label="Sair do grupo"><ExitIcon /></button>
-            <PartyCard party={data.party} me={data.me} />
+            <PartyCard party={data.party} me={data.me} busy={busy} onKick={(m) => setConfirmKick(m)} />
+            <button className="soc-leave danger" disabled={busy} onClick={() => setConfirmLeave(true)}><ExitIcon /> Sair do grupo</button>
           </div>
         ) : <p className="hint">Sem grupo agora. O seu Companion pode montar um sozinho, ou você chama alguém que ele conhece.</p>}
         {data.partyInvites.map((i) => (
@@ -124,6 +125,19 @@ export function SocialPanel() {
           </div>
         ))}
       </section>
+      {confirmKick && (
+        <div className="soc-modal" role="dialog" aria-modal="true" aria-label="Tirar do grupo" onClick={() => setConfirmKick(null)}>
+          <div className="soc-modal-box" onClick={(e) => e.stopPropagation()}>
+            <ExitIcon />
+            <b>Tirar {confirmKick.name} do grupo?</b>
+            <p>Só você, como líder, pode fazer isso. Ele volta a andar sozinho e pode ser chamado de novo depois.</p>
+            <div className="soc-row">
+              <button className="primary danger" disabled={busy} onClick={() => { const id = confirmKick.id; setConfirmKick(null); void socialCall('social.party.kick', { id }); }}>Tirar</button>
+              <button autoFocus onClick={() => setConfirmKick(null)}>Cancelar</button>
+            </div>
+          </div>
+        </div>
+      )}
       {confirmLeave && (
         <div className="soc-modal" role="dialog" aria-modal="true" aria-label="Sair do grupo" onClick={() => setConfirmLeave(false)}>
           <div className="soc-modal-box" onClick={(e) => e.stopPropagation()}>
@@ -205,7 +219,7 @@ function TradeEditor({ data, to, counter, onClose }: { data: SocialState; to: So
 }
 
 /** Membros do grupo: retrato redondo, vida, onde está (radar em volta de você) e o que o grupo está fazendo. */
-function PartyCard({ party, me }: { party: NonNullable<SocialState['party']>; me: string }) {
+function PartyCard({ party, me, busy, onKick }: { party: NonNullable<SocialState['party']>; me: string; busy: boolean; onKick: (m: { id: string; name: string }) => void }) {
   const [, tick] = useState(0);
   useEffect(() => { const t = window.setInterval(() => tick((x) => x + 1), 1000); return () => window.clearInterval(t); }, []);
   const group = useSocial((s) => s.group);
@@ -242,6 +256,7 @@ function PartyCard({ party, me }: { party: NonNullable<SocialState['party']>; me
             <div className="party-info">
               <b>{m.name}{m.id === party.leader && <small> · líder</small>}{mine && <small> · você</small>}</b>
               <div className="party-hp" aria-label={hp !== undefined ? `Vida ${Math.round(hp * 100)}%` : 'Vida desconhecida'}><i style={{ width: `${Math.round((hp ?? 0) * 100)}%` }} className={down ? 'down' : ''} /></div>
+              {party.leader === me && !mine && <button className="soc-kick" disabled={busy} onClick={() => onKick({ id: m.id, name: m.name })}>Tirar do grupo</button>}
               <small>{mine ? 'aqui' : !here ? 'fora do mundo (no Refúgio)' : down ? 'desmaiado' : d < 3 ? 'do seu lado' : `a ${Math.round(d)} m, ${dirName(dx, dz)}`}</small>
             </div>
           </li>
