@@ -26,7 +26,7 @@ export function ForgeAi({ onApply }: { onApply: (layers: VfxLayerDef[]) => void 
     finally { if (id === version.current) setBusy(false); }
   }
   return <details className="vfx-layer" open><summary>Criar VFX com IA</summary>
-    <p>Descreva o efeito e, se quiser, envie uma referência. A IA combina as camadas disponíveis; não cria modelos 3D nem texturas novas. Texto e imagem serão enviados à OpenAI ao gerar.</p>
+    <p>Descreva o efeito e, se quiser, envie uma referência. A IA combina as camadas disponíveis; não cria modelos 3D nem texturas novas. Texto e imagem serão enviados à NVIDIA ao gerar.</p>
     <label>Descrição<textarea maxLength={2000} value={prompt} disabled={busy} onChange={e => { setPrompt(e.target.value); setResult(null); }} placeholder="Cristais azuis surgem no trajeto, com uma runa e névoa gelada." /></label>
     <label>Imagem de referência (PNG, JPEG ou WebP; até 2 MB)<input type="file" accept="image/png,image/jpeg,image/webp" disabled={busy} onChange={async e => {
       const file = e.target.files?.[0]; setResult(null); setImage(''); setError('');
