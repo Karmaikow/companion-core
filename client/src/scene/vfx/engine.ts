@@ -71,7 +71,13 @@ function col(c: Col | undefined, fallback: THREE.Color): THREE.Color {
   return c === undefined ? fallback.clone() : c instanceof THREE.Color ? c.clone() : tmpC.set(c).clone();
 }
 
+export interface Crystal { at: THREE.Vector3; color: THREE.Color; size: number; life: number; age: number; yaw: number }
 export class VfxStore {
+  crystals: Crystal[] = [];
+  crystal(at: THREE.Vector3, color: Col, size: number, life: number, yaw: number) {
+    if (this.crystals.length >= 192) this.crystals.shift();
+    this.crystals.push({ at: at.clone(), color: new THREE.Color(color), size, life, age: 0, yaw });
+  }
   parts: Particle[] = [];
   lines: Line[] = [];
   time = 0;
@@ -118,10 +124,15 @@ export class VfxStore {
   /** Roda a cada quadro até devolver false. */
   every(fn: (dt: number) => boolean) { this.tickers.push(fn); }
 
-  clear() { this.parts.length = 0; this.lines.length = 0; this.timers.length = 0; this.tickers.length = 0; }
+  clear() { this.time = 0; this.crystals.length = 0; this.parts.length = 0; this.lines.length = 0; this.timers.length = 0; this.tickers.length = 0; }
 
   update(dt: number) {
+    if (!Number.isFinite(dt) || dt <= 0) return;
     this.time += dt;
+    for (let i = this.crystals.length - 1; i >= 0; i--) {
+      this.crystals[i].age += dt;
+      if (this.crystals[i].age >= this.crystals[i].life) this.crystals.splice(i, 1);
+    }
     for (let i = this.timers.length - 1; i >= 0; i--) { const t = this.timers[i]; t.t -= dt; if (t.t <= 0) { this.timers.splice(i, 1); t.fn(); } }
     for (let i = this.tickers.length - 1; i >= 0; i--) if (!this.tickers[i](dt)) this.tickers.splice(i, 1);
     const P = this.parts;

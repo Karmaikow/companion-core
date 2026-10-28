@@ -1,5 +1,5 @@
 /** Desenha uma VfxStore: duas malhas instanciadas (normal e aditiva) com as formas no shader, e as fitas. */
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { VfxStore, lineAlpha, type Particle } from './engine';
@@ -200,7 +200,9 @@ function fill(g: THREE.InstancedBufferGeometry, ps: Particle[], add: boolean) {
 }
 
 /** fixedDt: passo fixo por quadro (lab/testes), em vez do tempo real. */
-export function VfxLayer({ store, fixedDt }: { store: VfxStore; fixedDt?: number }) {
+export function VfxLayer({ store, fixedDt, timeScale = 1 }: { store: VfxStore; fixedDt?: number; timeScale?: number }) {
+  const crystalMesh = useRef<THREE.InstancedMesh>(null);
+  const transform = useMemo(() => new THREE.Object3D(), []);
   const uniforms = useMemo(() => ({ uTime: { value: 0 } }), []);
   const { gN, gA, gL, mN, mA, mL } = useMemo(() => {
     const mk = (add: boolean) => new THREE.ShaderMaterial({ vertexShader: PART_VERT, fragmentShader: PART_FRAG, uniforms, transparent: true, depthWrite: false, depthTest: !add, blending: add ? THREE.AdditiveBlending : THREE.NormalBlending, toneMapped: false });
@@ -218,9 +220,23 @@ export function VfxLayer({ store, fixedDt }: { store: VfxStore; fixedDt?: number
   const tmp = useMemo(() => ({ T: new THREE.Vector3(), V: new THREE.Vector3(), S: new THREE.Vector3() }), []);
 
   useFrame((state, dtRaw) => {
-    const dt = fixedDt ?? Math.min(dtRaw, 0.05);
+    const dt = fixedDt ?? Math.min(dtRaw, 0.05) * timeScale;
     store.update(dt);
     uniforms.uTime.value = store.time;
+    if (crystalMesh.current) {
+      const mesh = crystalMesh.current;
+      mesh.count = store.crystals.length;
+      store.crystals.forEach((c, i) => {
+        const grow = Math.min(1, c.age / 0.22), fade = Math.min(1, (c.life - c.age) / 0.4);
+        const h = c.size * Math.max(0.001, grow * fade);
+        transform.position.copy(c.at).add(new THREE.Vector3(0, h * 0.5, 0));
+        transform.rotation.set(0.12 * Math.sin(c.yaw), c.yaw, 0.18 * Math.cos(c.yaw));
+        transform.scale.set(h * 0.22, h, h * 0.22); transform.updateMatrix();
+        mesh.setMatrixAt(i, transform.matrix); mesh.setColorAt(i, c.color);
+      });
+      mesh.instanceMatrix.needsUpdate = true;
+      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    }
     fill(gN, store.parts, false);
     fill(gA, store.parts, true);
     // fitas viradas para a câmera
@@ -262,6 +278,10 @@ export function VfxLayer({ store, fixedDt }: { store: VfxStore; fixedDt?: number
 
   return (
     <group>
+      <instancedMesh ref={crystalMesh} args={[undefined, undefined, 192]} frustumCulled={false}>
+        <coneGeometry args={[1, 1, 5]} />
+        <meshStandardMaterial color="#ffffff" metalness={0.25} roughness={0.2} flatShading />
+      </instancedMesh>
       <mesh geometry={gL} material={mL} frustumCulled={false} renderOrder={10} />
       <mesh geometry={gN} material={mN} frustumCulled={false} renderOrder={11} />
       <mesh geometry={gA} material={mA} frustumCulled={false} renderOrder={12} />
