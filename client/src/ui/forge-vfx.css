@@ -1,0 +1,17 @@
+.forge-vfx { background: linear-gradient(135deg, #111e30, #181529); }
+.vfx-presets,.vfx-layer-actions { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+.vfx-presets button,.vfx-layer-actions button,.vfx-playback button { padding:8px 12px; border:1px solid #496481; border-radius:8px; background:#172840; color:#e2edfa; cursor:pointer; }
+.vfx-presets button:disabled { opacity:.45; cursor:default; }
+.vfx-score { padding:12px; background:#0b1524; border-radius:10px; display:grid; gap:9px; }
+.vfx-track { display:grid; grid-template-columns:130px minmax(0,1fr); gap:8px; font-size:12px; }
+.vfx-track>div { position:relative; background:#243048; border-radius:4px; height:14px; overflow:hidden; }
+.vfx-track i { position:absolute; height:100%; border-radius:4px; }
+.vfx-layer { border:1px solid #34465c; border-radius:8px; padding:10px; }
+.vfx-layer summary { cursor:pointer; color:#c6e5ff; margin-bottom:10px; }
+.vfx-layer-actions { justify-content:space-between; margin-bottom:10px; }
+.vfx-layer-actions label { display:flex!important; align-items:center; }
+.vfx-playback { display:flex; flex-wrap:wrap; align-items:center; gap:10px; padding:10px; background:#0d192a; border:1px solid #34465c; border-radius:10px; }
+.vfx-playback label { display:flex; align-items:center; gap:6px; font-size:13px; }
+.vfx-playback select { color:#ddecff; background:#172840; border:1px solid #496481; padding:6px; border-radius:6px; }
+.forge-workspace .preview-tools { border-radius:10px; flex-wrap:wrap; gap:8px; max-width:calc(100% - 20px); }
+@media(max-width:600px) { .forge-workspace .biome-preview { height:440px; } .forge-workspace .preview-tools { font-size:11px; } .vfx-track { grid-template-columns:105px minmax(0,1fr); } }

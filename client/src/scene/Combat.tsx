@@ -10,6 +10,7 @@ import { useEffect } from 'react';
 import { settings } from '../settings';
 import { Html } from '@react-three/drei';
 import * as THREE from 'three';
+import { playVfxLayers } from './vfx/layers';
 import { gameVfx } from './vfx/engine';
 import { VfxLayer } from './vfx/VfxLayer';
 import { area, aura, beam, burst, Charge, cone, Missile, missile, slash } from './vfx/recipes';
@@ -300,6 +301,7 @@ function runSkill(ev: Extract<FxEvent, { kind: 'skill' }>, world: WorldShape, po
   const gy = (x: number, z: number) => world.heightAt(x, z);
   const feet = ev.pos.clone().setY(gy(ev.pos.x, ev.pos.z)), chest = feet.clone().add(new THREE.Vector3(0, 0.6, 0));
   const tp = ev.target.clone().setY(gy(ev.target.x, ev.target.z));
+  playVfxLayers(V, s, { origin: feet, target: tp, yaw, color: col, heightAt: gy });
   const at = (t: Target) => new THREE.Vector3(t.x, gy(t.x, t.z) + 0.7, t.z);
   const inShape = (t: Target) => {
     const dx = t.x - feet.x, dz = t.z - feet.z, f = dx * fw.x + dz * fw.z, l = Math.abs(dx * fw.z - dz * fw.x), dist = Math.hypot(dx, dz);
@@ -376,6 +378,7 @@ export function castCreatureSkill(c: CreatureCast) {
   // área no alvo e salto miram onde o Companion estava no começo (por isso dá para sair do círculo)
   const tp = new THREE.Vector3(c.target.x, gy(c.target.x, c.target.z), c.target.z);
   const windup = Math.max(0.35, s.windup || 0.5);
+  playVfxLayers(V, s, { origin: feet, target: tp, yaw: c.yaw, color: col, windup, heightAt: gy });
   const inShape = () => {
     const t = companionFocus, dx = t.x - feet.x, dz = t.z - feet.z, f = dx * fw.x + dz * fw.z, l = Math.abs(dx * fw.z - dz * fw.x), dist = Math.hypot(dx, dz);
     const ang = (Math.atan2(l, f) * 180) / Math.PI;

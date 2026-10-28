@@ -5,6 +5,7 @@
  * A diferença entre habilidades está na forma (cone, linha, área...), nos efeitos e nos números — nunca em
  * animações únicas, para não ficar estranho em corpos diferentes (ver claude/batalha-v1.md).
  */
+import { sanitizeVfxLayers, type VfxLayerDef } from './vfx.ts';
 import type { Element } from '../identity.ts';
 import type { BodyPlan } from '../art.ts';
 import type { AnimKind } from '../anim.ts';
@@ -34,7 +35,7 @@ export interface SkillDef {
   windup: number;                // s — tempo do aviso no chão antes do efeito
   status: { key: StatusKey; chance: number; seconds: number } | null;
   anim: AnimKind;
-  vfx: { style: VfxStyle; color: 'essence' | 'companion' | string; ground: boolean };
+  vfx: { style: VfxStyle; color: 'essence' | 'companion' | string; ground: boolean; layers?: VfxLayerDef[] };
   unlockBond: number;            // nível de vínculo para entrar no kit
   /** modalidade do dano (Constelação Viva): física usa Força e a defesa física; mágica, Magia e a resistência; híbrida divide 50/50. Sem o campo, vale a regra pela forma (inferModality). */
   modality?: 'fisica' | 'magica' | 'hibrida';
@@ -159,7 +160,7 @@ export function sanitizeSkill(input: unknown): SkillDef | null {
     cooldown: n(s.cooldown, 0.3, 60, 1), windup: n(s.windup, 0, 3, 0.3),
     status: st,
     anim: typeof s.anim === 'string' ? s.anim : 'attack',
-    vfx: { style: v.style && v.style in VFX_STYLES ? v.style : 'impacto', color: v.color === 'essence' || v.color === 'companion' || (typeof v.color === 'string' && /^#[0-9a-f]{6}$/i.test(v.color)) ? v.color : 'essence', ground: !!v.ground },
+    vfx: { style: v.style && v.style in VFX_STYLES ? v.style : 'impacto', color: v.color === 'essence' || v.color === 'companion' || (typeof v.color === 'string' && /^#[0-9a-f]{6}$/i.test(v.color)) ? v.color : 'essence', ground: !!v.ground, ...(v.layers !== undefined ? { layers: sanitizeVfxLayers(v.layers) } : {}) },
     unlockBond: Math.round(n(s.unlockBond, 1, 20, 1)),
     ...(s.modality === 'fisica' || s.modality === 'magica' || s.modality === 'hibrida' ? { modality: s.modality } : {}),
   };
