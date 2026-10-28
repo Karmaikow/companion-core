@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { VFX_LAYER_KINDS, newVfxLayer, vfxPreset, type SkillDef, type VfxLayerDef } from '@rules';
 import './forge-vfx.css';
+import { ForgeAi } from './ForgeAi';
 
 export function ForgeVfxEditor({ skill, onChange }: { skill: SkillDef; onChange: (vfx: SkillDef['vfx']) => void }) {
   const layers = skill.vfx.layers ?? [];
@@ -10,6 +11,7 @@ export function ForgeVfxEditor({ skill, onChange }: { skill: SkillDef; onChange:
   const end = Math.max(1, ...layers.map((l) => (l.phase === 'prepare' ? 0 : skill.windup) + l.delay + l.duration + (l.anchor === 'path' ? 0.45 : 0)));
   return <fieldset className="forge-vfx">
     <legend>Laboratório de VFX</legend>
+    <ForgeAi key={skill.slug} onApply={update} />
     <p className="hint">Camadas sobre o efeito principal. Os ajustes são salvos com a habilidade; dano e área de acerto continuam na folha de batalha.</p>
     <div className="vfx-presets"><span>Composições</span>{([['ice', 'Cristais glaciais'], ['storm', 'Tempestade arcana'], ['ember', 'Brasas vivas']] as const).map(([id, label]) =>
       <button type="button" key={id} onClick={() => { if (!layers.length || window.confirm('Substituir as camadas atuais por esta composição?')) update(vfxPreset(id)); }}>{label}</button>)}
