@@ -12,6 +12,7 @@ import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js
 import { animKind, motionFor, parseAnimRef, type CreatureDef } from '@rules';
 import { inPlace, sanitizeSkins, restBox, facingYaw } from './CompanionModel';
 import { lookUniforms, setLook, withLook } from './look';
+import { alignCreatureAnimationOrigins, creatureAnimationReferenceBox } from './creatureAnimationOrigin';
 import { SlimeBody } from './Slime';
 
 const loader = new GLTFLoader();
@@ -66,7 +67,10 @@ function ModelInstance({ def, data, act }: { def: CreatureDef; data: Loaded; act
       m.castShadow = true; m.frustumCulled = false;
       m.material = Array.isArray(m.material) ? m.material.map((x) => withLook(x.clone(), lu)) : withLook((m.material as THREE.Material).clone(), lu);
     });
-    const box = restBox(model), size = box.getSize(new THREE.Vector3()), c = box.getCenter(new THREE.Vector3());
+    const bindBox = restBox(model);
+    const clips = motionFor(def) === 'flutuar' ? data.clips : alignCreatureAnimationOrigins(model, data.clips, bindBox.max.y - bindBox.min.y);
+    const box = creatureAnimationReferenceBox(model, clips, bindBox);
+    const size = box.getSize(new THREE.Vector3()), c = box.getCenter(new THREE.Vector3());
     model.position.set(-c.x, -box.min.y, -c.z);
     const orient = new THREE.Group(); orient.rotation.y = -facingYaw(model); orient.add(model);
     // pivô no pé: o movimento por código (pulo, ginga, voo, serpentear) mexe aqui, sem rig
@@ -74,7 +78,7 @@ function ModelInstance({ def, data, act }: { def: CreatureDef; data: Loaded; act
     const root = new THREE.Group(); root.add(pivot); root.scale.setScalar(def.size / Math.max(0.05, size.y));
     const mixer = new THREE.AnimationMixer(model);
     const actions = new Map<string, THREE.AnimationAction>();
-    for (const { clip, kind } of data.clips) {
+    for (const { clip, kind } of clips) {
       if (actions.has(kind)) continue;
       const cl = clip.clone(); inPlace(cl);
       const a = mixer.clipAction(cl);
@@ -86,22 +90,23 @@ function ModelInstance({ def, data, act }: { def: CreatureDef; data: Loaded; act
       const ref = parseAnimRef(v);
       if (ref === 'procedural') { actions.get(act)?.stop(); actions.delete(act); continue; }
       if (!ref) continue;
-      const hit = data.clips.find((c) => c.clip.name === ref.clip && (ref.file === '*' || c.src === ref.file));
+      const hit = clips.find((c) => c.clip.name === ref.clip && (ref.file === '*' || c.src === ref.file));
       if (!hit) continue;
       const cl = hit.clip.clone(); inPlace(cl);
       actions.set(act, mixer.clipAction(cl));
     }
     return { root, pivot, mixer, actions, lu };
-  }, [data, def.size, def.animMap]);
+  }, [data, def.size, def.animMap, def.motion, def.body]);
   useEffect(() => setLook(lu, def.look), [lu, def.look]);
   useEffect(() => () => { mixer.stopAllAction(); }, [mixer]);
-  const cur = useRef('');
+  const cur = useRef<THREE.AnimationAction | null>(null);
   useEffect(() => {
     const want = actions.has(act) ? act : act === 'run' && actions.has('walk') ? 'walk' : actions.has('idle') ? 'idle' : [...actions.keys()][0];
-    if (!want || cur.current === want) return;
-    actions.get(want)?.reset().fadeIn(0.25).play();
+    const next = want ? actions.get(want) : undefined;
+    if (!next || cur.current === next) return;
+    next.reset().fadeIn(0.25).play();
     actions.forEach((a, k) => { if (k !== want && a.isRunning()) a.fadeOut(0.25); });
-    cur.current = want;
+    cur.current = next;
   }, [act, actions]);
   const style = motionFor(def);
   const ph = useRef({ t: Math.random() * 10, act: act as string, since: 0 });
