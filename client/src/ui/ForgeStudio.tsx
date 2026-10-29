@@ -8,6 +8,7 @@ import {
   DEFAULT_SKILLS, ELEMENTS, SLOTS, SHAPES, STATUSES, VFX_STYLES, BODIES, ANIM_KINDS, CLASS_LABELS, SPECIES, sanitizeSkill, kitFor, biomeSlug,
   type SkillDef, type SkillSlot, type SkillShape, type StatusKey, type VfxStyle, type Element, type BodyPlan, type SpeciesKey,
 } from '@rules';
+import { ForgeSchools } from './ForgeSchools';
 import { ForgeVfxEditor } from './ForgeVfxEditor';
 import { useCatalog } from './catalog';
 
@@ -79,6 +80,7 @@ export function ForgeStudio() {
     <div className="biome-studio forge-workspace">
       <aside className="biome-list">
         <h2>Forja de Batalha</h2>
+        <ForgeSchools />
         <small className="hint">Habilidades genéricas: cada uma serve a uma essência (ou todas) e a classes de Companion e corpos de monstro escolhidos (ou todos). Companions são humanoides: a animação é sempre um clipe de humanoide; o que muda é a forma e o efeito.</small>
         {cat.error && <p className="msg err">{cat.error}</p>}
         {cat.rows && !cat.rows.length && (

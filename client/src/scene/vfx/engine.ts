@@ -73,6 +73,13 @@ function col(c: Col | undefined, fallback: THREE.Color): THREE.Color {
 
 export interface Crystal { at: THREE.Vector3; color: THREE.Color; size: number; life: number; age: number; yaw: number }
 export class VfxStore {
+  catalogueQueue: {id:string;origin:THREE.Vector3;yaw:number;distance:number}[] = [];
+  loadCatalogue?: () => void;
+  catalogue(id:string, origin:THREE.Vector3, yaw:number, distance:number) {
+    this.catalogueQueue.push({id,origin:origin.clone(),yaw,distance});
+    if(this.catalogueQueue.length>4)this.catalogueQueue.shift();
+    this.loadCatalogue?.();
+  }
   crystals: Crystal[] = [];
   crystal(at: THREE.Vector3, color: Col, size: number, life: number, yaw: number) {
     if (this.crystals.length >= 192) this.crystals.shift();
@@ -124,7 +131,7 @@ export class VfxStore {
   /** Roda a cada quadro até devolver false. */
   every(fn: (dt: number) => boolean) { this.tickers.push(fn); }
 
-  clear() { this.time = 0; this.crystals.length = 0; this.parts.length = 0; this.lines.length = 0; this.timers.length = 0; this.tickers.length = 0; }
+  clear() { this.catalogueQueue.length=0; this.time = 0; this.crystals.length = 0; this.parts.length = 0; this.lines.length = 0; this.timers.length = 0; this.tickers.length = 0; }
 
   update(dt: number) {
     if (!Number.isFinite(dt) || dt <= 0) return;

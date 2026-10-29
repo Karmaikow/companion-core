@@ -1,3 +1,4 @@
+import { CataloguePost } from './vfx/CataloguePost';
 /**
  * Prévia de uma habilidade da Forja: o aviso no chão (telegráfico lavanda que enche), o efeito (partículas no estilo
  * da essência) e o acerto nos bonecos de treino com o dano esperado. Em loop, para ajustar números e ver na hora.
@@ -69,7 +70,7 @@ function Scene({ skill, color, onHit, body, timeScale, dark }: { skill: SkillDef
   const dashFx = useRef<Missile | null>(null);
   const [cue, setCue] = useState<Cue | null>(null);
   const cueAt = useRef(-1);
-  const cycle = Math.max(skill.windup + EFFECT + REST, ...(skill.vfx.layers ?? []).filter((l) => l.enabled).map((l) => (l.phase === 'prepare' ? 0 : skill.windup) + l.delay + l.duration + 0.45 + REST));
+  const cycle = Math.max(skill.vfx.catalogue ? 8 : 0,skill.windup + EFFECT + REST, ...(skill.vfx.layers ?? []).filter((l) => l.enabled).map((l) => (l.phase === 'prepare' ? 0 : skill.windup) + l.delay + l.duration + 0.45 + REST));
   const layerCycle = useRef(-1);
   useEffect(() => () => store.clear(), [store]);
   const clock = useRef(0);
@@ -96,6 +97,7 @@ function Scene({ skill, color, onHit, body, timeScale, dark }: { skill: SkillDef
   const fire = (hitIdx: number[]) => {
     const s = skill, o = new THREE.Vector3(0, 0.6, 0), chest = (d: THREE.Vector3) => new THREE.Vector3(d.x, 0.7, d.z);
     const hitFx = (delay: number) => hitIdx.forEach((i) => store.after(delay, () => burst(store, style, chest(L.dummies[i]), color, 0.55, 0)));
+    if(s.vfx.catalogue){store.catalogue(s.vfx.catalogue,new THREE.Vector3(),0,Math.max(1,L.target.z));return;}
     switch (s.shape) {
       case 'melee': slash(store, o, 0, s.range, color, s.power >= 40); hitFx(0.07); break;
       case 'cone': cone(store, style, o, 0, s.angle, s.range, color); hitFx(0.2); break;
@@ -204,6 +206,7 @@ function Scene({ skill, color, onHit, body, timeScale, dark }: { skill: SkillDef
         </group>
       ))}
       <VfxLayer store={store} timeScale={timeScale} />
+      {skill.vfx.catalogue && <CataloguePost timeScale={timeScale} />}
     </group>
   );
 }
