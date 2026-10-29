@@ -21,7 +21,7 @@ export function clipKinds(clips: THREE.AnimationClip[]) {
   return clips.map((c) => ({ name: c.name, kind: animKind(c.name) ?? 'special' }));
 }
 
-export function TrainingModel({ url, cue, items, modelKey, charge, showSocket, companionId }: { url: string; cue: Cue | null; items?: ItemDef[]; modelKey?: string | null; charge?: { current: number }; showSocket?: boolean; companionId?: string | null }) {
+export function TrainingModel({ url, cue, items, modelKey, charge, showSocket, companionId, timeScale = 1 }: { timeScale?: number; url: string; cue: Cue | null; items?: ItemDef[]; modelKey?: string | null; charge?: { current: number }; showSocket?: boolean; companionId?: string | null }) {
   const gltf = useLoader(GLTFLoader, url, (l) => { (l as GLTFLoader).setMeshoptDecoder(MeshoptDecoder); });
   // como no jogo: as animações extras do Companion (o pacote padrão do Mesh2Motion fica num arquivo à parte) e as
   // escolhas da aba Animações ("slot:<papel>"); sem isso o modelo riggado no Mesh2Motion ficava parado no treino
@@ -100,7 +100,7 @@ export function TrainingModel({ url, cue, items, modelKey, charge, showSocket, c
       list: () => [...actions.entries()].map(([k, a]) => k + '=' + a.getClip().name + ':' + a.getClip().tracks.length),
     };
   }, [actions, mixer, model]);
-  useFrame((_, dt) => { if (!frozen.current) mixer.update(Math.min(dt, 0.05)); });
+  useFrame((_, dt) => { if (!frozen.current) mixer.update(Math.min(dt, 0.05) * timeScale); });
   return (
     <>
       <group ref={root}>

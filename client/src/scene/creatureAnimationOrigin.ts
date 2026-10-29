@@ -28,18 +28,22 @@ export function alignCreatureAnimationOrigins(model: THREE.Object3D, clips: Crea
       while (parent) { if (animatedBones.has(parent as THREE.Bone)) { nested = true; break; } parent = parent.parent; }
       if (nested) continue;
       const offset = new THREE.Vector3().fromArray(track.values).sub(node.position);
-      const worldOffset = offset.clone();
-      if (node.parent) worldOffset.applyMatrix3(new THREE.Matrix3().setFromMatrix4(node.parent.matrixWorld));
-      // Small idle shifts and crouches are intentional. Fix only a large upward displacement.
+      const parentWorld = node.parent?.matrixWorld ?? new THREE.Matrix4();
+      const worldOffset = offset.clone().applyMatrix3(new THREE.Matrix3().setFromMatrix4(parentWorld));
+      // GLB rigs may rotate their local axes (Tobbyas' root turns local Z into world Y).
+      // Local Y alone is unreliable here: it can represent depth after axis conversion.
+      // Once a real vertical origin error is found, subtract the full bind-pose offset
+      // in local space so the rig also retains its horizontal alignment.
       if (!Number.isFinite(worldOffset.y) || worldOffset.y <= height * 0.5) continue;
+      const localCorrection = offset;
       for (const entry of group) {
         const translation = entry.clip.tracks.find((t) => t.name === track.name && t.getValueSize() === 3);
         if (!translation) continue;
         entry.originAligned = true;
         for (let i = 0; i < translation.values.length; i += 3) {
-          translation.values[i] -= offset.x;
-          translation.values[i + 1] -= offset.y;
-          translation.values[i + 2] -= offset.z;
+          translation.values[i] -= localCorrection.x;
+          translation.values[i + 1] -= localCorrection.y;
+          translation.values[i + 2] -= localCorrection.z;
         }
       }
     }

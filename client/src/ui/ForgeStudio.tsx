@@ -8,6 +8,7 @@ import {
   DEFAULT_SKILLS, ELEMENTS, SLOTS, SHAPES, STATUSES, VFX_STYLES, BODIES, ANIM_KINDS, CLASS_LABELS, SPECIES, sanitizeSkill, kitFor, biomeSlug,
   type SkillDef, type SkillSlot, type SkillShape, type StatusKey, type VfxStyle, type Element, type BodyPlan, type SpeciesKey,
 } from '@rules';
+import { ForgeVfxEditor } from './ForgeVfxEditor';
 import { useCatalog } from './catalog';
 
 import { animKey, useAnimMap, useCompanionModels } from './companionModels';
@@ -33,6 +34,10 @@ export function ForgeStudio() {
   const [kitEss, setKitEss] = useState<Element>('fogo');
   const [kitClass, setKitClass] = useState<SpeciesKey>('serpente');
   const [kitBond, setKitBond] = useState(5);
+  const [paused, setPaused] = useState(false);
+  const [speed, setSpeed] = useState(1);
+  const [restart, setRestart] = useState(0);
+  const [dark, setDark] = useState(true);
 
   const run = async (f: () => Promise<unknown>, ok: string) => {
     setBusy(true); setMsg(null);
@@ -71,7 +76,7 @@ export function ForgeStudio() {
   const clean = useMemo(() => (draft ? sanitizeSkill(draft) : null), [draft]);
 
   return (
-    <div className="biome-studio">
+    <div className="biome-studio forge-workspace">
       <aside className="biome-list">
         <h2>Forja de Batalha</h2>
         <small className="hint">Habilidades genéricas: cada uma serve a uma essência (ou todas) e a classes de Companion e corpos de monstro escolhidos (ou todos). Companions são humanoides: a animação é sempre um clipe de humanoide; o que muda é a forma e o efeito.</small>
@@ -139,7 +144,7 @@ export function ForgeStudio() {
         <section className="biome-editor">
           <div className="biome-preview">
             <Suspense fallback={<div className="art-empty">Carregando prévia…</div>}>
-              <SkillPreview skill={clean} companionColor={compColor} defenderEssence={defEss || null} body={trainerModel ? { url: trainerModel.url, anim: animKey(trainerAnims[clean.slug]), companionId: trainerModel.companionId } : null} />
+              <SkillPreview paused={paused} speed={speed} restart={restart} dark={dark} skill={clean} companionColor={compColor} defenderEssence={defEss || null} body={trainerModel ? { url: trainerModel.url, anim: animKey(trainerAnims[clean.slug]), companionId: trainerModel.companionId } : null} />
             </Suspense>
             <div className="preview-tools">
               <label>Campo de treino <select value={trainer} onChange={(e) => setTrainer(e.target.value)} aria-label="Quem testa a habilidade">
@@ -151,7 +156,14 @@ export function ForgeStudio() {
             </div>
           </div>
 
+          <div className="vfx-playback" aria-label="Reprodução da prévia">
+            <button type="button" aria-pressed={paused} onClick={() => setPaused((v) => !v)}>{paused ? 'Continuar' : 'Pausar'}</button>
+            <button type="button" onClick={() => { setRestart((v) => v + 1); setPaused(false); }}>Reiniciar</button>
+            <label>Velocidade<select value={speed} onChange={(e) => setSpeed(Number(e.target.value))}><option value={0.25}>0,25×</option><option value={0.5}>0,5×</option><option value={1}>1×</option></select></label>
+            <label><input type="checkbox" checked={dark} onChange={(e) => setDark(e.target.checked)} /> Arena escura</label>
+          </div>
           <div className="biome-form">
+            <ForgeVfxEditor key={draft.slug} skill={clean} onChange={(vfx) => edit({ vfx })} />
             <div className="row-3">
               <label>Nome<input value={draft.name} onChange={(e) => edit({ name: e.target.value })} maxLength={40} /></label>
               <label>Espaço<select value={draft.slot} onChange={(e) => edit({ slot: e.target.value as SkillSlot })}>{Object.entries(SLOTS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>

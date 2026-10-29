@@ -5,10 +5,11 @@
  */
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { Html, OrbitControls } from '@react-three/drei';
+import { OrbitControls } from '@react-three/drei';
 import { TrainingModel, type Cue } from './TrainingModel';
 import { AssetBoundary } from './Biome';
 import * as THREE from 'three';
+import { playVfxLayers } from './vfx/layers';
 import { VfxStore } from './vfx/engine';
 import { VfxLayer } from './vfx/VfxLayer';
 import { area, aura, beam, burst, cone, missile, slash, Missile } from './vfx/recipes';
@@ -61,14 +62,16 @@ const EFFECT = 0.9, REST = 0.9;
 /** Modelo de Companion no lugar do boneco de cápsula (campo de treino do Administrador) e a animação escolhida. */
 export interface TrainingBody { url: string; anim: string | null; companionId?: string | null }
 
-function Scene({ skill, color, onHit, body }: { skill: SkillDef; color: string; onHit: (n: number) => void; body?: TrainingBody | null }) {
+function Scene({ skill, color, onHit, body, timeScale, dark }: { skill: SkillDef; color: string; onHit: (n: number) => void; body?: TrainingBody | null; timeScale: number; dark: boolean }) {
   const L = useMemo(() => layoutFor(skill), [skill]);
   const style = skill.vfx.style;
   const store = useMemo(() => new VfxStore(), []);
   const dashFx = useRef<Missile | null>(null);
   const [cue, setCue] = useState<Cue | null>(null);
   const cueAt = useRef(-1);
-  const cycle = skill.windup + EFFECT + REST;
+  const cycle = Math.max(skill.windup + EFFECT + REST, ...(skill.vfx.layers ?? []).filter((l) => l.enabled).map((l) => (l.phase === 'prepare' ? 0 : skill.windup) + l.delay + l.duration + 0.45 + REST));
+  const layerCycle = useRef(-1);
+  useEffect(() => () => store.clear(), [store]);
   const clock = useRef(0);
   const fired = useRef(false);
   const caster = useRef<THREE.Group>(null);
@@ -112,7 +115,8 @@ function Scene({ skill, color, onHit, body }: { skill: SkillDef; color: string; 
   };
 
   useFrame((_, dtRaw) => {
-    const dt = Math.min(dtRaw, 0.05);
+    if (timeScale === 0) return;
+    const dt = Math.min(dtRaw, 0.05) * timeScale;
     clock.current += dt;
     let t = clock.current % cycle;
     if (clock.current >= cycle && t < dt) { fired.current = false; }
@@ -120,6 +124,10 @@ function Scene({ skill, color, onHit, body }: { skill: SkillDef; color: string; 
     const w = s.windup, inTele = t < w, e = (t - w) / EFFECT; // e: 0..1 durante o efeito
     // modelo de treino: a animação começa junto com o aviso (a preparação)
     const cycleN = Math.floor(clock.current / cycle);
+    if (layerCycle.current !== cycleN) {
+      layerCycle.current = cycleN;
+      playVfxLayers(store, skill, { origin: new THREE.Vector3(), target: L.target, yaw: 0, color });
+    }
     if (body && cycleN !== cueAt.current) {
       cueAt.current = cycleN;
       const kinds = [body.anim, s.anim === 'attack' && s.shape !== 'melee' ? 'cast' : s.anim, 'attack', 'cast'].filter((k): k is string => !!k);
@@ -167,7 +175,7 @@ function Scene({ skill, color, onHit, body }: { skill: SkillDef; color: string; 
 
   return (
     <group>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow><circleGeometry args={[11, 64]} /><meshLambertMaterial color="#8fcf60" /></mesh>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow><circleGeometry args={[11, 64]} /><meshLambertMaterial color={dark ? "#162538" : "#8fcf60"} /></mesh>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.005, 0]}><ringGeometry args={[10.6, 11, 64]} /><meshBasicMaterial color="#b3a8d2" /></mesh>
       {/* aviso */}
       <group position={[at.x, 0.02, at.z]}>
@@ -177,7 +185,7 @@ function Scene({ skill, color, onHit, body }: { skill: SkillDef; color: string; 
       {/* conjurador */}
       <group ref={caster}>
         {body ? (
-          <AssetBoundary><Suspense fallback={null}><TrainingModel url={body.url} cue={cue} companionId={body.companionId} /></Suspense></AssetBoundary>
+          <AssetBoundary><Suspense fallback={null}><TrainingModel timeScale={timeScale} url={body.url} cue={cue} companionId={body.companionId} /></Suspense></AssetBoundary>
         ) : (
           <>
             <mesh position={[0, 0.5, 0]} castShadow><capsuleGeometry args={[0.32, 0.35, 6, 16]} /><meshLambertMaterial color={color} /></mesh>
@@ -195,13 +203,12 @@ function Scene({ skill, color, onHit, body }: { skill: SkillDef; color: string; 
           <mesh position={[0, 0.7, 0]} rotation={[0, 0, Math.PI / 2]}><cylinderGeometry args={[0.05, 0.05, 1.1, 8]} /><meshLambertMaterial color="#8a6a4a" /></mesh>
         </group>
       ))}
-      <VfxLayer store={store} />
-      <Html position={[L.dummies[0].x, 1.9, L.dummies[0].z]} center style={{ pointerEvents: 'none' }}><span className="fx-label">boneco · def 40</span></Html>
+      <VfxLayer store={store} timeScale={timeScale} />
     </group>
   );
 }
 
-export function SkillPreview({ skill, companionColor, defenderEssence, body }: { skill: SkillDef; companionColor: string; defenderEssence: Element | null; body?: TrainingBody | null }) {
+export function SkillPreview({ skill, companionColor, defenderEssence, body, paused = false, speed = 1, restart = 0, dark = false }: { skill: SkillDef; companionColor: string; defenderEssence: Element | null; body?: TrainingBody | null; paused?: boolean; speed?: number; restart?: number; dark?: boolean }) {
   const color = skillColor(skill, companionColor);
   const [last, setLast] = useState<{ n: number; id: number }>({ n: 0, id: 0 });
   const mult = affinity(skill.essence, defenderEssence);
@@ -210,12 +217,12 @@ export function SkillPreview({ skill, companionColor, defenderEssence, body }: {
   return (
     <div className="skill-preview">
       <Canvas shadows dpr={[1, 1.5]} camera={{ position: [far * 0.55, far * 0.75, -far * 0.45], fov: 40 }} onCreated={({ camera }) => camera.lookAt(0, 0, Math.min(3, skill.range / 2))}>
-        <color attach="background" args={['#bfe6ff']} />
+        <color attach="background" args={[dark ? '#080e1b' : '#bfe6ff']} />
         <hemisphereLight args={['#ffffff', '#5aa84c', 1.4]} />
         <directionalLight position={[5, 10, -4]} intensity={1.6} castShadow />
         {/* arraste para girar, roda/pinça para aproximar — para conferir os ângulos */}
         <OrbitControls makeDefault target={[0, 0.5, Math.min(3, skill.range / 2)]} enablePan={false} enableDamping dampingFactor={0.12} minDistance={2} maxDistance={Math.max(14, far * 1.8)} maxPolarAngle={Math.PI * 0.49} />
-        <Scene key={(body?.url ?? '') + skill.slug + skill.shape + skill.windup + skill.range + skill.radius + skill.angle + skill.vfx.style} skill={skill} color={color} body={body} onHit={(n) => setLast((l) => ({ n, id: l.id + 1 }))} />
+        <Scene key={(body?.url ?? '') + skill.slug + skill.shape + skill.windup + skill.range + skill.radius + skill.angle + skill.vfx.style + JSON.stringify(skill.vfx) + restart} timeScale={paused ? 0 : speed} dark={dark} skill={skill} color={color} body={body} onHit={(n) => setLast((l) => ({ n, id: l.id + 1 }))} />
       </Canvas>
       <div className="fx-hud">
         {skill.power > 0 && <span>dano esperado <b>{dmg}</b>{mult !== 1 && <em className={mult > 1 ? 'up' : 'down'}> ×{mult}</em>} (atk 60 × def 40)</span>}
