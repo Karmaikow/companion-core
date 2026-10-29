@@ -61,6 +61,8 @@ export interface Backend {
   pacto?(action: string, body?: Record<string, unknown>): Promise<import('../pacto/types').PactoReply>;
   /** Constelação Viva: atributos, Ressonância e perfis (online: servidor; offline: simulado) */
   build?(action: string, body?: Record<string, unknown>): Promise<import('../build/types').BuildReply>;
+  /** Diário de conquistas: leitura derivada de eventos persistidos, sem concessões pelo cliente. */
+  schools?(): Promise<{ schools: import('../../../shared/rules/combat/schoolJournal').SchoolJournal }>;
   /** MMO social: encontros, amizade, grupo e troca (só online) */
   social?(action: string, body?: Record<string, unknown>): Promise<Record<string, unknown>>;
   reset?(): Promise<void>;

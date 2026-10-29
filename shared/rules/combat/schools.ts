@@ -1,5 +1,5 @@
 /** Additive school foundation. No school is open and no legacy skill is migrated. */
-import type { Element } from '../identity';
+import type { Element } from '../identity.ts';
 
 export const ESSENCE_ORIGINS = {
   frost: 'gelo', flame: 'fogo', storm: 'raio', stone: 'terra', verdant: 'natureza',
@@ -21,7 +21,7 @@ export const SCHOOL_DEFINITIONS = {
 export function isSchool(id: string): id is SchoolId { return SCHOOL_IDS.some(s => s === id); }
 export function catalogueAffinity(origin: string): { kind: 'essence' | 'school'; id: string; label: string } | null {
   if (isSchool(origin)) return { kind: 'school', id: origin, label: SCHOOL_DEFINITIONS[origin].label };
-  const essence = ESSENCE_ORIGINS[origin as keyof typeof ESSENCE_ORIGINS];
+  const essence = Object.prototype.hasOwnProperty.call(ESSENCE_ORIGINS, origin) ? ESSENCE_ORIGINS[origin as keyof typeof ESSENCE_ORIGINS] : undefined;
   return essence ? { kind: 'essence', id: essence, label: ESSENCE_LABELS[essence] } : null;
 }
 
