@@ -1,3 +1,4 @@
+import { schoolJournal } from '../../../shared/rules/combat/schoolJournal';
 /**
  * Modo local: o mesmo motor de regras do servidor, persistido no navegador e
  * com o respondedor offline no lugar do modelo de linguagem. Serve para jogar
@@ -95,6 +96,12 @@ export class LocalBackend implements Backend {
       s.bondXp += SECRET_XP;
       s.boost = (s.boost ?? 0) + SECRET_BOOST_TURNS;
     }
+  }
+
+  async schools() {
+    const s = this.s;
+    if (!s) throw new Error('Crie um Companion para consultar suas escolas.');
+    return { schools: schoolJournal(s.id, s.events, true) };
   }
 
   async state() { return this.snap(); }

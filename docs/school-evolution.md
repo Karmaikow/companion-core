@@ -24,3 +24,15 @@ As memórias não são consumidas. Relevância extraordinária conta também com
 ## Validação
 
 Testes cobrem classificação completa do catálogo, curva e prioridade, preservação de movimento, isolamento por Companion, repetição de conquistas e requisitos de memórias. Testes anteriores de catálogo e VFX verificam compatibilidade. Nenhuma escola é habilitada por este módulo.
+
+## Etapa 2 — diário factual por Companion
+
+A aba Habilidades → Escolas consulta `schools.state`. O servidor resolve o Companion pelo usuário autenticado antes de ler os eventos. A consulta é paginada por ID e fixa o último ID no início, sem o limite de 60 registros da timeline visual. Erros de leitura são exibidos; não viram progresso vazio bem-sucedido.
+
+As conquistas são uma projeção determinística do log persistido `companion_events`. Não há nova tabela nem regravação de memórias narrativas. O classificador v1 reconhece pistas/conclusão da Seiva Azul, Unguento de Orvalho, etapas da Ponte do Riacho, peças efetivamente forjadas e análises de criaturas concluídas. A mesma conquista conta uma vez, com ID do evento e data de origem. Chat, receitas apenas sugeridas pela IA, mortes comuns e tags fornecidas pelo cliente não concedem conquistas. Tempo ainda não tem eventos qualificáveis nesta seleção: requer conteúdo futuro.
+
+O modo local consulta os eventos do save do próprio Companion, marcado como simulado e sem sincronização econômica. Os sistemas Ecos/Pacto offline anteriores possuem saves separados e não registram esses eventos no log do Companion; suas ações não são importadas nem atribuídas retroativamente. Análises de combate registradas no save local já podem aparecer.
+
+Publicação exige atualizar a Edge Function refuge com `schools.ts`, `schoolJournal.ts` e `schools.ts` das regras compartilhadas, além do frontend. O painel apresenta falha explícita quando a versão antiga do servidor ainda não oferece `schools.state`. Não há migração SQL nesta etapa. O deploy da função não é realizado pelo build Vite.
+
+Este diário ainda não é o estado de aprendizado de técnicas: todas as escolas seguem no grau zero e planejadas. Persistência de matrículas, técnicas aprendidas, entregas atômicas e loadout dependem da próxima etapa. Não interpretar contagem de memórias como autorização para conjurar.

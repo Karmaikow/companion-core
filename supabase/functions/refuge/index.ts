@@ -13,6 +13,7 @@ import {
 import { complete, providerName, refreshAi, loadAiRow, targetFromRow, callTarget, listModels, describeImage, envProviderName, envTarget, AI_PROVIDERS, AI_DEFAULTS, type AiProvider, type AiRow } from './llm.ts';
 import { ecosAction, EcosError } from './ecos.ts';
 import { pactoAction, PactoError } from './pacto.ts';
+import { schoolView } from './schools.ts';
 import { buildAction, BuildError, loadBuild } from './build.ts';
 import { socialAction, SocialError } from './social.ts';
 
@@ -787,6 +788,7 @@ Deno.serve(async (req) => {
     }
     if (!c) return json(200, { companion: null, config: cfg, provider: providerName() });
 
+    if (action === 'schools.state') return json(200, await schoolView(db, c.id as string));
     if (action === 'state') return json(200, await snapshot(db, c, cfg));
     if (action === 'chat') {
       const message = clampText(body.message, 1000);

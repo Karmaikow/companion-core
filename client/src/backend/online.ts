@@ -25,6 +25,7 @@ export class OnlineBackend implements Backend {
     }
     return data as Snapshot;
   }
+  schools() { return this.call('schools.state') as unknown as Promise<{ schools: import('../../../shared/rules/combat/schoolJournal').SchoolJournal }>; }
   state() { return this.call('state'); }
   create(setup?: CompanionSetup) { return this.call('create', setup ? { setup } : {}); }
   chat(message: string) { return this.call('chat', { message }); }
