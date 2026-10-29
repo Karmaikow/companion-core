@@ -133,7 +133,11 @@
           "catalogue": "beam"
         },
         "unlockBond": 7,
-        "modality": "magica"
+        "modality": "magica",
+        "learning": {
+          "school": "arcane",
+          "rank": 3
+        }
       },
       "status": "draft"
     },
@@ -256,7 +260,9 @@
         "description": "Escola Forja · Aprendiz. Pistões de metal golpeiam uma faixa à frente.",
         "slot": "essence",
         "essence": null,
-        "classes": [],
+        "classes": [
+          "touro"
+        ],
         "bodies": [],
         "shape": "line",
         "range": 7,
@@ -277,7 +283,11 @@
           "catalogue": "pistondrive"
         },
         "unlockBond": 4,
-        "modality": "fisica"
+        "modality": "fisica",
+        "learning": {
+          "school": "forge",
+          "rank": 2
+        }
       },
       "status": "draft"
     },
@@ -311,7 +321,11 @@
           "catalogue": "astralgate"
         },
         "unlockBond": 10,
-        "modality": "magica"
+        "modality": "magica",
+        "learning": {
+          "school": "arcane",
+          "rank": 4
+        }
       },
       "status": "draft"
     },
@@ -349,7 +363,11 @@
           "catalogue": "entropy"
         },
         "unlockBond": 10,
-        "modality": "magica"
+        "modality": "magica",
+        "learning": {
+          "school": "chrono",
+          "rank": 4
+        }
       },
       "status": "draft"
     },
@@ -383,7 +401,11 @@
           "catalogue": "rewind"
         },
         "unlockBond": 7,
-        "modality": "magica"
+        "modality": "magica",
+        "learning": {
+          "school": "chrono",
+          "rank": 3
+        }
       },
       "status": "draft"
     },
@@ -459,7 +481,11 @@
           "catalogue": "bonecage"
         },
         "unlockBond": 4,
-        "modality": "magica"
+        "modality": "magica",
+        "learning": {
+          "school": "blood",
+          "rank": 2
+        }
       },
       "status": "draft"
     },
@@ -709,7 +735,11 @@
           "catalogue": "afterimage"
         },
         "unlockBond": 4,
-        "modality": "magica"
+        "modality": "magica",
+        "learning": {
+          "school": "chrono",
+          "rank": 2
+        }
       },
       "status": "draft"
     },
@@ -722,7 +752,9 @@
         "description": "Escola Forja · Adepto. Um núcleo metálico espalha estilhaços pela área.",
         "slot": "essence",
         "essence": null,
-        "classes": [],
+        "classes": [
+          "touro"
+        ],
         "bodies": [],
         "shape": "circle",
         "range": 7.5,
@@ -743,7 +775,11 @@
           "catalogue": "shrapnel"
         },
         "unlockBond": 7,
-        "modality": "fisica"
+        "modality": "fisica",
+        "learning": {
+          "school": "forge",
+          "rank": 3
+        }
       },
       "status": "draft"
     },
@@ -811,7 +847,11 @@
           "catalogue": "splatterbrand"
         },
         "unlockBond": 2,
-        "modality": "magica"
+        "modality": "magica",
+        "learning": {
+          "school": "ink",
+          "rank": 1
+        }
       },
       "status": "draft"
     },
@@ -849,7 +889,11 @@
           "catalogue": "sealscript"
         },
         "unlockBond": 4,
-        "modality": "magica"
+        "modality": "magica",
+        "learning": {
+          "school": "ink",
+          "rank": 2
+        }
       },
       "status": "draft"
     },
@@ -887,7 +931,11 @@
           "catalogue": "hourglass"
         },
         "unlockBond": 7,
-        "modality": "magica"
+        "modality": "magica",
+        "learning": {
+          "school": "chrono",
+          "rank": 3
+        }
       },
       "status": "draft"
     },
@@ -1035,7 +1083,11 @@
           "catalogue": "spellbreak"
         },
         "unlockBond": 10,
-        "modality": "magica"
+        "modality": "magica",
+        "learning": {
+          "school": "arcane",
+          "rank": 4
+        }
       },
       "status": "draft"
     },
@@ -1048,7 +1100,9 @@
         "description": "Escola Forja · Aprendiz. Uma lâmina dentada percorre o solo em linha reta.",
         "slot": "essence",
         "essence": null,
-        "classes": [],
+        "classes": [
+          "touro"
+        ],
         "bodies": [],
         "shape": "line",
         "range": 7,
@@ -1069,7 +1123,11 @@
           "catalogue": "sawline"
         },
         "unlockBond": 4,
-        "modality": "fisica"
+        "modality": "fisica",
+        "learning": {
+          "school": "forge",
+          "rank": 2
+        }
       },
       "status": "draft"
     },
@@ -1179,7 +1237,11 @@
           "catalogue": "scrollward"
         },
         "unlockBond": 4,
-        "modality": "magica"
+        "modality": "magica",
+        "learning": {
+          "school": "ink",
+          "rank": 2
+        }
       },
       "status": "draft"
     },
@@ -1251,7 +1313,11 @@
           "catalogue": "stasisfield"
         },
         "unlockBond": 14,
-        "modality": "magica"
+        "modality": "magica",
+        "learning": {
+          "school": "chrono",
+          "rank": 5
+        }
       },
       "status": "draft"
     },
@@ -1264,7 +1330,9 @@
         "description": "Escola Forja · Adepto. Engrenagens emergem e travam sob os inimigos.",
         "slot": "essence",
         "essence": null,
-        "classes": [],
+        "classes": [
+          "touro"
+        ],
         "bodies": [],
         "shape": "circle",
         "range": 7.5,
@@ -1289,7 +1357,11 @@
           "catalogue": "gearlock"
         },
         "unlockBond": 7,
-        "modality": "fisica"
+        "modality": "fisica",
+        "learning": {
+          "school": "forge",
+          "rank": 3
+        }
       },
       "status": "draft"
     },
@@ -1302,7 +1374,9 @@
         "description": "Escola Forja · Aprendiz. Uma descarga de vapor irrompe na área marcada.",
         "slot": "essence",
         "essence": null,
-        "classes": [],
+        "classes": [
+          "touro"
+        ],
         "bodies": [],
         "shape": "circle",
         "range": 7,
@@ -1323,7 +1397,11 @@
           "catalogue": "quench"
         },
         "unlockBond": 4,
-        "modality": "fisica"
+        "modality": "fisica",
+        "learning": {
+          "school": "forge",
+          "rank": 2
+        }
       },
       "status": "draft"
     },
@@ -1408,7 +1486,9 @@
         "description": "Escola Forja · Especialista. Uma bigorna encantada desaba sobre o ponto escolhido.",
         "slot": "essence",
         "essence": null,
-        "classes": [],
+        "classes": [
+          "touro"
+        ],
         "bodies": [],
         "shape": "circle",
         "range": 8,
@@ -1429,7 +1509,11 @@
           "catalogue": "anvilfall"
         },
         "unlockBond": 10,
-        "modality": "fisica"
+        "modality": "fisica",
+        "learning": {
+          "school": "forge",
+          "rank": 4
+        }
       },
       "status": "draft"
     },
@@ -1675,7 +1759,11 @@
           "catalogue": "echostep"
         },
         "unlockBond": 4,
-        "modality": "magica"
+        "modality": "magica",
+        "learning": {
+          "school": "chrono",
+          "rank": 2
+        }
       },
       "status": "draft"
     },
@@ -1709,7 +1797,11 @@
           "catalogue": "origami"
         },
         "unlockBond": 7,
-        "modality": "magica"
+        "modality": "magica",
+        "learning": {
+          "school": "ink",
+          "rank": 3
+        }
       },
       "status": "draft"
     },
@@ -1849,7 +1941,11 @@
           "catalogue": "inkbloom"
         },
         "unlockBond": 4,
-        "modality": "magica"
+        "modality": "magica",
+        "learning": {
+          "school": "ink",
+          "rank": 2
+        }
       },
       "status": "draft"
     },
@@ -1955,7 +2051,11 @@
           "catalogue": "sumistroke"
         },
         "unlockBond": 7,
-        "modality": "magica"
+        "modality": "magica",
+        "learning": {
+          "school": "ink",
+          "rank": 3
+        }
       },
       "status": "draft"
     },
@@ -2133,7 +2233,11 @@
           "catalogue": "sanguinepact"
         },
         "unlockBond": 7,
-        "modality": "magica"
+        "modality": "magica",
+        "learning": {
+          "school": "blood",
+          "rank": 3
+        }
       },
       "status": "draft"
     },
@@ -2205,7 +2309,11 @@
           "catalogue": "hemolance"
         },
         "unlockBond": 4,
-        "modality": "magica"
+        "modality": "magica",
+        "learning": {
+          "school": "blood",
+          "rank": 2
+        }
       },
       "status": "draft"
     },
@@ -2455,7 +2563,11 @@
           "catalogue": "runeseal"
         },
         "unlockBond": 2,
-        "modality": "magica"
+        "modality": "magica",
+        "learning": {
+          "school": "arcane",
+          "rank": 1
+        }
       },
       "status": "draft"
     },
@@ -2489,7 +2601,11 @@
           "catalogue": "glyphstorm"
         },
         "unlockBond": 7,
-        "modality": "magica"
+        "modality": "magica",
+        "learning": {
+          "school": "arcane",
+          "rank": 3
+        }
       },
       "status": "draft"
     },
@@ -2955,7 +3071,11 @@
           "catalogue": "prismlance"
         },
         "unlockBond": 4,
-        "modality": "magica"
+        "modality": "magica",
+        "learning": {
+          "school": "arcane",
+          "rank": 2
+        }
       },
       "status": "draft"
     },
@@ -2989,7 +3109,11 @@
           "catalogue": "arcanevolley"
         },
         "unlockBond": 4,
-        "modality": "magica"
+        "modality": "magica",
+        "learning": {
+          "school": "arcane",
+          "rank": 2
+        }
       },
       "status": "draft"
     },
@@ -3027,7 +3151,11 @@
           "catalogue": "plaguebloom"
         },
         "unlockBond": 10,
-        "modality": "magica"
+        "modality": "magica",
+        "learning": {
+          "school": "blood",
+          "rank": 4
+        }
       },
       "status": "draft"
     },
@@ -3095,7 +3223,11 @@
           "catalogue": "starfall"
         },
         "unlockBond": 14,
-        "modality": "magica"
+        "modality": "magica",
+        "learning": {
+          "school": "arcane",
+          "rank": 5
+        }
       },
       "status": "draft"
     },
@@ -3133,7 +3265,11 @@
           "catalogue": "chronofracture"
         },
         "unlockBond": 10,
-        "modality": "magica"
+        "modality": "magica",
+        "learning": {
+          "school": "arcane",
+          "rank": 4
+        }
       },
       "status": "draft"
     },
@@ -3201,7 +3337,11 @@
           "catalogue": "crimsontide"
         },
         "unlockBond": 7,
-        "modality": "magica"
+        "modality": "magica",
+        "learning": {
+          "school": "blood",
+          "rank": 3
+        }
       },
       "status": "draft"
     },

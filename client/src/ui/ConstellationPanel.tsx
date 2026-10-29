@@ -6,7 +6,6 @@
  * Tudo que aparece vem dos cálculos reais (constellation.ts); a fala do Companion também (explainBuild, sem IA).
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { SchoolJournalPanel } from './SchoolJournalPanel';
 import { createPortal } from 'react-dom';
 import {
   RESONANCES, RESONANCE_KEYS, STATS, STAT_KEYS, SPECIES, CLASS_SUGGESTION, explainBuild, distribute, resonanceStrength, usedPoints, buildReport,
@@ -249,16 +248,15 @@ export function ConstellationScreen({ onClose }: { onClose: () => void }) {
 
 /** Aba Habilidades: Constelação (atributos) e Árvore (habilidades). */
 export function SkillsPanel({ Tree }: { Tree: () => React.ReactElement | null }) {
-  const [sub, setSub] = useState<'constelacao' | 'arvore' | 'escolas'>('constelacao');
+  const [sub, setSub] = useState<'constelacao' | 'arvore'>('constelacao');
   const [open, setOpen] = useState(false);
   return (
     <div className="skills-panel">
       <nav className="st-tabs" aria-label="Habilidades">
         <button className={sub === 'constelacao' ? 'on' : ''} onClick={() => setSub('constelacao')}>Constelação</button>
-        <button className={sub === 'arvore' ? 'on' : ''} onClick={() => setSub('arvore')}>Árvore</button>
-        <button className={sub === 'escolas' ? 'on' : ''} onClick={() => setSub('escolas')}>Escolas</button>
+        <button className={sub === 'arvore' ? 'on' : ''} onClick={() => setSub('arvore')}>Essência e evolução</button>
       </nav>
-      {sub === 'constelacao' ? <ConstellationSummary onOpen={() => setOpen(true)} /> : sub === 'escolas' ? <SchoolJournalPanel /> : <Tree />}
+      {sub === 'constelacao' ? <ConstellationSummary onOpen={() => setOpen(true)} /> : <Tree />}
       {open && createPortal(<ConstellationScreen onClose={() => setOpen(false)} />, document.body)}
     </div>
   );

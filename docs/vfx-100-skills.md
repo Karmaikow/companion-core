@@ -8,7 +8,7 @@ Todas as novas entradas são criadas como rascunho, visíveis/editáveis na Forj
 
 Cinco graus, com vínculo mínimo 2, 4, 7, 10 e 14. Grau 5 ocupa o slot supremo. Escala inicial de dano 38–105 antes de ajustes de área/papel; ataques pesados ganham dano, custo, preparação e recarga. Áreas causam menos dano por alvo e custam mais. Controles sacrificam dano, e atordoamentos ficam limitados a 1,5 s. Cura é aplicada ao próprio conjurador. Dano total por queimadura/veneno depende da implementação atual do combate (15% do dano por pulso, com mínimo de 2), além do dano inicial.
 
-O manifesto learningPlan registra escola, grau e papel para a futura aquisição. Não é requisito já aplicado pelo servidor; somente campos existentes de SkillDef são persistidos em skills.data. A descrição identifica a escola e o grau e permanece após editar/salvar na Forja.
+O manifesto learningPlan registra escola, grau e papel para a futura aquisição. Não é requisito já aplicado pelo servidor; learning (escola e grau) agora integra SkillDef e é preservado ao salvar; a aquisição autoritativa segue pendente. A descrição identifica a escola e o grau e permanece após editar/salvar na Forja.
 
 ## Limites reais
 
