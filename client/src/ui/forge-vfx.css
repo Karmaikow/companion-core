@@ -15,3 +15,7 @@
 .vfx-playback select { color:#ddecff; background:#172840; border:1px solid #496481; padding:6px; border-radius:6px; }
 .forge-workspace .preview-tools { border-radius:10px; flex-wrap:wrap; gap:8px; max-width:calc(100% - 20px); }
 @media(max-width:600px) { .forge-workspace .biome-preview { height:440px; } .forge-workspace .preview-tools { font-size:11px; } .vfx-track { grid-template-columns:105px minmax(0,1fr); } }
+.vfx-import label { display:grid; gap:6px; margin:12px 0; min-width:0; }
+.vfx-import textarea { width:100%; box-sizing:border-box; min-width:0; resize:vertical; font-family:monospace; }
+.vfx-import input { max-width:100%; }
+.vfx-import p,.vfx-import li { overflow-wrap:anywhere; }
