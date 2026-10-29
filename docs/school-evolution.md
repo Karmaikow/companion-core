@@ -17,7 +17,7 @@ Esta etapa é aditiva: não altera DEFAULT_SKILLS, inventário, kit, combate, sa
 3. Inventário e entregas transacionais: verificar escola aberta, grau anterior, nível, vínculo, memórias, missão, título e itens; debitar e promover na mesma transação, com chave idempotente. Nunca debitar apenas no cliente. Itens e missões acima ainda são propostas, não drops disponíveis.
 4. Aprendizado individual de técnicas, loadout fora de combate, persistência de conhecimento ao desativar escola, multiplicadores aplicados uma única vez a valores-base e duração real refletida nos VFX. Tratar proteção, invulnerabilidade, empurrão e reversão temporal conforme seus mecanismos reais.
 5. Abrir escolas e graus conforme expansão do mundo, preservando conquistas anteriores. Localização configurável; progresso independente do mapa.
-6. Convergente: cinco maestrias, técnicas das trilhas exigidas, títulos e memórias de maestria, cinco relíquias e missão final. O servidor concede a classe; o checkbox do simulador não é concessão. Com cinco escolas ativas, 70% em todas; especialistas conservam 100%. Fabricação de equipamentos exclusiva dos Taurinos não é requisito da trilha de combate.
+6. Convergente: cinco maestrias, técnicas das trilhas exigidas, títulos e memórias de maestria, cinco relíquias e missão final. O servidor concede a classe; o checkbox do simulador não é concessão. Com cinco escolas ativas, 70% em todas; especialistas conservam 100%. Regra revisada: toda a Escola da Forja exige linhagem Taurina, inclusive a trilha de combate. Convergente para outras linhagens fica pendente de definição, sem exceção automática.
 
 As memórias não são consumidas. Relevância extraordinária conta também como marcante. Conquistas repetidas não multiplicam contagem. Esta primeira versão pressupõe registro canônico único por conquista/evento, proveniente do Core; não é um validador de payloads externos.
 
@@ -36,3 +36,14 @@ O modo local consulta os eventos do save do próprio Companion, marcado como sim
 Publicação exige atualizar a Edge Function refuge com `schools.ts`, `schoolJournal.ts` e `schools.ts` das regras compartilhadas, além do frontend. O painel apresenta falha explícita quando a versão antiga do servidor ainda não oferece `schools.state`. Não há migração SQL nesta etapa. O deploy da função não é realizado pelo build Vite.
 
 Este diário ainda não é o estado de aprendizado de técnicas: todas as escolas seguem no grau zero e planejadas. Persistência de matrículas, técnicas aprendidas, entregas atômicas e loadout dependem da próxima etapa. Não interpretar contagem de memórias como autorização para conjurar.
+
+
+## Árvores separadas e ícones
+
+A aba Escolas foi retirada do modal de habilidades. A árvore comum recebeu um grafo navegável por mouse/teclado, mantendo os IDs, pontos, pré-requisitos e galhos de essência, classe e vínculo existentes. Esta alteração visual não expande automaticamente a árvore para as 68 técnicas novas.
+
+SkillDef aceita iconUrl HTTPS e learning (escola + grau). O upload administrativo aceita PNG/JPEG/WebP até 2 MB, 32–2048 px, no bucket world-assets; é preciso salvar a habilidade após enviar. O ícone aparece na árvore e hotbar. Os uploads removidos do formulário não apagam objetos do storage que possam estar em uso.
+
+As 32 técnicas canônicas vfx-* recebem escola/grau na leitura, mesmo em registros criados antes desses campos; trocar apenas o efeito visual de uma habilidade antiga não a converte em técnica de escola. Técnicas com learning ficam fora de skillFits e, portanto, da árvore comum e kit automático. Escola da Forja força classes=['touro']. O servidor deve ser atualizado com as regras espelhadas ao publicar.
+
+buildSchoolTree produz a árvore separada por escola e grau, com vínculos e requisitos de memórias/itens associados ao grau. A Forja administrativa oferece sua prévia; nenhum atalho de manipulação de escola é adicionado ao modal do jogador. As escolas ainda estão fechadas e suas localizações não foram criadas. Matrícula, validação autoritativa de presença no local, entrega e aprendizado continuam pendentes: os nós permanecem bloqueados até essas integrações.

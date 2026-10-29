@@ -1,4 +1,5 @@
-import { validSpellId } from './catalogue';
+import { isSchool, type SchoolId } from './schools.ts';
+import { SPELL_CATALOGUE, validSpellId } from './catalogue';
 /**
  * Forja de Batalha — habilidades genéricas. Uma habilidade não pertence a um Companion: ela pede uma essência (ou
  * nenhuma) e um ou mais tipos de corpo (ou todos). Qualquer Companion que combine com ela pode usá-la; a cor vem da
@@ -19,6 +20,8 @@ export type VfxStyle = 'impacto' | 'chamas' | 'gotas' | 'folhas' | 'pedras' | 'g
 
 export interface SkillDef {
   slug: string;
+  iconUrl?: string;
+  learning?: { school: SchoolId; rank: 1 | 2 | 3 | 4 | 5 };
   name: string;
   description: string;
   slot: SkillSlot;
@@ -142,18 +145,29 @@ const ELEMENT_KEYS: Element[] = ['fogo', 'agua', 'terra', 'vento', 'luz', 'sombr
 const SLUG = /^[a-z0-9][a-z0-9-]{1,40}$/;
 const n = (v: unknown, lo: number, hi: number, d: number) => { const x = Number(v); return Number.isFinite(x) ? Math.min(hi, Math.max(lo, x)) : d; };
 
+export function safeSkillIcon(value: unknown): string | undefined {
+  if (typeof value !== 'string' || value.length > 2048) return undefined;
+  try { const url = new URL(value); return url.protocol === 'https:' && !url.username && !url.password ? url.href : undefined; } catch { return undefined; }
+}
+
 export function sanitizeSkill(input: unknown): SkillDef | null {
   const s = (input ?? {}) as Partial<SkillDef>;
   if (typeof s.slug !== 'string' || !SLUG.test(s.slug)) return null;
   const st = s.status && typeof s.status === 'object' && (s.status.key in STATUSES) ? { key: s.status.key, chance: n(s.status.chance, 0, 1, 0.5), seconds: n(s.status.seconds, 0.5, 15, 3) } : null;
+  const authored = s.slug === `vfx-${s.vfx?.catalogue}` ? SPELL_CATALOGUE.find(effect => effect.id === s.vfx?.catalogue) : undefined;
+  const proposed = s.learning ?? (authored && isSchool(authored.school) ? { school: authored.school, rank: Math.max(1, [2,4,7,10,14].indexOf(s.unlockBond ?? 0) + 1) } : undefined);
+  const learning = proposed && isSchool(proposed.school) ? { school: proposed.school, rank: Math.round(n(proposed.rank, 1, 5, 1)) as 1 | 2 | 3 | 4 | 5 } : undefined;
+  const iconUrl = safeSkillIcon(s.iconUrl);
   const v = (s.vfx ?? {}) as Partial<SkillDef['vfx']>;
   return {
     slug: s.slug,
+    ...(iconUrl ? { iconUrl } : {}),
+    ...(learning ? { learning } : {}),
     name: typeof s.name === 'string' && s.name.trim() ? s.name.trim().slice(0, 40) : s.slug,
     description: typeof s.description === 'string' ? s.description.slice(0, 200) : '',
     slot: s.slot && s.slot in SLOTS ? s.slot : 'essence',
     essence: s.essence && ELEMENT_KEYS.includes(s.essence) ? s.essence : null,
-    classes: Array.isArray(s.classes) ? s.classes.filter((k): k is SpeciesKey => typeof k === 'string' && k in CLASS_LABELS) : [],
+    classes: learning?.school === 'forge' ? ['touro'] : Array.isArray(s.classes) ? s.classes.filter((k): k is SpeciesKey => typeof k === 'string' && k in CLASS_LABELS) : [],
     bodies: Array.isArray(s.bodies) ? s.bodies.filter((b): b is BodyPlan => typeof b === 'string' && b in BODIES) : [],
     shape: s.shape && s.shape in SHAPES ? s.shape : 'melee',
     range: n(s.range, 0.5, 15, 1.6), radius: n(s.radius, 0.2, 8, 1.2), angle: n(s.angle, 15, 180, 60),
@@ -169,6 +183,8 @@ export function sanitizeSkill(input: unknown): SkillDef | null {
 
 /** Serve para este Companion? (essência igual ou neutra; corpo na lista ou lista vazia) */
 export function skillFits(s: SkillDef, essence: Element | null, body: BodyPlan, species?: SpeciesKey | null): boolean {
+  // School techniques are acquired and equipped only through their school flow.
+  if (s.learning) return false;
   if (s.essence !== null && s.essence !== essence) return false;
   if (!s.classes.length && !s.bodies.length) return true;
   // Companion (humanoide): vale a classe; criatura: vale o corpo

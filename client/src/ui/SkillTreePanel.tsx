@@ -3,6 +3,7 @@
  * Classe e Vínculo. Montada a partir do catálogo publicado na Forja (sem ele, o catálogo inicial).
  * Online, a distribuição fica na tabela companion_skill_alloc; offline, neste navegador. Redistribuir é de graça.
  */
+import { SkillTreeGraph } from './SkillTreeGraph';
 import { useState } from 'react';
 import {
   ELEMENTS, SPECIES, STATUSES, SHAPES, TIER_BOND, canSpend, validateAllocation, treeEffects, spent,
@@ -61,29 +62,15 @@ export function SkillTreePanel() {
       </nav>
       <small className="hint">{tree.branches[branch].hint}</small>
 
-      <ol className="st-branch">
-        {nodes.map((n) => {
-          const r = alloc[n.id] ?? 0, why = canSpend(tree, alloc, n.id, bond, points);
-          const locked = bond < TIER_BOND[n.tier] || n.requires.some((q) => !(alloc[q] > 0));
-          return (
-            <li key={n.id} className={'st-node ' + n.kind + (r ? ' on' : '') + (locked ? ' locked' : '') + (sel === n.id ? ' sel' : '')}>
-              <button className="st-main" onClick={() => setSel(sel === n.id ? null : n.id)} aria-expanded={sel === n.id}>
-                <span className="st-icon" aria-hidden>{n.kind === 'skill' ? '✦' : n.kind === 'rank' ? '▲' : '◆'}</span>
-                <span className="st-name">{n.name}<small>{n.kind === 'skill' ? 'habilidade' : n.kind === 'rank' ? 'melhoria' : 'passiva'} · vínculo {TIER_BOND[n.tier]}</small></span>
-                <span className="st-pips" aria-label={`${r} de ${n.maxRank}`}>{Array.from({ length: n.maxRank }, (_, i) => <i key={i} className={i < r ? 'f' : ''} />)}</span>
-              </button>
-              <div className="st-act">
-                <button className="st-minus" disabled={!r} onClick={() => remove(n)} aria-label={`Tirar ponto de ${n.name}`}>−</button>
-                <button className="st-plus" disabled={!!why} title={why ?? 'Pôr um ponto'} onClick={() => add(n)} aria-label={`Pôr ponto em ${n.name}`}>+</button>
-              </div>
-            </li>
-          );
-        })}
-      </ol>
+      <SkillTreeGraph tree={tree} alloc={alloc} catalog={catalog} selected={sel} onSelect={id => { setSel(id); const next = tree.nodes.find(n=>n.id===id); if(next) setBranch(next.branch); }} />
+
 
       {node && (
         <div className="st-detail">
           <strong>{node.name}</strong>
+          <p>Vínculo mínimo: {TIER_BOND[node.tier]} · Pontos: {alloc[node.id] ?? 0}/{node.maxRank}</p>
+          <button type="button" disabled={saving || !(alloc[node.id] > 0)} onClick={() => remove(node)}>Retirar ponto</button>
+          <button type="button" disabled={saving || !!canSpend(tree, alloc, node.id, bond, points)} onClick={() => add(node)}>Aprender / evoluir</button>
           <p>{node.description}</p>
           {(() => {
             const s = skillOf(node);

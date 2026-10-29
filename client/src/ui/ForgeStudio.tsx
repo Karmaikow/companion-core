@@ -8,6 +8,8 @@ import {
   DEFAULT_SKILLS, ELEMENTS, SLOTS, SHAPES, STATUSES, VFX_STYLES, BODIES, ANIM_KINDS, CLASS_LABELS, SPECIES, sanitizeSkill, kitFor, biomeSlug,
   type SkillDef, type SkillSlot, type SkillShape, type StatusKey, type VfxStyle, type Element, type BodyPlan, type SpeciesKey,
 } from '@rules';
+import { SkillIconUpload } from './SkillIconUpload';
+import { SCHOOL_IDS, SCHOOL_DEFINITIONS } from '../../../shared/rules/combat/schools';
 import { ForgeSchools } from './ForgeSchools';
 import { ForgeVfxEditor } from './ForgeVfxEditor';
 import { useCatalog } from './catalog';
@@ -23,6 +25,7 @@ export function ForgeStudio() {
   const [status, setStatus] = useState<'draft' | 'published'>('draft');
   const [dirty, setDirty] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [iconBusy, setIconBusy] = useState(false);
   const [msg, setMsg] = useState<{ text: string; ok?: boolean } | null>(null);
   const [filter, setFilter] = useState<Element | 'todas' | 'neutras'>('todas');
   const [newName, setNewName] = useState('');
@@ -45,12 +48,14 @@ export function ForgeStudio() {
     try { await f(); setMsg({ ok: true, text: ok }); } catch (e) { setMsg({ text: (e as Error).message }); } finally { setBusy(false); }
   };
   const pick = (slug: string) => {
+    if (iconBusy) return;
     if (dirty && !window.confirm('Há mudanças não salvas. Trocar mesmo assim?')) return;
     const r = cat.rows?.find((x) => x.slug === slug);
     setSel(slug); setDraft(r ? structuredClone(r.data) : null); setStatus(r?.status ?? 'draft'); setDirty(false); setMsg(null);
   };
   const edit = (p: Partial<SkillDef>) => { setDraft((d) => (d ? { ...d, ...p } : d)); setDirty(true); };
   function create() {
+    if (iconBusy) return;
     const slug = biomeSlug(newName);
     if (!newName.trim()) return;
     if (cat.rows?.some((r) => r.slug === slug)) { setMsg({ text: `Já existe "${slug}".` }); return; }
@@ -80,16 +85,16 @@ export function ForgeStudio() {
     <div className="biome-studio forge-workspace">
       <aside className="biome-list">
         <h2>Forja de Batalha</h2>
-        <ForgeSchools />
+        <ForgeSchools catalogue={(cat.rows ?? []).map(row => row.data)} />
         <small className="hint">Habilidades genéricas: cada uma serve a uma essência (ou todas) e a classes de Companion e corpos de monstro escolhidos (ou todos). Companions são humanoides: a animação é sempre um clipe de humanoide; o que muda é a forma e o efeito.</small>
         {cat.error && <p className="msg err">{cat.error}</p>}
         {cat.rows && !cat.rows.length && (
-          <button className="primary" disabled={busy} onClick={() => void run(() => cat.saveMany(DEFAULT_SKILLS, 'published'), `${DEFAULT_SKILLS.length} habilidades carregadas e publicadas.`)}>
+          <button className="primary" disabled={busy || iconBusy} onClick={() => void run(() => cat.saveMany(DEFAULT_SKILLS, 'published'), `${DEFAULT_SKILLS.length} habilidades carregadas e publicadas.`)}>
             Carregar o catálogo inicial ({DEFAULT_SKILLS.length} habilidades)
           </button>
         )}
         {cat.rows && cat.rows.length > 0 && missingDefaults > 0 && (
-          <button className="ghost" disabled={busy} onClick={() => void run(syncDefaults, 'Catálogo atualizado: classes de Companion e habilidades novas.')}>
+          <button className="ghost" disabled={busy || iconBusy} onClick={() => void run(syncDefaults, 'Catálogo atualizado: classes de Companion e habilidades novas.')}>
             Atualizar com o catálogo novo ({missingDefaults} mudança{missingDefaults > 1 ? 's' : ''}: classes humanoides)
           </button>
         )}
@@ -165,6 +170,9 @@ export function ForgeStudio() {
             <label><input type="checkbox" checked={dark} onChange={(e) => setDark(e.target.checked)} /> Arena escura</label>
           </div>
           <div className="biome-form">
+            <SkillIconUpload key={draft.slug} value={draft.iconUrl} onBusy={setIconBusy} onChange={iconUrl => edit({ iconUrl })} />
+            <label>Árvore de aprendizado<select value={draft.learning?.school ?? ''} onChange={e => edit({ learning: e.target.value ? { school: e.target.value as NonNullable<SkillDef['learning']>['school'], rank: draft.learning?.rank ?? 1 } : undefined, ...(e.target.value === 'forge' ? { classes: ['touro'] } : {}) })}><option value="" disabled={draft.slug.startsWith('vfx-') && !!draft.learning}>Essência / progressão comum</option>{SCHOOL_IDS.map(id => <option key={id} value={id}>Escola {SCHOOL_DEFINITIONS[id].label}</option>)}</select></label>
+            {draft.learning && <><label>Grau exigido na escola<select value={draft.learning.rank} onChange={e => edit({ learning: { ...draft.learning!, rank: Number(e.target.value) as 1|2|3|4|5 } })}>{['Iniciado','Aprendiz','Adepto','Especialista','Mestre'].map((label,i)=><option key={label} value={i+1}>{label}</option>)}</select></label><p className="hint">Aprendizado apenas na escola correspondente. {draft.learning.school === 'forge' ? 'Entrada exclusiva de Taurinos.' : ''} As escolas ainda estão fechadas no mundo.</p></>}
             <ForgeVfxEditor key={draft.slug} skill={clean} onChange={(vfx) => edit({ vfx })} />
             <div className="row-3">
               <label>Nome<input value={draft.name} onChange={(e) => edit({ name: e.target.value })} maxLength={40} /></label>
@@ -183,7 +191,7 @@ export function ForgeStudio() {
                 <span className="hint">Classes de Companion:</span>
                 {(Object.keys(CLASS_LABELS) as SpeciesKey[]).map((k) => {
                   const on = draft.classes.includes(k);
-                  return <button key={k} type="button" className={'chip' + (on ? ' on' : '')} aria-pressed={on} title={SPECIES[k].lineage} onClick={() => edit({ classes: on ? draft.classes.filter((x) => x !== k) : [...draft.classes, k] })}>{CLASS_LABELS[k]}</button>;
+                  return <button key={k} type="button" disabled={draft.learning?.school === 'forge'} className={'chip' + (on ? ' on' : '')} aria-pressed={on} title={SPECIES[k].lineage} onClick={() => edit({ classes: on ? draft.classes.filter((x) => x !== k) : [...draft.classes, k] })}>{CLASS_LABELS[k]}</button>;
                 })}
               </div>
               <div className="chips" role="group" aria-label="Corpos">
@@ -232,11 +240,11 @@ export function ForgeStudio() {
 
             {msg && <p className={'msg' + (msg.ok ? ' ok' : ' err')}>{msg.text}</p>}
             <div className="row">
-              <button className="primary" disabled={busy || !dirty} onClick={() => void run(async () => { await cat.save(draft, status); setDirty(false); }, 'Salva.')}>Salvar</button>
+              <button className="primary" disabled={busy || iconBusy || !dirty} onClick={() => void run(async () => { await cat.save(draft, status); setDirty(false); }, 'Salva.')}>Salvar</button>
               {status === 'draft'
-                ? <button className="secondary" disabled={busy} onClick={() => void run(async () => { await cat.save(draft, 'published'); setStatus('published'); setDirty(false); }, 'Publicada.')}>Salvar e publicar</button>
-                : <button className="ghost" disabled={busy} onClick={() => void run(async () => { await cat.save(draft, 'draft'); setStatus('draft'); setDirty(false); }, 'Voltou para rascunho.')}>Tirar do jogo</button>}
-              <button className="link" disabled={busy} onClick={() => { if (window.confirm(`Apagar "${draft.name}"?`)) void run(async () => { await cat.remove(draft.slug); setSel(null); setDraft(null); setDirty(false); }, 'Apagada.'); }}>apagar</button>
+                ? <button className="secondary" disabled={busy || iconBusy} onClick={() => void run(async () => { await cat.save(draft, 'published'); setStatus('published'); setDirty(false); }, 'Publicada.')}>Salvar e publicar</button>
+                : <button className="ghost" disabled={busy || iconBusy} onClick={() => void run(async () => { await cat.save(draft, 'draft'); setStatus('draft'); setDirty(false); }, 'Voltou para rascunho.')}>Tirar do jogo</button>}
+              <button className="link" disabled={busy || iconBusy} onClick={() => { if (window.confirm(`Apagar "${draft.name}"?`)) void run(async () => { await cat.remove(draft.slug); setSel(null); setDraft(null); setDirty(false); }, 'Apagada.'); }}>apagar</button>
               {dirty && <small className="msg">Não salva: a prévia já mostra.</small>}
             </div>
           </div>

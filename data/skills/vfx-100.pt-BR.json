@@ -1,0 +1,4411 @@
+{
+  "version": 1,
+  "rows": [
+    {
+      "slug": "vfx-ice",
+      "name": "Lança da Geada",
+      "data": {
+        "slug": "vfx-ice",
+        "name": "Lança da Geada",
+        "description": "Gelo · Grau 2. Uma frente de cristais rasga o chão em linha reta.",
+        "slot": "essence",
+        "essence": "gelo",
+        "classes": [],
+        "bodies": [],
+        "shape": "line",
+        "range": 7,
+        "radius": 0.55,
+        "angle": 60,
+        "power": 50,
+        "heal": 0,
+        "energy": 22,
+        "cooldown": 6,
+        "windup": 0.45,
+        "status": null,
+        "anim": "attack",
+        "vfx": {
+          "style": "gelo",
+          "color": "essence",
+          "ground": false,
+          "layers": [],
+          "catalogue": "ice"
+        },
+        "unlockBond": 4,
+        "modality": "magica"
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-thunder",
+      "name": "Lança da Tempestade",
+      "data": {
+        "slug": "vfx-thunder",
+        "name": "Lança da Tempestade",
+        "description": "Raio · Grau 2. Filamentos elétricos atravessam os inimigos à frente.",
+        "slot": "essence",
+        "essence": "raio",
+        "classes": [],
+        "bodies": [],
+        "shape": "line",
+        "range": 7,
+        "radius": 0.55,
+        "angle": 60,
+        "power": 50,
+        "heal": 0,
+        "energy": 22,
+        "cooldown": 6,
+        "windup": 0.45,
+        "status": null,
+        "anim": "attack",
+        "vfx": {
+          "style": "raios",
+          "color": "essence",
+          "ground": false,
+          "layers": [],
+          "catalogue": "thunder"
+        },
+        "unlockBond": 4,
+        "modality": "magica"
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-meteor",
+      "name": "Queda de Brasa",
+      "data": {
+        "slug": "vfx-meteor",
+        "name": "Queda de Brasa",
+        "description": "Fogo · Grau 3. Um meteoro incandescente varre a faixa à frente.",
+        "slot": "essence",
+        "essence": "fogo",
+        "classes": [],
+        "bodies": [],
+        "shape": "line",
+        "range": 8,
+        "radius": 0.65,
+        "angle": 60,
+        "power": 84,
+        "heal": 0,
+        "energy": 34,
+        "cooldown": 10,
+        "windup": 0.8,
+        "status": null,
+        "anim": "attack",
+        "vfx": {
+          "style": "chamas",
+          "color": "essence",
+          "ground": false,
+          "layers": [],
+          "catalogue": "meteor"
+        },
+        "unlockBond": 7,
+        "modality": "magica"
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-beam",
+      "name": "Feixe da Nova",
+      "data": {
+        "slug": "vfx-beam",
+        "name": "Feixe da Nova",
+        "description": "Escola Arcana · Adepto. Um feixe arcano concentrado atravessa uma linha de inimigos.",
+        "slot": "essence",
+        "essence": null,
+        "classes": [],
+        "bodies": [],
+        "shape": "line",
+        "range": 8,
+        "radius": 0.65,
+        "angle": 60,
+        "power": 84,
+        "heal": 0,
+        "energy": 34,
+        "cooldown": 10,
+        "windup": 0.8,
+        "status": null,
+        "anim": "attack",
+        "vfx": {
+          "style": "faiscas",
+          "color": "#7ff0ff",
+          "ground": false,
+          "layers": [],
+          "catalogue": "beam"
+        },
+        "unlockBond": 7,
+        "modality": "magica",
+        "learning": {
+          "school": "arcane",
+          "rank": 3
+        }
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-snare",
+      "name": "Armadilha Voltaica",
+      "data": {
+        "slug": "vfx-snare",
+        "name": "Armadilha Voltaica",
+        "description": "Raio · Grau 2. Uma prisão elétrica irrompe na área marcada.",
+        "slot": "essence",
+        "essence": "raio",
+        "classes": [],
+        "bodies": [],
+        "shape": "circle",
+        "range": 7,
+        "radius": 1.8,
+        "angle": 60,
+        "power": 29,
+        "heal": 0,
+        "energy": 29,
+        "cooldown": 9,
+        "windup": 0.65,
+        "status": {
+          "key": "atordoado",
+          "chance": 0.8,
+          "seconds": 0.8
+        },
+        "anim": "attack",
+        "vfx": {
+          "style": "raios",
+          "color": "essence",
+          "ground": true,
+          "layers": [],
+          "catalogue": "snare"
+        },
+        "unlockBond": 4,
+        "modality": "magica"
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-glacier",
+      "name": "Coroa Glacial",
+      "data": {
+        "slug": "vfx-glacier",
+        "name": "Coroa Glacial",
+        "description": "Gelo · Grau 3. Lâminas de gelo se erguem ao redor da área escolhida.",
+        "slot": "essence",
+        "essence": "gelo",
+        "classes": [],
+        "bodies": [],
+        "shape": "circle",
+        "range": 7.5,
+        "radius": 2.2,
+        "angle": 60,
+        "power": 38,
+        "heal": 0,
+        "energy": 36,
+        "cooldown": 11,
+        "windup": 0.8,
+        "status": {
+          "key": "lento",
+          "chance": 1,
+          "seconds": 1.8
+        },
+        "anim": "attack",
+        "vfx": {
+          "style": "gelo",
+          "color": "essence",
+          "ground": true,
+          "layers": [],
+          "catalogue": "glacier"
+        },
+        "unlockBond": 7,
+        "modality": "magica"
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-geyser",
+      "name": "Gêiser Abissal",
+      "data": {
+        "slug": "vfx-geyser",
+        "name": "Gêiser Abissal",
+        "description": "Água · Grau 2. Uma coluna de água explode sob os inimigos.",
+        "slot": "essence",
+        "essence": "agua",
+        "classes": [],
+        "bodies": [],
+        "shape": "circle",
+        "range": 7,
+        "radius": 1.8,
+        "angle": 60,
+        "power": 42,
+        "heal": 0,
+        "energy": 26,
+        "cooldown": 7,
+        "windup": 0.65,
+        "status": null,
+        "anim": "attack",
+        "vfx": {
+          "style": "gotas",
+          "color": "essence",
+          "ground": true,
+          "layers": [],
+          "catalogue": "geyser"
+        },
+        "unlockBond": 4,
+        "modality": "magica"
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-pistondrive",
+      "name": "Avanço dos Pistões",
+      "data": {
+        "slug": "vfx-pistondrive",
+        "name": "Avanço dos Pistões",
+        "description": "Escola Forja · Aprendiz. Pistões de metal golpeiam uma faixa à frente.",
+        "slot": "essence",
+        "essence": null,
+        "classes": [
+          "touro"
+        ],
+        "bodies": [],
+        "shape": "line",
+        "range": 7,
+        "radius": 0.55,
+        "angle": 60,
+        "power": 50,
+        "heal": 0,
+        "energy": 22,
+        "cooldown": 6,
+        "windup": 0.45,
+        "status": null,
+        "anim": "attack",
+        "vfx": {
+          "style": "faiscas",
+          "color": "#9fb0bc",
+          "ground": false,
+          "layers": [],
+          "catalogue": "pistondrive"
+        },
+        "unlockBond": 4,
+        "modality": "fisica",
+        "learning": {
+          "school": "forge",
+          "rank": 2
+        }
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-astralgate",
+      "name": "Portal Astral",
+      "data": {
+        "slug": "vfx-astralgate",
+        "name": "Portal Astral",
+        "description": "Escola Arcana · Especialista. Obeliscos arcanos emergem de um portal na área marcada.",
+        "slot": "essence",
+        "essence": null,
+        "classes": [],
+        "bodies": [],
+        "shape": "circle",
+        "range": 8,
+        "radius": 2.6,
+        "angle": 60,
+        "power": 91,
+        "heal": 0,
+        "energy": 47,
+        "cooldown": 14,
+        "windup": 1.2,
+        "status": null,
+        "anim": "attack",
+        "vfx": {
+          "style": "faiscas",
+          "color": "#7d5cff",
+          "ground": true,
+          "layers": [],
+          "catalogue": "astralgate"
+        },
+        "unlockBond": 10,
+        "modality": "magica",
+        "learning": {
+          "school": "arcane",
+          "rank": 4
+        }
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-entropy",
+      "name": "Onda de Entropia",
+      "data": {
+        "slug": "vfx-entropy",
+        "name": "Onda de Entropia",
+        "description": "Escola Tempo · Especialista. Uma onda de desgaste temporal atravessa a área.",
+        "slot": "essence",
+        "essence": null,
+        "classes": [],
+        "bodies": [],
+        "shape": "circle",
+        "range": 8,
+        "radius": 2.6,
+        "angle": 60,
+        "power": 49,
+        "heal": 0,
+        "energy": 45,
+        "cooldown": 14,
+        "windup": 1.0,
+        "status": {
+          "key": "lento",
+          "chance": 1,
+          "seconds": 2.1
+        },
+        "anim": "attack",
+        "vfx": {
+          "style": "faiscas",
+          "color": "#a8794e",
+          "ground": true,
+          "layers": [],
+          "catalogue": "entropy"
+        },
+        "unlockBond": 10,
+        "modality": "magica",
+        "learning": {
+          "school": "chrono",
+          "rank": 4
+        }
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-rewind",
+      "name": "Rastro Reverso",
+      "data": {
+        "slug": "vfx-rewind",
+        "name": "Rastro Reverso",
+        "description": "Escola Tempo · Adepto. Uma fenda temporal percorre a linha e se recompõe visualmente.",
+        "slot": "essence",
+        "essence": null,
+        "classes": [],
+        "bodies": [],
+        "shape": "line",
+        "range": 8,
+        "radius": 0.65,
+        "angle": 60,
+        "power": 65,
+        "heal": 0,
+        "energy": 29,
+        "cooldown": 8,
+        "windup": 0.6,
+        "status": null,
+        "anim": "attack",
+        "vfx": {
+          "style": "faiscas",
+          "color": "#d99a2e",
+          "ground": false,
+          "layers": [],
+          "catalogue": "rewind"
+        },
+        "unlockBond": 7,
+        "modality": "magica",
+        "learning": {
+          "school": "chrono",
+          "rank": 3
+        }
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-undertow",
+      "name": "Redemoinho das Profundezas",
+      "data": {
+        "slug": "vfx-undertow",
+        "name": "Redemoinho das Profundezas",
+        "description": "Água · Grau 3. Um turbilhão de água castiga a área escolhida.",
+        "slot": "essence",
+        "essence": "agua",
+        "classes": [],
+        "bodies": [],
+        "shape": "circle",
+        "range": 7.5,
+        "radius": 2.2,
+        "angle": 60,
+        "power": 38,
+        "heal": 0,
+        "energy": 36,
+        "cooldown": 11,
+        "windup": 0.8,
+        "status": {
+          "key": "lento",
+          "chance": 1,
+          "seconds": 1.8
+        },
+        "anim": "attack",
+        "vfx": {
+          "style": "gotas",
+          "color": "essence",
+          "ground": true,
+          "layers": [],
+          "catalogue": "undertow"
+        },
+        "unlockBond": 7,
+        "modality": "magica"
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-bonecage",
+      "name": "Cárcere de Ossos",
+      "data": {
+        "slug": "vfx-bonecage",
+        "name": "Cárcere de Ossos",
+        "description": "Escola Sangue · Aprendiz. Costelas encantadas formam uma prisão sobre os inimigos.",
+        "slot": "essence",
+        "essence": null,
+        "classes": [],
+        "bodies": [],
+        "shape": "circle",
+        "range": 7,
+        "radius": 1.8,
+        "angle": 60,
+        "power": 29,
+        "heal": 0,
+        "energy": 29,
+        "cooldown": 9,
+        "windup": 0.65,
+        "status": {
+          "key": "enraizado",
+          "chance": 1,
+          "seconds": 1.5
+        },
+        "anim": "attack",
+        "vfx": {
+          "style": "impacto",
+          "color": "#f8c0b0",
+          "ground": true,
+          "layers": [],
+          "catalogue": "bonecage"
+        },
+        "unlockBond": 4,
+        "modality": "magica",
+        "learning": {
+          "school": "blood",
+          "rank": 2
+        }
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-torrent",
+      "name": "Torrente Cortante",
+      "data": {
+        "slug": "vfx-torrent",
+        "name": "Torrente Cortante",
+        "description": "Água · Grau 1. Um jato concentrado corta a faixa à frente.",
+        "slot": "essence",
+        "essence": "agua",
+        "classes": [],
+        "bodies": [],
+        "shape": "line",
+        "range": 6,
+        "radius": 0.45,
+        "angle": 60,
+        "power": 38,
+        "heal": 0,
+        "energy": 16,
+        "cooldown": 4.5,
+        "windup": 0.3,
+        "status": null,
+        "anim": "attack",
+        "vfx": {
+          "style": "gotas",
+          "color": "essence",
+          "ground": false,
+          "layers": [],
+          "catalogue": "torrent"
+        },
+        "unlockBond": 2,
+        "modality": "magica"
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-broodburst",
+      "name": "Eclosão Venenosa",
+      "data": {
+        "slug": "vfx-broodburst",
+        "name": "Eclosão Venenosa",
+        "description": "Veneno · Grau 2. Ovos tóxicos se rompem e espalham criaturas peçonhentas.",
+        "slot": "essence",
+        "essence": "veneno",
+        "classes": [],
+        "bodies": [],
+        "shape": "circle",
+        "range": 7,
+        "radius": 1.8,
+        "angle": 60,
+        "power": 34,
+        "heal": 0,
+        "energy": 26,
+        "cooldown": 8,
+        "windup": 0.65,
+        "status": {
+          "key": "envenenado",
+          "chance": 0.85,
+          "seconds": 3
+        },
+        "anim": "attack",
+        "vfx": {
+          "style": "veneno",
+          "color": "essence",
+          "ground": true,
+          "layers": [],
+          "catalogue": "broodburst"
+        },
+        "unlockBond": 4,
+        "modality": "magica"
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-obsidian",
+      "name": "Flor de Obsidiana",
+      "data": {
+        "slug": "vfx-obsidian",
+        "name": "Flor de Obsidiana",
+        "description": "Terra · Grau 3. Lâminas de vidro vulcânico emergem do solo.",
+        "slot": "essence",
+        "essence": "terra",
+        "classes": [],
+        "bodies": [],
+        "shape": "circle",
+        "range": 7.5,
+        "radius": 2.2,
+        "angle": 60,
+        "power": 72,
+        "heal": 0,
+        "energy": 38,
+        "cooldown": 11,
+        "windup": 1.0,
+        "status": null,
+        "anim": "attack",
+        "vfx": {
+          "style": "pedras",
+          "color": "essence",
+          "ground": true,
+          "layers": [],
+          "catalogue": "obsidian"
+        },
+        "unlockBond": 7,
+        "modality": "hibrida"
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-waspfunnel",
+      "name": "Tornado de Vespas",
+      "data": {
+        "slug": "vfx-waspfunnel",
+        "name": "Tornado de Vespas",
+        "description": "Veneno · Grau 3. Vespas venenosas se agrupam num funil sobre a área.",
+        "slot": "essence",
+        "essence": "veneno",
+        "classes": [],
+        "bodies": [],
+        "shape": "circle",
+        "range": 7.5,
+        "radius": 2.2,
+        "angle": 60,
+        "power": 44,
+        "heal": 0,
+        "energy": 33,
+        "cooldown": 10,
+        "windup": 0.8,
+        "status": {
+          "key": "envenenado",
+          "chance": 0.85,
+          "seconds": 3.5
+        },
+        "anim": "attack",
+        "vfx": {
+          "style": "veneno",
+          "color": "essence",
+          "ground": true,
+          "layers": [],
+          "catalogue": "waspfunnel"
+        },
+        "unlockBond": 7,
+        "modality": "magica"
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-silence",
+      "name": "Véu do Vazio",
+      "data": {
+        "slug": "vfx-silence",
+        "name": "Véu do Vazio",
+        "description": "Sombra · Grau 4. Uma esfera de sombra envolve e obscurece a área.",
+        "slot": "essence",
+        "essence": "sombra",
+        "classes": [],
+        "bodies": [],
+        "shape": "circle",
+        "range": 8,
+        "radius": 2.6,
+        "angle": 60,
+        "power": 49,
+        "heal": 0,
+        "energy": 45,
+        "cooldown": 14,
+        "windup": 1.0,
+        "status": {
+          "key": "ofuscado",
+          "chance": 1,
+          "seconds": 2.1
+        },
+        "anim": "attack",
+        "vfx": {
+          "style": "sombra",
+          "color": "essence",
+          "ground": true,
+          "layers": [],
+          "catalogue": "silence"
+        },
+        "unlockBond": 10,
+        "modality": "magica"
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-refractcascade",
+      "name": "Cascata de Prismas",
+      "data": {
+        "slug": "vfx-refractcascade",
+        "name": "Cascata de Prismas",
+        "description": "Luz · Grau 3. Um raio luminoso atravessa uma sequência de prismas.",
+        "slot": "essence",
+        "essence": "luz",
+        "classes": [],
+        "bodies": [],
+        "shape": "line",
+        "range": 8,
+        "radius": 0.65,
+        "angle": 60,
+        "power": 65,
+        "heal": 0,
+        "energy": 29,
+        "cooldown": 8,
+        "windup": 0.6,
+        "status": null,
+        "anim": "attack",
+        "vfx": {
+          "style": "luz",
+          "color": "essence",
+          "ground": false,
+          "layers": [],
+          "catalogue": "refractcascade"
+        },
+        "unlockBond": 7,
+        "modality": "magica"
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-afterimage",
+      "name": "Vestígios do Instante",
+      "data": {
+        "slug": "vfx-afterimage",
+        "name": "Vestígios do Instante",
+        "description": "Escola Tempo · Aprendiz. Imagens residuais espalham energia temporal em linha.",
+        "slot": "essence",
+        "essence": null,
+        "classes": [],
+        "bodies": [],
+        "shape": "line",
+        "range": 7,
+        "radius": 0.55,
+        "angle": 60,
+        "power": 50,
+        "heal": 0,
+        "energy": 22,
+        "cooldown": 6,
+        "windup": 0.45,
+        "status": null,
+        "anim": "attack",
+        "vfx": {
+          "style": "faiscas",
+          "color": "#efe4c8",
+          "ground": false,
+          "layers": [],
+          "catalogue": "afterimage"
+        },
+        "unlockBond": 4,
+        "modality": "magica",
+        "learning": {
+          "school": "chrono",
+          "rank": 2
+        }
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-shrapnel",
+      "name": "Flor de Estilhaços",
+      "data": {
+        "slug": "vfx-shrapnel",
+        "name": "Flor de Estilhaços",
+        "description": "Escola Forja · Adepto. Um núcleo metálico espalha estilhaços pela área.",
+        "slot": "essence",
+        "essence": null,
+        "classes": [
+          "touro"
+        ],
+        "bodies": [],
+        "shape": "circle",
+        "range": 7.5,
+        "radius": 2.2,
+        "angle": 60,
+        "power": 72,
+        "heal": 0,
+        "energy": 38,
+        "cooldown": 11,
+        "windup": 1.0,
+        "status": null,
+        "anim": "attack",
+        "vfx": {
+          "style": "faiscas",
+          "color": "#e0913f",
+          "ground": true,
+          "layers": [],
+          "catalogue": "shrapnel"
+        },
+        "unlockBond": 7,
+        "modality": "fisica",
+        "learning": {
+          "school": "forge",
+          "rank": 3
+        }
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-photonlattice",
+      "name": "Grade de Fótons",
+      "data": {
+        "slug": "vfx-photonlattice",
+        "name": "Grade de Fótons",
+        "description": "Luz · Grau 3. Uma trama de luz incide sobre a região marcada.",
+        "slot": "essence",
+        "essence": "luz",
+        "classes": [],
+        "bodies": [],
+        "shape": "circle",
+        "range": 7.5,
+        "radius": 2.2,
+        "angle": 60,
+        "power": 55,
+        "heal": 0,
+        "energy": 33,
+        "cooldown": 9,
+        "windup": 0.8,
+        "status": null,
+        "anim": "attack",
+        "vfx": {
+          "style": "luz",
+          "color": "essence",
+          "ground": true,
+          "layers": [],
+          "catalogue": "photonlattice"
+        },
+        "unlockBond": 7,
+        "modality": "magica"
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-splatterbrand",
+      "name": "Marca do Pincel",
+      "data": {
+        "slug": "vfx-splatterbrand",
+        "name": "Marca do Pincel",
+        "description": "Escola Tinta · Iniciado. Uma pincelada carregada projeta tinta mágica à frente.",
+        "slot": "essence",
+        "essence": null,
+        "classes": [],
+        "bodies": [],
+        "shape": "line",
+        "range": 6,
+        "radius": 0.45,
+        "angle": 60,
+        "power": 38,
+        "heal": 0,
+        "energy": 16,
+        "cooldown": 4.5,
+        "windup": 0.3,
+        "status": null,
+        "anim": "attack",
+        "vfx": {
+          "style": "sombra",
+          "color": "#d1452c",
+          "ground": false,
+          "layers": [],
+          "catalogue": "splatterbrand"
+        },
+        "unlockBond": 2,
+        "modality": "magica",
+        "learning": {
+          "school": "ink",
+          "rank": 1
+        }
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-sealscript",
+      "name": "Escrita do Selo",
+      "data": {
+        "slug": "vfx-sealscript",
+        "name": "Escrita do Selo",
+        "description": "Escola Tinta · Aprendiz. Caracteres encantados selam a área marcada.",
+        "slot": "essence",
+        "essence": null,
+        "classes": [],
+        "bodies": [],
+        "shape": "circle",
+        "range": 7,
+        "radius": 1.8,
+        "angle": 60,
+        "power": 29,
+        "heal": 0,
+        "energy": 29,
+        "cooldown": 9,
+        "windup": 0.65,
+        "status": {
+          "key": "enraizado",
+          "chance": 1,
+          "seconds": 1.5
+        },
+        "anim": "attack",
+        "vfx": {
+          "style": "sombra",
+          "color": "#8fa39a",
+          "ground": true,
+          "layers": [],
+          "catalogue": "sealscript"
+        },
+        "unlockBond": 4,
+        "modality": "magica",
+        "learning": {
+          "school": "ink",
+          "rank": 2
+        }
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-hourglass",
+      "name": "Ampulheta Invertida",
+      "data": {
+        "slug": "vfx-hourglass",
+        "name": "Ampulheta Invertida",
+        "description": "Escola Tempo · Adepto. Areia suspensa envolve os inimigos num campo temporal.",
+        "slot": "essence",
+        "essence": null,
+        "classes": [],
+        "bodies": [],
+        "shape": "circle",
+        "range": 7.5,
+        "radius": 2.2,
+        "angle": 60,
+        "power": 38,
+        "heal": 0,
+        "energy": 36,
+        "cooldown": 11,
+        "windup": 0.8,
+        "status": {
+          "key": "lento",
+          "chance": 1,
+          "seconds": 1.8
+        },
+        "anim": "attack",
+        "vfx": {
+          "style": "faiscas",
+          "color": "#e8c27a",
+          "ground": true,
+          "layers": [],
+          "catalogue": "hourglass"
+        },
+        "unlockBond": 7,
+        "modality": "magica",
+        "learning": {
+          "school": "chrono",
+          "rank": 3
+        }
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-brinelock",
+      "name": "Trilha de Salmoura",
+      "data": {
+        "slug": "vfx-brinelock",
+        "name": "Trilha de Salmoura",
+        "description": "Água · Grau 2. Jatos de salmoura se cristalizam numa faixa à frente.",
+        "slot": "essence",
+        "essence": "agua",
+        "classes": [],
+        "bodies": [],
+        "shape": "line",
+        "range": 7,
+        "radius": 0.55,
+        "angle": 60,
+        "power": 35,
+        "heal": 0,
+        "energy": 25,
+        "cooldown": 8,
+        "windup": 0.45,
+        "status": {
+          "key": "enraizado",
+          "chance": 0.8,
+          "seconds": 1.5
+        },
+        "anim": "attack",
+        "vfx": {
+          "style": "gotas",
+          "color": "essence",
+          "ground": false,
+          "layers": [],
+          "catalogue": "brinelock"
+        },
+        "unlockBond": 4,
+        "modality": "magica"
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-blackice",
+      "name": "Espelho de Gelo Negro",
+      "data": {
+        "slug": "vfx-blackice",
+        "name": "Espelho de Gelo Negro",
+        "description": "Gelo · Grau 3. Uma superfície de gelo negro cobre a área marcada.",
+        "slot": "essence",
+        "essence": "gelo",
+        "classes": [],
+        "bodies": [],
+        "shape": "circle",
+        "range": 7.5,
+        "radius": 2.2,
+        "angle": 60,
+        "power": 38,
+        "heal": 0,
+        "energy": 36,
+        "cooldown": 11,
+        "windup": 0.8,
+        "status": {
+          "key": "lento",
+          "chance": 1,
+          "seconds": 1.8
+        },
+        "anim": "attack",
+        "vfx": {
+          "style": "gelo",
+          "color": "essence",
+          "ground": true,
+          "layers": [],
+          "catalogue": "blackice"
+        },
+        "unlockBond": 7,
+        "modality": "magica"
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-bubblecage",
+      "name": "Prisão de Bolhas",
+      "data": {
+        "slug": "vfx-bubblecage",
+        "name": "Prisão de Bolhas",
+        "description": "Água · Grau 2. Bolhas translúcidas encerram os inimigos da área.",
+        "slot": "essence",
+        "essence": "agua",
+        "classes": [],
+        "bodies": [],
+        "shape": "circle",
+        "range": 7,
+        "radius": 1.8,
+        "angle": 60,
+        "power": 29,
+        "heal": 0,
+        "energy": 29,
+        "cooldown": 9,
+        "windup": 0.65,
+        "status": {
+          "key": "lento",
+          "chance": 1,
+          "seconds": 1.5
+        },
+        "anim": "attack",
+        "vfx": {
+          "style": "gotas",
+          "color": "essence",
+          "ground": true,
+          "layers": [],
+          "catalogue": "bubblecage"
+        },
+        "unlockBond": 4,
+        "modality": "magica"
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-spellbreak",
+      "name": "Ruptura Arcana",
+      "data": {
+        "slug": "vfx-spellbreak",
+        "name": "Ruptura Arcana",
+        "description": "Escola Arcana · Especialista. Uma cúpula arcana se fragmenta sobre a área marcada.",
+        "slot": "essence",
+        "essence": null,
+        "classes": [],
+        "bodies": [],
+        "shape": "circle",
+        "range": 8,
+        "radius": 2.6,
+        "angle": 60,
+        "power": 91,
+        "heal": 0,
+        "energy": 47,
+        "cooldown": 14,
+        "windup": 1.2,
+        "status": null,
+        "anim": "attack",
+        "vfx": {
+          "style": "faiscas",
+          "color": "#6ee0c4",
+          "ground": true,
+          "layers": [],
+          "catalogue": "spellbreak"
+        },
+        "unlockBond": 10,
+        "modality": "magica",
+        "learning": {
+          "school": "arcane",
+          "rank": 4
+        }
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-sawline",
+      "name": "Serra Errante",
+      "data": {
+        "slug": "vfx-sawline",
+        "name": "Serra Errante",
+        "description": "Escola Forja · Aprendiz. Uma lâmina dentada percorre o solo em linha reta.",
+        "slot": "essence",
+        "essence": null,
+        "classes": [
+          "touro"
+        ],
+        "bodies": [],
+        "shape": "line",
+        "range": 7,
+        "radius": 0.55,
+        "angle": 60,
+        "power": 50,
+        "heal": 0,
+        "energy": 22,
+        "cooldown": 6,
+        "windup": 0.45,
+        "status": null,
+        "anim": "attack",
+        "vfx": {
+          "style": "faiscas",
+          "color": "#ffae42",
+          "ground": false,
+          "layers": [],
+          "catalogue": "sawline"
+        },
+        "unlockBond": 4,
+        "modality": "fisica",
+        "learning": {
+          "school": "forge",
+          "rank": 2
+        }
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-firewalk",
+      "name": "Passos de Brasa",
+      "data": {
+        "slug": "vfx-firewalk",
+        "name": "Passos de Brasa",
+        "description": "Fogo · Grau 1. Pegadas de fogo acendem uma trilha diante do conjurador.",
+        "slot": "essence",
+        "essence": "fogo",
+        "classes": [],
+        "bodies": [],
+        "shape": "line",
+        "range": 6,
+        "radius": 0.45,
+        "angle": 60,
+        "power": 30,
+        "heal": 0,
+        "energy": 16,
+        "cooldown": 5.5,
+        "windup": 0.3,
+        "status": {
+          "key": "queimando",
+          "chance": 0.85,
+          "seconds": 2
+        },
+        "anim": "attack",
+        "vfx": {
+          "style": "chamas",
+          "color": "essence",
+          "ground": false,
+          "layers": [],
+          "catalogue": "firewalk"
+        },
+        "unlockBond": 2,
+        "modality": "magica"
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-wildfire",
+      "name": "Incêndio Indomável",
+      "data": {
+        "slug": "vfx-wildfire",
+        "name": "Incêndio Indomável",
+        "description": "Fogo · Grau 3. Chamas se alastram pela área e deixam queimaduras.",
+        "slot": "essence",
+        "essence": "fogo",
+        "classes": [],
+        "bodies": [],
+        "shape": "circle",
+        "range": 7.5,
+        "radius": 2.2,
+        "angle": 60,
+        "power": 44,
+        "heal": 0,
+        "energy": 33,
+        "cooldown": 10,
+        "windup": 0.8,
+        "status": {
+          "key": "queimando",
+          "chance": 0.85,
+          "seconds": 3.5
+        },
+        "anim": "attack",
+        "vfx": {
+          "style": "chamas",
+          "color": "essence",
+          "ground": true,
+          "layers": [],
+          "catalogue": "wildfire"
+        },
+        "unlockBond": 7,
+        "modality": "magica"
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-scrollward",
+      "name": "Círculo dos Pergaminhos",
+      "data": {
+        "slug": "vfx-scrollward",
+        "name": "Círculo dos Pergaminhos",
+        "description": "Escola Tinta · Aprendiz. Pergaminhos encantados cercam o conjurador e restauram sua vida.",
+        "slot": "essence",
+        "essence": null,
+        "classes": [],
+        "bodies": [],
+        "shape": "aura",
+        "range": 0.5,
+        "radius": 1.8,
+        "angle": 60,
+        "power": 0,
+        "heal": 48,
+        "energy": 31,
+        "cooldown": 12,
+        "windup": 0.45,
+        "status": null,
+        "anim": "happy",
+        "vfx": {
+          "style": "sombra",
+          "color": "#bfa76a",
+          "ground": true,
+          "layers": [],
+          "catalogue": "scrollward"
+        },
+        "unlockBond": 4,
+        "modality": "magica",
+        "learning": {
+          "school": "ink",
+          "rank": 2
+        }
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-carapace",
+      "name": "Crisálida Venenosa",
+      "data": {
+        "slug": "vfx-carapace",
+        "name": "Crisálida Venenosa",
+        "description": "Veneno · Grau 2. Placas de quitina envolvem o conjurador durante sua recuperação.",
+        "slot": "essence",
+        "essence": "veneno",
+        "classes": [],
+        "bodies": [],
+        "shape": "aura",
+        "range": 0.5,
+        "radius": 1.8,
+        "angle": 60,
+        "power": 0,
+        "heal": 48,
+        "energy": 31,
+        "cooldown": 12,
+        "windup": 0.45,
+        "status": null,
+        "anim": "happy",
+        "vfx": {
+          "style": "veneno",
+          "color": "essence",
+          "ground": true,
+          "layers": [],
+          "catalogue": "carapace"
+        },
+        "unlockBond": 4,
+        "modality": "magica"
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-stasisfield",
+      "name": "Campo de Estase",
+      "data": {
+        "slug": "vfx-stasisfield",
+        "name": "Campo de Estase",
+        "description": "Escola Tempo · Mestre. Uma esfera temporal se fecha sobre a área escolhida.",
+        "slot": "supreme",
+        "essence": null,
+        "classes": [],
+        "bodies": [],
+        "shape": "circle",
+        "range": 9,
+        "radius": 3.1,
+        "angle": 60,
+        "power": 62,
+        "heal": 0,
+        "energy": 57,
+        "cooldown": 19,
+        "windup": 1.3,
+        "status": {
+          "key": "atordoado",
+          "chance": 1,
+          "seconds": 1.5
+        },
+        "anim": "attack",
+        "vfx": {
+          "style": "faiscas",
+          "color": "#8fb6a8",
+          "ground": true,
+          "layers": [],
+          "catalogue": "stasisfield"
+        },
+        "unlockBond": 14,
+        "modality": "magica",
+        "learning": {
+          "school": "chrono",
+          "rank": 5
+        }
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-gearlock",
+      "name": "Trava de Engrenagens",
+      "data": {
+        "slug": "vfx-gearlock",
+        "name": "Trava de Engrenagens",
+        "description": "Escola Forja · Adepto. Engrenagens emergem e travam sob os inimigos.",
+        "slot": "essence",
+        "essence": null,
+        "classes": [
+          "touro"
+        ],
+        "bodies": [],
+        "shape": "circle",
+        "range": 7.5,
+        "radius": 2.2,
+        "angle": 60,
+        "power": 38,
+        "heal": 0,
+        "energy": 36,
+        "cooldown": 11,
+        "windup": 0.8,
+        "status": {
+          "key": "atordoado",
+          "chance": 0.8,
+          "seconds": 1
+        },
+        "anim": "attack",
+        "vfx": {
+          "style": "faiscas",
+          "color": "#69a2b6",
+          "ground": true,
+          "layers": [],
+          "catalogue": "gearlock"
+        },
+        "unlockBond": 7,
+        "modality": "fisica",
+        "learning": {
+          "school": "forge",
+          "rank": 3
+        }
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-quench",
+      "name": "Choque de Têmpera",
+      "data": {
+        "slug": "vfx-quench",
+        "name": "Choque de Têmpera",
+        "description": "Escola Forja · Aprendiz. Uma descarga de vapor irrompe na área marcada.",
+        "slot": "essence",
+        "essence": null,
+        "classes": [
+          "touro"
+        ],
+        "bodies": [],
+        "shape": "circle",
+        "range": 7,
+        "radius": 1.8,
+        "angle": 60,
+        "power": 42,
+        "heal": 0,
+        "energy": 26,
+        "cooldown": 7,
+        "windup": 0.65,
+        "status": null,
+        "anim": "attack",
+        "vfx": {
+          "style": "faiscas",
+          "color": "#db7b7a",
+          "ground": true,
+          "layers": [],
+          "catalogue": "quench"
+        },
+        "unlockBond": 4,
+        "modality": "fisica",
+        "learning": {
+          "school": "forge",
+          "rank": 2
+        }
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-unmake",
+      "name": "Trilha da Desintegração",
+      "data": {
+        "slug": "vfx-unmake",
+        "name": "Trilha da Desintegração",
+        "description": "Sombra · Grau 5. Uma onda de energia sombria desfaz fragmentos visuais do chão.",
+        "slot": "supreme",
+        "essence": "sombra",
+        "classes": [],
+        "bodies": [],
+        "shape": "line",
+        "range": 10,
+        "radius": 1,
+        "angle": 60,
+        "power": 136,
+        "heal": 0,
+        "energy": 55,
+        "cooldown": 18,
+        "windup": 1.3,
+        "status": null,
+        "anim": "attack",
+        "vfx": {
+          "style": "sombra",
+          "color": "essence",
+          "ground": false,
+          "layers": [],
+          "catalogue": "unmake"
+        },
+        "unlockBond": 14,
+        "modality": "magica"
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-solarlens",
+      "name": "Lente Solar",
+      "data": {
+        "slug": "vfx-solarlens",
+        "name": "Lente Solar",
+        "description": "Luz · Grau 3. Uma lente concentra fogo luminoso sobre a área.",
+        "slot": "essence",
+        "essence": "luz",
+        "classes": [],
+        "bodies": [],
+        "shape": "circle",
+        "range": 7.5,
+        "radius": 2.2,
+        "angle": 60,
+        "power": 44,
+        "heal": 0,
+        "energy": 33,
+        "cooldown": 10,
+        "windup": 0.8,
+        "status": {
+          "key": "queimando",
+          "chance": 0.85,
+          "seconds": 3.5
+        },
+        "anim": "attack",
+        "vfx": {
+          "style": "luz",
+          "color": "essence",
+          "ground": true,
+          "layers": [],
+          "catalogue": "solarlens"
+        },
+        "unlockBond": 7,
+        "modality": "magica"
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-anvilfall",
+      "name": "Queda da Bigorna",
+      "data": {
+        "slug": "vfx-anvilfall",
+        "name": "Queda da Bigorna",
+        "description": "Escola Forja · Especialista. Uma bigorna encantada desaba sobre o ponto escolhido.",
+        "slot": "essence",
+        "essence": null,
+        "classes": [
+          "touro"
+        ],
+        "bodies": [],
+        "shape": "circle",
+        "range": 8,
+        "radius": 2.6,
+        "angle": 60,
+        "power": 91,
+        "heal": 0,
+        "energy": 47,
+        "cooldown": 14,
+        "windup": 1.2,
+        "status": null,
+        "anim": "attack",
+        "vfx": {
+          "style": "faiscas",
+          "color": "#b8b2a6",
+          "ground": true,
+          "layers": [],
+          "catalogue": "anvilfall"
+        },
+        "unlockBond": 10,
+        "modality": "fisica",
+        "learning": {
+          "school": "forge",
+          "rank": 4
+        }
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-tiderush",
+      "name": "Avanço da Maré",
+      "data": {
+        "slug": "vfx-tiderush",
+        "name": "Avanço da Maré",
+        "description": "Água · Grau 2. Uma onda percorre a faixa à frente e atinge seus inimigos.",
+        "slot": "essence",
+        "essence": "agua",
+        "classes": [],
+        "bodies": [],
+        "shape": "line",
+        "range": 7,
+        "radius": 0.55,
+        "angle": 60,
+        "power": 50,
+        "heal": 0,
+        "energy": 22,
+        "cooldown": 6,
+        "windup": 0.45,
+        "status": null,
+        "anim": "attack",
+        "vfx": {
+          "style": "gotas",
+          "color": "essence",
+          "ground": false,
+          "layers": [],
+          "catalogue": "tiderush"
+        },
+        "unlockBond": 4,
+        "modality": "magica"
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-godspear",
+      "name": "Lança do Firmamento",
+      "data": {
+        "slug": "vfx-godspear",
+        "name": "Lança do Firmamento",
+        "description": "Luz · Grau 5. Pilares de luz atravessam uma faixa extensa.",
+        "slot": "supreme",
+        "essence": "luz",
+        "classes": [],
+        "bodies": [],
+        "shape": "line",
+        "range": 10,
+        "radius": 1,
+        "angle": 60,
+        "power": 136,
+        "heal": 0,
+        "energy": 55,
+        "cooldown": 18,
+        "windup": 1.3,
+        "status": null,
+        "anim": "attack",
+        "vfx": {
+          "style": "luz",
+          "color": "essence",
+          "ground": false,
+          "layers": [],
+          "catalogue": "godspear"
+        },
+        "unlockBond": 14,
+        "modality": "magica"
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-locusttide",
+      "name": "Maré de Gafanhotos",
+      "data": {
+        "slug": "vfx-locusttide",
+        "name": "Maré de Gafanhotos",
+        "description": "Veneno · Grau 4. Um enxame peçonhento avança em formação pela linha.",
+        "slot": "essence",
+        "essence": "veneno",
+        "classes": [],
+        "bodies": [],
+        "shape": "line",
+        "range": 9,
+        "radius": 0.8,
+        "angle": 60,
+        "power": 66,
+        "heal": 0,
+        "energy": 38,
+        "cooldown": 12,
+        "windup": 0.8,
+        "status": {
+          "key": "envenenado",
+          "chance": 0.85,
+          "seconds": 4
+        },
+        "anim": "attack",
+        "vfx": {
+          "style": "veneno",
+          "color": "essence",
+          "ground": false,
+          "layers": [],
+          "catalogue": "locusttide"
+        },
+        "unlockBond": 10,
+        "modality": "magica"
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-mycelium",
+      "name": "Rede de Micélio",
+      "data": {
+        "slug": "vfx-mycelium",
+        "name": "Rede de Micélio",
+        "description": "Natureza · Grau 2. Uma rede de fungos encantados se espalha pela faixa à frente.",
+        "slot": "essence",
+        "essence": "natureza",
+        "classes": [],
+        "bodies": [],
+        "shape": "line",
+        "range": 7,
+        "radius": 0.55,
+        "angle": 60,
+        "power": 35,
+        "heal": 0,
+        "energy": 25,
+        "cooldown": 8,
+        "windup": 0.45,
+        "status": {
+          "key": "enraizado",
+          "chance": 1,
+          "seconds": 1.5
+        },
+        "anim": "attack",
+        "vfx": {
+          "style": "folhas",
+          "color": "essence",
+          "ground": false,
+          "layers": [],
+          "catalogue": "mycelium"
+        },
+        "unlockBond": 4,
+        "modality": "magica"
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-featherfall",
+      "name": "Chuva de Plumas",
+      "data": {
+        "slug": "vfx-featherfall",
+        "name": "Chuva de Plumas",
+        "description": "Vento · Grau 1. Plumas suaves envolvem o conjurador e restauram sua vida.",
+        "slot": "essence",
+        "essence": "vento",
+        "classes": [],
+        "bodies": [],
+        "shape": "aura",
+        "range": 0.5,
+        "radius": 1.5,
+        "angle": 60,
+        "power": 0,
+        "heal": 35,
+        "energy": 25,
+        "cooldown": 10.5,
+        "windup": 0.45,
+        "status": null,
+        "anim": "happy",
+        "vfx": {
+          "style": "vento",
+          "color": "essence",
+          "ground": true,
+          "layers": [],
+          "catalogue": "featherfall"
+        },
+        "unlockBond": 2,
+        "modality": "magica"
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-mirage",
+      "name": "Corrida da Miragem",
+      "data": {
+        "slug": "vfx-mirage",
+        "name": "Corrida da Miragem",
+        "description": "Vento · Grau 2. Uma imagem de ar refratado avança e atinge inimigos na linha.",
+        "slot": "essence",
+        "essence": "vento",
+        "classes": [],
+        "bodies": [],
+        "shape": "line",
+        "range": 7,
+        "radius": 0.55,
+        "angle": 60,
+        "power": 50,
+        "heal": 0,
+        "energy": 22,
+        "cooldown": 6,
+        "windup": 0.45,
+        "status": null,
+        "anim": "attack",
+        "vfx": {
+          "style": "vento",
+          "color": "essence",
+          "ground": false,
+          "layers": [],
+          "catalogue": "mirage"
+        },
+        "unlockBond": 4,
+        "modality": "magica"
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-echostep",
+      "name": "Passo dos Ecos",
+      "data": {
+        "slug": "vfx-echostep",
+        "name": "Passo dos Ecos",
+        "description": "Escola Tempo · Aprendiz. Ecos visuais repetem o trajeto de uma descarga temporal.",
+        "slot": "essence",
+        "essence": null,
+        "classes": [],
+        "bodies": [],
+        "shape": "line",
+        "range": 7,
+        "radius": 0.55,
+        "angle": 60,
+        "power": 50,
+        "heal": 0,
+        "energy": 22,
+        "cooldown": 6,
+        "windup": 0.45,
+        "status": null,
+        "anim": "attack",
+        "vfx": {
+          "style": "faiscas",
+          "color": "#c9a86a",
+          "ground": false,
+          "layers": [],
+          "catalogue": "echostep"
+        },
+        "unlockBond": 4,
+        "modality": "magica",
+        "learning": {
+          "school": "chrono",
+          "rank": 2
+        }
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-origami",
+      "name": "Tempestade de Papel",
+      "data": {
+        "slug": "vfx-origami",
+        "name": "Tempestade de Papel",
+        "description": "Escola Tinta · Adepto. Aves de papel encantado percorrem a linha de ataque.",
+        "slot": "essence",
+        "essence": null,
+        "classes": [],
+        "bodies": [],
+        "shape": "line",
+        "range": 8,
+        "radius": 0.65,
+        "angle": 60,
+        "power": 65,
+        "heal": 0,
+        "energy": 29,
+        "cooldown": 8,
+        "windup": 0.6,
+        "status": null,
+        "anim": "attack",
+        "vfx": {
+          "style": "sombra",
+          "color": "#e0603c",
+          "ground": false,
+          "layers": [],
+          "catalogue": "origami"
+        },
+        "unlockBond": 7,
+        "modality": "magica",
+        "learning": {
+          "school": "ink",
+          "rank": 3
+        }
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-sheetlightning",
+      "name": "Clarão das Nuvens",
+      "data": {
+        "slug": "vfx-sheetlightning",
+        "name": "Clarão das Nuvens",
+        "description": "Raio · Grau 3. Relâmpagos iluminam e atingem a área escolhida.",
+        "slot": "essence",
+        "essence": "raio",
+        "classes": [],
+        "bodies": [],
+        "shape": "circle",
+        "range": 7.5,
+        "radius": 2.2,
+        "angle": 60,
+        "power": 38,
+        "heal": 0,
+        "energy": 36,
+        "cooldown": 11,
+        "windup": 0.8,
+        "status": {
+          "key": "atordoado",
+          "chance": 0.8,
+          "seconds": 1
+        },
+        "anim": "attack",
+        "vfx": {
+          "style": "raios",
+          "color": "essence",
+          "ground": true,
+          "layers": [],
+          "catalogue": "sheetlightning"
+        },
+        "unlockBond": 7,
+        "modality": "magica"
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-dawnbreak",
+      "name": "Despertar da Aurora",
+      "data": {
+        "slug": "vfx-dawnbreak",
+        "name": "Despertar da Aurora",
+        "description": "Luz · Grau 4. Luz de amanhecer envolve o conjurador numa grande restauração.",
+        "slot": "essence",
+        "essence": "luz",
+        "classes": [],
+        "bodies": [],
+        "shape": "aura",
+        "range": 0.5,
+        "radius": 2.6,
+        "angle": 60,
+        "power": 0,
+        "heal": 84,
+        "energy": 47,
+        "cooldown": 17,
+        "windup": 0.45,
+        "status": null,
+        "anim": "happy",
+        "vfx": {
+          "style": "luz",
+          "color": "essence",
+          "ground": true,
+          "layers": [],
+          "catalogue": "dawnbreak"
+        },
+        "unlockBond": 10,
+        "modality": "magica"
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-eclipse",
+      "name": "Coroa do Eclipse",
+      "data": {
+        "slug": "vfx-eclipse",
+        "name": "Coroa do Eclipse",
+        "description": "Luz · Grau 5. Um disco eclipsado libera energia luminosa sobre a área.",
+        "slot": "supreme",
+        "essence": "luz",
+        "classes": [],
+        "bodies": [],
+        "shape": "circle",
+        "range": 9,
+        "radius": 3.1,
+        "angle": 60,
+        "power": 116,
+        "heal": 0,
+        "energy": 59,
+        "cooldown": 19,
+        "windup": 1.5,
+        "status": null,
+        "anim": "attack",
+        "vfx": {
+          "style": "luz",
+          "color": "essence",
+          "ground": true,
+          "layers": [],
+          "catalogue": "eclipse"
+        },
+        "unlockBond": 14,
+        "modality": "magica"
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-inkbloom",
+      "name": "Flor de Nanquim",
+      "data": {
+        "slug": "vfx-inkbloom",
+        "name": "Flor de Nanquim",
+        "description": "Escola Tinta · Aprendiz. Tinta encantada floresce em ramificações no solo.",
+        "slot": "essence",
+        "essence": null,
+        "classes": [],
+        "bodies": [],
+        "shape": "circle",
+        "range": 7,
+        "radius": 1.8,
+        "angle": 60,
+        "power": 42,
+        "heal": 0,
+        "energy": 26,
+        "cooldown": 7,
+        "windup": 0.65,
+        "status": null,
+        "anim": "attack",
+        "vfx": {
+          "style": "sombra",
+          "color": "#7f93b4",
+          "ground": true,
+          "layers": [],
+          "catalogue": "inkbloom"
+        },
+        "unlockBond": 4,
+        "modality": "magica",
+        "learning": {
+          "school": "ink",
+          "rank": 2
+        }
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-hivecolumn",
+      "name": "Torre da Peçonha",
+      "data": {
+        "slug": "vfx-hivecolumn",
+        "name": "Torre da Peçonha",
+        "description": "Veneno · Grau 3. Alvéolos tóxicos crescem numa torre sobre a área.",
+        "slot": "essence",
+        "essence": "veneno",
+        "classes": [],
+        "bodies": [],
+        "shape": "circle",
+        "range": 7.5,
+        "radius": 2.2,
+        "angle": 60,
+        "power": 44,
+        "heal": 0,
+        "energy": 33,
+        "cooldown": 10,
+        "windup": 0.8,
+        "status": {
+          "key": "envenenado",
+          "chance": 0.85,
+          "seconds": 3.5
+        },
+        "anim": "attack",
+        "vfx": {
+          "style": "veneno",
+          "color": "essence",
+          "ground": true,
+          "layers": [],
+          "catalogue": "hivecolumn"
+        },
+        "unlockBond": 7,
+        "modality": "magica"
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-avalanche",
+      "name": "Marcha da Avalanche",
+      "data": {
+        "slug": "vfx-avalanche",
+        "name": "Marcha da Avalanche",
+        "description": "Gelo · Grau 4. Uma massa de neve avança e golpeia a faixa à frente.",
+        "slot": "essence",
+        "essence": "gelo",
+        "classes": [],
+        "bodies": [],
+        "shape": "line",
+        "range": 9,
+        "radius": 0.8,
+        "angle": 60,
+        "power": 107,
+        "heal": 0,
+        "energy": 43,
+        "cooldown": 13,
+        "windup": 1.0,
+        "status": null,
+        "anim": "attack",
+        "vfx": {
+          "style": "gelo",
+          "color": "essence",
+          "ground": false,
+          "layers": [],
+          "catalogue": "avalanche"
+        },
+        "unlockBond": 10,
+        "modality": "magica"
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-sumistroke",
+      "name": "Traço do Horizonte",
+      "data": {
+        "slug": "vfx-sumistroke",
+        "name": "Traço do Horizonte",
+        "description": "Escola Tinta · Adepto. Uma pincelada colossal corta a faixa diante do conjurador.",
+        "slot": "essence",
+        "essence": null,
+        "classes": [],
+        "bodies": [],
+        "shape": "line",
+        "range": 8,
+        "radius": 0.65,
+        "angle": 60,
+        "power": 84,
+        "heal": 0,
+        "energy": 34,
+        "cooldown": 10,
+        "windup": 0.8,
+        "status": null,
+        "anim": "attack",
+        "vfx": {
+          "style": "sombra",
+          "color": "#c8492c",
+          "ground": false,
+          "layers": [],
+          "catalogue": "sumistroke"
+        },
+        "unlockBond": 7,
+        "modality": "magica",
+        "learning": {
+          "school": "ink",
+          "rank": 3
+        }
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-webline",
+      "name": "Teia Peçonhenta",
+      "data": {
+        "slug": "vfx-webline",
+        "name": "Teia Peçonhenta",
+        "description": "Veneno · Grau 2. Uma teia encantada se estende pela linha de ataque.",
+        "slot": "essence",
+        "essence": "veneno",
+        "classes": [],
+        "bodies": [],
+        "shape": "line",
+        "range": 7,
+        "radius": 0.55,
+        "angle": 60,
+        "power": 35,
+        "heal": 0,
+        "energy": 25,
+        "cooldown": 8,
+        "windup": 0.45,
+        "status": {
+          "key": "enraizado",
+          "chance": 1,
+          "seconds": 1.5
+        },
+        "anim": "attack",
+        "vfx": {
+          "style": "veneno",
+          "color": "essence",
+          "ground": false,
+          "layers": [],
+          "catalogue": "webline"
+        },
+        "unlockBond": 4,
+        "modality": "magica"
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-shatterlance",
+      "name": "Lança Estilhaçante",
+      "data": {
+        "slug": "vfx-shatterlance",
+        "name": "Lança Estilhaçante",
+        "description": "Gelo · Grau 3. Uma lança de gelo se forma e se rompe ao atingir a linha.",
+        "slot": "essence",
+        "essence": "gelo",
+        "classes": [],
+        "bodies": [],
+        "shape": "line",
+        "range": 8,
+        "radius": 0.65,
+        "angle": 60,
+        "power": 84,
+        "heal": 0,
+        "energy": 34,
+        "cooldown": 10,
+        "windup": 0.8,
+        "status": null,
+        "anim": "attack",
+        "vfx": {
+          "style": "gelo",
+          "color": "essence",
+          "ground": false,
+          "layers": [],
+          "catalogue": "shatterlance"
+        },
+        "unlockBond": 7,
+        "modality": "magica"
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-soulchain",
+      "name": "Corrente Espectral",
+      "data": {
+        "slug": "vfx-soulchain",
+        "name": "Corrente Espectral",
+        "description": "Sombra · Grau 2. Elos sombrios se estendem e prendem a faixa à frente.",
+        "slot": "essence",
+        "essence": "sombra",
+        "classes": [],
+        "bodies": [],
+        "shape": "line",
+        "range": 7,
+        "radius": 0.55,
+        "angle": 60,
+        "power": 35,
+        "heal": 0,
+        "energy": 25,
+        "cooldown": 8,
+        "windup": 0.45,
+        "status": {
+          "key": "ofuscado",
+          "chance": 1,
+          "seconds": 1.5
+        },
+        "anim": "attack",
+        "vfx": {
+          "style": "sombra",
+          "color": "essence",
+          "ground": false,
+          "layers": [],
+          "catalogue": "soulchain"
+        },
+        "unlockBond": 4,
+        "modality": "magica"
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-skyfracture",
+      "name": "Fratura do Céu",
+      "data": {
+        "slug": "vfx-skyfracture",
+        "name": "Fratura do Céu",
+        "description": "Vento · Grau 4. Uma ruptura de pressão percorre o solo em linha reta.",
+        "slot": "essence",
+        "essence": "vento",
+        "classes": [],
+        "bodies": [],
+        "shape": "line",
+        "range": 9,
+        "radius": 0.8,
+        "angle": 60,
+        "power": 107,
+        "heal": 0,
+        "energy": 43,
+        "cooldown": 13,
+        "windup": 1.0,
+        "status": null,
+        "anim": "attack",
+        "vfx": {
+          "style": "vento",
+          "color": "essence",
+          "ground": false,
+          "layers": [],
+          "catalogue": "skyfracture"
+        },
+        "unlockBond": 10,
+        "modality": "magica"
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-sanguinepact",
+      "name": "Pacto Carmesim",
+      "data": {
+        "slug": "vfx-sanguinepact",
+        "name": "Pacto Carmesim",
+        "description": "Escola Sangue · Adepto. Um círculo de vitalidade restaura a vida do conjurador.",
+        "slot": "essence",
+        "essence": null,
+        "classes": [],
+        "bodies": [],
+        "shape": "aura",
+        "range": 0.5,
+        "radius": 2.2,
+        "angle": 60,
+        "power": 0,
+        "heal": 64,
+        "energy": 38,
+        "cooldown": 14,
+        "windup": 0.45,
+        "status": null,
+        "anim": "happy",
+        "vfx": {
+          "style": "impacto",
+          "color": "#e0505c",
+          "ground": true,
+          "layers": [],
+          "catalogue": "sanguinepact"
+        },
+        "unlockBond": 7,
+        "modality": "magica",
+        "learning": {
+          "school": "blood",
+          "rank": 3
+        }
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-magma",
+      "name": "Fonte de Magma",
+      "data": {
+        "slug": "vfx-magma",
+        "name": "Fonte de Magma",
+        "description": "Fogo · Grau 4. Uma poça de magma irrompe e espalha queimaduras na área.",
+        "slot": "essence",
+        "essence": "fogo",
+        "classes": [],
+        "bodies": [],
+        "shape": "circle",
+        "range": 8,
+        "radius": 2.6,
+        "angle": 60,
+        "power": 56,
+        "heal": 0,
+        "energy": 42,
+        "cooldown": 13,
+        "windup": 1.0,
+        "status": {
+          "key": "queimando",
+          "chance": 0.85,
+          "seconds": 4
+        },
+        "anim": "attack",
+        "vfx": {
+          "style": "chamas",
+          "color": "essence",
+          "ground": true,
+          "layers": [],
+          "catalogue": "magma"
+        },
+        "unlockBond": 10,
+        "modality": "magica"
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-hemolance",
+      "name": "Lanças Rubras",
+      "data": {
+        "slug": "vfx-hemolance",
+        "name": "Lanças Rubras",
+        "description": "Escola Sangue · Aprendiz. Lanças finas de energia rubra perfuram a faixa à frente.",
+        "slot": "essence",
+        "essence": null,
+        "classes": [],
+        "bodies": [],
+        "shape": "line",
+        "range": 7,
+        "radius": 0.55,
+        "angle": 60,
+        "power": 50,
+        "heal": 0,
+        "energy": 22,
+        "cooldown": 6,
+        "windup": 0.45,
+        "status": null,
+        "anim": "attack",
+        "vfx": {
+          "style": "impacto",
+          "color": "#ff5a66",
+          "ground": false,
+          "layers": [],
+          "catalogue": "hemolance"
+        },
+        "unlockBond": 4,
+        "modality": "magica",
+        "learning": {
+          "school": "blood",
+          "rank": 2
+        }
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-umbralspears",
+      "name": "Lanças da Penumbra",
+      "data": {
+        "slug": "vfx-umbralspears",
+        "name": "Lanças da Penumbra",
+        "description": "Sombra · Grau 3. Lanças de sombra emergem numa sequência à frente.",
+        "slot": "essence",
+        "essence": "sombra",
+        "classes": [],
+        "bodies": [],
+        "shape": "line",
+        "range": 8,
+        "radius": 0.65,
+        "angle": 60,
+        "power": 65,
+        "heal": 0,
+        "energy": 29,
+        "cooldown": 8,
+        "windup": 0.6,
+        "status": null,
+        "anim": "attack",
+        "vfx": {
+          "style": "sombra",
+          "color": "essence",
+          "ground": false,
+          "layers": [],
+          "catalogue": "umbralspears"
+        },
+        "unlockBond": 7,
+        "modality": "magica"
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-nightfall",
+      "name": "Manto do Anoitecer",
+      "data": {
+        "slug": "vfx-nightfall",
+        "name": "Manto do Anoitecer",
+        "description": "Sombra · Grau 3. Uma cúpula de escuridão se fecha sobre a área.",
+        "slot": "essence",
+        "essence": "sombra",
+        "classes": [],
+        "bodies": [],
+        "shape": "circle",
+        "range": 7.5,
+        "radius": 2.2,
+        "angle": 60,
+        "power": 38,
+        "heal": 0,
+        "energy": 36,
+        "cooldown": 11,
+        "windup": 0.8,
+        "status": {
+          "key": "ofuscado",
+          "chance": 1,
+          "seconds": 1.8
+        },
+        "anim": "attack",
+        "vfx": {
+          "style": "sombra",
+          "color": "essence",
+          "ground": true,
+          "layers": [],
+          "catalogue": "nightfall"
+        },
+        "unlockBond": 7,
+        "modality": "magica"
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-bloomburst",
+      "name": "Explosão das Flores",
+      "data": {
+        "slug": "vfx-bloomburst",
+        "name": "Explosão das Flores",
+        "description": "Natureza · Grau 2. Flores desabrocham e lançam pétalas encantadas na área.",
+        "slot": "essence",
+        "essence": "natureza",
+        "classes": [],
+        "bodies": [],
+        "shape": "circle",
+        "range": 7,
+        "radius": 1.8,
+        "angle": 60,
+        "power": 42,
+        "heal": 0,
+        "energy": 26,
+        "cooldown": 7,
+        "windup": 0.65,
+        "status": null,
+        "anim": "attack",
+        "vfx": {
+          "style": "folhas",
+          "color": "essence",
+          "ground": true,
+          "layers": [],
+          "catalogue": "bloomburst"
+        },
+        "unlockBond": 4,
+        "modality": "magica"
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-sporefall",
+      "name": "Chuva de Esporos",
+      "data": {
+        "slug": "vfx-sporefall",
+        "name": "Chuva de Esporos",
+        "description": "Natureza · Grau 3. Esporos venenosos se espalham sobre a região marcada.",
+        "slot": "essence",
+        "essence": "natureza",
+        "classes": [],
+        "bodies": [],
+        "shape": "circle",
+        "range": 7.5,
+        "radius": 2.2,
+        "angle": 60,
+        "power": 44,
+        "heal": 0,
+        "energy": 33,
+        "cooldown": 10,
+        "windup": 0.8,
+        "status": {
+          "key": "envenenado",
+          "chance": 0.85,
+          "seconds": 3.5
+        },
+        "anim": "attack",
+        "vfx": {
+          "style": "folhas",
+          "color": "essence",
+          "ground": true,
+          "layers": [],
+          "catalogue": "sporefall"
+        },
+        "unlockBond": 7,
+        "modality": "magica"
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-dragonbreath",
+      "name": "Sopro do Dragão Ancestral",
+      "data": {
+        "slug": "vfx-dragonbreath",
+        "name": "Sopro do Dragão Ancestral",
+        "description": "Fogo · Grau 4. Uma torrente de fogo castiga os inimigos à frente.",
+        "slot": "essence",
+        "essence": "fogo",
+        "classes": [],
+        "bodies": [],
+        "shape": "line",
+        "range": 9,
+        "radius": 0.8,
+        "angle": 60,
+        "power": 66,
+        "heal": 0,
+        "energy": 38,
+        "cooldown": 12,
+        "windup": 0.8,
+        "status": {
+          "key": "queimando",
+          "chance": 0.85,
+          "seconds": 4
+        },
+        "anim": "attack",
+        "vfx": {
+          "style": "chamas",
+          "color": "essence",
+          "ground": false,
+          "layers": [],
+          "catalogue": "dragonbreath"
+        },
+        "unlockBond": 10,
+        "modality": "magica"
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-grovecall",
+      "name": "Chamado do Bosque",
+      "data": {
+        "slug": "vfx-grovecall",
+        "name": "Chamado do Bosque",
+        "description": "Natureza · Grau 4. Árvores encantadas envolvem o conjurador durante a recuperação.",
+        "slot": "essence",
+        "essence": "natureza",
+        "classes": [],
+        "bodies": [],
+        "shape": "aura",
+        "range": 0.5,
+        "radius": 2.6,
+        "angle": 60,
+        "power": 0,
+        "heal": 84,
+        "energy": 47,
+        "cooldown": 17,
+        "windup": 0.45,
+        "status": null,
+        "anim": "happy",
+        "vfx": {
+          "style": "folhas",
+          "color": "essence",
+          "ground": true,
+          "layers": [],
+          "catalogue": "grovecall"
+        },
+        "unlockBond": 10,
+        "modality": "magica"
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-runeseal",
+      "name": "Selo Rúnico",
+      "data": {
+        "slug": "vfx-runeseal",
+        "name": "Selo Rúnico",
+        "description": "Escola Arcana · Iniciado. Uma inscrição arcana acende e explode na área marcada.",
+        "slot": "essence",
+        "essence": null,
+        "classes": [],
+        "bodies": [],
+        "shape": "circle",
+        "range": 6,
+        "radius": 1.5,
+        "angle": 60,
+        "power": 32,
+        "heal": 0,
+        "energy": 20,
+        "cooldown": 5.5,
+        "windup": 0.5,
+        "status": null,
+        "anim": "attack",
+        "vfx": {
+          "style": "faiscas",
+          "color": "#ff9d2e",
+          "ground": true,
+          "layers": [],
+          "catalogue": "runeseal"
+        },
+        "unlockBond": 2,
+        "modality": "magica",
+        "learning": {
+          "school": "arcane",
+          "rank": 1
+        }
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-glyphstorm",
+      "name": "Tempestade de Glifos",
+      "data": {
+        "slug": "vfx-glyphstorm",
+        "name": "Tempestade de Glifos",
+        "description": "Escola Arcana · Adepto. Glifos ardentes atravessam a faixa diante do conjurador.",
+        "slot": "essence",
+        "essence": null,
+        "classes": [],
+        "bodies": [],
+        "shape": "line",
+        "range": 8,
+        "radius": 0.65,
+        "angle": 60,
+        "power": 65,
+        "heal": 0,
+        "energy": 29,
+        "cooldown": 8,
+        "windup": 0.6,
+        "status": null,
+        "anim": "attack",
+        "vfx": {
+          "style": "faiscas",
+          "color": "#e8b45c",
+          "ground": false,
+          "layers": [],
+          "catalogue": "glyphstorm"
+        },
+        "unlockBond": 7,
+        "modality": "magica",
+        "learning": {
+          "school": "arcane",
+          "rank": 3
+        }
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-vinelash",
+      "name": "Chicote de Cipó",
+      "data": {
+        "slug": "vfx-vinelash",
+        "name": "Chicote de Cipó",
+        "description": "Natureza · Grau 1. Um cipó encantado cresce e golpeia os inimigos na linha.",
+        "slot": "essence",
+        "essence": "natureza",
+        "classes": [],
+        "bodies": [],
+        "shape": "line",
+        "range": 6,
+        "radius": 0.45,
+        "angle": 60,
+        "power": 27,
+        "heal": 0,
+        "energy": 19,
+        "cooldown": 6.5,
+        "windup": 0.3,
+        "status": {
+          "key": "enraizado",
+          "chance": 1,
+          "seconds": 1.2
+        },
+        "anim": "attack",
+        "vfx": {
+          "style": "folhas",
+          "color": "essence",
+          "ground": false,
+          "layers": [],
+          "catalogue": "vinelash"
+        },
+        "unlockBond": 2,
+        "modality": "magica"
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-tectonic",
+      "name": "Impacto Tectônico",
+      "data": {
+        "slug": "vfx-tectonic",
+        "name": "Impacto Tectônico",
+        "description": "Terra · Grau 4. Fissuras se abrem e descarregam força na área marcada.",
+        "slot": "essence",
+        "essence": "terra",
+        "classes": [],
+        "bodies": [],
+        "shape": "circle",
+        "range": 8,
+        "radius": 2.6,
+        "angle": 60,
+        "power": 91,
+        "heal": 0,
+        "energy": 47,
+        "cooldown": 14,
+        "windup": 1.2,
+        "status": null,
+        "anim": "attack",
+        "vfx": {
+          "style": "pedras",
+          "color": "essence",
+          "ground": true,
+          "layers": [],
+          "catalogue": "tectonic"
+        },
+        "unlockBond": 10,
+        "modality": "hibrida"
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-boulder",
+      "name": "Rochedo Demolidor",
+      "data": {
+        "slug": "vfx-boulder",
+        "name": "Rochedo Demolidor",
+        "description": "Terra · Grau 2. Um rochedo rola pela faixa à frente e se fragmenta.",
+        "slot": "essence",
+        "essence": "terra",
+        "classes": [],
+        "bodies": [],
+        "shape": "line",
+        "range": 7,
+        "radius": 0.55,
+        "angle": 60,
+        "power": 65,
+        "heal": 0,
+        "energy": 27,
+        "cooldown": 8,
+        "windup": 0.65,
+        "status": null,
+        "anim": "attack",
+        "vfx": {
+          "style": "pedras",
+          "color": "essence",
+          "ground": false,
+          "layers": [],
+          "catalogue": "boulder"
+        },
+        "unlockBond": 4,
+        "modality": "hibrida"
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-stonespine",
+      "name": "Espinha da Montanha",
+      "data": {
+        "slug": "vfx-stonespine",
+        "name": "Espinha da Montanha",
+        "description": "Terra · Grau 2. Placas de pedra se erguem em sequência pelo chão.",
+        "slot": "essence",
+        "essence": "terra",
+        "classes": [],
+        "bodies": [],
+        "shape": "line",
+        "range": 7,
+        "radius": 0.55,
+        "angle": 60,
+        "power": 50,
+        "heal": 0,
+        "energy": 22,
+        "cooldown": 6,
+        "windup": 0.45,
+        "status": null,
+        "anim": "attack",
+        "vfx": {
+          "style": "pedras",
+          "color": "essence",
+          "ground": false,
+          "layers": [],
+          "catalogue": "stonespine"
+        },
+        "unlockBond": 4,
+        "modality": "hibrida"
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-sinkhole",
+      "name": "Boca da Terra",
+      "data": {
+        "slug": "vfx-sinkhole",
+        "name": "Boca da Terra",
+        "description": "Terra · Grau 3. O chão assume a forma de um funil sob os inimigos.",
+        "slot": "essence",
+        "essence": "terra",
+        "classes": [],
+        "bodies": [],
+        "shape": "circle",
+        "range": 7.5,
+        "radius": 2.2,
+        "angle": 60,
+        "power": 38,
+        "heal": 0,
+        "energy": 36,
+        "cooldown": 11,
+        "windup": 0.8,
+        "status": {
+          "key": "atordoado",
+          "chance": 0.8,
+          "seconds": 1
+        },
+        "anim": "attack",
+        "vfx": {
+          "style": "pedras",
+          "color": "essence",
+          "ground": true,
+          "layers": [],
+          "catalogue": "sinkhole"
+        },
+        "unlockBond": 7,
+        "modality": "hibrida"
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-singularity",
+      "name": "Coração da Singularidade",
+      "data": {
+        "slug": "vfx-singularity",
+        "name": "Coração da Singularidade",
+        "description": "Sombra · Grau 5. Um núcleo de sombra libera uma explosão na área escolhida.",
+        "slot": "supreme",
+        "essence": "sombra",
+        "classes": [],
+        "bodies": [],
+        "shape": "circle",
+        "range": 9,
+        "radius": 3.1,
+        "angle": 60,
+        "power": 116,
+        "heal": 0,
+        "energy": 59,
+        "cooldown": 19,
+        "windup": 1.5,
+        "status": null,
+        "anim": "attack",
+        "vfx": {
+          "style": "sombra",
+          "color": "essence",
+          "ground": true,
+          "layers": [],
+          "catalogue": "singularity"
+        },
+        "unlockBond": 14,
+        "modality": "magica"
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-rime",
+      "name": "Caminho da Geada",
+      "data": {
+        "slug": "vfx-rime",
+        "name": "Caminho da Geada",
+        "description": "Gelo · Grau 1. Uma crosta de gelo avança pelo solo à frente.",
+        "slot": "essence",
+        "essence": "gelo",
+        "classes": [],
+        "bodies": [],
+        "shape": "line",
+        "range": 6,
+        "radius": 0.45,
+        "angle": 60,
+        "power": 27,
+        "heal": 0,
+        "energy": 19,
+        "cooldown": 6.5,
+        "windup": 0.3,
+        "status": {
+          "key": "lento",
+          "chance": 1,
+          "seconds": 1.2
+        },
+        "anim": "attack",
+        "vfx": {
+          "style": "gelo",
+          "color": "essence",
+          "ground": false,
+          "layers": [],
+          "catalogue": "rime"
+        },
+        "unlockBond": 2,
+        "modality": "magica"
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-petrify",
+      "name": "Olhar de Pedra",
+      "data": {
+        "slug": "vfx-petrify",
+        "name": "Olhar de Pedra",
+        "description": "Terra · Grau 3. Fragmentos minerais envolvem a faixa diante do conjurador.",
+        "slot": "essence",
+        "essence": "terra",
+        "classes": [],
+        "bodies": [],
+        "shape": "line",
+        "range": 8,
+        "radius": 0.65,
+        "angle": 60,
+        "power": 46,
+        "heal": 0,
+        "energy": 32,
+        "cooldown": 10,
+        "windup": 0.6,
+        "status": {
+          "key": "atordoado",
+          "chance": 0.8,
+          "seconds": 1
+        },
+        "anim": "attack",
+        "vfx": {
+          "style": "pedras",
+          "color": "essence",
+          "ground": false,
+          "layers": [],
+          "catalogue": "petrify"
+        },
+        "unlockBond": 7,
+        "modality": "hibrida"
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-hail",
+      "name": "Fúria do Granizo",
+      "data": {
+        "slug": "vfx-hail",
+        "name": "Fúria do Granizo",
+        "description": "Gelo · Grau 4. Uma chuva de granizo golpeia a área marcada.",
+        "slot": "essence",
+        "essence": "gelo",
+        "classes": [],
+        "bodies": [],
+        "shape": "circle",
+        "range": 8,
+        "radius": 2.6,
+        "angle": 60,
+        "power": 91,
+        "heal": 0,
+        "energy": 47,
+        "cooldown": 14,
+        "windup": 1.2,
+        "status": null,
+        "anim": "attack",
+        "vfx": {
+          "style": "gelo",
+          "color": "essence",
+          "ground": true,
+          "layers": [],
+          "catalogue": "hail"
+        },
+        "unlockBond": 10,
+        "modality": "magica"
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-sunspear",
+      "name": "Azagaia do Sol",
+      "data": {
+        "slug": "vfx-sunspear",
+        "name": "Azagaia do Sol",
+        "description": "Fogo · Grau 4. Uma lança de fogo branco atravessa os inimigos à frente.",
+        "slot": "essence",
+        "essence": "fogo",
+        "classes": [],
+        "bodies": [],
+        "shape": "line",
+        "range": 9,
+        "radius": 0.8,
+        "angle": 60,
+        "power": 66,
+        "heal": 0,
+        "energy": 38,
+        "cooldown": 12,
+        "windup": 0.8,
+        "status": {
+          "key": "queimando",
+          "chance": 0.85,
+          "seconds": 4
+        },
+        "anim": "attack",
+        "vfx": {
+          "style": "chamas",
+          "color": "essence",
+          "ground": false,
+          "layers": [],
+          "catalogue": "sunspear"
+        },
+        "unlockBond": 10,
+        "modality": "magica"
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-cyclone",
+      "name": "Olho do Ciclone",
+      "data": {
+        "slug": "vfx-cyclone",
+        "name": "Olho do Ciclone",
+        "description": "Vento · Grau 3. Um vórtice de vento toca o solo e castiga a área.",
+        "slot": "essence",
+        "essence": "vento",
+        "classes": [],
+        "bodies": [],
+        "shape": "circle",
+        "range": 7.5,
+        "radius": 2.2,
+        "angle": 60,
+        "power": 38,
+        "heal": 0,
+        "energy": 36,
+        "cooldown": 11,
+        "windup": 0.8,
+        "status": {
+          "key": "lento",
+          "chance": 1,
+          "seconds": 1.8
+        },
+        "anim": "attack",
+        "vfx": {
+          "style": "vento",
+          "color": "essence",
+          "ground": true,
+          "layers": [],
+          "catalogue": "cyclone"
+        },
+        "unlockBond": 7,
+        "modality": "magica"
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-resonance",
+      "name": "Acorde dos Ventos",
+      "data": {
+        "slug": "vfx-resonance",
+        "name": "Acorde dos Ventos",
+        "description": "Vento · Grau 2. Anéis de pressão percorrem uma linha de ataque.",
+        "slot": "essence",
+        "essence": "vento",
+        "classes": [],
+        "bodies": [],
+        "shape": "line",
+        "range": 7,
+        "radius": 0.55,
+        "angle": 60,
+        "power": 50,
+        "heal": 0,
+        "energy": 22,
+        "cooldown": 6,
+        "windup": 0.45,
+        "status": null,
+        "anim": "attack",
+        "vfx": {
+          "style": "vento",
+          "color": "essence",
+          "ground": false,
+          "layers": [],
+          "catalogue": "resonance"
+        },
+        "unlockBond": 4,
+        "modality": "magica"
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-prismlance",
+      "name": "Lança Prismática",
+      "data": {
+        "slug": "vfx-prismlance",
+        "name": "Lança Prismática",
+        "description": "Escola Arcana · Aprendiz. Uma lança de energia se divide visualmente num prisma.",
+        "slot": "essence",
+        "essence": null,
+        "classes": [],
+        "bodies": [],
+        "shape": "line",
+        "range": 7,
+        "radius": 0.55,
+        "angle": 60,
+        "power": 50,
+        "heal": 0,
+        "energy": 22,
+        "cooldown": 6,
+        "windup": 0.45,
+        "status": null,
+        "anim": "attack",
+        "vfx": {
+          "style": "faiscas",
+          "color": "#ff6bd6",
+          "ground": false,
+          "layers": [],
+          "catalogue": "prismlance"
+        },
+        "unlockBond": 4,
+        "modality": "magica",
+        "learning": {
+          "school": "arcane",
+          "rank": 2
+        }
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-arcanevolley",
+      "name": "Salva Arcana",
+      "data": {
+        "slug": "vfx-arcanevolley",
+        "name": "Salva Arcana",
+        "description": "Escola Arcana · Aprendiz. Projéteis arcanos convergem numa descarga pela linha.",
+        "slot": "essence",
+        "essence": null,
+        "classes": [],
+        "bodies": [],
+        "shape": "line",
+        "range": 7,
+        "radius": 0.55,
+        "angle": 60,
+        "power": 50,
+        "heal": 0,
+        "energy": 22,
+        "cooldown": 6,
+        "windup": 0.45,
+        "status": null,
+        "anim": "attack",
+        "vfx": {
+          "style": "faiscas",
+          "color": "#b98cff",
+          "ground": false,
+          "layers": [],
+          "catalogue": "arcanevolley"
+        },
+        "unlockBond": 4,
+        "modality": "magica",
+        "learning": {
+          "school": "arcane",
+          "rank": 2
+        }
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-plaguebloom",
+      "name": "Flor da Pestilência",
+      "data": {
+        "slug": "vfx-plaguebloom",
+        "name": "Flor da Pestilência",
+        "description": "Escola Sangue · Especialista. Uma nuvem de energia tóxica se expande sobre a área.",
+        "slot": "essence",
+        "essence": null,
+        "classes": [],
+        "bodies": [],
+        "shape": "circle",
+        "range": 8,
+        "radius": 2.6,
+        "angle": 60,
+        "power": 56,
+        "heal": 0,
+        "energy": 42,
+        "cooldown": 13,
+        "windup": 1.0,
+        "status": {
+          "key": "envenenado",
+          "chance": 0.85,
+          "seconds": 4
+        },
+        "anim": "attack",
+        "vfx": {
+          "style": "impacto",
+          "color": "#a8c04a",
+          "ground": true,
+          "layers": [],
+          "catalogue": "plaguebloom"
+        },
+        "unlockBond": 10,
+        "modality": "magica",
+        "learning": {
+          "school": "blood",
+          "rank": 4
+        }
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-aurora",
+      "name": "Véu da Aurora Boreal",
+      "data": {
+        "slug": "vfx-aurora",
+        "name": "Véu da Aurora Boreal",
+        "description": "Vento · Grau 3. Faixas de luz dançam ao redor do conjurador e restauram sua vida.",
+        "slot": "essence",
+        "essence": "vento",
+        "classes": [],
+        "bodies": [],
+        "shape": "aura",
+        "range": 0.5,
+        "radius": 2.2,
+        "angle": 60,
+        "power": 0,
+        "heal": 64,
+        "energy": 38,
+        "cooldown": 14,
+        "windup": 0.45,
+        "status": null,
+        "anim": "happy",
+        "vfx": {
+          "style": "vento",
+          "color": "essence",
+          "ground": true,
+          "layers": [],
+          "catalogue": "aurora"
+        },
+        "unlockBond": 7,
+        "modality": "magica"
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-starfall",
+      "name": "Queda das Estrelas",
+      "data": {
+        "slug": "vfx-starfall",
+        "name": "Queda das Estrelas",
+        "description": "Escola Arcana · Mestre. Estrelas arcanas caem e liberam energia na área marcada.",
+        "slot": "supreme",
+        "essence": null,
+        "classes": [],
+        "bodies": [],
+        "shape": "circle",
+        "range": 9,
+        "radius": 3.1,
+        "angle": 60,
+        "power": 116,
+        "heal": 0,
+        "energy": 59,
+        "cooldown": 19,
+        "windup": 1.5,
+        "status": null,
+        "anim": "attack",
+        "vfx": {
+          "style": "faiscas",
+          "color": "#8fa8ff",
+          "ground": true,
+          "layers": [],
+          "catalogue": "starfall"
+        },
+        "unlockBond": 14,
+        "modality": "magica",
+        "learning": {
+          "school": "arcane",
+          "rank": 5
+        }
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-chronofracture",
+      "name": "Fratura dos Instantes",
+      "data": {
+        "slug": "vfx-chronofracture",
+        "name": "Fratura dos Instantes",
+        "description": "Escola Arcana · Especialista. Painéis arcanos imóveis se estilhaçam sobre a área.",
+        "slot": "essence",
+        "essence": null,
+        "classes": [],
+        "bodies": [],
+        "shape": "circle",
+        "range": 8,
+        "radius": 2.6,
+        "angle": 60,
+        "power": 49,
+        "heal": 0,
+        "energy": 45,
+        "cooldown": 14,
+        "windup": 1.0,
+        "status": {
+          "key": "atordoado",
+          "chance": 1,
+          "seconds": 1.1
+        },
+        "anim": "attack",
+        "vfx": {
+          "style": "faiscas",
+          "color": "#c8d4e0",
+          "ground": true,
+          "layers": [],
+          "catalogue": "chronofracture"
+        },
+        "unlockBond": 10,
+        "modality": "magica",
+        "learning": {
+          "school": "arcane",
+          "rank": 4
+        }
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-voidrift",
+      "name": "Fenda do Vazio",
+      "data": {
+        "slug": "vfx-voidrift",
+        "name": "Fenda do Vazio",
+        "description": "Sombra · Grau 3. Uma fenda de energia sombria percorre a faixa à frente.",
+        "slot": "essence",
+        "essence": "sombra",
+        "classes": [],
+        "bodies": [],
+        "shape": "line",
+        "range": 8,
+        "radius": 0.65,
+        "angle": 60,
+        "power": 84,
+        "heal": 0,
+        "energy": 34,
+        "cooldown": 10,
+        "windup": 0.8,
+        "status": null,
+        "anim": "attack",
+        "vfx": {
+          "style": "sombra",
+          "color": "essence",
+          "ground": false,
+          "layers": [],
+          "catalogue": "voidrift"
+        },
+        "unlockBond": 7,
+        "modality": "magica"
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-crimsontide",
+      "name": "Maré Carmesim",
+      "data": {
+        "slug": "vfx-crimsontide",
+        "name": "Maré Carmesim",
+        "description": "Escola Sangue · Adepto. Uma onda de energia vital golpeia os inimigos na linha.",
+        "slot": "essence",
+        "essence": null,
+        "classes": [],
+        "bodies": [],
+        "shape": "line",
+        "range": 8,
+        "radius": 0.65,
+        "angle": 60,
+        "power": 65,
+        "heal": 0,
+        "energy": 29,
+        "cooldown": 8,
+        "windup": 0.6,
+        "status": null,
+        "anim": "attack",
+        "vfx": {
+          "style": "impacto",
+          "color": "#b0121f",
+          "ground": false,
+          "layers": [],
+          "catalogue": "crimsontide"
+        },
+        "unlockBond": 7,
+        "modality": "magica",
+        "learning": {
+          "school": "blood",
+          "rank": 3
+        }
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-thunderclap",
+      "name": "Estrondo do Trovão",
+      "data": {
+        "slug": "vfx-thunderclap",
+        "name": "Estrondo do Trovão",
+        "description": "Raio · Grau 4. Uma descarga elétrica explode na área escolhida.",
+        "slot": "essence",
+        "essence": "raio",
+        "classes": [],
+        "bodies": [],
+        "shape": "circle",
+        "range": 8,
+        "radius": 2.6,
+        "angle": 60,
+        "power": 49,
+        "heal": 0,
+        "energy": 45,
+        "cooldown": 14,
+        "windup": 1.0,
+        "status": {
+          "key": "atordoado",
+          "chance": 0.8,
+          "seconds": 1.2
+        },
+        "anim": "attack",
+        "vfx": {
+          "style": "raios",
+          "color": "essence",
+          "ground": true,
+          "layers": [],
+          "catalogue": "thunderclap"
+        },
+        "unlockBond": 10,
+        "modality": "magica"
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-stormwall",
+      "name": "Muralha da Tempestade",
+      "data": {
+        "slug": "vfx-stormwall",
+        "name": "Muralha da Tempestade",
+        "description": "Raio · Grau 3. Uma cortina de chuva e relâmpagos atravessa a linha.",
+        "slot": "essence",
+        "essence": "raio",
+        "classes": [],
+        "bodies": [],
+        "shape": "line",
+        "range": 8,
+        "radius": 0.65,
+        "angle": 60,
+        "power": 65,
+        "heal": 0,
+        "energy": 29,
+        "cooldown": 8,
+        "windup": 0.6,
+        "status": null,
+        "anim": "attack",
+        "vfx": {
+          "style": "raios",
+          "color": "essence",
+          "ground": false,
+          "layers": [],
+          "catalogue": "stormwall"
+        },
+        "unlockBond": 7,
+        "modality": "magica"
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-thornwake",
+      "name": "Rastro de Espinhos",
+      "data": {
+        "slug": "vfx-thornwake",
+        "name": "Rastro de Espinhos",
+        "description": "Natureza · Grau 3. Espinhos e cipós emergem pela faixa de ataque.",
+        "slot": "essence",
+        "essence": "natureza",
+        "classes": [],
+        "bodies": [],
+        "shape": "line",
+        "range": 8,
+        "radius": 0.65,
+        "angle": 60,
+        "power": 46,
+        "heal": 0,
+        "energy": 32,
+        "cooldown": 10,
+        "windup": 0.6,
+        "status": {
+          "key": "enraizado",
+          "chance": 1,
+          "seconds": 1.8
+        },
+        "anim": "attack",
+        "vfx": {
+          "style": "folhas",
+          "color": "essence",
+          "ground": false,
+          "layers": [],
+          "catalogue": "thornwake"
+        },
+        "unlockBond": 7,
+        "modality": "magica"
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-firewhip",
+      "name": "Chicote das Cinzas",
+      "data": {
+        "slug": "vfx-firewhip",
+        "name": "Chicote das Cinzas",
+        "description": "Fogo · Grau 2. Um chicote ardente estala sobre a linha à frente.",
+        "slot": "essence",
+        "essence": "fogo",
+        "classes": [],
+        "bodies": [],
+        "shape": "line",
+        "range": 7,
+        "radius": 0.55,
+        "angle": 60,
+        "power": 40,
+        "heal": 0,
+        "energy": 22,
+        "cooldown": 7,
+        "windup": 0.45,
+        "status": {
+          "key": "queimando",
+          "chance": 0.85,
+          "seconds": 3
+        },
+        "anim": "attack",
+        "vfx": {
+          "style": "chamas",
+          "color": "essence",
+          "ground": false,
+          "layers": [],
+          "catalogue": "firewhip"
+        },
+        "unlockBond": 4,
+        "modality": "magica"
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-railcoil",
+      "name": "Disparo da Bobina",
+      "data": {
+        "slug": "vfx-railcoil",
+        "name": "Disparo da Bobina",
+        "description": "Raio · Grau 4. Uma descarga concentrada percorre a linha em alta velocidade.",
+        "slot": "essence",
+        "essence": "raio",
+        "classes": [],
+        "bodies": [],
+        "shape": "line",
+        "range": 9,
+        "radius": 0.8,
+        "angle": 60,
+        "power": 107,
+        "heal": 0,
+        "energy": 43,
+        "cooldown": 13,
+        "windup": 1.0,
+        "status": null,
+        "anim": "attack",
+        "vfx": {
+          "style": "raios",
+          "color": "essence",
+          "ground": false,
+          "layers": [],
+          "catalogue": "railcoil"
+        },
+        "unlockBond": 10,
+        "modality": "magica"
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-slipstream",
+      "name": "Corte do Vácuo",
+      "data": {
+        "slug": "vfx-slipstream",
+        "name": "Corte do Vácuo",
+        "description": "Vento · Grau 2. Uma lâmina de ar comprimido atravessa os inimigos à frente.",
+        "slot": "essence",
+        "essence": "vento",
+        "classes": [],
+        "bodies": [],
+        "shape": "line",
+        "range": 7,
+        "radius": 0.55,
+        "angle": 60,
+        "power": 50,
+        "heal": 0,
+        "energy": 22,
+        "cooldown": 6,
+        "windup": 0.45,
+        "status": null,
+        "anim": "attack",
+        "vfx": {
+          "style": "vento",
+          "color": "essence",
+          "ground": false,
+          "layers": [],
+          "catalogue": "slipstream"
+        },
+        "unlockBond": 4,
+        "modality": "magica"
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-pyroclasm",
+      "name": "Cataclismo de Cinzas",
+      "data": {
+        "slug": "vfx-pyroclasm",
+        "name": "Cataclismo de Cinzas",
+        "description": "Fogo · Grau 5. Uma cúpula de cinzas explode em chamas na área marcada.",
+        "slot": "supreme",
+        "essence": "fogo",
+        "classes": [],
+        "bodies": [],
+        "shape": "circle",
+        "range": 9,
+        "radius": 3.1,
+        "angle": 60,
+        "power": 71,
+        "heal": 0,
+        "energy": 54,
+        "cooldown": 18,
+        "windup": 1.3,
+        "status": {
+          "key": "queimando",
+          "chance": 0.85,
+          "seconds": 4.5
+        },
+        "anim": "attack",
+        "vfx": {
+          "style": "chamas",
+          "color": "essence",
+          "ground": true,
+          "layers": [],
+          "catalogue": "pyroclasm"
+        },
+        "unlockBond": 14,
+        "modality": "magica"
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-emberflock",
+      "name": "Revoada de Brasas",
+      "data": {
+        "slug": "vfx-emberflock",
+        "name": "Revoada de Brasas",
+        "description": "Fogo · Grau 3. Aves de fogo convergem pela linha e deixam queimaduras.",
+        "slot": "essence",
+        "essence": "fogo",
+        "classes": [],
+        "bodies": [],
+        "shape": "line",
+        "range": 8,
+        "radius": 0.65,
+        "angle": 60,
+        "power": 52,
+        "heal": 0,
+        "energy": 29,
+        "cooldown": 9,
+        "windup": 0.6,
+        "status": {
+          "key": "queimando",
+          "chance": 0.85,
+          "seconds": 3.5
+        },
+        "anim": "attack",
+        "vfx": {
+          "style": "chamas",
+          "color": "essence",
+          "ground": false,
+          "layers": [],
+          "catalogue": "emberflock"
+        },
+        "unlockBond": 7,
+        "modality": "magica"
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-chainarc",
+      "name": "Arco Encadeado",
+      "data": {
+        "slug": "vfx-chainarc",
+        "name": "Arco Encadeado",
+        "description": "Raio · Grau 2. Descargas visuais se encadeiam ao longo da linha de ataque.",
+        "slot": "essence",
+        "essence": "raio",
+        "classes": [],
+        "bodies": [],
+        "shape": "line",
+        "range": 7,
+        "radius": 0.55,
+        "angle": 60,
+        "power": 50,
+        "heal": 0,
+        "energy": 22,
+        "cooldown": 6,
+        "windup": 0.45,
+        "status": null,
+        "anim": "attack",
+        "vfx": {
+          "style": "raios",
+          "color": "essence",
+          "ground": false,
+          "layers": [],
+          "catalogue": "chainarc"
+        },
+        "unlockBond": 4,
+        "modality": "magica"
+      },
+      "status": "draft"
+    },
+    {
+      "slug": "vfx-balllightning",
+      "name": "Orbe Fulminante",
+      "data": {
+        "slug": "vfx-balllightning",
+        "name": "Orbe Fulminante",
+        "description": "Raio · Grau 3. Um orbe elétrico percorre a faixa e libera sua carga.",
+        "slot": "essence",
+        "essence": "raio",
+        "classes": [],
+        "bodies": [],
+        "shape": "line",
+        "range": 8,
+        "radius": 0.65,
+        "angle": 60,
+        "power": 65,
+        "heal": 0,
+        "energy": 29,
+        "cooldown": 8,
+        "windup": 0.6,
+        "status": null,
+        "anim": "attack",
+        "vfx": {
+          "style": "raios",
+          "color": "essence",
+          "ground": false,
+          "layers": [],
+          "catalogue": "balllightning"
+        },
+        "unlockBond": 7,
+        "modality": "magica"
+      },
+      "status": "draft"
+    }
+  ],
+  "learningPlan": [
+    {
+      "slug": "vfx-ice",
+      "origin": "frost",
+      "school": null,
+      "rank": 2,
+      "role": "strike"
+    },
+    {
+      "slug": "vfx-thunder",
+      "origin": "storm",
+      "school": null,
+      "rank": 2,
+      "role": "strike"
+    },
+    {
+      "slug": "vfx-meteor",
+      "origin": "flame",
+      "school": null,
+      "rank": 3,
+      "role": "heavy"
+    },
+    {
+      "slug": "vfx-beam",
+      "origin": "arcane",
+      "school": "arcane",
+      "rank": 3,
+      "role": "heavy"
+    },
+    {
+      "slug": "vfx-snare",
+      "origin": "storm",
+      "school": null,
+      "rank": 2,
+      "role": "control"
+    },
+    {
+      "slug": "vfx-glacier",
+      "origin": "frost",
+      "school": null,
+      "rank": 3,
+      "role": "control"
+    },
+    {
+      "slug": "vfx-geyser",
+      "origin": "tide",
+      "school": null,
+      "rank": 2,
+      "role": "strike"
+    },
+    {
+      "slug": "vfx-pistondrive",
+      "origin": "forge",
+      "school": "forge",
+      "rank": 2,
+      "role": "strike"
+    },
+    {
+      "slug": "vfx-astralgate",
+      "origin": "arcane",
+      "school": "arcane",
+      "rank": 4,
+      "role": "heavy"
+    },
+    {
+      "slug": "vfx-entropy",
+      "origin": "chrono",
+      "school": "chrono",
+      "rank": 4,
+      "role": "control"
+    },
+    {
+      "slug": "vfx-rewind",
+      "origin": "chrono",
+      "school": "chrono",
+      "rank": 3,
+      "role": "strike"
+    },
+    {
+      "slug": "vfx-undertow",
+      "origin": "tide",
+      "school": null,
+      "rank": 3,
+      "role": "control"
+    },
+    {
+      "slug": "vfx-bonecage",
+      "origin": "blood",
+      "school": "blood",
+      "rank": 2,
+      "role": "control"
+    },
+    {
+      "slug": "vfx-torrent",
+      "origin": "tide",
+      "school": null,
+      "rank": 1,
+      "role": "strike"
+    },
+    {
+      "slug": "vfx-broodburst",
+      "origin": "hive",
+      "school": null,
+      "rank": 2,
+      "role": "dot"
+    },
+    {
+      "slug": "vfx-obsidian",
+      "origin": "stone",
+      "school": null,
+      "rank": 3,
+      "role": "heavy"
+    },
+    {
+      "slug": "vfx-waspfunnel",
+      "origin": "hive",
+      "school": null,
+      "rank": 3,
+      "role": "dot"
+    },
+    {
+      "slug": "vfx-silence",
+      "origin": "void",
+      "school": null,
+      "rank": 4,
+      "role": "control"
+    },
+    {
+      "slug": "vfx-refractcascade",
+      "origin": "lumen",
+      "school": null,
+      "rank": 3,
+      "role": "strike"
+    },
+    {
+      "slug": "vfx-afterimage",
+      "origin": "chrono",
+      "school": "chrono",
+      "rank": 2,
+      "role": "strike"
+    },
+    {
+      "slug": "vfx-shrapnel",
+      "origin": "forge",
+      "school": "forge",
+      "rank": 3,
+      "role": "heavy"
+    },
+    {
+      "slug": "vfx-photonlattice",
+      "origin": "lumen",
+      "school": null,
+      "rank": 3,
+      "role": "strike"
+    },
+    {
+      "slug": "vfx-splatterbrand",
+      "origin": "ink",
+      "school": "ink",
+      "rank": 1,
+      "role": "strike"
+    },
+    {
+      "slug": "vfx-sealscript",
+      "origin": "ink",
+      "school": "ink",
+      "rank": 2,
+      "role": "control"
+    },
+    {
+      "slug": "vfx-hourglass",
+      "origin": "chrono",
+      "school": "chrono",
+      "rank": 3,
+      "role": "control"
+    },
+    {
+      "slug": "vfx-brinelock",
+      "origin": "tide",
+      "school": null,
+      "rank": 2,
+      "role": "control"
+    },
+    {
+      "slug": "vfx-blackice",
+      "origin": "frost",
+      "school": null,
+      "rank": 3,
+      "role": "control"
+    },
+    {
+      "slug": "vfx-bubblecage",
+      "origin": "tide",
+      "school": null,
+      "rank": 2,
+      "role": "control"
+    },
+    {
+      "slug": "vfx-spellbreak",
+      "origin": "arcane",
+      "school": "arcane",
+      "rank": 4,
+      "role": "heavy"
+    },
+    {
+      "slug": "vfx-sawline",
+      "origin": "forge",
+      "school": "forge",
+      "rank": 2,
+      "role": "strike"
+    },
+    {
+      "slug": "vfx-firewalk",
+      "origin": "flame",
+      "school": null,
+      "rank": 1,
+      "role": "dot"
+    },
+    {
+      "slug": "vfx-wildfire",
+      "origin": "flame",
+      "school": null,
+      "rank": 3,
+      "role": "dot"
+    },
+    {
+      "slug": "vfx-scrollward",
+      "origin": "ink",
+      "school": "ink",
+      "rank": 2,
+      "role": "heal"
+    },
+    {
+      "slug": "vfx-carapace",
+      "origin": "hive",
+      "school": null,
+      "rank": 2,
+      "role": "heal"
+    },
+    {
+      "slug": "vfx-stasisfield",
+      "origin": "chrono",
+      "school": "chrono",
+      "rank": 5,
+      "role": "control"
+    },
+    {
+      "slug": "vfx-gearlock",
+      "origin": "forge",
+      "school": "forge",
+      "rank": 3,
+      "role": "control"
+    },
+    {
+      "slug": "vfx-quench",
+      "origin": "forge",
+      "school": "forge",
+      "rank": 2,
+      "role": "strike"
+    },
+    {
+      "slug": "vfx-unmake",
+      "origin": "void",
+      "school": null,
+      "rank": 5,
+      "role": "heavy"
+    },
+    {
+      "slug": "vfx-solarlens",
+      "origin": "lumen",
+      "school": null,
+      "rank": 3,
+      "role": "dot"
+    },
+    {
+      "slug": "vfx-anvilfall",
+      "origin": "forge",
+      "school": "forge",
+      "rank": 4,
+      "role": "heavy"
+    },
+    {
+      "slug": "vfx-tiderush",
+      "origin": "tide",
+      "school": null,
+      "rank": 2,
+      "role": "strike"
+    },
+    {
+      "slug": "vfx-godspear",
+      "origin": "lumen",
+      "school": null,
+      "rank": 5,
+      "role": "heavy"
+    },
+    {
+      "slug": "vfx-locusttide",
+      "origin": "hive",
+      "school": null,
+      "rank": 4,
+      "role": "dot"
+    },
+    {
+      "slug": "vfx-mycelium",
+      "origin": "verdant",
+      "school": null,
+      "rank": 2,
+      "role": "control"
+    },
+    {
+      "slug": "vfx-featherfall",
+      "origin": "aether",
+      "school": null,
+      "rank": 1,
+      "role": "heal"
+    },
+    {
+      "slug": "vfx-mirage",
+      "origin": "aether",
+      "school": null,
+      "rank": 2,
+      "role": "strike"
+    },
+    {
+      "slug": "vfx-echostep",
+      "origin": "chrono",
+      "school": "chrono",
+      "rank": 2,
+      "role": "strike"
+    },
+    {
+      "slug": "vfx-origami",
+      "origin": "ink",
+      "school": "ink",
+      "rank": 3,
+      "role": "strike"
+    },
+    {
+      "slug": "vfx-sheetlightning",
+      "origin": "storm",
+      "school": null,
+      "rank": 3,
+      "role": "control"
+    },
+    {
+      "slug": "vfx-dawnbreak",
+      "origin": "lumen",
+      "school": null,
+      "rank": 4,
+      "role": "heal"
+    },
+    {
+      "slug": "vfx-eclipse",
+      "origin": "lumen",
+      "school": null,
+      "rank": 5,
+      "role": "heavy"
+    },
+    {
+      "slug": "vfx-inkbloom",
+      "origin": "ink",
+      "school": "ink",
+      "rank": 2,
+      "role": "strike"
+    },
+    {
+      "slug": "vfx-hivecolumn",
+      "origin": "hive",
+      "school": null,
+      "rank": 3,
+      "role": "dot"
+    },
+    {
+      "slug": "vfx-avalanche",
+      "origin": "frost",
+      "school": null,
+      "rank": 4,
+      "role": "heavy"
+    },
+    {
+      "slug": "vfx-sumistroke",
+      "origin": "ink",
+      "school": "ink",
+      "rank": 3,
+      "role": "heavy"
+    },
+    {
+      "slug": "vfx-webline",
+      "origin": "hive",
+      "school": null,
+      "rank": 2,
+      "role": "control"
+    },
+    {
+      "slug": "vfx-shatterlance",
+      "origin": "frost",
+      "school": null,
+      "rank": 3,
+      "role": "heavy"
+    },
+    {
+      "slug": "vfx-soulchain",
+      "origin": "void",
+      "school": null,
+      "rank": 2,
+      "role": "control"
+    },
+    {
+      "slug": "vfx-skyfracture",
+      "origin": "aether",
+      "school": null,
+      "rank": 4,
+      "role": "heavy"
+    },
+    {
+      "slug": "vfx-sanguinepact",
+      "origin": "blood",
+      "school": "blood",
+      "rank": 3,
+      "role": "heal"
+    },
+    {
+      "slug": "vfx-magma",
+      "origin": "flame",
+      "school": null,
+      "rank": 4,
+      "role": "dot"
+    },
+    {
+      "slug": "vfx-hemolance",
+      "origin": "blood",
+      "school": "blood",
+      "rank": 2,
+      "role": "strike"
+    },
+    {
+      "slug": "vfx-umbralspears",
+      "origin": "void",
+      "school": null,
+      "rank": 3,
+      "role": "strike"
+    },
+    {
+      "slug": "vfx-nightfall",
+      "origin": "void",
+      "school": null,
+      "rank": 3,
+      "role": "control"
+    },
+    {
+      "slug": "vfx-bloomburst",
+      "origin": "verdant",
+      "school": null,
+      "rank": 2,
+      "role": "strike"
+    },
+    {
+      "slug": "vfx-sporefall",
+      "origin": "verdant",
+      "school": null,
+      "rank": 3,
+      "role": "dot"
+    },
+    {
+      "slug": "vfx-dragonbreath",
+      "origin": "flame",
+      "school": null,
+      "rank": 4,
+      "role": "dot"
+    },
+    {
+      "slug": "vfx-grovecall",
+      "origin": "verdant",
+      "school": null,
+      "rank": 4,
+      "role": "heal"
+    },
+    {
+      "slug": "vfx-runeseal",
+      "origin": "arcane",
+      "school": "arcane",
+      "rank": 1,
+      "role": "strike"
+    },
+    {
+      "slug": "vfx-glyphstorm",
+      "origin": "arcane",
+      "school": "arcane",
+      "rank": 3,
+      "role": "strike"
+    },
+    {
+      "slug": "vfx-vinelash",
+      "origin": "verdant",
+      "school": null,
+      "rank": 1,
+      "role": "control"
+    },
+    {
+      "slug": "vfx-tectonic",
+      "origin": "stone",
+      "school": null,
+      "rank": 4,
+      "role": "heavy"
+    },
+    {
+      "slug": "vfx-boulder",
+      "origin": "stone",
+      "school": null,
+      "rank": 2,
+      "role": "heavy"
+    },
+    {
+      "slug": "vfx-stonespine",
+      "origin": "stone",
+      "school": null,
+      "rank": 2,
+      "role": "strike"
+    },
+    {
+      "slug": "vfx-sinkhole",
+      "origin": "stone",
+      "school": null,
+      "rank": 3,
+      "role": "control"
+    },
+    {
+      "slug": "vfx-singularity",
+      "origin": "void",
+      "school": null,
+      "rank": 5,
+      "role": "heavy"
+    },
+    {
+      "slug": "vfx-rime",
+      "origin": "frost",
+      "school": null,
+      "rank": 1,
+      "role": "control"
+    },
+    {
+      "slug": "vfx-petrify",
+      "origin": "stone",
+      "school": null,
+      "rank": 3,
+      "role": "control"
+    },
+    {
+      "slug": "vfx-hail",
+      "origin": "frost",
+      "school": null,
+      "rank": 4,
+      "role": "heavy"
+    },
+    {
+      "slug": "vfx-sunspear",
+      "origin": "flame",
+      "school": null,
+      "rank": 4,
+      "role": "dot"
+    },
+    {
+      "slug": "vfx-cyclone",
+      "origin": "aether",
+      "school": null,
+      "rank": 3,
+      "role": "control"
+    },
+    {
+      "slug": "vfx-resonance",
+      "origin": "aether",
+      "school": null,
+      "rank": 2,
+      "role": "strike"
+    },
+    {
+      "slug": "vfx-prismlance",
+      "origin": "arcane",
+      "school": "arcane",
+      "rank": 2,
+      "role": "strike"
+    },
+    {
+      "slug": "vfx-arcanevolley",
+      "origin": "arcane",
+      "school": "arcane",
+      "rank": 2,
+      "role": "strike"
+    },
+    {
+      "slug": "vfx-plaguebloom",
+      "origin": "blood",
+      "school": "blood",
+      "rank": 4,
+      "role": "dot"
+    },
+    {
+      "slug": "vfx-aurora",
+      "origin": "aether",
+      "school": null,
+      "rank": 3,
+      "role": "heal"
+    },
+    {
+      "slug": "vfx-starfall",
+      "origin": "arcane",
+      "school": "arcane",
+      "rank": 5,
+      "role": "heavy"
+    },
+    {
+      "slug": "vfx-chronofracture",
+      "origin": "arcane",
+      "school": "arcane",
+      "rank": 4,
+      "role": "control"
+    },
+    {
+      "slug": "vfx-voidrift",
+      "origin": "void",
+      "school": null,
+      "rank": 3,
+      "role": "heavy"
+    },
+    {
+      "slug": "vfx-crimsontide",
+      "origin": "blood",
+      "school": "blood",
+      "rank": 3,
+      "role": "strike"
+    },
+    {
+      "slug": "vfx-thunderclap",
+      "origin": "storm",
+      "school": null,
+      "rank": 4,
+      "role": "control"
+    },
+    {
+      "slug": "vfx-stormwall",
+      "origin": "storm",
+      "school": null,
+      "rank": 3,
+      "role": "strike"
+    },
+    {
+      "slug": "vfx-thornwake",
+      "origin": "verdant",
+      "school": null,
+      "rank": 3,
+      "role": "control"
+    },
+    {
+      "slug": "vfx-firewhip",
+      "origin": "flame",
+      "school": null,
+      "rank": 2,
+      "role": "dot"
+    },
+    {
+      "slug": "vfx-railcoil",
+      "origin": "storm",
+      "school": null,
+      "rank": 4,
+      "role": "heavy"
+    },
+    {
+      "slug": "vfx-slipstream",
+      "origin": "aether",
+      "school": null,
+      "rank": 2,
+      "role": "strike"
+    },
+    {
+      "slug": "vfx-pyroclasm",
+      "origin": "flame",
+      "school": null,
+      "rank": 5,
+      "role": "dot"
+    },
+    {
+      "slug": "vfx-emberflock",
+      "origin": "flame",
+      "school": null,
+      "rank": 3,
+      "role": "dot"
+    },
+    {
+      "slug": "vfx-chainarc",
+      "origin": "storm",
+      "school": null,
+      "rank": 2,
+      "role": "strike"
+    },
+    {
+      "slug": "vfx-balllightning",
+      "origin": "storm",
+      "school": null,
+      "rank": 3,
+      "role": "strike"
+    }
+  ]
+}
