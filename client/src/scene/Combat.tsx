@@ -327,7 +327,15 @@ function runSkill(ev: Extract<FxEvent, { kind: 'skill' }>, world: WorldShape, po
     V.emit({ k: K.RING, flat: true, pos: { x: c.x, y: c.y + 0.06, z: c.z }, life: s.windup, size: 0.2, size1: s.radius * 2.1, c1: '#c9b8ff', alpha: 0.5 });
   }
   V.after(s.windup, () => {
-    switch (s.shape) {
+    if (s.vfx.catalogue) {
+      const delta = tp.clone().sub(feet);
+      V.catalogue(s.vfx.catalogue, feet, s.shape === 'circle' || s.shape === 'leap' ? Math.atan2(delta.x, delta.z) : yaw, s.shape === 'circle' || s.shape === 'leap' ? delta.length() : s.range);
+      if(s.shape === 'projectile') {
+        let best: Target | null = null, distance = s.range + 0.5;
+        targets.forEach(t => {const dx=t.x-feet.x,dz=t.z-feet.z,f=dx*fw.x+dz*fw.z,l=Math.abs(dx*fw.z-dz*fw.x);if(f>0&&f<distance&&l<=s.radius+t.r+0.2){best=t;distance=f;}});
+        if(best) strike([best],Math.max(0.15,distance/14));
+      } else strike(inside(),s.shape==='leap'?0.4:s.shape==='circle'?0.3:0.1);
+    } else switch (s.shape) {
       case 'melee': slash(V, chest, yaw, s.range, col, s.power >= 40); strike(inside(), 0.07); break;
       case 'cone': cone(V, st, chest.clone().addScaledVector(fw, 0.3), yaw, s.angle, s.range, col); strike(inside(), 0.2); break;
       case 'line': beam(V, st, chest, chest.clone().addScaledVector(fw, s.range), s.radius, col); strike(inside(), 0.05); break;
@@ -417,7 +425,20 @@ export function castCreatureSkill(c: CreatureCast) {
   }
   V.after(windup, () => {
     if (!c.alive()) return;
-    switch (s.shape) {
+    if(s.vfx.catalogue) {
+      const delta=tp.clone().sub(feet);
+      V.catalogue(s.vfx.catalogue,feet,Math.atan2(delta.x,delta.z),Math.min(s.range,delta.length()));
+      if(s.shape==='projectile') {
+        const aim=tp.clone();
+        V.after(Math.max(0.2,chest.distanceTo(aim)/9),()=>{
+          if(!c.alive() || c.damage<=0)return;
+          if(Math.hypot(companionFocus.x-aim.x,companionFocus.z-aim.z)<=Math.max(0.6,s.radius)+COMPANION_R){
+            const got=hurtCompanion(c.damage,modality==='hibrida'?'fisica':modality);
+            if(got>0)numQueue.push({pos:new THREE.Vector3(companionFocus.x,companionFocus.y+1.3,companionFocus.z),text:'-'+got,kind:'hurt'});
+          }
+        });
+      } else strike(s.shape==='circle'?0.3:0.2);
+    } else switch (s.shape) {
       case 'melee': slash(V, chest, c.yaw, s.range, col, s.power >= 40); strike(0.07); break;
       case 'cone': cone(V, st, chest.clone().addScaledVector(fw, 0.3), c.yaw, s.angle, s.range, col); strike(0.2); break;
       case 'line': beam(V, st, chest, chest.clone().addScaledVector(fw, s.range), s.radius, col); strike(0.05); break;

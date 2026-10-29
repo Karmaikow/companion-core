@@ -1,3 +1,4 @@
+import { CatalogueRenderer } from './CatalogueRenderer';
 /** Desenha uma VfxStore: duas malhas instanciadas (normal e aditiva) com as formas no shader, e as fitas. */
 import { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
@@ -278,6 +279,7 @@ export function VfxLayer({ store, fixedDt, timeScale = 1 }: { store: VfxStore; f
 
   return (
     <group>
+      <CatalogueRenderer store={store} timeScale={timeScale} />
       <instancedMesh ref={crystalMesh} args={[undefined, undefined, 192]} frustumCulled={false}>
         <coneGeometry args={[1, 1, 5]} />
         <meshStandardMaterial color="#ffffff" metalness={0.25} roughness={0.2} flatShading />
