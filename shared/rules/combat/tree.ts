@@ -25,7 +25,8 @@ export type NodeKind = 'skill' | 'rank' | 'passive' | 'boost';
 export interface TreeNode {
   id: string;
   branch: TreeBranch;
-  tier: number;                                 // fileira: decide o vínculo mínimo (TIER_BOND)
+  tier: number;                                 // fileira: decide o vínculo mínimo (TIER_BOND) quando não há `bond`
+  bond?: number;                                // vínculo mínimo exato (o da habilidade na Forja)
   kind: NodeKind;
   name: string;
   description: string;
@@ -49,6 +50,8 @@ export const TIER_BOND: Record<number, number> = { 1: 1, 2: 2, 3: 3, 4: 5, 5: 8,
 export const RANK_POWER = 0.15, RANK_COOLDOWN = 0.08;
 const MAX_TIER = 8;
 export const tierBond = (tier: number) => TIER_BOND[Math.min(MAX_TIER, Math.max(1, tier))];
+/** vínculo mínimo de um nó: o da Forja quando o nó vem de uma habilidade, senão o da fileira */
+export const nodeBond = (n: Pick<TreeNode, 'tier' | 'bond'>) => n.bond ?? tierBond(n.tier);
 export const needOf = (n: TreeNode, req: string) => n.needs?.[req] ?? 1;
 /** menor fileira que já abre no vínculo pedido */
 const tierFor = (bond: number) => Number(Object.entries(TIER_BOND).find(([, b]) => b >= bond)?.[0] ?? MAX_TIER);
@@ -99,29 +102,30 @@ export function buildSkillTree(catalog: SkillDef[], c: { essence: Element | null
     nodes.push(node);
   };
   const rankDesc = `+${RANK_POWER * 100}% de efeito e –${RANK_COOLDOWN * 100}% de recarga por nível.`;
-  const focus = (id: string, branch: TreeBranch, s: SkillDef, tier: number, requires: string[]) =>
-    add({ id, branch, tier, kind: 'boost', name: `Foco: ${s.name}`, description: `+${SKILL_BOOST}% de efeito de ${s.name} por ponto.`, skill: s.slug, boost: { skill: s.slug, pct: SKILL_BOOST }, maxRank: 3, requires });
+  const focus = (id: string, branch: TreeBranch, s: SkillDef, tier: number, requires: string[], bond?: number) =>
+    add({ id, branch, tier, bond, kind: 'boost', name: `Foco: ${s.name}`, description: `+${SKILL_BOOST}% de efeito de ${s.name} por ponto.`, skill: s.slug, boost: { skill: s.slug, pct: SKILL_BOOST }, maxRank: 3, requires });
 
   // Essência: um tronco de "portões" (Afinidade, depois Correntes) e cada habilidade saindo dele como um galho
-  // (habilidade → nível e foco). A fileira vem do vínculo da habilidade na Forja e nunca volta para trás.
+  // (habilidade → nível e foco). Cada habilidade abre no vínculo exato que ela tem na Forja; o portão que a
+  // próxima pede abre junto com a habilidade de antes, para nunca atrasar a seguinte.
   // (e1..e5 continuam com os mesmos ids para não perder distribuições salvas)
   let gate: string | null = null, lastTier = 1;
   for (let i = 0; i < ess.length; i++) {
-    const s = ess[i];
-    const st = Math.min(MAX_TIER - 1, Math.max(lastTier, tierFor(s.unlockBond)));
-    lastTier = st;
+    const s = ess[i], bond = s.unlockBond;
+    const st = Math.min(MAX_TIER - 1, tierFor(bond));
+    lastTier = Math.max(lastTier, st);
     const sid = i === 0 ? 'e1' : i === 1 ? 'e4' : `es-${s.slug}`;
     const rid = i === 0 ? 'e2' : i === 1 ? 'e5' : `er-${s.slug}`;
-    add({ id: sid, branch: 'essencia', tier: st, kind: 'skill', name: s.name, description: s.description, skill: s.slug, requires: gate ? [gate] : [] });
-    add({ id: rid, branch: 'essencia', tier: st + 1, kind: 'rank', name: `${s.name}+`, description: i === 0 ? `Mais forte e mais rápida: ${rankDesc}` : rankDesc, skill: s.slug, maxRank: 3, requires: [sid] });
-    focus(`eb-${s.slug}`, 'essencia', s, st + 1, [sid]);
+    add({ id: sid, branch: 'essencia', tier: st, bond, kind: 'skill', name: s.name, description: s.description, skill: s.slug, requires: gate ? [gate] : [] });
+    add({ id: rid, branch: 'essencia', tier: st + 1, bond, kind: 'rank', name: `${s.name}+`, description: i === 0 ? `Mais forte e mais rápida: ${rankDesc}` : rankDesc, skill: s.slug, maxRank: 3, requires: [sid] });
+    focus(`eb-${s.slug}`, 'essencia', s, st + 1, [sid], bond);
     if (i === 0) {
       gate = 'e3';
-      add({ id: 'e3', branch: 'essencia', tier: 3, kind: 'passive', name: `Afinidade com ${essLabel}`, description: '+3% de poder por ponto.', bonus: { poder: 3 }, maxRank: 3, requires: ['e1'] });
+      add({ id: 'e3', branch: 'essencia', tier: 3, bond, kind: 'passive', name: `Afinidade com ${essLabel}`, description: '+3% de poder por ponto.', bonus: { poder: 3 }, maxRank: 3, requires: ['e1'] });
     } else {
       const prev: string = gate!;
       gate = `eg-${s.slug}`;
-      add({ id: gate, branch: 'essencia', tier: st + 1, kind: 'boost', name: `Corrente de ${essLabel}`, description: `+${ELEMENT_BOOST}% de efeito em todas as habilidades de ${essLabel} por ponto.`, boost: { element: c.essence ?? undefined, pct: ELEMENT_BOOST }, maxRank: 3, requires: [prev] });
+      add({ id: gate, branch: 'essencia', tier: st + 1, bond, kind: 'boost', name: `Corrente de ${essLabel}`, description: `+${ELEMENT_BOOST}% de efeito em todas as habilidades de ${essLabel} por ponto.`, boost: { element: c.essence ?? undefined, pct: ELEMENT_BOOST }, maxRank: 3, requires: [prev] });
     }
   }
   if (!ess.length) add({ id: 'e3', branch: 'essencia', tier: 3, kind: 'passive', name: `Afinidade com ${essLabel}`, description: '+3% de poder por ponto.', bonus: { poder: 3 }, maxRank: 3 });
@@ -132,9 +136,9 @@ export function buildSkillTree(catalog: SkillDef[], c: { essence: Element | null
   // Classe
   add({ id: 'c1', branch: 'classe', tier: 1, kind: 'passive', name: p1.name, description: p1.description, bonus: p1.bonus, maxRank: 3 });
   if (form) {
-    add({ id: 'c2', branch: 'classe', tier: 2, kind: 'skill', name: form.name, description: form.description, skill: form.slug, requires: ['c1'] });
-    add({ id: 'c3', branch: 'classe', tier: 3, kind: 'rank', name: `${form.name}+`, description: rankDesc, skill: form.slug, maxRank: 3, requires: ['c2'] });
-    focus('cb-forma', 'classe', form, 3, ['c2']);
+    add({ id: 'c2', branch: 'classe', tier: 2, bond: form.unlockBond, kind: 'skill', name: form.name, description: form.description, skill: form.slug, requires: ['c1'] });
+    add({ id: 'c3', branch: 'classe', tier: 3, bond: form.unlockBond, kind: 'rank', name: `${form.name}+`, description: rankDesc, skill: form.slug, maxRank: 3, requires: ['c2'] });
+    focus('cb-forma', 'classe', form, 3, ['c2'], form.unlockBond);
   }
   add({ id: 'c4', branch: 'classe', tier: 4, kind: 'passive', name: p2.name, description: p2.description, bonus: p2.bonus, maxRank: 3, requires: [form ? 'c2' : 'c1'] });
   add({ id: 'c5', branch: 'classe', tier: 5, kind: 'passive', name: `Linhagem ${sp.label}`, description: `Afinidade da classe (${sp.affinities.map((e) => ELEMENTS[e].label).join(' e ')}): as habilidades dessas essências custam 20% menos SP (em vez de 10%).`, bonus: {}, requires: ['c4'] });
@@ -142,14 +146,14 @@ export function buildSkillTree(catalog: SkillDef[], c: { essence: Element | null
 
   // Vínculo
   if (basic) {
-    add({ id: 'v1', branch: 'vinculo', tier: 1, kind: 'rank', name: `${basic.name}+`, description: `O golpe básico: +${RANK_POWER * 100}% de dano por nível.`, skill: basic.slug, maxRank: 3 });
-    focus('vb-basico', 'vinculo', basic, 2, ['v1']);
+    add({ id: 'v1', branch: 'vinculo', tier: 1, bond: basic.unlockBond, kind: 'rank', name: `${basic.name}+`, description: `O golpe básico: +${RANK_POWER * 100}% de dano por nível.`, skill: basic.slug, maxRank: 3 });
+    focus('vb-basico', 'vinculo', basic, 2, ['v1'], Math.max(2, basic.unlockBond));
   }
   add({ id: 'v2', branch: 'vinculo', tier: 2, kind: 'passive', name: 'Fôlego', description: '+5% de energia por ponto.', bonus: { energia: 5 }, maxRank: 3 });
   add({ id: 'v3', branch: 'vinculo', tier: 3, kind: 'passive', name: 'Coração Firme', description: '+5% de vida por ponto.', bonus: { vida: 5 }, maxRank: 3, requires: ['v2'] });
   add({ id: 'v4', branch: 'vinculo', tier: 4, kind: 'passive', name: 'Mesma Sintonia', description: 'Os seus chamados chegam mais rápido: +5% de sintonia por ponto.', bonus: { sintonia: 5 }, maxRank: 3, requires: ['v3'] });
   if (supreme) {
-    add({ id: 'v5', branch: 'vinculo', tier: 5, kind: 'skill', name: supreme.name, description: supreme.description, skill: supreme.slug, requires: ['v4'] });
+    add({ id: 'v5', branch: 'vinculo', tier: 5, bond: supreme.unlockBond, kind: 'skill', name: supreme.name, description: supreme.description, skill: supreme.slug, requires: ['v4'] });
     add({ id: 'v6', branch: 'vinculo', tier: 6, kind: 'boost', name: `Eco: ${supreme.name}`, description: `+${SKILL_BOOST}% de efeito de ${supreme.name} por ponto.`, skill: supreme.slug, boost: { skill: supreme.slug, pct: SKILL_BOOST }, maxRank: 3, requires: ['v5'] });
   }
 
@@ -244,7 +248,7 @@ export function canSpend(tree: SkillTree, alloc: Allocation, nodeId: string, bon
   if (!n) return 'Nó não existe.';
   if ((alloc[nodeId] ?? 0) >= n.maxRank) return 'Já está no máximo.';
   if (spent(alloc) >= points) return 'Sem pontos livres.';
-  if (bondLevel < tierBond(n.tier)) return `Abre no vínculo ${tierBond(n.tier)}.`;
+  if (bondLevel < nodeBond(n)) return `Abre no vínculo ${nodeBond(n)}.`;
   const missing = n.requires.filter((r) => (alloc[r] ?? 0) < needOf(n, r));
   if (missing.length) return `Precisa de ${missing.map((r) => reqLabel(tree, n, r)).join(', ')}.`;
   return null;
@@ -288,9 +292,9 @@ export function planTo(tree: SkillTree, alloc: Allocation, nodeId: string, bondL
     if (more <= 0) continue;
     add[id] = more; cost += more;
     const n = by.get(id)!;
-    if (bondLevel < tierBond(n.tier) && (!worst || tierBond(n.tier) > tierBond(worst.tier))) worst = n;
+    if (bondLevel < nodeBond(n) && (!worst || nodeBond(n) > nodeBond(worst))) worst = n;
   }
-  return { add, cost, blocked: worst ? `Abre no vínculo ${tierBond(worst.tier)} (${worst.name}).` : null };
+  return { add, cost, blocked: worst ? `Abre no vínculo ${nodeBond(worst)} (${worst.name}).` : null };
 }
 
 /** Aplica um plano de `planTo` (já conferido pela validação). */

@@ -8,7 +8,7 @@ import { BRANCH_COLOR, SkillTreeGraph } from './SkillTreeGraph';
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  ELEMENTS, SPECIES, STATUSES, SHAPES, canSpend, validateAllocation, treeEffects, spent, planTo, applyPlan, needOf, tierBond,
+  ELEMENTS, SPECIES, STATUSES, SHAPES, canSpend, validateAllocation, treeEffects, spent, planTo, applyPlan, needOf, nodeBond,
   type Allocation, type TreeBranch, type TreeNode, type SkillTree, type SkillDef,
 } from '@rules';
 import { useSkillData, useSkills, persistAlloc } from './skillState';
@@ -36,7 +36,7 @@ function NodeDetail({ node, tree, alloc, bond, points, catalog, saving, notice, 
         <strong className="st-detail-name">{node.name}</strong>
         <div className="st-pips" aria-label={`${rank} de ${node.maxRank} pontos`}>{Array.from({ length: node.maxRank }, (_, i) => <i key={i} className={i < rank ? 'f' : ''} />)}</div>
       </div>
-      <p className="st-detail-meta">Abre no vínculo {tierBond(node.tier)}{bond < tierBond(node.tier) ? ' 🔒' : ''} · Pontos: {rank}/{node.maxRank}</p>
+      <p className="st-detail-meta">Abre no vínculo {nodeBond(node)}{bond < nodeBond(node) ? ' 🔒' : ''} · Pontos: {rank}/{node.maxRank}</p>
       <p className="st-detail-desc">{node.description}</p>
       {skill && <small className="st-detail-skill">{SHAPES[skill.shape]}{skill.power ? ` · dano ${skill.power}` : ''}{skill.heal ? ` · cura ${skill.heal}` : ''}{skill.energy ? ` · energia ${skill.energy}` : ''} · recarga {skill.cooldown}s{skill.status ? ` · ${STATUSES[skill.status.key].label}` : ''}</small>}
 

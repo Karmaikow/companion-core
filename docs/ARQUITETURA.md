@@ -769,8 +769,9 @@ Prompt com o mundo de fantasia, regra explícita de pronomes ("mim" = a pessoa; 
 - **v1.40 — Árvore de habilidades em constelação, fusões e caminho automático.** `shared/rules/combat/tree.ts`:
   quatro galhos (Essência, Classe, Vínculo e **Fusão**). A Essência traz todas as habilidades publicadas da essência:
   um tronco de **Correntes** (+2% em todas as habilidades da essência por ponto) e cada habilidade saindo dele como um
-  galho, com nível (+) e **Foco** (+3% de efeito nela por ponto); a fileira vem do vínculo da habilidade na Forja.
-  Fileiras vão até 8 (vínculo 1, 2, 3, 5, 8, 10, 12, 15). Pré-requisitos
+  galho, com nível (+) e **Foco** (+3% de efeito nela por ponto). Nós que vêm de uma habilidade (essência, forma,
+  golpe básico, suprema) abrem no **vínculo exato da Forja** (`node.bond`, `nodeBond`); passivas e fusões usam a
+  fileira (vínculo 1, 2, 3, 5, 8, 10, 12, 15). Pré-requisitos
   aceitam pontos mínimos (`needs`, ex.: a fusão "Maré do Dragão" pede 3 em Mesma Sintonia + 2 em Sangue de Dragão +
   2 em Bolha+). As habilidades de fusão são geradas pela essência e classe (`tree.extra`, não ficam na Forja): Elo de
   {essência}, Fúria {classe}, {Maré/Inferno/…} {do Dragão/…} e Despertar Primordial. `planTo` calcula o caminho até um
