@@ -4,7 +4,8 @@
  * trocar o modelo 3D por um dos enviados na Fábrica e dar habilidades da Forja (valem na barra 1–9).
  */
 import { useEffect, useMemo, useState } from 'react';
-import { DEFAULT_CREATURES, ITEM_CATEGORIES, categoryOf, creatureStatsAt, type ItemCategory } from '@rules';
+import { createPortal } from 'react-dom';
+import { DEFAULT_CREATURES, ITEM_CATEGORIES, SPECIES, ELEMENTS, categoryOf, creatureStatsAt, type ItemCategory, type SpeciesKey, type Element } from '@rules';
 import { supabase } from '../backend/online';
 import { useGame } from '../store';
 import { companionFocus } from '../scene/world';
@@ -14,13 +15,13 @@ import { useSkills } from './skillState';
 import { useCompanionModels } from './companionModels';
 import { useGod } from './godMode';
 
-type Tab = 'poderes' | 'monstros' | 'itens' | 'modelo' | 'habilidades';
-const TABS: [Tab, string][] = [['poderes', 'Poderes'], ['monstros', 'Monstros'], ['itens', 'Itens'], ['modelo', 'Modelo 3D'], ['habilidades', 'Habilidades']];
+type Tab = 'poderes' | 'monstros' | 'itens' | 'modelo' | 'habilidades' | 'perfil';
+const TABS: [Tab, string][] = [['poderes', 'Poderes'], ['monstros', 'Monstros'], ['itens', 'Itens'], ['modelo', 'Modelo 3D'], ['habilidades', 'Habilidades'], ['perfil', 'Classe e essência']];
 const DEV_FORCE = typeof location !== 'undefined' && import.meta.env.DEV && new URLSearchParams(location.search).has('god');
 
 /** Botão ⚡ (só aparece para o Administrador) e o painel. */
 export function GodMode({ inWorld }: { inWorld: boolean }) {
-  const admin = useGod((g) => g.admin), open = useGod((g) => g.open), on = useGod((g) => g.on);
+  const admin = useGod((g) => g.admin), open = useGod((g) => g.open);
   const online = useGame((s) => s.backend?.kind === 'online');
   useEffect(() => {
     if (DEV_FORCE) { useGod.getState().setAdmin(true); return; }
@@ -32,10 +33,16 @@ export function GodMode({ inWorld }: { inWorld: boolean }) {
   if (!admin) return null;
   return (
     <>
-      <button className={'god-btn' + (on ? ' on' : '')} onClick={() => useGod.getState().setOpen(!open)} aria-label="Modo GOD (Administrador)" aria-expanded={open}>⚡<small>GOD</small></button>
-      {open && <GodPanel inWorld={inWorld} />}
+      {open && createPortal(<GodPanel inWorld={inWorld} />, document.body)}
     </>
   );
+}
+
+/** Lives in the HUD menu flow, so it cannot cover another action button. */
+export function GodButton() {
+  const admin = useGod(g => g.admin), open = useGod(g => g.open), on = useGod(g => g.on);
+  if (!admin) return null;
+  return <button type="button" className={'god-btn' + (on ? ' on' : '')} data-tip="Modo GOD" onClick={() => useGod.getState().setOpen(!open)} aria-label="Modo GOD (Administrador)" aria-expanded={open}><b aria-hidden="true">⚡</b><span>GOD</span></button>;
 }
 
 function GodPanel({ inWorld }: { inWorld: boolean }) {
@@ -54,6 +61,7 @@ function GodPanel({ inWorld }: { inWorld: boolean }) {
           {tab === 'itens' && <Items />}
           {tab === 'modelo' && <Models />}
           {tab === 'habilidades' && <Skills />}
+          {tab === 'perfil' && <TreeProfile />}
         </div>
       </section>
     </div>
@@ -202,4 +210,23 @@ function Skills() {
       </ul>
     </div>
   );
+}
+
+function TreeProfile() {
+  const c = useGame(s => s.snap?.companion);
+  const profile = useGod(g => g.treeProfile);
+  const active = profile?.companionId === c?.id ? profile : null;
+  const [species, setSpecies] = useState<SpeciesKey>(active?.species ?? c?.discoveries.form ?? 'serpente');
+  const [essence, setEssence] = useState<Element | ''>(active ? active.essence ?? '' : c?.discoveries.element ?? '');
+  if (!c) return <p className="god-hint">Abra um Companion para testar.</p>;
+  return <div className="god-col">
+    <p className="god-hint">Escolha a combinação e abra Habilidades para testar a árvore. Os pontos e a barra de teste duram só nesta sessão; o vínculo atual continua definindo os requisitos.</p>
+    <label>Classe de teste<select value={species} onChange={e => setSpecies(e.target.value as SpeciesKey)}>{(Object.keys(SPECIES) as SpeciesKey[]).map(key => <option key={key} value={key}>{SPECIES[key].label}</option>)}</select></label>
+    <label>Essência de teste<select value={essence} onChange={e => setEssence(e.target.value as Element | '')}><option value="">Sem essência</option>{(Object.keys(ELEMENTS) as Element[]).map(key => <option key={key} value={key}>{ELEMENTS[key].label}</option>)}</select></label>
+    {active && <p className="god-warn" role="status">Teste ativo: {SPECIES[active.species].label} · {active.essence ? ELEMENTS[active.essence].label : 'Sem essência'}</p>}
+    <div className="god-row">
+      <button className="primary" onClick={() => { useGod.getState().testTree(c.id, species, essence || null); useGod.getState().setOpen(false); }}>Aplicar teste</button>
+      {active && <button onClick={() => useGod.getState().stopTreeTest()}>Restaurar classe e essência originais</button>}
+    </div>
+  </div>;
 }

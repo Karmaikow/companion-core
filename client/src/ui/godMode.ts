@@ -6,7 +6,7 @@
  * - `model`: modelo 3D de teste no lugar do modelo do Companion (só nesta aba).
  */
 import { create } from 'zustand';
-import type { Spawn } from '@rules';
+import type { Spawn, SpeciesKey, Element, Allocation } from '@rules';
 import type { CompanionModelFiles } from '../backend/types';
 import { godFlags } from '../scene/god';
 
@@ -17,7 +17,19 @@ function load(): Saved {
   return { on: false, skills: {} };
 }
 
+export interface GodTreeProfile {
+  companionId: string;
+  testId: number;
+  species: SpeciesKey;
+  essence: Element | null;
+  alloc: Allocation;
+}
+
 interface GodState extends Saved {
+  treeProfile: GodTreeProfile | null;
+  testTree: (companionId: string, species: SpeciesKey, essence: Element | null) => void;
+  setTestAlloc: (alloc: Allocation) => void;
+  stopTreeTest: () => void;
   /** esta conta é de Administrador (o servidor confirma) */
   admin: boolean;
   open: boolean;
@@ -39,8 +51,11 @@ const save = (s: Saved) => { try { localStorage.setItem(KEY, JSON.stringify({ on
 
 export const useGod = create<GodState>((set, get) => ({
   ...load(),
-  admin: false, open: false, spawns: [], model: null, modelName: null,
-  setAdmin: (admin) => { set({ admin }); godFlags.on = admin && get().on; },
+  admin: false, open: false, spawns: [], model: null, modelName: null, treeProfile: null,
+  testTree: (companionId, species, essence) => { if (get().admin) set({ treeProfile: { companionId, testId: ++n, species, essence, alloc: {} } }); },
+  setTestAlloc: (alloc) => { const p = get().treeProfile; if (get().admin && p) set({ treeProfile: { ...p, alloc } }); },
+  stopTreeTest: () => set({ treeProfile: null }),
+  setAdmin: (admin) => { set({ admin, ...(!admin ? { treeProfile: null } : {}) }); godFlags.on = admin && get().on; },
   setOpen: (open) => set({ open }),
   setOn: (on) => { set({ on }); godFlags.on = get().admin && on; save(get()); },
   summon: (slug, level, at, count) => {

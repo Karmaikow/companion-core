@@ -91,12 +91,11 @@ export function useDraft(): Draft | null {
 /** Entradas comuns do cálculo (classe, estágio, árvore, equipamento) para comparar atual × prévia. */
 export function useDeriveInput() {
   const c = useGame((s) => s.snap?.companion);
-  const { fx } = useSkillData();
+  const { fx, species, essence } = useSkillData();
   const equip = useBuildEquip((s) => s.bonus);
   const view = useBuild((s) => s.view);
-  const species = (c?.discoveries.form ?? null) as SpeciesKey | null;
   const stage = progressionStage(c?.bond.level ?? 1);
-  return { species, stage, tree: fx?.bonus ?? {}, equipment: equip, lineage: !!fx?.lineage, cfg: view?.config ?? DEFAULT_BALANCE, essence: c?.discoveries.element ?? null };
+  return { species, stage, tree: fx?.bonus ?? {}, equipment: equip, lineage: !!fx?.lineage, cfg: view?.config ?? DEFAULT_BALANCE, essence };
 }
 
 /** Bônus dos equipamentos (o App atualiza; aqui só guardamos para o cálculo). */
@@ -117,7 +116,7 @@ export function useBuildSync(equipment: Partial<Record<AttrKey, number>>) {
   useEffect(() => { if (cid && backend?.build) void useBuild.getState().refresh(); }, [cid, backend, bond]);
   const inp = useDeriveInput();
   const active = view?.active ?? { alloc: emptyAllocation(), resonance: null };
-  const d = useMemo(() => derive(active, inp), [active, inp.species, inp.stage, inp.tree, inp.equipment, inp.cfg]); // eslint-disable-line react-hooks/exhaustive-deps
+  const d = useMemo(() => derive(active, inp), [active, inp.species, inp.stage, inp.tree, inp.equipment, inp.cfg, inp.essence]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     setCombatStats({ d, alloc: active.alloc, resonance: active.resonance, species: inp.species, essence: inp.essence, lineage: inp.lineage, cfg: inp.cfg });
     setMaxima(d);
