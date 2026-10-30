@@ -2,7 +2,7 @@
  * Rig automático no Administrador: o editor do Mesh2Motion (MIT, hospedado em /rig/) abre o .GLB sem rig, escolhe o
  * esqueleto, encaixa as juntas sozinho (humano pelas fatias do corpo; bichos comparando com o modelo do molde), liga a
  * malha aos ossos e devolve o arquivo para cá (postMessage, mesma origem) — sem ninguém clicar.
- * Companions: esqueleto humano, sem animações (o pacote padrão vem depois, na aba Animações).
+ * Companions: o editor retorna o rig humano; o salvamento gera e vincula seu pacote de animações.
  * Monstros: o esqueleto do tipo escolhido e todas as animações do molde dele vão juntos no arquivo.
  * A janela mostra o editor trabalhando (só para ver; não dá para mexer).
  */
@@ -12,7 +12,7 @@ const STAGES: Record<string, string> = { esqueleto: 'Escolhendo o esqueleto…',
 
 export function AutoRig({ url, name, rig, onDone, onClose }: {
   url: string; name: string; rig: string;
-  onDone: (file: File) => Promise<void> | void; onClose: () => void;
+  onDone: (file: File, progress: (message: string) => void) => Promise<void> | void; onClose: () => void;
 }) {
   const frame = useRef<HTMLIFrameElement>(null);
   const [stage, setStage] = useState('Abrindo o modelo…');
@@ -20,6 +20,7 @@ export function AutoRig({ url, name, rig, onDone, onClose }: {
   const [saving, setSaving] = useState(false);
   const doneRef = useRef(onDone); doneRef.current = onDone;
   useEffect(() => {
+    let alive = true, exported = false;
     // sem resposta em 3 min: algo travou (modelo pesado demais ou quebrado)
     const timer = setTimeout(() => setError((e) => e ?? 'O rig automático demorou demais. Tente de novo ou envie um modelo mais leve.'), 180_000);
     const on = (e: MessageEvent) => {
@@ -27,16 +28,19 @@ export function AutoRig({ url, name, rig, onDone, onClose }: {
       const d = e.data as { type?: string; stage?: string; message?: string; buffer?: ArrayBuffer };
       if (d?.type === 'm2m-progress' && d.stage) setStage(STAGES[d.stage] ?? d.stage);
       else if (d?.type === 'm2m-error') setError('O rig automático não conseguiu: ' + (d.message ?? 'erro desconhecido'));
-      else if (d?.type === 'm2m-export' && d.buffer instanceof ArrayBuffer) {
+      else if (d?.type === 'm2m-export' && d.buffer instanceof ArrayBuffer && !exported) {
+        exported = true;
         clearTimeout(timer);
         const slug = name.normalize('NFD').replace(/[^\w-]+/g, '_').slice(0, 30) || 'modelo';
         setSaving(true); setStage('Salvando o modelo riggado…');
-        void Promise.resolve(doneRef.current(new File([d.buffer], `${slug}-rig.glb`, { type: 'model/gltf-binary' }))).finally(() => setSaving(false));
+        void Promise.resolve().then(() => doneRef.current(new File([d.buffer!], `${slug}-rig.glb`, { type: 'model/gltf-binary' }), message => { if (alive) setStage(message); }))
+          .catch(e => { if (alive) setError('O rig não foi concluído: ' + (e instanceof Error ? e.message : String(e))); })
+          .finally(() => { if (alive) setSaving(false); });
       }
     };
     addEventListener('message', on);
-    return () => { clearTimeout(timer); removeEventListener('message', on); };
-  }, [name]);
+    return () => { alive = false; clearTimeout(timer); removeEventListener('message', on); };
+  }, [name, url, rig]);
 
   return (
     <div className="rig-editor auto" role="dialog" aria-modal="true" aria-label={`Rig automático de ${name}`}>
