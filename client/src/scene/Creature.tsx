@@ -13,6 +13,7 @@ import { animKind, motionFor, parseAnimRef, type CreatureDef } from '@rules';
 import { inPlace, sanitizeSkins, restBox, facingYaw } from './CompanionModel';
 import { lookUniforms, setLook, withLook } from './look';
 import { SlimeBody } from './Slime';
+import { creatureIdleFloor } from './creatureGrounding';
 
 const loader = new GLTFLoader();
 loader.setMeshoptDecoder(MeshoptDecoder);
@@ -67,7 +68,10 @@ function ModelInstance({ def, data, act }: { def: CreatureDef; data: Loaded; act
       m.material = Array.isArray(m.material) ? m.material.map((x) => withLook(x.clone(), lu)) : withLook((m.material as THREE.Material).clone(), lu);
     });
     const box = restBox(model), size = box.getSize(new THREE.Vector3()), c = box.getCenter(new THREE.Vector3());
-    model.position.set(-c.x, -box.min.y, -c.z);
+    const idleRef = parseAnimRef(def.animMap?.idle);
+    const idle = idleRef === 'procedural' ? undefined : ((idleRef ? data.clips.find(entry => entry.clip.name === idleRef.clip && (idleRef.file === '*' || entry.src === idleRef.file)) : undefined)
+      ?? data.clips.find(entry => /^idle$/i.test(entry.clip.name)) ?? data.clips.find(entry => entry.kind === 'idle'));
+    model.position.set(-c.x, -creatureIdleFloor(model, idle?.clip, box.min.y), -c.z);
     const orient = new THREE.Group(); orient.rotation.y = -facingYaw(model); orient.add(model);
     // pivô no pé: o movimento por código (pulo, ginga, voo, serpentear) mexe aqui, sem rig
     const pivot = new THREE.Group(); pivot.add(orient);
