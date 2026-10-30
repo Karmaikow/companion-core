@@ -170,10 +170,10 @@ export function ForgeStudio() {
             <label><input type="checkbox" checked={dark} onChange={(e) => setDark(e.target.checked)} /> Arena escura</label>
           </div>
           <div className="biome-form">
-            <SkillIconUpload key={draft.slug} value={draft.iconUrl} onBusy={setIconBusy} onChange={iconUrl => edit({ iconUrl })} />
+            <SkillIconUpload key={`icon:${draft.slug}`} value={draft.iconUrl} onBusy={setIconBusy} onChange={iconUrl => edit({ iconUrl })} />
             <label>Árvore de aprendizado<select value={draft.learning?.school ?? ''} onChange={e => edit({ learning: e.target.value ? { school: e.target.value as NonNullable<SkillDef['learning']>['school'], rank: draft.learning?.rank ?? 1 } : undefined, ...(e.target.value === 'forge' ? { classes: ['touro'] } : {}) })}><option value="" disabled={draft.slug.startsWith('vfx-') && !!draft.learning}>Essência / progressão comum</option>{SCHOOL_IDS.map(id => <option key={id} value={id}>Escola {SCHOOL_DEFINITIONS[id].label}</option>)}</select></label>
             {draft.learning && <><label>Grau exigido na escola<select value={draft.learning.rank} onChange={e => edit({ learning: { ...draft.learning!, rank: Number(e.target.value) as 1|2|3|4|5 } })}>{['Iniciado','Aprendiz','Adepto','Especialista','Mestre'].map((label,i)=><option key={label} value={i+1}>{label}</option>)}</select></label><p className="hint">Aprendizado apenas na escola correspondente. {draft.learning.school === 'forge' ? 'Entrada exclusiva de Taurinos.' : ''} As escolas ainda estão fechadas no mundo.</p></>}
-            <ForgeVfxEditor key={draft.slug} skill={clean} onChange={(vfx) => edit({ vfx })} />
+            <ForgeVfxEditor key={`vfx:${draft.slug}`} skill={clean} onChange={(vfx) => edit({ vfx })} />
             <div className="row-3">
               <label>Nome<input value={draft.name} onChange={(e) => edit({ name: e.target.value })} maxLength={40} /></label>
               <label>Espaço<select value={draft.slot} onChange={(e) => edit({ slot: e.target.value as SkillSlot })}>{Object.entries(SLOTS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>
