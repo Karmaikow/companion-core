@@ -1,9 +1,59 @@
-.skill-constellation { overflow-x: auto; border: 1px solid var(--brass-dim, #425163); border-radius: 18px; background: radial-gradient(ellipse at 50% 100%, #203b47 0%, #0c1827 55%, #09121d 100%); }
-.skill-constellation svg { display: block; width: 100%; min-width: 420px; max-height: 530px; }
-.skill-constellation p { padding: 0 14px; color: #c0cedc; font-size: 12px; }
-.skill-graph-node { cursor: pointer; outline: none; }
-.skill-graph-node:hover circle:first-of-type, .skill-graph-node:focus-visible circle:first-of-type { stroke: white; stroke-width: 3.5px; }
+.skill-constellation { display: flex; flex-direction: column; gap: 6px; }
+.stg-stage {
+  position: relative; height: 420px; overflow: hidden; touch-action: none; cursor: grab; user-select: none;
+  border: 1px solid var(--brass-dim, #425163); border-radius: 18px;
+  background: radial-gradient(ellipse at 50% 50%, #142446 0%, #0b1428 55%, #070c1c 100%);
+  box-shadow: inset 0 0 40px #000a;
+}
+.stg-stage:active { cursor: grabbing; }
+.stg-stage svg { display: block; }
+.stg-hint { margin: 0; padding: 0 6px; color: #9fb0c8; font-size: 11.5px; }
+.stg-hint b { color: #f3dca4; font-weight: 600; }
 
-/* Modo tela cheia: sem borda, ocupa o espaço disponível */
-.skill-constellation.large { border: none; border-radius: 0; background: none; overflow: visible; display: flex; flex-direction: column; }
-.skill-constellation.large svg { min-width: 600px; max-height: none; flex: 1; min-height: 440px; }
+.stg-ring { fill: none; stroke: #c9d8ff; stroke-opacity: .07; stroke-dasharray: 2 7; }
+.stg-sector { font: 600 22px var(--serif, serif); letter-spacing: .32em; opacity: .55; pointer-events: none; }
+.stg-name { fill: #c8d6e8; pointer-events: none; paint-order: stroke; stroke: #070c1c; }
+.stg-rank { fill: #8a9fbc; font-size: 10px; pointer-events: none; paint-order: stroke; stroke: #070c1c; stroke-width: 3px; }
+.stg-need text { font-size: 9.5px; font-weight: 700; pointer-events: none; }
+.stg-lock { pointer-events: none; }
+
+.skill-graph-node { cursor: pointer; outline: none; }
+.skill-graph-node .stg-body { opacity: .7; transition: opacity .15s; }
+.skill-graph-node.owned .stg-body, .skill-graph-node.avail .stg-body, .skill-graph-node.sel .stg-body, .skill-graph-node.on-path .stg-body { opacity: 1; }
+.skill-graph-node.bond-lock .stg-body { opacity: .4; }
+.skill-graph-node.owned .stg-name { fill: #fff2d8; }
+.skill-graph-node.owned .stg-rank { fill: #d4eaf0; }
+.skill-graph-node.full .stg-rank { fill: #ffd98a; }
+.skill-graph-node.on-path .stg-body { stroke: #ffd98a; stroke-dasharray: 4 3; }
+.skill-graph-node:hover .stg-body, .skill-graph-node:focus-visible .stg-body { stroke: #fff; stroke-width: 3px; }
+.skill-graph-node.avail .stg-body { animation: stg-pulse 1.8s ease-in-out infinite; }
+
+.stg-controls { position: absolute; right: 10px; top: 10px; display: flex; flex-direction: column; gap: 6px; z-index: 2; }
+.stg-controls button {
+  width: 34px; height: 34px; display: grid; place-items: center; padding: 0; cursor: pointer;
+  border: 1px solid #8d7449; border-radius: 4px 10px 4px 10px; background: #0d1638e6; color: #f3dca4;
+  font: 1.15rem/1 var(--serif, serif); box-shadow: inset 0 0 0 2px #0b1330, 0 4px 10px #0008;
+}
+.stg-controls button:hover { border-color: #f3dca4; background: #1a2550; }
+.stg-plan {
+  position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); max-width: calc(100% - 24px);
+  padding: 5px 14px; border-radius: 4px 12px 4px 12px; pointer-events: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  background: #0d1638e6; border: 1px solid #8d7449; color: #f4e5c8; font: .82rem var(--serif, serif); box-shadow: 0 6px 16px #0008;
+}
+.stg-plan b { color: #ffd98a; }
+.stg-plan.short { border-color: #b8604a; }
+.stg-plan em { font-style: normal; color: #ffb3a0; }
+
+.stg-root { pointer-events: none; }
+@media (prefers-reduced-motion: no-preference) {
+  .stg-spin { animation: stg-spin 40s linear infinite; transform-origin: 0 0; }
+  .stg-flow { animation: stg-flow 0.9s linear infinite; }
+}
+@keyframes stg-spin { to { transform: rotate(360deg); } }
+@keyframes stg-flow { to { stroke-dashoffset: -22; } }
+@keyframes stg-pulse { 50% { stroke-opacity: .45; } }
+
+/* tela cheia: o palco ocupa o espaço que sobrar */
+.skill-constellation.large { flex: 1; min-height: 0; }
+.skill-constellation.large .stg-stage { flex: 1; height: auto; min-height: 360px; }
+.skill-constellation.large .stg-sector { font-size: 24px; }

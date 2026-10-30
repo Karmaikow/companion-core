@@ -6,7 +6,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTouchLandscape } from './TouchControls';
-import { ELEMENTS, RANK_COOLDOWN, RANK_POWER, SHAPES, SKILL_CHARGE_MAX, skillCharge, skillChargeMultiplier, type SkillDef } from '@rules';
+import { ELEMENTS, RANK_COOLDOWN, SHAPES, SKILL_CHARGE_MAX, skillCharge, skillChargeMultiplier, type SkillDef } from '@rules';
 import { castSkill } from '../build/combatStats';
 import { useGame } from '../store';
 import { requestSkill, skillChargeState, skillInput } from '../scene/Combat';
@@ -58,7 +58,7 @@ export function SkillBar({ color }: { color: string }) {
     if (!skillInput.body) { toast('As habilidades precisam do corpo 3D do Companion (a Fábrica cria o modelo).', 'warn'); return; }
     if (!canAct()) return;
     // Constelação Viva: custo (afinidade, Canal Profundo) e preparação (Agilidade, Ressonância) congelados agora
-    const frozen = castSkill(u.skill, 1 + RANK_POWER * (u.level - 1));
+    const frozen = castSkill(u.skill, u.mult);
     const mult = skillChargeMultiplier(held);
     if (mult > 1 && frozen.damage > 0) { frozen.damage = Math.round(frozen.damage * mult); toast(`${u.skill.name} concentrada: ×${mult.toFixed(2).replace('.', ',')} de dano`, 'gold'); }
     if (!spendSp(frozen.cost)) { setShort(i); window.setTimeout(() => setShort((f) => (f === i ? null : f)), 500); return; }

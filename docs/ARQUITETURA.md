@@ -766,6 +766,19 @@ Prompt com o mundo de fantasia, regra explícita de pronomes ("mim" = a pessoa; 
   boneco com os oito espaços, resumo (golpe, bônus, conjuntos, carga) e a bolsa por categoria com detalhes e ações.
   Arsenal: itens de todas as categorias, peso, elemento, espaço; "pôr na minha bolsa". Invocador: drops sugerem os itens
   do Arsenal e mostram se o nome casa. Capa e elmo aparecem no corpo; armadura, botas e acessórios só dão atributos.
+- **v1.40 — Árvore de habilidades em constelação, fusões e caminho automático.** `shared/rules/combat/tree.ts`:
+  quatro galhos (Essência, Classe, Vínculo e **Fusão**). A Essência traz todas as habilidades da essência do catálogo,
+  em sequência, com nível (+), **Foco** (+3% de efeito numa habilidade por ponto) e **Corrente** (+2% em todas as
+  habilidades da essência por ponto) entre elas; fileiras vão até 8 (vínculo 1, 2, 3, 5, 8, 10, 12, 15). Pré-requisitos
+  aceitam pontos mínimos (`needs`, ex.: a fusão "Maré do Dragão" pede 3 em Mesma Sintonia + 2 em Sangue de Dragão +
+  2 em Bolha+). As habilidades de fusão são geradas pela essência e classe (`tree.extra`, não ficam na Forja): Elo de
+  {essência}, Fúria {classe}, {Maré/Inferno/…} {do Dragão/…} e Despertar Primordial. `planTo` calcula o caminho até um
+  nó (pontos em cada pré-requisito) e `applyPlan` aplica; `validateAllocation` confere na ordem de profundidade
+  (`nodeDepths`). `skillPowerMult` junta níveis, focos e corrente no multiplicador de dano/cura usado pela barra e pela IA.
+  Tela (`ui/SkillTreeGraph.tsx`): galáxia de quatro braços em espiral com nebulosa, anéis por profundidade e selos
+  "x/3" nos requisitos com pontos mínimos; arrastar navega, roda/pinça aproxima (nomes completos só de perto), clique
+  mostra o caminho tracejado e o custo, **duplo clique** ou o botão **Conquistar** compra o caminho inteiro — sem
+  pontos, avisa quantos faltam. Ids antigos (e1…e5, c1…c5, v1…v5) mantidos: distribuições salvas continuam valendo.
 - **v1.39 — Celular: botões, conversa, grupo e Modo GOD.** Botões de ação do celular deitado em arco com folga e editor de
   posição/tamanho nos Ajustes (`ui/hudLayout.ts`, `HudEditor.tsx`; variáveis CSS `--ui-<id>-r/-b`, `--ui-s`; posição salva
   neste navegador). Habilidades disparam ao soltar o dedo (funciona com o joystick em uso). Conversa no celular ganhou o ×.

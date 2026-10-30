@@ -84,14 +84,47 @@ describe('Árvore de habilidades', () => {
     expect(fx.skills.get('jato-dagua')).toBe(3);
     expect(fx.bonus.defesa).toBe(12);
   });
-  it('toda essência × classe tem árvore com 5 fileiras em cada galho', async () => {
-    const { buildSkillTree } = await import('../rules/index.ts');
-    for (const essence of ['fogo', 'agua', 'terra', 'vento', 'luz', 'sombra', 'gelo', 'raio', 'natureza'] as const)
+  it('toda essência × classe tem árvore com pelo menos 5 fileiras em cada galho e fusões válidas', async () => {
+    const { buildSkillTree, nodeDepths } = await import('../rules/index.ts');
+    for (const essence of ['fogo', 'agua', 'terra', 'vento', 'luz', 'sombra', 'gelo', 'raio', 'natureza', 'veneno'] as const)
       for (const species of ['serpente', 'passaro', 'felino', 'touro', 'mistica'] as const) {
         const t = buildSkillTree(DEFAULT_SKILLS, { essence, species });
-        for (const b of ['essencia', 'classe', 'vinculo'] as const) expect(new Set(t.nodes.filter((n) => n.branch === b).map((n) => n.tier)).size).toBe(5);
-        for (const n of t.nodes) for (const r of n.requires) expect(t.nodes.some((x) => x.id === r)).toBe(true);
+        for (const b of ['essencia', 'classe', 'vinculo'] as const) expect(new Set(t.nodes.filter((n) => n.branch === b).map((n) => n.tier)).size).toBeGreaterThanOrEqual(5);
+        expect(new Set(t.nodes.map((n) => n.id)).size).toBe(t.nodes.length);
+        const depth = nodeDepths(t);
+        for (const n of t.nodes) for (const r of n.requires) {
+          expect(t.nodes.some((x) => x.id === r)).toBe(true);
+          expect(depth.get(r)!).toBeLessThan(depth.get(n.id)!);
+        }
+        for (const n of t.nodes.filter((x) => x.branch === 'fusao' && x.kind === 'skill')) expect(t.extra.some((s) => s.slug === n.skill)).toBe(true);
       }
+  });
+
+  it('fusão pede pontos em galhos diferentes e o caminho automático calcula o custo', async () => {
+    const { buildSkillTree, canSpend, planTo, applyPlan, validateAllocation } = await import('../rules/index.ts');
+    const t = buildSkillTree(DEFAULT_SKILLS, { essence: 'agua', species: 'serpente' });
+    const f1 = t.nodes.find((n) => n.id === 'f1')!;
+    expect(f1.name).toBe('Maré do Dragão');
+    expect(f1.needs).toEqual({ v4: 3, c4: 2, e5: 2 });
+    expect(canSpend(t, {}, 'f1', 15, 99)).toContain('3 pontos em Mesma Sintonia');
+    const plan = planTo(t, {}, 'f1', 15);
+    expect(plan.blocked).toBeNull();
+    // e1 e3 e4 e5×2 · c1 c2 c4×2 · v2 v3 v4×3 · f1
+    expect(plan.cost).toBe(15);
+    const done = applyPlan(t, {}, plan.add, 15, 15);
+    expect(done.f1).toBe(1);
+    expect(planTo(t, {}, 'f1', 5).blocked).toContain('vínculo 12');
+    // tirar um ponto de Mesma Sintonia solta a fusão
+    expect(validateAllocation(t, { ...done, v4: 2 }, 15, 15).f1).toBeUndefined();
+  });
+
+  it('focos e corrente da essência somam no multiplicador da habilidade', async () => {
+    const { buildSkillTree, treeEffects, skillPowerMult } = await import('../rules/index.ts');
+    const t = buildSkillTree(DEFAULT_SKILLS, { essence: 'agua', species: 'serpente' });
+    const fx = treeEffects(t, { e1: 1, e2: 1, 'eb-jato-dagua': 2, e4: 1, 'eg-bolha': 3 });
+    expect(fx.skillPct['jato-dagua']).toBe(6);
+    expect(fx.elementPct.agua).toBe(6);
+    expect(skillPowerMult(fx, { slug: 'jato-dagua', essence: 'agua' }, 2)).toBeCloseTo(1 + 0.15 + 0.12);
   });
 });
 

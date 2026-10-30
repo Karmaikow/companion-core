@@ -42,7 +42,7 @@ export function SkillAnimPicker({ companionId, contract, modelUrl, anims }: { co
   const skills = useMemo(() => {
     const tree = buildSkillTree(catalog, { essence: contract.element.key, species: contract.species.family });
     const out: SkillDef[] = [];
-    for (const n of tree.nodes) if (n.kind === 'skill' && n.skill) { const s = catalog.find((x) => x.slug === n.skill); if (s && !out.includes(s)) out.push(s); }
+    for (const n of tree.nodes) if (n.kind === 'skill' && n.skill) { const s = catalog.find((x) => x.slug === n.skill) ?? tree.extra.find((x) => x.slug === n.skill); if (s && !out.includes(s)) out.push(s); }
     return out;
   }, [catalog, contract]);
 
