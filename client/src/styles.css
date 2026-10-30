@@ -462,7 +462,7 @@ html:has(.admin), body:has(.admin), #root:has(.admin) { height: auto; min-height
 .class-line small { color: var(--mist); }
 
 /* ---------- Árvore de habilidades ---------- */
-.skill-tree { display: grid; gap: 10px; }
+.skill-tree { display: grid; gap: 10px; position: relative; }
 .st-head { display: flex; justify-content: space-between; gap: 10px; align-items: center; }
 .st-head small { display: block; color: var(--mist); font-size: 0.78rem; }
 .st-points { text-align: center; min-width: 74px; padding: 6px 10px; border-radius: 12px; border: 1px solid var(--brass-dim); }
@@ -493,15 +493,112 @@ html:has(.admin), body:has(.admin), #root:has(.admin) { height: auto; min-height
 .st-act { display: grid; gap: 4px; }
 .st-act button { width: 32px; flex: 1; border-radius: 9px; border: 1px solid #33425f; background: var(--night-2); color: var(--parchment); font-size: 1.05rem; }
 .st-act .st-plus:not(:disabled) { border-color: var(--brass); color: #ffd56b; }
-.st-detail { padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb, var(--night) 70%, transparent); border: 1px solid #33425f; display: grid; gap: 4px; }
-.st-detail p { margin: 0; font-size: 0.9rem; }
-.st-detail small { color: var(--mist); }
-.st-detail .why { color: #ffb3a0; }
+
+/* Detalhe do nó */
+.st-detail { padding: 12px 14px; border-radius: 12px; background: color-mix(in srgb, var(--night) 70%, transparent); border: 1px solid #33425f; display: grid; gap: 8px; }
+.st-detail-name { font: 600 1.05rem/1.2 var(--serif); color: #fff2d8; }
+.st-detail-meta { margin: 0; font-size: 0.84rem; color: var(--mist); }
+.st-detail-desc { margin: 0; font-size: 0.9rem; line-height: 1.45; }
+.st-detail-skill { color: var(--mist); line-height: 1.5; }
+.st-detail .why { color: #ffb3a0; font-size: 0.84rem; }
+
+/* Botões Art Deco da árvore */
+.st-detail-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.st-btn-remove, .st-btn-learn {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 9px 12px; border-radius: 4px 12px 4px 12px; font: 0.9rem var(--serif);
+  cursor: pointer; transition: opacity 0.15s, box-shadow 0.15s; white-space: nowrap;
+}
+.st-btn-remove {
+  background: transparent;
+  border: 1px solid #5a4a2e;
+  color: #c9a96a;
+  box-shadow: inset 0 0 0 1px #1a1408;
+}
+.st-btn-remove:hover:not(:disabled) {
+  border-color: #8d7449; color: #e8c98e;
+  box-shadow: inset 0 0 0 1px #1a1408, 0 0 10px #8d744933;
+}
+.st-btn-learn {
+  background: linear-gradient(180deg, #f0c96a 0%, #c9994a 55%, #a67830 100%);
+  border: 1.5px solid #e8c87a;
+  color: #1e1408;
+  box-shadow: inset 0 0 0 2px #fff1c044, 0 4px 12px #0007;
+  font-weight: 600; letter-spacing: 0.02em;
+}
+.st-btn-learn:hover:not(:disabled) {
+  background: linear-gradient(180deg, #f9d97a 0%, #d4a558 55%, #b8883c 100%);
+  box-shadow: inset 0 0 0 2px #fff1c066, 0 6px 18px #0008, 0 0 12px #ffd98a44;
+}
+.st-btn-remove:disabled, .st-btn-learn:disabled { opacity: 0.38; cursor: not-allowed; }
+.st-btn-remove span, .st-btn-learn span { font-size: 1rem; line-height: 1; }
+
+/* Botão de expandir para tela cheia */
+.st-btn-expand {
+  position: absolute; top: 0; right: 0;
+  background: none; border: 1px solid #33425f; border-radius: 8px;
+  padding: 4px 10px; font: 0.78rem var(--serif); color: #8a9fbc;
+  cursor: pointer; z-index: 1;
+}
+.st-btn-expand:hover { border-color: var(--brass-dim); color: #c9a96a; }
+
+/* Resumo */
 .st-summary { display: grid; gap: 6px; font-size: 0.85rem; }
 .st-summary > div { display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; }
 .st-summary span { color: var(--mist); min-width: 84px; font-size: 0.78rem; }
 .st-summary b { font-weight: 500; padding: 1px 8px; border-radius: 99px; background: var(--night-3); }
 .st-summary i { color: var(--mist); }
+
+/* ── Tela cheia da árvore ── */
+.st-screen {
+  position: fixed; inset: 0; z-index: 40; outline: none;
+  background: radial-gradient(ellipse at 50% 0%, #1a2550 0%, #0c1220 50%, #080d1c 100%);
+  color: var(--parchment); display: flex; flex-direction: column; overflow: hidden;
+  --hud-gold: #dcbc7a; --hud-gold-2: #f3dca4; --hud-line: #8d7449;
+  --hud-ink: rgba(9,17,38,.95); --hud-ink-2: #0b1530; --corner: 12px;
+}
+.st-screen-head {
+  flex: none; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 12px 20px 12px 24px; border-bottom: 1px solid #8d744966;
+  background: linear-gradient(90deg, #121c4499, transparent 80%);
+  position: relative;
+}
+.st-screen-head::after { display: none; }
+.st-screen-head h2 { margin: 0; font: 500 1.4rem var(--serif); color: #fff0d4; letter-spacing: 0.04em; }
+.st-screen-head small { display: block; color: var(--mist); font-size: 0.8rem; margin-top: 2px; }
+.st-screen-close {
+  width: 44px; height: 44px; border-radius: 6px 16px 6px 16px; border: 1px solid var(--hud-line);
+  background: none; color: #e5c98e; font: 1.6rem/1 var(--serif); display: grid; place-items: center; flex: none;
+}
+.st-screen-close:hover { background: #ffffff12; border-color: var(--hud-gold); color: #fff; }
+
+/* Layout interno: grafo à esquerda, detalhe à direita */
+.st-screen-body {
+  flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 320px; gap: 0; overflow: hidden;
+}
+.st-screen-left {
+  display: flex; flex-direction: column; gap: 10px; overflow-y: auto; overflow-x: hidden;
+  padding: 16px 20px; scrollbar-width: thin; scrollbar-color: #33425f transparent;
+}
+.st-screen-right {
+  border-left: 1px solid #8d744944; padding: 20px 16px; overflow-y: auto;
+  background: linear-gradient(90deg, transparent, #0c1430 30%); scrollbar-width: thin; scrollbar-color: #33425f transparent;
+}
+.st-screen-right .st-detail {
+  border-color: #4a5a7a; background: #0d1636cc;
+}
+.st-screen-right .st-detail-actions { grid-template-columns: 1fr; }
+.st-no-sel { color: var(--mist); font: italic 0.9rem var(--serif); margin-top: 24px; text-align: center; }
+
+/* Grafo no modo tela cheia: ocupa mais espaço */
+.st-screen .skill-constellation { flex: 1; }
+.st-screen .skill-constellation svg { max-height: none; height: 100%; min-height: 440px; }
+
+@media (max-width: 760px) {
+  .st-screen-body { grid-template-columns: 1fr; }
+  .st-screen-right { border-left: none; border-top: 1px solid #8d744944; max-height: 260px; }
+  .st-screen .skill-constellation svg { min-height: 320px; }
+}
 
 /* ---------- Equipamento, Forja e ataque ---------- */
 .equip { display: grid; gap: 10px; margin-bottom: 14px; }

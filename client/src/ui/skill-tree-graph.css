@@ -2,4 +2,8 @@
 .skill-constellation svg { display: block; width: 100%; min-width: 420px; max-height: 530px; }
 .skill-constellation p { padding: 0 14px; color: #c0cedc; font-size: 12px; }
 .skill-graph-node { cursor: pointer; outline: none; }
-.skill-graph-node:hover circle, .skill-graph-node:focus-visible circle { stroke: white; stroke-width: 4px; }
+.skill-graph-node:hover circle:first-of-type, .skill-graph-node:focus-visible circle:first-of-type { stroke: white; stroke-width: 3.5px; }
+
+/* Modo tela cheia: sem borda, ocupa o espaço disponível */
+.skill-constellation.large { border: none; border-radius: 0; background: none; overflow: visible; display: flex; flex-direction: column; }
+.skill-constellation.large svg { min-width: 600px; max-height: none; flex: 1; min-height: 440px; }
