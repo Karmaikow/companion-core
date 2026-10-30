@@ -20,6 +20,7 @@ import { healCompanion, hurtCompanion, vitals } from './vitals';
 import { inferModality, type HitInfo, type SkillDef } from '@rules';
 import { markCombat } from '../build/combatStats';
 import { attackPick, companionFocus, type WorldShape } from './world';
+import { useSkills } from '../ui/skillState';
 
 /** Entrada: apertar começa (o arco carrega enquanto segura), soltar termina. */
 export const combatInput = { holding: false, pressId: 0, releaseId: 0 };
@@ -76,6 +77,9 @@ export function CombatFx({ world }: { world: WorldShape }) {
   const live = useRef<Live[]>([]);
   const [nums, setNums] = useState<Num[]>([]);
   const [, force] = useState(0);
+  // efeitos do catálogo das habilidades abertas: preparados ao abrir a cena, não no meio da luta
+  const warmKey = useSkills((s) => [...new Set(s.unlocked.map((u) => u.skill.vfx.catalogue).filter(Boolean))].sort().join(','));
+  const warm = useMemo(() => (warmKey ? warmKey.split(',') : undefined), [warmKey]);
   const ring = useRef<THREE.Mesh>(null);
   const tip = useRef<THREE.Mesh>(null);
   const charger = useMemo(() => new Charge(gameVfx), []);
@@ -199,7 +203,7 @@ export function CombatFx({ world }: { world: WorldShape }) {
       <mesh ref={ring} rotation={[-Math.PI / 2, 0, 0]} visible={false}><ringGeometry args={[0.85, 1, 40]} /><meshBasicMaterial transparent opacity={0.7} depthWrite={false} toneMapped={false} /></mesh>
       <mesh ref={tip} rotation={[-Math.PI / 2, 0, 0]} visible={false}><ringGeometry args={[0.6, 1, 24]} /><meshBasicMaterial transparent opacity={0.8} depthWrite={false} toneMapped={false} /></mesh>
       <AttackReticle world={world} />
-      <VfxLayer store={gameVfx} />
+      <VfxLayer store={gameVfx} warm={warm} lights={false} />
       {live.current.map((L) => <FxView key={L.id} L={L} />)}
       {nums.map((n) => (
         <Html key={n.id} position={n.pos} center style={{ pointerEvents: 'none' }}>

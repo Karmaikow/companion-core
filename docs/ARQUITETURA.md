@@ -766,6 +766,15 @@ Prompt com o mundo de fantasia, regra explícita de pronomes ("mim" = a pessoa; 
   boneco com os oito espaços, resumo (golpe, bônus, conjuntos, carga) e a bolsa por categoria com detalhes e ações.
   Arsenal: itens de todas as categorias, peso, elemento, espaço; "pôr na minha bolsa". Invocador: drops sugerem os itens
   do Arsenal e mostram se o nome casa. Capa e elmo aparecem no corpo; armadura, botas e acessórios só dão atributos.
+- **v1.41 — Efeitos do catálogo sem travar a tela.** Medido numa GPU integrada (AMD, Direct3D 11): a primeira vez
+  de cada efeito do `threejs-vfx` travava 2–6 s, porque compilar os shaders grandes dele é lento no Windows e o motor
+  descartava o efeito (e os shaders) ao terminar. `scene/vfx/catalogueRuntime.js` agora: guarda os efeitos em pool
+  por id (`destroy()` entre usos, `dispose()` só ao sair); `warm(ids)` monta uma cópia numa cena que nunca é
+  desenhada, simula a vida inteira dela e compila com `compileAsync` em paralelo (desenhar uma cena com shader ainda
+  compilando faz o navegador esperar); a cópia fica viva para o programa não ser descartado. No jogo
+  (`Combat.tsx`) o motor nasce com a cena e aquece os efeitos das habilidades abertas, **sem as 6 luzes pontuais**
+  do pool (`lights={false}`: elas recompilavam o mundo inteiro ao entrar e pesavam em todo material a cada quadro);
+  a prévia da Forja continua com luzes. Resultado medido: travadas de 2–6 s viraram 0,1–0,5 s.
 - **v1.40 — Árvore de habilidades em constelação, fusões e caminho automático.** `shared/rules/combat/tree.ts`:
   quatro galhos (Essência, Classe, Vínculo e **Fusão**). A Essência traz todas as habilidades publicadas da essência:
   um tronco de **Correntes** (+2% em todas as habilidades da essência por ponto) e cada habilidade saindo dele como um
