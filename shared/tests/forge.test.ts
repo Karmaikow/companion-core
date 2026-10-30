@@ -118,6 +118,21 @@ describe('Árvore de habilidades', () => {
     expect(validateAllocation(t, { ...done, v4: 2 }, 15, 15).f1).toBeUndefined();
   });
 
+  it('cada habilidade abre no vínculo exato que tem na Forja', async () => {
+    const { buildSkillTree, canSpend, nodeBond } = await import('../rules/index.ts');
+    const geiser = { ...DEFAULT_SKILLS.find((s) => s.slug === 'bolha')!, slug: 'geiser-teste', name: 'Gêiser', unlockBond: 4 };
+    const t = buildSkillTree([...DEFAULT_SKILLS, geiser], { essence: 'agua', species: 'serpente' });
+    const by = (skill: string) => t.nodes.find((n) => n.kind === 'skill' && n.skill === skill)!;
+    expect(nodeBond(by('geiser-teste'))).toBe(4);
+    expect(nodeBond(by('bolha'))).toBe(3);
+    expect(nodeBond(by('chicote-de-cauda'))).toBe(5);
+    const all = Object.fromEntries(t.nodes.map((n) => [n.id, n.maxRank]));
+    expect(canSpend(t, all, by('geiser-teste').id, 3, 99)).toBe('Já está no máximo.');
+    const before = Object.fromEntries(t.nodes.filter((n) => n.id !== by('geiser-teste').id).map((n) => [n.id, n.maxRank]));
+    expect(canSpend(t, before, by('geiser-teste').id, 3, 999)).toBe('Abre no vínculo 4.');
+    expect(canSpend(t, before, by('geiser-teste').id, 4, 999)).toBeNull();
+  });
+
   it('focos e corrente da essência somam no multiplicador da habilidade', async () => {
     const { buildSkillTree, treeEffects, skillPowerMult } = await import('../rules/index.ts');
     const t = buildSkillTree(DEFAULT_SKILLS, { essence: 'agua', species: 'serpente' });

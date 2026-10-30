@@ -6,7 +6,7 @@
  * o caminho até o nó; duplo clique conquista o caminho inteiro (onConquer).
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { canSpend, needOf, nodeDepths, planTo, spent, tierBond, type Allocation, type SkillDef, type SkillTree, type TreeBranch, type TreeNode } from '@rules';
+import { canSpend, needOf, nodeDepths, planTo, spent, nodeBond, type Allocation, type SkillDef, type SkillTree, type TreeBranch, type TreeNode } from '@rules';
 import './skill-tree-graph.css';
 
 const BRANCH_ANGLE: Record<TreeBranch, number> = { vinculo: 0, classe: 90, fusao: 180, essencia: 270 };
@@ -297,7 +297,7 @@ export function SkillTreeGraph({ tree, alloc, catalog, bond, points, selected, o
               const p = pos.get(n.id)!, color = BRANCH_COLOR[n.branch];
               const rank = alloc[n.id] ?? 0, full = rank >= n.maxRank, sel = selected === n.id;
               const avail = !full && !canSpend(tree, alloc, n.id, bond, points);
-              const bondLock = bond < tierBond(n.tier);
+              const bondLock = bond < nodeBond(n);
               const r = NODE_R[n.kind] * (sel ? 1.15 : 1);
               const icon = n.kind === 'skill' ? catalog.find((s) => s.slug === n.skill)?.iconUrl : undefined;
               const cls = 'skill-graph-node' + (rank ? ' owned' : '') + (full ? ' full' : '') + (avail ? ' avail' : '') + (bondLock ? ' bond-lock' : '') + (onPath(n.id) ? ' on-path' : '') + (sel ? ' sel' : '');
@@ -314,7 +314,7 @@ export function SkillTreeGraph({ tree, alloc, catalog, bond, points, selected, o
                   onDoubleClick={() => { if (!moved.current) onConquer?.(n.id); }}
                   onPointerEnter={(e) => { if (e.pointerType === 'mouse') setHover(n.id); }} onPointerLeave={() => setHover((h) => (h === n.id ? null : h))}
                   onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(n.id); } }}>
-                  <title>{`${n.name} · ${rank}/${n.maxRank}${bondLock ? ` · abre no vínculo ${tierBond(n.tier)}` : ''}`}</title>
+                  <title>{`${n.name} · ${rank}/${n.maxRank}${bondLock ? ` · abre no vínculo ${nodeBond(n)}` : ''}`}</title>
                   {(rank > 0 || sel) && <circle cx={p.x} cy={p.y} r={r + 7} fill={color} opacity={rank ? 0.16 : 0.08} filter="url(#stg-glow)" />}
                   {n.kind === 'skill' && <circle cx={p.x} cy={p.y} r={r + 5} fill="none" stroke={color} strokeOpacity=".35" strokeWidth="1" />}
                   {shape}
