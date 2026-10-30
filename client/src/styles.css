@@ -533,9 +533,39 @@ html:has(.admin), body:has(.admin), #root:has(.admin) { height: auto; min-height
 .st-btn-remove:disabled, .st-btn-learn:disabled { opacity: 0.38; cursor: not-allowed; }
 .st-btn-remove span, .st-btn-learn span { font-size: 1rem; line-height: 1; }
 
+/* Conquistar: compra o caminho inteiro */
+.st-btn-conquer {
+  display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%;
+  padding: 11px 14px; border-radius: 6px 16px 6px 16px; cursor: pointer;
+  font: 600 0.95rem var(--serif); letter-spacing: 0.03em; color: #fff6e0;
+  background: linear-gradient(180deg, #3a4fa8 0%, #1f2c6e 60%, #151f52 100%);
+  border: 1.5px solid #f0c96a;
+  box-shadow: inset 0 0 0 2px #0b1330, inset 0 1px 0 3px #ffffff14, 0 6px 16px #0008, 0 0 14px #ffd98a33;
+  transition: box-shadow 0.15s, filter 0.15s;
+}
+.st-btn-conquer span { color: #ffd98a; font-size: 1.1rem; }
+.st-btn-conquer:hover:not(:disabled) { filter: brightness(1.15); box-shadow: inset 0 0 0 2px #0b1330, 0 8px 20px #0009, 0 0 20px #ffd98a66; }
+.st-btn-conquer.short { background: linear-gradient(180deg, #3a2430, #1c1220); border-color: #b8604a; color: #ffc9b8; white-space: normal; }
+.st-btn-conquer:disabled { cursor: not-allowed; }
+.st-btn-conquer:disabled:not(.short) { opacity: 0.4; }
+
+.st-detail-top { display: grid; gap: 2px; }
+.st-kind { font: 0.72rem var(--serif); letter-spacing: 0.08em; text-transform: uppercase; color: var(--branch, var(--mist)); }
+.st-detail { border-left: 3px solid var(--branch, #33425f); }
+.st-reqs { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.st-reqs li { display: flex; align-items: center; gap: 8px; font-size: 0.84rem; padding: 4px 8px; border-radius: 8px; background: #ffffff08; color: #ffcdb8; }
+.st-reqs li.ok { color: #c4f2b4; }
+.st-reqs li i { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.st-reqs li b { margin-left: auto; font-weight: 600; }
+.st-notice { margin: 0; padding: 8px 10px; border-radius: 8px; font-size: 0.86rem; }
+.st-notice.ok { background: #2a3a1e; border: 1px solid #7be36b66; color: #d7f7c9; }
+.st-notice.warn { background: #3a2026; border: 1px solid #ff8f7a66; color: #ffd1c4; }
+.st-tabs button { border-bottom: 2px solid var(--branch, #33425f); }
+.st-tabs button:hover { border-color: var(--branch, var(--brass)); }
+
 /* Botão de expandir para tela cheia */
 .st-btn-expand {
-  position: absolute; top: 0; right: 0;
+  justify-self: end;
   background: none; border: 1px solid #33425f; border-radius: 8px;
   padding: 4px 10px; font: 0.78rem var(--serif); color: #8a9fbc;
   cursor: pointer; z-index: 1;
@@ -574,13 +604,14 @@ html:has(.admin), body:has(.admin), #root:has(.admin) { height: auto; min-height
 
 /* Layout interno: grafo à esquerda, detalhe à direita */
 .st-screen-body {
-  flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 320px; gap: 0; overflow: hidden;
+  flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 0; overflow: hidden;
 }
 .st-screen-left {
-  display: flex; flex-direction: column; gap: 10px; overflow-y: auto; overflow-x: hidden;
-  padding: 16px 20px; scrollbar-width: thin; scrollbar-color: #33425f transparent;
+  display: flex; flex-direction: column; gap: 10px; min-height: 0; overflow: hidden;
+  padding: 16px 20px;
 }
 .st-screen-right {
+  display: flex; flex-direction: column; gap: 14px;
   border-left: 1px solid #8d744944; padding: 20px 16px; overflow-y: auto;
   background: linear-gradient(90deg, transparent, #0c1430 30%); scrollbar-width: thin; scrollbar-color: #33425f transparent;
 }
@@ -590,14 +621,10 @@ html:has(.admin), body:has(.admin), #root:has(.admin) { height: auto; min-height
 .st-screen-right .st-detail-actions { grid-template-columns: 1fr; }
 .st-no-sel { color: var(--mist); font: italic 0.9rem var(--serif); margin-top: 24px; text-align: center; }
 
-/* Grafo no modo tela cheia: ocupa mais espaço */
-.st-screen .skill-constellation { flex: 1; }
-.st-screen .skill-constellation svg { max-height: none; height: 100%; min-height: 440px; }
-
 @media (max-width: 760px) {
-  .st-screen-body { grid-template-columns: 1fr; }
-  .st-screen-right { border-left: none; border-top: 1px solid #8d744944; max-height: 260px; }
-  .st-screen .skill-constellation svg { min-height: 320px; }
+  .st-screen-body { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) auto; }
+  .st-screen-left { padding: 10px; }
+  .st-screen-right { border-left: none; border-top: 1px solid #8d744944; max-height: 38vh; }
 }
 
 /* ---------- Equipamento, Forja e ataque ---------- */

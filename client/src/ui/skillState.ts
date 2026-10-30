@@ -8,7 +8,7 @@
 import { useEffect, useMemo } from 'react';
 import { create } from 'zustand';
 import {
-  DEFAULT_SKILLS, ELEMENTS, RANK_COOLDOWN, RANK_POWER, buildSkillTree, validateAllocation, treeEffects, skillPoints, sanitizeSkill,
+  DEFAULT_SKILLS, ELEMENTS, RANK_COOLDOWN, buildSkillTree, validateAllocation, treeEffects, skillPoints, sanitizeSkill, skillPowerMult,
   type Allocation, type SkillDef, type SkillTree,
 } from '@rules';
 import { useGame } from '../store';
@@ -21,6 +21,8 @@ const allocKey = (id: string) => 'companion-core:skill-alloc:' + id;
 const barKey = (id: string) => 'companion-core:skill-bar:' + id;
 
 interface BarSave { slots: (string | null)[]; removed: string[] }
+/** `mult`: efeito final (níveis + focos + corrente da essência) */
+export interface Unlocked { skill: SkillDef; level: number; mult: number }
 
 interface SkillState {
   catalog: SkillDef[];
@@ -33,7 +35,7 @@ interface SkillState {
   /** animação escolhida pelo ADM por habilidade ("__basic" = ataque básico): "clip:<nome>" | "kind:<tipo>" */
   animMap: Record<string, string>;
   /** habilidades abertas (com nível) — para a Companion usar sozinha */
-  unlocked: { skill: SkillDef; level: number }[];
+  unlocked: Unlocked[];
   setCatalog: (c: SkillDef[]) => void;
   setAlloc: (a: Allocation) => void;
   setBar: (slots: (string | null)[], removed?: string[]) => void;
@@ -71,17 +73,21 @@ export function useSkillData() {
   const tree: SkillTree | null = useMemo(() => (species ? buildSkillTree(catalog, { essence, species }) : null), [catalog, essence, species]);
   const fx = useMemo(() => (tree ? treeEffects(tree, alloc) : null), [tree, alloc]);
   /** habilidades abertas, na ordem da árvore, com o nível */
+  // catálogo da Forja + as fusões que só existem na árvore
+  const known = useMemo(() => (tree?.extra.length ? [...catalog, ...tree.extra] : catalog), [catalog, tree]);
   const unlocked = useMemo(() => {
-    const base = fx ? [...fx.skills.entries()].map(([slug, level]) => ({ skill: catalog.find((s) => s.slug === slug)!, level })).filter((x) => !!x.skill) : [] as { skill: SkillDef; level: number }[];
+    const base: Unlocked[] = [];
+    for (const [slug, level] of fx?.skills ?? []) { const sk = known.find((s) => s.slug === slug); if (sk) base.push({ skill: sk, level, mult: skillPowerMult(fx, sk, level) }); }
     // Modo GOD: habilidades dadas pelo painel do Administrador (valem mesmo fora da árvore)
     for (const [slug, level] of Object.entries(granted)) {
-      const sk = catalog.find((x) => x.slug === slug), at = base.findIndex((b) => b.skill.slug === slug);
+      const sk = known.find((x) => x.slug === slug), at = base.findIndex((b) => b.skill.slug === slug);
       if (!sk) continue;
-      if (at >= 0) base[at] = { skill: sk, level: Math.max(level, base[at].level) }; else base.push({ skill: sk, level });
+      const lv = at >= 0 ? Math.max(level, base[at].level) : level, u = { skill: sk, level: lv, mult: skillPowerMult(fx, sk, lv) };
+      if (at >= 0) base[at] = u; else base.push(u);
     }
     return base;
-  }, [fx, catalog, granted]);
-  return { companion: c ?? null, species, essence, bond, points, secrets, tree, fx, unlocked, catalog, alloc };
+  }, [fx, known, granted]);
+  return { companion: c ?? null, species, essence, bond, points, secrets, tree, fx, unlocked, catalog: known, alloc };
 }
 
 /** Grava a distribuição (online ou neste navegador). */
@@ -180,13 +186,13 @@ export const skillCooldown = (s: SkillDef, level: number) => Math.max(0.3, s.coo
  */
 export function aiCast(dist: number, aimAt: { x: number; z: number }, companionColor: string, hpRatio: number, sp: number, spend: (n: number) => boolean, request: (c: { skill: SkillDef; level: number; color: string; aimAt: { x: number; z: number }; frozen: ReturnType<typeof castSkill> }) => void): SkillDef | null {
   const st = useSkills.getState(), now = performance.now();
-  const options = st.bar.map((slug) => st.unlocked.find((u) => u.skill.slug === slug)).filter((u): u is { skill: SkillDef; level: number } => !!u)
+  const options = st.bar.map((slug) => st.unlocked.find((u) => u.skill.slug === slug)).filter((u): u is Unlocked => !!u)
     .filter(({ skill: s }) => (st.ready[s.slug] ?? 0) <= now && castSkill(s, 1).cost <= sp)
     .filter(({ skill: s }) => (s.heal > 0 && s.power <= 0 ? hpRatio < 0.6 : s.shape === 'aura' ? dist <= s.radius + 0.6 : dist <= Math.max(s.range, 1.2) + 0.6))
     .sort((a, b) => (b.skill.heal > 0 && hpRatio < 0.4 ? 1 : 0) - (a.skill.heal > 0 && hpRatio < 0.4 ? 1 : 0) || b.skill.power - a.skill.power);
   const pick = options[0];
   if (!pick) return null;
-  const frozen = castSkill(pick.skill, 1 + RANK_POWER * (pick.level - 1));
+  const frozen = castSkill(pick.skill, pick.mult);
   if (!spend(frozen.cost)) return null;
   st.setReady(pick.skill.slug, now + (skillCooldown(pick.skill, pick.level) + frozen.windup) * 1000);
   request({ skill: pick.skill, level: pick.level, color: skillColor(pick.skill, companionColor), aimAt, frozen });
