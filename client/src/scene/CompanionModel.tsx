@@ -9,7 +9,7 @@ import * as THREE from 'three';
 import { GLTFLoader, type GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
-import { animKind, attackVariant, strideSpeed, gameTime, COMPANION_ANIM_SLOTS, parseAnimRef, gatherSlot, type AnimKind } from '@rules';
+import { clipAnimKind, animKind, attackVariant, strideSpeed, gameTime, COMPANION_ANIM_SLOTS, parseAnimRef, gatherSlot, type AnimKind } from '@rules';
 import type { CompanionModelFiles } from '../backend/types';
 import { CLEAR_R, companionFocus, companionPose, socialHold, moveRequest, attackRequest, attackPick, teleport, resolveCollisions, platformHeight, type WorldShape } from './world';
 import { work } from '../ecos/ecosStore';
@@ -143,7 +143,7 @@ export function CompanionModel({ files, world, burstKey, speech, onFail, roam = 
       const clips: Loaded['clips'] = [];
       const add = (list: THREE.AnimationClip[], kindHint: string | null, name: string) =>
         // "special" vindo do servidor (tipo que a função ainda não conhece): tenta pelo nome do arquivo/clipe
-        list.forEach((clip) => clips.push({ clip, kind: (kindHint && kindHint !== 'special' ? kindHint : null) ?? animKind(name, clip.name) ?? 'special', stride: inPlace(clip) / Math.max(0.01, clip.duration), src: name }));
+        list.forEach((clip) => clips.push({ clip, kind: clipAnimKind(clip.name, name, kindHint) ?? 'special', stride: inPlace(clip) / Math.max(0.01, clip.duration), src: name }));
       // várias animações num arquivo só: o tipo vem do nome de cada clipe; uma só: do nome do arquivo
       add(gltf.animations, gltf.animations.length > 1 ? null : animKind(files.url.split('?')[0]), 'corpo');
       for (const a of files.anims) {
