@@ -31,7 +31,7 @@ import { speak, sendPlayerMessage, stopConversation, useConversation, useMic } f
 import { brain } from './scene/brain';
 import { SkillBar } from './ui/SkillBar';
 import { HudEditor } from './ui/HudEditor';
-import { GodMode } from './ui/GodPanel';
+import { GodMode, GodButton } from './ui/GodPanel';
 import { useGod } from './ui/godMode';
 import { SafeStage, glLostBefore } from './scene/SafeStage';
 import { useHud } from './ui/hudLayout';
@@ -434,6 +434,7 @@ export function App() {
                     {t.key === 'social' && socialBadge > 0 && <em className="dot" />}
                   </button>
                 ))}
+                {model && <GodButton />}
               </nav>
               <button className="mm-leave" onClick={() => void leave()}>⎋ Sair da conta</button>
             </div>
@@ -477,6 +478,7 @@ export function App() {
                 ))}
               </div>
             ))}
+            {model && !hudEditing && <div className="rail-group" role="group" aria-label="Administrador"><GodButton /></div>}
           </nav>
 
           {Panel && tab && (
