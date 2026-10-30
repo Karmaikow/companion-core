@@ -118,6 +118,9 @@ export function saveBar(companionId: string, slots: (string | null)[], removed: 
 /** Carrega catálogo, distribuição e barra; mantém a barra em dia com as habilidades abertas. Usar uma vez (App). */
 export function useSkillSync() {
   const backend = useGame((s) => s.backend);
+  const visualModel = useGame(s => s.snap?.visualJob?.model);
+  // Signed URL refreshes do not change the model; a new model/package does.
+  const visualKey = [visualModel?.url.split('?')[0] ?? '', ...(visualModel?.anims ?? []).map(a => a.url.split('?')[0])].join('|');
   const { companion: c, tree, bond, points, unlocked, testing, testKey } = useSkillData();
 
   useEffect(() => {
@@ -143,15 +146,21 @@ export function useSkillSync() {
     return () => { alive = false; };
   }, [c?.id, tree, backend?.kind, bond, points, testing]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // animações escolhidas no Administrador para este Companion
+  // Refresh mappings for the current model and when returning from the Admin tab.
   useEffect(() => {
     if (!c || backend?.kind !== 'online') { useSkills.setState({ animMap: {} }); return; }
-    let alive = true;
-    supabase().from('companion_skill_anims').select('anims').eq('companion_id', c.id).maybeSingle().then(({ data }) => {
-      if (alive) useSkills.setState({ animMap: (data?.anims ?? {}) as Record<string, string> });
-    }, () => {});
-    return () => { alive = false; };
-  }, [c?.id, backend?.kind]); // eslint-disable-line react-hooks/exhaustive-deps
+    let alive = true, version = 0;
+    useSkills.setState({ animMap: {} });
+    const refresh = () => {
+      const request = ++version;
+      supabase().from('companion_skill_anims').select('anims').eq('companion_id', c.id).maybeSingle().then(({ data, error }) => {
+        if (alive && request === version && !error) useSkills.setState({ animMap: (data?.anims ?? {}) as Record<string, string> });
+      }, () => {});
+    };
+    refresh();
+    window.addEventListener('focus', refresh);
+    return () => { alive = false; window.removeEventListener('focus', refresh); };
+  }, [c?.id, backend?.kind, visualKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // barra salva deste Companion
   useEffect(() => {
