@@ -16,6 +16,7 @@ import { CompanionsAdmin } from './AdminCompanions';
 import { AdminVoid } from './AdminVoid';
 import { AnimStudio } from './AnimStudio';
 import { AutoRig, glbHasRig } from './RigEditor';
+import { STANDARD_PREFIX } from '../m2m/slots';
 
 type View = 'companions' | 'animacoes' | 'biomas' | 'forja' | 'invocador' | 'arsenal' | 'servidor';
 const VIEWS: { key: View; label: string; hash: string; title: string; hint: string }[] = [
@@ -113,6 +114,46 @@ export function AdminPanel() {
       return ok;
     } catch (e) { setMsg((e as Error).message); setBusy(false); return false; }
   }
+  /** Prepare both artifacts before publishing; never attach an old rig's standard pack. */
+  async function finishHumanRig(job: Job, file: File, progress: (message: string) => void = setMsg) {
+    setBusy(true); setMsg(null);
+    try {
+      const { prepareRigPackage } = await import('../m2m/rigPackage');
+      const pack = await prepareRigPackage(file, progress);
+      progress('Enviando modelo e animações…');
+      const modelPath = await put(job, file, 'model', 'model/gltf-binary');
+      const animPath = await put(job, pack.animations, 'anims', 'model/gltf-binary');
+      const db = supabase();
+      const previous = await db.from('companion_skill_anims').select('anims').eq('companion_id', job.companionId).maybeSingle();
+      if (previous.error) throw new Error(previous.error.message);
+      const old = (previous.data?.anims ?? {}) as Record<string, string>;
+      const uid = (await db.auth.getUser()).data.user?.id;
+      const writeMap = (anims: Record<string, string>) => db.from('companion_skill_anims').upsert({ companion_id: job.companionId, anims, updated_at: new Date().toISOString(), updated_by: uid });
+      const mapping = await writeMap({ ...old, ...pack.slots });
+      if (mapping.error) throw new Error(mapping.error.message);
+      const ok = await update(job, job.status === 'approved' ? 'approved' : 'review', {
+        modelPath, addAnims: [{ path: animPath, kind: 'special', name: pack.animations.name }], dropAnimsPrefix: STANDARD_PREFIX,
+      });
+      if (!ok) {
+        const rollback = await writeMap(old);
+        throw new Error(rollback.error ? 'Falha ao publicar o modelo e ao restaurar as escolhas de animação. Confira a aba Animações.' : 'Não foi possível publicar o rig animado; as escolhas anteriores foram restauradas.');
+      }
+      setMsg('Rig de ' + job.name + ' salvo com ' + pack.count + ' animações novas. Reabra o jogo para carregar o modelo atualizado.');
+    } finally { setBusy(false); }
+  }
+
+  async function repairAnimations(job: Job) {
+    if (!job.model?.url) return;
+    setBusy(true); setMsg('Abrindo o rig atual de ' + job.name + '…');
+    try {
+      const response = await fetch(job.model.url);
+      if (!response.ok) throw new Error('Não foi possível baixar o modelo atual (' + response.status + ').');
+      const file = new File([await response.blob()], job.name.replace(/[^\w-]/g, '_') + '-rig.glb', { type: 'model/gltf-binary' });
+      await finishHumanRig(job, file);
+    } catch (e) { setMsg(e instanceof Error ? e.message : 'Falha ao gerar animações.'); }
+    finally { setBusy(false); }
+  }
+
   // rig automático do modelo recém-enviado (ou refeito pelo botão); o endereço sai da lista de pedidos atualizada
   const [rigJob, setRigJob] = useState<{ id: string; name: string; url: string | null; path: string | null } | null>(null);
   async function uploadAnims(job: Job, files: File[], opts: { dropPrefix?: string } = {}): Promise<boolean> {
@@ -183,7 +224,8 @@ export function AdminPanel() {
                     {j.modelPath ? 'Trocar modelo .GLB' : 'Enviar modelo .GLB'}
                   </label>
                   {j.model?.url && <button className="link" disabled={busy} onClick={() => setRigJob({ id: j.id, name: j.name, url: j.model!.url, path: null })} title="Encaixa o esqueleto humano de novo, sozinho (se o rig do modelo saiu torto)">refazer o rig automático</button>}
-                  <small className="hint">Envie o .GLB sem rig: o esqueleto é encaixado aqui, sozinho.</small>
+                  {j.model?.url && <button className="link" disabled={busy} onClick={() => void repairAnimations(j)}>Gerar animações deste rig</button>}
+                  <small className="hint">Envie o .GLB sem rig: o esqueleto é encaixado aqui e recebe o pacote de animações automaticamente.</small>
                   <strong>Animações</strong>
                   {j.animPaths.length ? (
                     <ul className="anim-list">
@@ -261,8 +303,9 @@ export function AdminPanel() {
         if (!job || !url) return null;
         return (
           <AutoRig url={url} name={rigJob.name} rig="human" onClose={() => setRigJob(null)}
-            onDone={async (file) => {
-              if (await uploadModel(job, file, { rigged: true })) { setRigJob(null); setMsg(`Rig de ${job.name} pronto e salvo como modelo. Agora em Animações → Aplicar o pacote padrão (e salve).`); }
+            onDone={async (file, progress) => {
+              await finishHumanRig(job, file, progress);
+              setRigJob(null);
             }} />
         );
       })()}

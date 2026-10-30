@@ -70,7 +70,8 @@ function CompanionAnims({ jobs, onUploadAnims, busy }: { jobs: Job[]; onUploadAn
   const [rtNote, setRtNote] = useState<string | null>(null);
   const [rtBusy, setRtBusy] = useState(false);
   const stdCache = useRef(new Map<string, Clip>());
-  useEffect(() => { setRt(null); setRtNote(null); stdCache.current.clear(); }, [job?.companionId]);
+  const modelKey = job ? job.model!.url.split('?')[0] + '|' + (job.model as { anims?: { url: string }[] }).anims?.map((a) => a.url.split('?')[0]).join(',') : '';
+  useEffect(() => { setRt(null); setRtNote(null); stdCache.current.clear(); }, [job?.companionId, modelKey]);
   const stdClip = (name: string): Clip | null => {
     if (!rt) return null;
     const hit = stdCache.current.get(name);
@@ -107,7 +108,6 @@ function CompanionAnims({ jobs, onUploadAnims, busy }: { jobs: Job[]; onUploadAn
     finally { setRtBusy(false); }
   }
 
-  const modelKey = job ? job.model!.url.split('?')[0] + '|' + (job.model as { anims?: { url: string }[] }).anims?.map((a) => a.url.split('?')[0]).join(',') : '';
   useEffect(() => {
     if (!job) return;
     let alive = true;
@@ -181,7 +181,7 @@ function CompanionAnims({ jobs, onUploadAnims, busy }: { jobs: Job[]; onUploadAn
     <div className="anim-grid">
       <aside className="anim-side">
         <label>Companion
-          <select value={job?.companionId ?? ''} onChange={(e) => setCid(e.target.value)}>
+          <select disabled={rtBusy || busy} value={job?.companionId ?? ''} onChange={(e) => setCid(e.target.value)}>
             {withModel.map((j) => <option key={j.companionId} value={j.companionId}>{j.name}</option>)}
           </select>
         </label>
@@ -214,7 +214,7 @@ function CompanionAnims({ jobs, onUploadAnims, busy }: { jobs: Job[]; onUploadAn
           })}
         </ul>
         <div className="row">
-          <button className="primary" disabled={!dirty || busy} onClick={() => void save()}>Salvar animações</button>
+          <button className="primary" disabled={!dirty || busy || rtBusy} onClick={() => void save()}>Salvar animações</button>
           {dirty && <button className="link" onClick={() => setMap(saved)}>desfazer</button>}
         </div>
         {note && <small>{note}</small>}
