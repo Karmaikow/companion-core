@@ -74,7 +74,7 @@ function col(c: Col | undefined, fallback: THREE.Color): THREE.Color {
 export interface Crystal { at: THREE.Vector3; color: THREE.Color; size: number; life: number; age: number; yaw: number }
 export class VfxStore {
   catalogueQueue: {id:string;origin:THREE.Vector3;yaw:number;distance:number}[] = [];
-  loadCatalogue?: () => void;
+  loadCatalogue?: () => Promise<unknown> | null | void;
   catalogue(id:string, origin:THREE.Vector3, yaw:number, distance:number) {
     this.catalogueQueue.push({id,origin:origin.clone(),yaw,distance});
     if(this.catalogueQueue.length>4)this.catalogueQueue.shift();
