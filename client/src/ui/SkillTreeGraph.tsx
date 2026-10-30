@@ -1,6 +1,7 @@
 /**
  * Árvore de habilidades desenhada como uma constelação radial: a raiz no centro, um setor por galho
- * (Vínculo em cima, Classe à direita, Fusão embaixo, Essência à esquerda) e um anel por profundidade.
+ * (Vínculo em cima, Classe à direita, Fusão embaixo, Essência à esquerda) e um anel por profundidade. As fusões
+ * ficam no vão entre os braços que unem; as linhas contornam o centro e as que cruzam galhos são pontilhadas.
  * Navegação: arrastar move, roda do mouse/pinça aproxima, botões +/−/enquadrar. Clique seleciona e destaca
  * o caminho até o nó; duplo clique conquista o caminho inteiro (onConquer).
  */
@@ -10,9 +11,10 @@ import './skill-tree-graph.css';
 
 const BRANCH_ANGLE: Record<TreeBranch, number> = { vinculo: 0, classe: 90, fusao: 180, essencia: 270 };
 export const BRANCH_COLOR: Record<TreeBranch, string> = { essencia: '#6debb9', classe: '#ffda79', vinculo: '#cf9dff', fusao: '#ff8fb1' };
-const RING0 = 110, RING = 96, SPREAD = 40, MIN_GAP = 68, SWIRL = 7;
-/** braços em espiral: cada anel gira um pouco o galho, como uma galáxia */
-const armAngle = (b: TreeBranch, d: number) => BRANCH_ANGLE[b] + (d - 1) * SWIRL;
+const RING0 = 110, RING = 96, SPREAD = 40, MIN_GAP = 68, SWIRL = 7, MAX_SWIRL = 50;
+/** braços em espiral: cada anel gira um pouco o galho, como uma galáxia (no total, no máximo MAX_SWIRL graus) */
+const swirlFor = (maxD: number) => Math.min(SWIRL, MAX_SWIRL / Math.max(1, maxD - 1));
+const armAngle = (b: TreeBranch, d: number, sw: number) => BRANCH_ANGLE[b] + (d - 1) * sw;
 const ringR = (d: number) => RING0 + (d - 1) * RING;
 const LOD_K = 0.62;
 const NODE_R: Record<TreeNode['kind'], number> = { skill: 27, rank: 21, passive: 20, boost: 15 };
@@ -35,9 +37,11 @@ function layout(tree: SkillTree): Map<string, P> {
   for (const n of tree.nodes) { const k = `${n.branch}|${depth.get(n.id)}`; if (!groups.has(k)) groups.set(k, []); groups.get(k)!.push(n); }
   const pos = new Map<string, P>();
   const maxD = Math.max(1, ...depth.values());
+  const sw = swirlFor(maxD);
   for (let d = 1; d <= maxD; d++) for (const b of Object.keys(BRANCH_ANGLE) as TreeBranch[]) {
     const g = groups.get(`${b}|${d}`); if (!g) continue;
-    const base = armAngle(b, d), r = ringR(d);
+    if (b === 'fusao') { for (const n of g) placeFusion(n, d, pos, sw); continue; }
+    const base = armAngle(b, d, sw), r = ringR(d);
     const items = g.map((n) => {
       const ps = n.requires.map((id) => pos.get(id)).filter((p): p is P => !!p);
       // pai do mesmo galho: segue o desvio dele (a espiral continua); de outro galho: puxa para o lado dele,
@@ -61,6 +65,44 @@ function layout(tree: SkillTree): Map<string, P> {
   return pos;
 }
 
+/**
+ * Fusões ficam no vão entre os braços que elas unem (as pontas da shuriken). Quem une os três braços, ou pede outra
+ * fusão junto, vai para o braço de baixo; um foco de fusão segue a fusão dele, um anel para fora.
+ */
+function placeFusion(n: TreeNode, d: number, pos: Map<string, P>, sw: number) {
+  const ps = n.requires.map((id) => pos.get(id)).filter((p): p is P => !!p);
+  const fused = ps.filter((p) => p.b === 'fusao');
+  let a: number, r: number;
+  if (ps.length === 1 && fused.length === 1) { a = fused[0].a; r = fused[0].r + RING * 0.8; }
+  else {
+    const sx = ps.reduce((t, p) => t + Math.sin((p.a * Math.PI) / 180), 0), sy = ps.reduce((t, p) => t + Math.cos((p.a * Math.PI) / 180), 0);
+    const together = ps.length ? Math.hypot(sx, sy) / ps.length : 0;
+    const gap = !fused.length && together >= 0.5;
+    a = gap ? (Math.atan2(sx, sy) * 180) / Math.PI : armAngle('fusao', d, sw);
+    r = gap ? Math.max(ringR(d), ...ps.map((p) => p.r + RING * 0.7)) : ringR(d);
+  }
+  // não encosta em ninguém: empurra para fora até ter espaço
+  for (let tries = 0; tries < 12; tries++) {
+    const at = polar(a, r);
+    if (![...pos.values()].some((p) => Math.hypot(p.x - at.x, p.y - at.y) < MIN_GAP)) break;
+    r += RING * 0.55;
+  }
+  pos.set(n.id, { ...polar(a, r), a, r, b: 'fusao', dev: 0 });
+}
+
+/** Linha entre dois nós contornando o centro (ângulo e raio andam juntos), nunca atravessando o meio da árvore. */
+function arc(from: P | null, to: P) {
+  if (!from) {
+    const at = (t: number) => ({ x: to.x * t, y: to.y * t });
+    return { d: `M 0 0 L ${to.x} ${to.y}`, at };
+  }
+  const da = offset(to.a, from.a);
+  const at = (t: number) => polar(from.a + da * t, from.r + (to.r - from.r) * t);
+  const steps = Math.max(2, Math.ceil(Math.abs(da) / 6));
+  const pts = Array.from({ length: steps + 1 }, (_, i) => at(i / steps));
+  return { d: 'M ' + pts.map((p) => `${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' L '), at };
+}
+
 function stars(seed: number, count: number, radius: number) {
   let s = seed >>> 0;
   const rnd = () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296);
@@ -77,12 +119,6 @@ function twoLines(name: string): [string, string?] {
   return [name.slice(0, cut), tail.length > 16 ? tail.slice(0, 15) + '…' : tail];
 }
 
-const bezier = (a: { x: number; y: number }, b: { x: number; y: number }) => {
-  const c = { x: ((a.x + b.x) / 2) * 0.82, y: ((a.y + b.y) / 2) * 0.82 };
-  const at = (t: number) => ({ x: (1 - t) ** 2 * a.x + 2 * (1 - t) * t * c.x + t ** 2 * b.x, y: (1 - t) ** 2 * a.y + 2 * (1 - t) * t * c.y + t ** 2 * b.y });
-  return { d: `M ${a.x} ${a.y} Q ${c.x} ${c.y} ${b.x} ${b.y}`, at };
-};
-
 export interface GraphProps {
   tree: SkillTree; alloc: Allocation; catalog: SkillDef[]; bond: number; points: number;
   selected: string | null; onSelect: (id: string) => void; onConquer?: (id: string) => void;
@@ -93,17 +129,21 @@ export interface GraphProps {
 
 export function SkillTreeGraph({ tree, alloc, catalog, bond, points, selected, onSelect, onConquer, focus, large }: GraphProps) {
   const pos = useMemo(() => layout(tree), [tree]);
-  const maxD = useMemo(() => Math.max(1, ...nodeDepths(tree).values()), [tree]);
-  const outer = ringR(maxD) + 120;
+  const depths = useMemo(() => nodeDepths(tree), [tree]);
+  const maxD = Math.max(1, ...depths.values()), sw = swirlFor(maxD);
+  const outer = Math.max(ringR(maxD), ...[...pos.values()].map((p) => p.r)) + 120;
   const sky = useMemo(() => stars(7, large ? 260 : 160, outer), [outer, large]);
   const box = useMemo(() => {
     const xs = [0, ...[...pos.values()].map((p) => p.x)], ys = [0, ...[...pos.values()].map((p) => p.y)];
     return { x0: Math.min(...xs) - 90, x1: Math.max(...xs) + 90, y0: Math.min(...ys) - 70, y1: Math.max(...ys) + 80 };
   }, [pos]);
+  // nebulosa de cada braço vai só até o último nó dele
   const arms = useMemo(() => (Object.keys(BRANCH_ANGLE) as TreeBranch[]).map((b) => {
-    const pts = Array.from({ length: maxD + 1 }, (_, i) => polar(armAngle(b, i), i === 0 ? 40 : ringR(i)));
-    return { b, d: 'M ' + pts.map((p) => `${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' L '), label: polar(armAngle(b, maxD + 0.7), ringR(maxD) + 70) };
-  }), [maxD]);
+    const own = tree.nodes.filter((n) => n.branch === b);
+    const end = Math.max(2, ...own.map((n) => depths.get(n.id) ?? 1));
+    const pts = Array.from({ length: end + 1 }, (_, i) => polar(armAngle(b, i, sw), i === 0 ? 40 : ringR(i)));
+    return { b, d: 'M ' + pts.map((p) => `${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' L '), label: polar(armAngle(b, end + 0.7, sw), ringR(end) + 70) };
+  }), [tree, depths, sw]);
   const wrap = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 0, h: 0 });
   const [view, setView] = useState({ x: 0, y: 0, k: 0.5 });
@@ -142,7 +182,7 @@ export function SkillTreeGraph({ tree, alloc, catalog, bond, points, selected, o
   useEffect(() => {
     if (!focus || !size.w) return;
     touched.current = true;
-    const p = polar(armAngle(focus.branch, 3), ringR(3)), k = Math.max(view.k, 0.8);
+    const p = polar(armAngle(focus.branch, 3, sw), ringR(3)), k = Math.max(view.k, 0.8);
     setView({ k, x: size.w / 2 - p.x * k, y: size.h / 2 - p.y * k });
   }, [focus?.at]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -213,18 +253,29 @@ export function SkillTreeGraph({ tree, alloc, catalog, bond, points, selected, o
                 <text x={label.x} y={label.y} textAnchor="middle" dominantBaseline="middle" className="stg-sector" fill={BRANCH_COLOR[b]}>{tree.branches[b].label.toUpperCase()}</text>
               </g>
             ))}
+            {tree.nodes.filter((n) => n.branch === 'fusao' && n.kind === 'skill').map((n) => {
+              const p = pos.get(n.id)!;
+              return <circle key={'neb-' + n.id} cx={p.x} cy={p.y} r="62" fill={BRANCH_COLOR.fusao} opacity=".16" filter="url(#stg-nebula)" />;
+            })}
 
             {tree.nodes.map((n) => {
               const to = pos.get(n.id)!;
               return (n.requires.length ? n.requires : ['__root']).map((rid) => {
-                const from = pos.get(rid) ?? { x: 0, y: 0 };
-                const { d, at } = bezier(from, to);
+                const parent = pos.get(rid) ?? null;
+                const { d, at } = arc(parent, to);
                 const need = rid === '__root' ? 1 : needOf(n, rid), have = rid === '__root' ? 1 : alloc[rid] ?? 0;
                 const lit = (alloc[n.id] ?? 0) > 0, ready = have >= need, path = onPath(n.id) && (rid === '__root' || onPath(rid) || ready);
-                const badge = need > 1 ? at(0.72) : null;
+                // ligação entre galhos diferentes: pontilhada e discreta até entrar no caminho ou ser comprada
+                const cross = !!parent && parent.b !== n.branch;
+                const badge = need > 1 ? at(0.8) : null;
+                const color = path ? '#ffd98a' : cross ? BRANCH_COLOR[parent!.b] : BRANCH_COLOR[n.branch];
+                const opacity = lit ? 0.95 : path ? 0.9 : cross ? (ready ? 0.42 : 0.22) : ready ? 0.45 : 0.16;
+                const dash = path && !lit ? '6 5' : cross && !lit ? '1.5 6' : undefined;
+                // ligação que daria meia volta na galáxia: só aparece no caminho ou comprada (o selo x/3 fica)
+                const far = cross && Math.abs(offset(to.a, parent!.a)) > 100 && !lit && !path;
                 return (
                   <g key={`${rid}-${n.id}`}>
-                    <path d={d} fill="none" stroke={path ? '#ffd98a' : BRANCH_COLOR[n.branch]} strokeOpacity={lit ? 0.95 : path ? 0.9 : ready ? 0.45 : 0.16} strokeWidth={lit ? 3 : path ? 2.4 : 1.4} strokeDasharray={path && !lit ? '6 5' : undefined} className={path && !lit ? 'stg-flow' : undefined} />
+                    {!far && <path d={d} fill="none" stroke={color} strokeOpacity={opacity} strokeWidth={lit ? 3 : path ? 2.4 : cross ? 1.8 : 1.4} strokeLinecap="round" strokeDasharray={dash} className={path && !lit ? 'stg-flow' : undefined} />}
                     {badge && (
                       <g className="stg-need">
                         <circle cx={badge.x} cy={badge.y} r="11" fill="#0b1330" stroke={ready ? '#7be36b' : '#ffd98a'} />

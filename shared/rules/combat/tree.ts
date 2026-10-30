@@ -50,6 +50,8 @@ export const RANK_POWER = 0.15, RANK_COOLDOWN = 0.08;
 const MAX_TIER = 8;
 export const tierBond = (tier: number) => TIER_BOND[Math.min(MAX_TIER, Math.max(1, tier))];
 export const needOf = (n: TreeNode, req: string) => n.needs?.[req] ?? 1;
+/** menor fileira que já abre no vínculo pedido */
+const tierFor = (bond: number) => Number(Object.entries(TIER_BOND).find(([, b]) => b >= bond)?.[0] ?? MAX_TIER);
 
 /** Pontos ganhos até agora. */
 export function skillPoints(bondLevel: number, combatLevel = 0, secrets = 0): number {
@@ -100,12 +102,14 @@ export function buildSkillTree(catalog: SkillDef[], c: { essence: Element | null
   const focus = (id: string, branch: TreeBranch, s: SkillDef, tier: number, requires: string[]) =>
     add({ id, branch, tier, kind: 'boost', name: `Foco: ${s.name}`, description: `+${SKILL_BOOST}% de efeito de ${s.name} por ponto.`, skill: s.slug, boost: { skill: s.slug, pct: SKILL_BOOST }, maxRank: 3, requires });
 
-  // Essência: todas as habilidades, em sequência. Entre uma e outra, um "portão" que a próxima pede.
+  // Essência: um tronco de "portões" (Afinidade, depois Correntes) e cada habilidade saindo dele como um galho
+  // (habilidade → nível e foco). A fileira vem do vínculo da habilidade na Forja e nunca volta para trás.
   // (e1..e5 continuam com os mesmos ids para não perder distribuições salvas)
-  let gate: string | null = null;
+  let gate: string | null = null, lastTier = 1;
   for (let i = 0; i < ess.length; i++) {
     const s = ess[i];
-    const st = i === 0 ? 1 : 2 * i + 2;
+    const st = Math.min(MAX_TIER - 1, Math.max(lastTier, tierFor(s.unlockBond)));
+    lastTier = st;
     const sid = i === 0 ? 'e1' : i === 1 ? 'e4' : `es-${s.slug}`;
     const rid = i === 0 ? 'e2' : i === 1 ? 'e5' : `er-${s.slug}`;
     add({ id: sid, branch: 'essencia', tier: st, kind: 'skill', name: s.name, description: s.description, skill: s.slug, requires: gate ? [gate] : [] });
@@ -115,14 +119,15 @@ export function buildSkillTree(catalog: SkillDef[], c: { essence: Element | null
       gate = 'e3';
       add({ id: 'e3', branch: 'essencia', tier: 3, kind: 'passive', name: `Afinidade com ${essLabel}`, description: '+3% de poder por ponto.', bonus: { poder: 3 }, maxRank: 3, requires: ['e1'] });
     } else {
+      const prev: string = gate!;
       gate = `eg-${s.slug}`;
-      add({ id: gate, branch: 'essencia', tier: st + 2, kind: 'boost', name: `Corrente de ${essLabel}`, description: `+${ELEMENT_BOOST}% de efeito em todas as habilidades de ${essLabel} por ponto.`, boost: { element: c.essence ?? undefined, pct: ELEMENT_BOOST }, maxRank: 3, requires: [sid] });
+      add({ id: gate, branch: 'essencia', tier: st + 1, kind: 'boost', name: `Corrente de ${essLabel}`, description: `+${ELEMENT_BOOST}% de efeito em todas as habilidades de ${essLabel} por ponto.`, boost: { element: c.essence ?? undefined, pct: ELEMENT_BOOST }, maxRank: 3, requires: [prev] });
     }
   }
   if (!ess.length) add({ id: 'e3', branch: 'essencia', tier: 3, kind: 'passive', name: `Afinidade com ${essLabel}`, description: '+3% de poder por ponto.', bonus: { poder: 3 }, maxRank: 3 });
-  const lastEss = ess.length ? ess[ess.length - 1] : null;
-  const lastEssRank = ess.length === 1 ? 'e2' : ess.length === 2 ? 'e5' : lastEss ? `er-${lastEss.slug}` : null;
-  if (c.essence) add({ id: 'e-dominio', branch: 'essencia', tier: Math.max(6, ess.length * 2 + 2), kind: 'boost', name: `Domínio de ${essLabel}`, description: `+${ELEMENT_BOOST}% de efeito em todas as habilidades de ${essLabel} e +2% de poder por ponto.`, boost: { element: c.essence, pct: ELEMENT_BOOST }, bonus: { poder: 2 }, maxRank: 3, requires: [gate ?? 'e3'] });
+  // a fusão principal pede o nível da segunda habilidade da essência (a primeira, se só houver uma)
+  const lastEssRank = ess.length >= 2 ? 'e5' : ess.length ? 'e2' : null;
+  if (c.essence) add({ id: 'e-dominio', branch: 'essencia', tier: Math.max(6, lastTier + 1), kind: 'boost', name: `Domínio de ${essLabel}`, description: `+${ELEMENT_BOOST}% de efeito em todas as habilidades de ${essLabel} e +2% de poder por ponto.`, boost: { element: c.essence, pct: ELEMENT_BOOST }, bonus: { poder: 2 }, maxRank: 3, requires: [gate ?? 'e3'] });
 
   // Classe
   add({ id: 'c1', branch: 'classe', tier: 1, kind: 'passive', name: p1.name, description: p1.description, bonus: p1.bonus, maxRank: 3 });
