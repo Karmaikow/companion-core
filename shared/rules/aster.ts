@@ -191,6 +191,80 @@ export interface CityPiece {
   show: CityShow;
   /** raio de colisão no chão (m); 0 = dá para atravessar */
   solid: number;
+  /** peça da muralha montada pelo Estúdio (aparece também na vista de fora) */
+  wall?: WallPart;
+}
+
+export type WallPart = 'trecho' | 'torre' | 'portao';
+const WALL_PARTS: WallPart[] = ['trecho', 'torre', 'portao'];
+
+/** Escolhas da muralha por trechos (o Estúdio remonta as peças a partir delas). */
+export interface CityWall {
+  segment: string | null;
+  tower: string | null;
+  gate: string | null;
+  /** versões quebradas (só na cidade destruída, trocando algumas peças inteiras) */
+  segmentBroken: string | null;
+  towerBroken: string | null;
+  towerEvery: number;   // uma torre a cada N trechos (0 = sem torres entre os trechos)
+  scale: number;
+  y: number;
+  /** vira as peças 180° (se a face de fora do modelo ficou para dentro) */
+  flip: boolean;
+}
+
+export const DEFAULT_CITY_WALL: CityWall = { segment: null, tower: null, gate: null, segmentBroken: null, towerBroken: null, towerEvery: 3, scale: 1, y: 0, flip: false };
+
+/** Medidas de um modelo como veio no .GLB (caixa em volta dele, escala 1). */
+export interface ModelBox { min: [number, number, number]; max: [number, number, number] }
+
+/**
+ * Monta a muralha em volta da cidade (raio OUT_WALL_R), com o portão nos 4 pontos cardeais e os trechos
+ * repartidos por igual entre eles (sobrepondo um pouco em vez de deixar fresta). O comprimento de cada modelo é o
+ * seu lado mais longo no chão; o centro da caixa vai para a linha da muralha e a base encosta no chão, então o
+ * pivô do modelo não importa.
+ */
+export function buildWall(w: CityWall, boxes: Partial<Record<'segment' | 'tower' | 'gate', ModelBox>>): CityPiece[] {
+  const out: CityPiece[] = [];
+  if (!w.segment || !boxes.segment) return out;
+  const R = OUT_WALL_R, s = w.scale;
+  const fit = (b: ModelBox) => {
+    const sx = b.max[0] - b.min[0], sz = b.max[2] - b.min[2];
+    return { len: Math.max(sx, sz) * s, alongZ: sz > sx * 1.2, cx: (b.min[0] + b.max[0]) / 2, cz: (b.min[2] + b.max[2]) / 2, minY: b.min[1] };
+  };
+  const place = (id: string, name: string, url: string, part: WallPart, a: number, b: ModelBox | undefined, show: CityShow): CityPiece => {
+    const f = b ? fit(b) : { alongZ: false, cx: 0, cz: 0, minY: 0 };
+    const rot = Math.PI / 2 - a + (f.alongZ ? Math.PI / 2 : 0) + (w.flip ? Math.PI : 0);
+    const c = Math.cos(rot), sn = Math.sin(rot);
+    const ox = (f.cx * c + f.cz * sn) * s, oz = (-f.cx * sn + f.cz * c) * s;
+    const r3 = (v: number) => Math.round(v * 1000) / 1000;
+    return { id, name, url, x: r3(Math.cos(a) * R - ox), y: r3(w.y - f.minY * s), z: r3(Math.sin(a) * R - oz), rot: r3(rot), scale: s, show, solid: 0, wall: part };
+  };
+  const seg = fit(boxes.segment);
+  const half = w.gate && boxes.gate ? fit(boxes.gate).len / 2 : GATE_GAP;
+  const gates = GATE_IDS.map((g) => ({ g, a: (Math.atan2(GATES[g].dz, GATES[g].dx) + Math.PI * 2) % (Math.PI * 2) })).sort((p, q) => p.a - q.a);
+  let segN = 0, towerN = 0;
+  const tower = (id: string, a: number) => {
+    if (!w.tower) return;
+    const broken = !!w.towerBroken && towerN++ % 3 === 1;
+    out.push(place(id, `Muralha · torre`, w.tower, 'torre', a, boxes.tower, broken ? 'normal' : 'ambos'));
+    if (broken) out.push(place(id + '-q', `Muralha · torre caída`, w.towerBroken!, 'torre', a, boxes.tower, 'destruida'));
+  };
+  gates.forEach(({ g, a }, k) => {
+    if (w.gate) out.push(place('muro-portao-' + g, `Muralha · ${GATES[g].label}`, w.gate, 'portao', a, boxes.gate, 'ambos'));
+    const start = a + half / R, end = (k === gates.length - 1 ? gates[0].a + Math.PI * 2 : gates[k + 1].a) - half / R;
+    const n = Math.max(1, Math.ceil(((end - start) * R) / Math.max(0.5, seg.len)));
+    const step = (end - start) / n;
+    for (let i = 0; i < n; i++) {
+      const id = `muro-${g}-${i}`, ang = start + (i + 0.5) * step;
+      const broken = !!w.segmentBroken && segN++ % 4 === 1;
+      out.push(place(id, `Muralha · trecho`, w.segment!, 'trecho', ang, boxes.segment, broken ? 'normal' : 'ambos'));
+      if (broken) out.push(place(id + '-q', `Muralha · trecho quebrado`, w.segmentBroken!, 'trecho', ang, boxes.segment, 'destruida'));
+    }
+    if (!w.gate) { tower(`muro-torre-${g}-a`, start); tower(`muro-torre-${g}-b`, end); }
+    if (w.towerEvery > 0) for (let i = w.towerEvery; i < n; i += w.towerEvery) tower(`muro-torre-${g}-${i}`, start + i * step);
+  });
+  return out;
 }
 
 export type CityMarkerKind = 'portao' | 'chegada' | 'cristal' | 'loja' | 'forja' | 'bar' | 'guilda' | 'escola' | 'npc';
@@ -225,6 +299,7 @@ export interface CityLayout {
   /** a cidade inteira vista de fora (nos arredores): um .GLB grande no lugar da muralha provisória */
   exterior: { url: string | null; scale: number; rot: number; y: number };
   ground: { color: string; plaza: string };
+  wall: CityWall;
 }
 
 const gateMarker = (g: GateId): CityMarker => ({ id: 'portao-' + g, kind: 'portao', name: GATES[g].label, x: GATES[g].dx * CITY_GATE_R, z: GATES[g].dz * CITY_GATE_R, rot: 0, show: 'ambos', gate: g });
@@ -239,6 +314,7 @@ export const DEFAULT_CITY_LAYOUT: CityLayout = {
   ],
   exterior: { url: null, scale: 1, rot: 0, y: 0 },
   ground: { color: '#8f8a7e', plaza: '#c9c1ae' },
+  wall: DEFAULT_CITY_WALL,
 };
 
 const num = (v: unknown, lo: number, hi: number, d: number) => { const x = Number(v); return Number.isFinite(x) ? Math.min(hi, Math.max(lo, x)) : d; };
@@ -268,6 +344,7 @@ export function sanitizeCityLayout(input: unknown): CityLayout {
       x: num(p.x, -400, 400, 0), y: num(p.y, -50, 200, 0), z: num(p.z, -400, 400, 0),
       rot: num(p.rot, -Math.PI * 4, Math.PI * 4, 0), scale: num(p.scale, 0.01, 200, 1),
       show: SHOWS.includes(p.show as CityShow) ? (p.show as CityShow) : 'ambos', solid: num(p.solid, 0, 60, 0),
+      ...(WALL_PARTS.includes(p.wall as WallPart) ? { wall: p.wall } : {}),
     });
   }
   const markers: CityMarker[] = [];
@@ -286,12 +363,18 @@ export function sanitizeCityLayout(input: unknown): CityLayout {
   for (const g of GATE_IDS) if (!markers.some((m) => m.kind === 'portao' && m.gate === g)) markers.push(gateMarker(g));
   const e = (d.exterior ?? {}) as Partial<CityLayout['exterior']>;
   const gr = (d.ground ?? {}) as Partial<CityLayout['ground']>;
+  const w = (d.wall ?? {}) as Partial<CityWall>;
   return {
     version: 1,
     name: str(d.name, 60, 'Áster') || 'Áster',
     pieces, markers,
     exterior: { url: safeAssetUrl(e.url), scale: num(e.scale, 0.01, 500, 1), rot: num(e.rot, -Math.PI * 4, Math.PI * 4, 0), y: num(e.y, -50, 100, 0) },
     ground: { color: color(gr.color, DEFAULT_CITY_LAYOUT.ground.color), plaza: color(gr.plaza, DEFAULT_CITY_LAYOUT.ground.plaza) },
+    wall: {
+      segment: safeAssetUrl(w.segment), tower: safeAssetUrl(w.tower), gate: safeAssetUrl(w.gate),
+      segmentBroken: safeAssetUrl(w.segmentBroken), towerBroken: safeAssetUrl(w.towerBroken),
+      towerEvery: Math.round(num(w.towerEvery, 0, 20, DEFAULT_CITY_WALL.towerEvery)), scale: num(w.scale, 0.01, 200, 1), y: num(w.y, -50, 100, 0), flip: w.flip === true,
+    },
   };
 }
 
