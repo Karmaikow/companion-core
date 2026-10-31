@@ -364,11 +364,11 @@ export function CityStudio() {
           </div>
           <label className="cs-check"><input type="checkbox" checked={layout.wall.flip} onChange={(e) => patchWall({ flip: e.target.checked })} /> Virar 180° (a face de fora ficou para dentro)</label>
           <label className="swatch"><input type="color" value={layout.ground.water} onChange={(e) => commit((l) => ({ ...l, ground: { ...l.ground, water: e.target.value } }))} /> Cor da água dos fossos</label>
-          <small className="hint">Ponte: estica sozinha para atravessar cada fosso. Ajuste a altura do modelo e a do piso até os pés do Companion encostarem nela (sem modelo, aparece uma ponte de pedra provisória).</small>
+          <small className="hint">Ponte: estica sozinha para atravessar cada fosso, e o Companion anda em cima do próprio modelo (da ponte e do portão). "Piso" só vale sem modelo, na ponte de pedra provisória.</small>
           <div className="cs-grid3">
             <label title="Multiplica a escala automática da ponte">Escala ponte<input type="number" min={0.1} max={10} step={0.05} value={layout.wall.bridgeScale} onChange={(e) => patchWall({ bridgeScale: Math.max(0.1, Number(e.target.value) || 1) })} /></label>
             <label title="Altura da base do modelo da ponte">Altura ponte<input type="number" step={0.1} value={layout.wall.bridgeY} onChange={(e) => patchWall({ bridgeY: Number(e.target.value) || 0 })} /></label>
-            <label title="Altura do piso por onde o Companion anda">Piso (m)<input type="number" step={0.05} value={layout.wall.bridgeDeck} onChange={(e) => patchWall({ bridgeDeck: Number(e.target.value) || 0 })} /></label>
+            <label title="Altura do piso da ponte provisória (com modelo, o piso sai do próprio modelo)">Piso (m)<input type="number" step={0.05} value={layout.wall.bridgeDeck} onChange={(e) => patchWall({ bridgeDeck: Number(e.target.value) || 0 })} /></label>
           </div>
           <div className="cs-row">
             <button className="primary" disabled={!layout.wall.segment} onClick={buildWallNow}>{wallCount ? 'Remontar muralha' : 'Montar muralha'}</button>

@@ -13,7 +13,7 @@ import { EffectComposer, Bloom, Vignette, ToneMapping, SMAA } from '@react-three
 import { ToneMappingMode } from 'postprocessing';
 import * as THREE from 'three';
 import {
-  gameTime, BRIDGE_DECKS, BRIDGE_HW, CITY_MARKERS, CITY_R, CRATERS, DEAD_CRYSTALS, GATES, GATE_IDS, GATE_GAP, LABYRINTH_R, LABYRINTH_WALLS, MOAT_DEPTH, MOAT_IN, MOAT_OUT,
+  gameTime, BRIDGE_DECKS, BRIDGE_HW, bridgeSpan, CITY_MARKERS, CITY_R, CRATERS, DEAD_CRYSTALS, GATES, GATE_IDS, GATE_GAP, LABYRINTH_R, LABYRINTH_WALLS, MOAT_DEPTH, MOAT_IN, MOAT_OUT,
   OUT_ARRIVAL, OUT_GATE_ARRIVE, OUT_R, OUT_WALL_R, ROAD_W, TRENCH_R, TRENCH_RINGS, WATER_Y, gateAxisPoint, onBridge, outskirtsDirt, outskirtsGatePoint, outskirtsHeight,
   outskirtsPlaceName, roadDistance, visibleIn,
   type BiomePalette, type CityLayout, type CityMarker, type CityPiece, type CityState, type GateId, type WeatherKind,
@@ -356,7 +356,7 @@ function PlaceholderBridges({ deck, side }: { deck: number; side: 'fora' | 'dent
   const mats = useMemo(() => {
     const floor: THREE.Matrix4[] = [], rail: THREE.Matrix4[] = [];
     for (const d of BRIDGE_DECKS.filter((b) => b.side === side)) {
-      const len = d.to - d.from, mid = (d.from + d.to) / 2, rot = -Math.atan2(GATES[d.gate].dz, GATES[d.gate].dx);
+      const [from, to] = bridgeSpan(d), len = to - from, mid = (from + to) / 2, rot = -Math.atan2(GATES[d.gate].dz, GATES[d.gate].dx);
       const c = gateAxisPoint(d.gate, mid);
       floor.push(mat4(c.x, deck - 0.35, c.z, rot, len, 0.7, d.hw * 2));
       for (const t of [-1, 1]) { const p = gateAxisPoint(d.gate, mid, t * (d.hw - 0.2)); rail.push(mat4(p.x, deck + 0.35, p.z, rot, len, 0.7, 0.4)); }
@@ -381,10 +381,30 @@ function moatColliders(edgeR: number, side: 'fora' | 'dentro', reach: number): C
   return out;
 }
 
-/** Liga o piso das pontes (altura fixa) enquanto a cena existe. */
+/** Modelos de ponte na cena (o piso sai deles). */
+const bridgeObjs = new Map<string, THREE.Object3D>();
+const deckRay = new THREE.Raycaster(), DOWN = new THREE.Vector3(0, -1, 0), rayFrom = new THREE.Vector3();
+
+/**
+ * Liga o piso das pontes enquanto a cena existe: em cima de uma ponte, um raio de cima para baixo acha a superfície
+ * do modelo (rampa e arco valem); sem modelo (ou se o raio não acha nada), vale a altura fixa `deck`.
+ */
 function useBridgeDecks(deck: number, side: 'fora' | 'dentro') {
   useEffect(() => {
-    decks.at = (x, z) => (onBridge(x, z, side) ? deck : null);
+    let last = { x: NaN, z: NaN, y: deck };
+    decks.at = (x, z) => {
+      if (!onBridge(x, z, side)) return null;
+      if (Math.abs(x - last.x) < 0.15 && Math.abs(z - last.z) < 0.15) return last.y;
+      let y = deck;
+      if (bridgeObjs.size) {
+        rayFrom.set(x, 30, z); deckRay.set(rayFrom, DOWN); deckRay.far = 40;
+        // a superfície mais alta abaixo de ~3 m acima da água (ignora arcos e enfeites altos por cima)
+        const hit = deckRay.intersectObjects([...bridgeObjs.values()], true).find((h) => h.point.y < WATER_Y + 6);
+        if (hit) y = hit.point.y;
+      }
+      last = { x, z, y };
+      return y;
+    };
     return () => { decks.at = null; };
   }, [deck, side]);
 }
@@ -505,7 +525,9 @@ export function InnerWall({ layout, dead }: { layout: CityLayout; dead: boolean 
 
 export function Piece({ p }: { p: CityPiece }) {
   const { scene } = useGLTF(p.url);
-  return <Clone object={scene} position={[p.x, p.y, p.z]} rotation={[0, p.rot, 0]} scale={p.scale} castShadow receiveShadow />;
+  // pontes e portões: o piso por onde se anda sai do próprio modelo (ver useBridgeDecks)
+  const reg = (o: THREE.Object3D | null) => { if (p.wall !== 'ponte' && p.wall !== 'portao') return; if (o) bridgeObjs.set(p.id, o); else bridgeObjs.delete(p.id); };
+  return <group ref={reg}><Clone object={scene} position={[p.x, p.y, p.z]} rotation={[0, p.rot, 0]} scale={p.scale} castShadow receiveShadow /></group>;
 }
 
 export function MarkerView({ m, dead, labels = true }: { m: CityMarker; dead: boolean; labels?: boolean }) {

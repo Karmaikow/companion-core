@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  ASTER_GATE, BRIDGE_DECKS, BRIDGE_HW, CITY_R, CRATERS, DEFAULT_CITY_WALL, GATES, MOAT_IN, MOAT_OUT, OUT_GATE_ARRIVE, WATER_Y, buildWall, gateAxisPoint, moatBand, onBridge, DEAD_CRYSTALS, DEFAULT_CITY_LAYOUT, GATE_IDS, LABYRINTH_WALLS, OUT_ARRIVAL, OUT_R, OUT_WALL_R, REFUGE_BIOME, ROAD_W,
+  ASTER_GATE, BRIDGE_DECKS, BRIDGE_HW, CITY_R, CRATERS, DEFAULT_CITY_WALL, GATES, MOAT_IN, MOAT_OUT, OUT_GATE_ARRIVE, WATER_Y, buildWall, bridgeSpan, gateAxisPoint, moatBand, onBridge, DEAD_CRYSTALS, DEFAULT_CITY_LAYOUT, GATE_IDS, LABYRINTH_WALLS, OUT_ARRIVAL, OUT_R, OUT_WALL_R, REFUGE_BIOME, ROAD_W,
   TRENCH_RINGS, WORLD_FALLBACK_BIOMES, WORLD_R, WORLD_SEED, WORLD_WALK_R, cityArrival, makeCompanionWorld, outskirtsGatePoint, outskirtsHeight, outskirtsPlaceName,
   ringAt, roadDistance, safeAssetUrl, sanitizeCityLayout, visibleIn,
 } from '../rules/index.ts';
@@ -143,8 +143,9 @@ describe('Layout da cidade (Estúdio da Cidade)', () => {
     expect(bridges).toHaveLength(8);
     for (const p of bridges) {
       const deck = BRIDGE_DECKS.find((d) => p.id === `muro-ponte-${d.side}-${d.gate}`)!;
-      expect(Math.hypot(p.x, p.z)).toBeCloseTo((deck.from + deck.to) / 2, 1);
-      expect(p.scale * 10).toBeCloseTo(deck.to - deck.from, 1);
+      const [from, to] = bridgeSpan(deck);
+      expect(Math.hypot(p.x, p.z)).toBeCloseTo((from + to) / 2, 1);
+      expect(p.scale * 10).toBeCloseTo(to - from, 1);
       // modelo comprido no Z: o +Z local aponta ao longo do raio (para fora ou para dentro)
       const along = Math.abs(Math.sin(p.rot) * p.x + Math.cos(p.rot) * p.z) / Math.hypot(p.x, p.z);
       expect(along).toBeCloseTo(1, 2);

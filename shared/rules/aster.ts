@@ -173,9 +173,12 @@ export function moatBand(r: number): number {
 /** Pisos das pontes sobre os fossos (retângulos ao longo de cada portão): por dentro e por fora. */
 export interface BridgeDeck { gate: GateId; side: 'fora' | 'dentro'; from: number; to: number; hw: number }
 export const BRIDGE_DECKS: BridgeDeck[] = GATE_IDS.flatMap((gate) => [
-  { gate, side: 'fora' as const, from: OUT_WALL_R - 2, to: MOAT_OUT[1] + 1.5, hw: BRIDGE_HW },
+  // de fora começa dentro do vão do portão (o piso do modelo do portão também vale)
+  { gate, side: 'fora' as const, from: OUT_WALL_R - 6, to: MOAT_OUT[1] + 1.5, hw: BRIDGE_HW },
   { gate, side: 'dentro' as const, from: MOAT_IN[0] - 1, to: OUT_WALL_R + 2, hw: BRIDGE_HW },
 ]);
+/** De onde a onde vai o modelo da ponte (o piso de fora começa antes, no vão do portão). */
+export const bridgeSpan = (d: BridgeDeck): [number, number] => [d.side === 'fora' ? OUT_WALL_R - 2 : d.from, d.to];
 /** Ponto (x, z) a `r` do centro e `t` para o lado no eixo do portão. */
 export function gateAxisPoint(g: GateId, r: number, t = 0): { x: number; z: number } {
   const G = GATES[g];
@@ -288,8 +291,9 @@ export function buildWall(w: CityWall, boxes: Partial<Record<'segment' | 'tower'
   if (w.bridge && boxes.bridge) {
     const raw = fit(boxes.bridge, 1).raw || 1;
     for (const d of BRIDGE_DECKS) {
-      const sc = ((d.to - d.from) / raw) * w.bridgeScale, a = (Math.atan2(GATES[d.gate].dz, GATES[d.gate].dx) + Math.PI * 2) % (Math.PI * 2);
-      out.push(place(`muro-ponte-${d.side}-${d.gate}`, `Ponte · ${GATES[d.gate].label} (${d.side})`, w.bridge, 'ponte', a, boxes.bridge, 'ambos', { R: (d.from + d.to) / 2, sc, y: w.bridgeY, radial: true }));
+      const [from, to] = bridgeSpan(d);
+      const sc = ((to - from) / raw) * w.bridgeScale, a = (Math.atan2(GATES[d.gate].dz, GATES[d.gate].dx) + Math.PI * 2) % (Math.PI * 2);
+      out.push(place(`muro-ponte-${d.side}-${d.gate}`, `Ponte · ${GATES[d.gate].label} (${d.side})`, w.bridge, 'ponte', a, boxes.bridge, 'ambos', { R: (from + to) / 2, sc, y: w.bridgeY, radial: true }));
     }
   }
   const seg = fit(boxes.segment);
