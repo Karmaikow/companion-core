@@ -5,7 +5,8 @@
  *   (W/E/R), encaixe de 0,5 m e 15°, desfazer (Ctrl+Z), duplicar (Ctrl+D) e apagar (Delete);
  * - marcadores do jogo (portões, chegada, lojas, forja, bar, guilda, escolas, NPCs);
  * - cada peça aparece na cidade normal, na destruída ou nas duas, com prévia de cada estado;
- * - aba "Vista de fora": o modelo grande da cidade nos Arredores, para encaixar a muralha no anel dourado.
+ * - muralha por trechos (trecho, torre, portão e versões quebradas) montada em volta da cidade, vista dentro e fora;
+ * - aba "Vista de fora": a cidade montada vista dos Arredores (ou, opcional, um .GLB único dela).
  * O jogo lê o layout publicado da tabela city_layouts (shared/rules/aster.ts → sanitizeCityLayout).
  */
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -13,8 +14,8 @@ import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import { Clone, Grid, OrbitControls, TransformControls, useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import {
-  CITY_MARKERS, CITY_R, CITY_SHOW, DEFAULT_CITY_LAYOUT, GATES, GATE_IDS, OUT_WALL_R, sanitizeCityLayout, visibleIn,
-  type BiomePalette, type CityLayout, type CityMarker, type CityMarkerKind, type CityPiece, type CityShow, type CityState, type GateId,
+  CITY_MARKERS, CITY_R, CITY_SHOW, DEFAULT_CITY_LAYOUT, GATES, GATE_IDS, OUT_WALL_R, buildWall, sanitizeCityLayout, visibleIn,
+  type BiomePalette, type CityLayout, type CityMarker, type CityMarkerKind, type CityPiece, type CityShow, type CityState, type CityWall, type GateId, type ModelBox,
 } from '@rules';
 import { SCHOOL_IDS, SCHOOL_DEFINITIONS } from '../../../shared/rules/combat/schools';
 import { supabase } from '../backend/online';
@@ -48,6 +49,21 @@ function PieceModel({ url, onBox }: { url: string; onBox: (b: THREE.Box3) => voi
   useEffect(() => { onBox(new THREE.Box3().setFromObject(scene)); }, [scene]); // eslint-disable-line react-hooks/exhaustive-deps
   return <Clone object={scene} castShadow receiveShadow />;
 }
+
+/** Só mede o modelo (para montar a muralha antes de haver peça na cena). */
+function Measure({ url, onBox }: { url: string; onBox: (b: THREE.Box3) => void }) {
+  const { scene } = useGLTF(url);
+  useEffect(() => { onBox(new THREE.Box3().setFromObject(scene)); }, [scene]); // eslint-disable-line react-hooks/exhaustive-deps
+  return null;
+}
+
+const WALL_SLOTS: { key: keyof Pick<CityWall, 'segment' | 'tower' | 'gate' | 'segmentBroken' | 'towerBroken'>; label: string }[] = [
+  { key: 'segment', label: 'Trecho reto *' },
+  { key: 'tower', label: 'Torre' },
+  { key: 'gate', label: 'Portão' },
+  { key: 'segmentBroken', label: 'Trecho quebrado (destruída)' },
+  { key: 'towerBroken', label: 'Torre caída (destruída)' },
+];
 
 function EditablePiece({ p, selected, ghost, register, onSelect, onBox, box }: {
   p: CityPiece; selected: boolean; ghost: boolean; box?: THREE.Box3;
@@ -264,6 +280,33 @@ export function CityStudio() {
   const used = [...new Set(layout.pieces.map((p) => p.url))].filter((u) => !lib.some((x) => x.url === u)).map((u) => ({ name: nameOf(u), url: u }));
   const library = [...lib, ...used].filter((x) => !filter || x.name.toLowerCase().includes(filter.toLowerCase()));
   const dead = state === 'destruida';
+  const wallCount = layout.pieces.filter((p) => p.wall).length;
+  const wallUrls = [...new Set([layout.wall.segment, layout.wall.tower, layout.wall.gate].filter((u): u is string => !!u))];
+  const onBox = (url: string, b: THREE.Box3) => { if (!boxes.current.has(url)) { boxes.current.set(url, b); bump((x) => x + 1); } };
+  /** peças da muralha para estas escolhas, ou o motivo de ainda não dar */
+  const wallPieces = (w: CityWall): CityPiece[] | string => {
+    if (!w.segment) return 'Escolha pelo menos o trecho reto.';
+    const bx: Partial<Record<'segment' | 'tower' | 'gate', ModelBox>> = {};
+    for (const k of ['segment', 'tower', 'gate'] as const) {
+      const u = w[k]; if (!u) continue;
+      const b = boxes.current.get(u); if (!b) return 'Os modelos ainda estão carregando — tente de novo em instantes.';
+      bx[k] = { min: [b.min.x, b.min.y, b.min.z], max: [b.max.x, b.max.y, b.max.z] };
+    }
+    return buildWall(w, bx);
+  };
+  const buildWallNow = () => {
+    const parts = wallPieces(layout.wall);
+    if (typeof parts === 'string') { setMsg({ text: parts }); return; }
+    commit((l) => ({ ...l, pieces: [...l.pieces.filter((p) => !p.wall), ...parts] }));
+    const n = (w: string) => parts.filter((p) => p.wall === w && p.show !== 'destruida').length;
+    setMsg({ ok: true, text: `Muralha montada: ${n('trecho')} trechos, ${n('torre')} torres${layout.wall.gate ? ', 4 portões' : ''}. Confira também na Vista de fora.` });
+  };
+  /** muda as escolhas; se a muralha já estiver montada, remonta junto (se der) */
+  const patchWall = (p: Partial<CityWall>) => {
+    const w = { ...layout.wall, ...p };
+    const parts = wallCount ? wallPieces(w) : null;
+    commit((l) => ({ ...l, wall: w, ...(Array.isArray(parts) ? { pieces: [...l.pieces.filter((x) => !x.wall), ...parts] } : {}) }));
+  };
   const autoSolid = () => {
     if (!piece) return;
     const b = boxes.current.get(piece.url); if (!b) { setMsg({ text: 'O modelo ainda está carregando.' }); return; }
@@ -299,6 +342,30 @@ export function CityStudio() {
             {library.map((m) => <li key={m.url}><button onClick={() => addPiece(m)} title="Pôr na cidade (no centro da vista)">+ {m.name}</button></li>)}
             {!library.length && <li className="hint">Nenhum modelo ainda. Envie os .GLB dos prédios: escala em metros, Y para cima, pivô na base.</li>}
           </ul>
+        </fieldset>
+
+        <fieldset>
+          <legend>Muralha{wallCount ? ` (${wallCount} peças)` : ''}</legend>
+          <small className="hint">Escolha os modelos da biblioteca: a muralha é montada em volta da cidade (raio {OUT_WALL_R} m), com os portões nos 4 pontos cardeais, e aparece por dentro e na vista de fora. O comprimento vem do próprio modelo; o pivô não importa.</small>
+          {WALL_SLOTS.map(({ key, label }) => (
+            <label key={key}>{label}
+              <select value={layout.wall[key] ?? ''} onChange={(e) => patchWall({ [key]: e.target.value || null })}>
+                <option value="">{key === 'segment' ? '— escolha —' : key === 'gate' ? '— só a abertura —' : '— nenhum —'}</option>
+                {[...lib, ...used].map((m) => <option key={m.url} value={m.url}>{m.name}</option>)}
+              </select>
+            </label>
+          ))}
+          <div className="cs-grid3">
+            <label title="Uma torre a cada quantos trechos (0 = só junto dos portões)">Torre a cada<input type="number" min={0} max={20} step={1} value={layout.wall.towerEvery} onChange={(e) => patchWall({ towerEvery: Math.max(0, Math.min(20, Math.round(Number(e.target.value) || 0))) })} /></label>
+            <label>Escala<input type="number" min={0.01} step={0.1} value={layout.wall.scale} onChange={(e) => patchWall({ scale: Math.max(0.01, Number(e.target.value) || 1) })} /></label>
+            <label>Altura (m)<input type="number" step={0.25} value={layout.wall.y} onChange={(e) => patchWall({ y: Number(e.target.value) || 0 })} /></label>
+          </div>
+          <label className="cs-check"><input type="checkbox" checked={layout.wall.flip} onChange={(e) => patchWall({ flip: e.target.checked })} /> Virar 180° (a face de fora ficou para dentro)</label>
+          <div className="cs-row">
+            <button className="primary" disabled={!layout.wall.segment} onClick={buildWallNow}>{wallCount ? 'Remontar muralha' : 'Montar muralha'}</button>
+            {!!wallCount && <button className="ghost danger" onClick={() => commit((l) => ({ ...l, pieces: l.pieces.filter((p) => !p.wall) }))}>Tirar</button>}
+          </div>
+          {!!wallCount && <small className="hint">Dá para ajustar peça por peça clicando nela; remontar (ou mudar as opções acima) refaz a muralha inteira e desfaz esses ajustes.</small>}
         </fieldset>
 
         <fieldset>
@@ -340,15 +407,16 @@ export function CityStudio() {
             <Sky daylight={state === 'destruida' ? 0.55 : 1} palette={PALETTE} fogFar={view === 'cidade' ? 900 : 1800} />
             <OrbitControls makeDefault maxPolarAngle={Math.PI / 2.05} minDistance={3} maxDistance={view === 'cidade' ? 400 : 900} />
             <TargetTracker target={target} />
+            {wallUrls.map((u) => <AssetBoundary key={u}><Suspense fallback={null}><Measure url={u} onBox={(b) => onBox(u, b)} /></Suspense></AssetBoundary>)}
             {view === 'cidade' ? (
               <>
                 <CityGround layout={layout} walkable={false} />
-                <InnerWall layout={layout} dead={dead} />
+                {!wallCount && <InnerWall layout={layout} dead={dead} />}
                 <Grid position={[0, 0.03, 0]} args={[260, 260]} cellSize={1} sectionSize={10} cellColor="#6f6a5f" sectionColor="#3d3a35" fadeDistance={260} infiniteGrid={false} />
                 <GuideRing r={CITY_R} color="#9fd8ff" />
                 {layout.pieces.map((p) => (
                   <EditablePiece key={p.id} p={p} selected={sel?.id === p.id} ghost={!visibleIn(p.show, state)} register={register} box={boxes.current.get(p.url)}
-                    onSelect={(id) => setSel({ kind: 'piece', id })} onBox={(url, b) => { if (!boxes.current.has(url)) { boxes.current.set(url, b); bump((x) => x + 1); } }} />
+                    onSelect={(id) => setSel({ kind: 'piece', id })} onBox={onBox} />
                 ))}
                 {layout.markers.filter((m) => visibleIn(m.show, state) || sel?.id === m.id).map((m) => (
                   <EditableMarker key={m.id} m={m} selected={sel?.id === m.id} dead={dead} register={register} onSelect={(id) => setSel({ kind: 'marker', id })} />
@@ -375,7 +443,8 @@ export function CityStudio() {
         {view === 'fora' ? (
           <fieldset key="fora">
             <legend>Cidade vista de fora</legend>
-            <small className="hint">Um .GLB grande com a muralha e a silhueta da cidade (sem os interiores). A muralha deve tocar o <b>anel dourado</b> (raio {OUT_WALL_R} m), com os 4 portões nos pontos cardeais. O Cristal Ápice flutua sozinho acima do ponto mais alto. Sem modelo, aparece a muralha provisória.</small>
+            <small className="hint">Daqui de fora aparece a cidade montada por peças: a muralha (seção Muralha, à esquerda) e os prédios. Enquanto não houver, entra a provisória. O anel dourado (raio {OUT_WALL_R} m) é a linha da muralha.</small>
+            <small className="hint">Opcional: um .GLB único da cidade inteira substitui tudo isso na vista de fora.</small>
             <label className="upload">
               <input type="file" accept=".glb,model/gltf-binary" disabled={busy} onChange={(e) => { const fs = [...(e.target.files ?? [])]; e.target.value = ''; if (fs.length) void upload(fs, true); }} />
               <span>{layout.exterior.url ? 'Trocar o modelo de fora' : '+ Enviar o modelo de fora'}</span>
@@ -452,7 +521,8 @@ export function CityStudio() {
                 <button onClick={() => { setSel({ kind: 'marker', id: m.id }); setView('cidade'); }}><span aria-hidden>{CITY_MARKERS[m.kind].icon}</span> {m.name}{m.show !== 'ambos' && <em>{CITY_SHOW[m.show]}</em>}</button>
               </li>
             ))}
-            {layout.pieces.map((p) => (
+            {!!wallCount && <li className="hint"><span aria-hidden>▣</span> Muralha ({wallCount} peças — clique nelas na cena)</li>}
+            {layout.pieces.filter((p) => !p.wall).map((p) => (
               <li key={p.id} className={(sel?.id === p.id ? 'on' : '') + (visibleIn(p.show, state) ? '' : ' off')}>
                 <button onClick={() => { setSel({ kind: 'piece', id: p.id }); setView('cidade'); }}><span aria-hidden>▣</span> {p.name}{p.show !== 'ambos' && <em>{CITY_SHOW[p.show]}</em>}</button>
               </li>

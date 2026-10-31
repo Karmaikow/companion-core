@@ -783,6 +783,12 @@ Prompt com o mundo de fantasia, regra explícita de pronomes ("mim" = a pessoa; 
     (bucket `world-assets/city/aster/`), vista 3D livre, setas de mover/girar/escalar (W/E/R) com encaixe 0,5 m e
     15°, colisão pela base, duplicar, apagar, desfazer/refazer, marcadores, prévia normal/destruída, e a aba "Vista
     de fora" para encaixar o modelo grande no anel dourado. Rascunho e publicação como nos biomas.
+  - **Muralha por trechos** (`buildWall`, `layout.wall`): o ADM escolhe no Estúdio o trecho reto, a torre, o portão
+    e, se quiser, versões quebradas; a muralha é montada no raio 70 m com os portões nos pontos cardeais e os
+    trechos repartidos por igual (sobrepondo um pouco, sem fresta). O comprimento sai do lado mais longo da caixa do
+    modelo (se for o Z, gira 90°), o centro da caixa vai à linha e a base ao chão — o pivô do .GLB não importa. As
+    peças ficam marcadas com `wall` e aparecem por dentro e na vista de fora (no lugar da muralha provisória; a
+    silhueta provisória do interior some quando houver prédios do ADM). Mudar as opções remonta a muralha inteira.
   - Cena: `scene/AsterScene.tsx` (sem luzes pontuais; placas numa camada própria). Testes no jogo: `?aster`,
     `?cidade`, `?destruida`, `?estrada` (Companion World ao lado do portal). Faltam: monstros e cerco (fases 3 e 5),
     os painéis das lojas/escolas (fase 4).

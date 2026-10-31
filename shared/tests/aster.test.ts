@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  ASTER_GATE, CITY_R, CRATERS, DEAD_CRYSTALS, DEFAULT_CITY_LAYOUT, GATE_IDS, LABYRINTH_WALLS, OUT_ARRIVAL, OUT_R, OUT_WALL_R, REFUGE_BIOME, ROAD_W,
+  ASTER_GATE, CITY_R, CRATERS, DEFAULT_CITY_WALL, GATES, buildWall, DEAD_CRYSTALS, DEFAULT_CITY_LAYOUT, GATE_IDS, LABYRINTH_WALLS, OUT_ARRIVAL, OUT_R, OUT_WALL_R, REFUGE_BIOME, ROAD_W,
   TRENCH_RINGS, WORLD_FALLBACK_BIOMES, WORLD_R, WORLD_SEED, WORLD_WALK_R, cityArrival, makeCompanionWorld, outskirtsGatePoint, outskirtsHeight, outskirtsPlaceName,
   ringAt, roadDistance, safeAssetUrl, sanitizeCityLayout, visibleIn,
 } from '../rules/index.ts';
@@ -81,6 +81,44 @@ describe('Layout da cidade (Estúdio da Cidade)', () => {
     expect(l.markers.filter((m) => m.kind === 'portao').map((m) => m.gate).sort()).toEqual([...GATE_IDS].sort());
     expect(l.markers.some((m) => m.kind === 'loja' && m.name === 'Empório')).toBe(true);
     expect(sanitizeCityLayout(null).markers.filter((m) => m.kind === 'portao')).toHaveLength(4);
+  });
+  it('monta a muralha por trechos: portões nos pontos cardeais, sem trecho na abertura, face de fora para fora', () => {
+    const box = (sx: number, sy: number, sz: number, c: [number, number, number] = [0, 0, 0]) => ({ min: [c[0] - sx / 2, c[1] - sy / 2, c[2] - sz / 2] as [number, number, number], max: [c[0] + sx / 2, c[1] + sy / 2, c[2] + sz / 2] as [number, number, number] });
+    const w = { ...DEFAULT_CITY_WALL, segment: '/a.glb', tower: '/t.glb', gate: '/g.glb', segmentBroken: '/q.glb' };
+    // trecho com pivô no meio da caixa (comum em modelo gerado): a base tem que ir ao chão
+    const parts = buildWall(w, { segment: box(10, 10, 3), tower: box(4, 16, 4), gate: box(20, 14, 6) });
+    const gates = parts.filter((p) => p.wall === 'portao');
+    expect(gates).toHaveLength(4);
+    for (const g of GATE_IDS) {
+      const p = gates.find((x) => x.id.endsWith(g))!;
+      expect(p.x).toBeCloseTo(GATES[g].dx * OUT_WALL_R, 1); expect(p.z).toBeCloseTo(GATES[g].dz * OUT_WALL_R, 1);
+    }
+    const segs = parts.filter((p) => p.wall === 'trecho' && p.show !== 'destruida');
+    expect(segs.length).toBeGreaterThanOrEqual(36);
+    for (const p of segs) {
+      expect(Math.hypot(p.x, p.z)).toBeCloseTo(OUT_WALL_R, 1);
+      expect(p.y).toBeCloseTo(5);                                       // base no chão
+      expect(roadDistance(p.x, p.z)).toBeGreaterThan(8);                 // fora da abertura do portão (20 m de largura)
+      // o +Z do modelo aponta para fora (giro em Y: +Z → (sen θ, cos θ))
+      expect(Math.sin(p.rot) * p.x + Math.cos(p.rot) * p.z).toBeGreaterThan(OUT_WALL_R * 0.99);
+    }
+    // sem fresta: o arco entre portões fica coberto pelos trechos de 10 m
+    expect(segs.length * 10).toBeGreaterThanOrEqual(2 * Math.PI * OUT_WALL_R - 4 * 20 - 1);
+    // a cidade destruída troca alguns trechos pelos quebrados
+    const broken = parts.filter((p) => p.show === 'destruida');
+    expect(broken.length).toBeGreaterThan(5);
+    expect(parts.filter((p) => p.show === 'normal')).toHaveLength(broken.length);
+    // 9 trechos entre cada par de portões, torre a cada 3 → 2 torres por quarto
+    expect(parts.filter((p) => p.wall === 'torre' && p.show !== 'destruida')).toHaveLength(8);
+    // modelo comprido no eixo Z e com pivô fora do centro: gira 90° e o centro ainda cai na linha
+    const z = buildWall({ ...w, tower: null, gate: null, segmentBroken: null }, { segment: box(3, 8, 12, [5, 4, 2]) });
+    for (const p of z) {
+      const c = Math.cos(p.rot), s = Math.sin(p.rot);
+      expect(Math.hypot(p.x + 5 * c + 2 * s, p.z - 5 * s + 2 * c)).toBeCloseTo(OUT_WALL_R, 1);
+      expect(p.y).toBeCloseTo(0);
+    }
+    expect(sanitizeCityLayout({ pieces: parts, wall: w }).pieces.filter((p) => p.wall).length).toBe(parts.length);
+    expect(sanitizeCityLayout({ wall: { segment: 'javascript:x', towerEvery: 99 } }).wall).toMatchObject({ segment: null, towerEvery: 20 });
   });
   it('estados e chegada', () => {
     expect(visibleIn('ambos', 'destruida')).toBe(true);

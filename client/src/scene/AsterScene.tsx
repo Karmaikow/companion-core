@@ -226,29 +226,30 @@ const gateAngle = (g: GateId) => Math.atan2(GATES[g].dz, GATES[g].dx);
 const angDist = (a: number, b: number) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
 const nearGate = (a: number, r: number, gap: number) => GATE_IDS.some((g) => angDist(a, gateAngle(g)) * r < gap);
 
-function ProceduralCity({ dead, high }: { dead: boolean; high: boolean }) {
+/** A cidade provisória vista de fora; `walls`/`inner` somem conforme o ADM monta a muralha e os prédios dele. */
+function ProceduralCity({ dead, high, walls = true, inner = true }: { dead: boolean; high: boolean; walls?: boolean; inner?: boolean }) {
   const parts = useMemo(() => {
     const wall: THREE.Matrix4[] = [], towers: THREE.Matrix4[] = [], roofs: THREE.Matrix4[] = [], spires: THREE.Matrix4[] = [], domes: THREE.Matrix4[] = [];
     const R = OUT_WALL_R, seg = 5;
-    const n = Math.floor((2 * Math.PI * R) / seg);
+    const n = walls ? Math.floor((2 * Math.PI * R) / seg) : 0;
     for (let i = 0; i < n; i++) {
       const a = (i + 0.5) * (2 * Math.PI / n);
       if (nearGate(a, R, GATE_GAP)) continue;
       const broken = dead && (i * 7) % 11 === 0;
       wall.push(mat4(Math.cos(a) * R, broken ? 2.5 : 5, Math.sin(a) * R, -a + Math.PI / 2, seg * 1.02, broken ? 5 : 10, 3));
     }
-    for (let k = 0; k < 16; k++) {
+    for (let k = 0; k < (walls ? 16 : 0); k++) {
       const a = k * (Math.PI / 8) + Math.PI / 16, x = Math.cos(a) * R, z = Math.sin(a) * R;
       const h = dead && k % 3 === 0 ? 7 : 15;
       towers.push(mat4(x, h / 2, z, 0, 3.4, h, 3.4));
       if (!(dead && k % 3 === 0)) roofs.push(mat4(x, h + 3, z, 0, 4, 6, 4));
     }
-    for (const g of GATE_IDS) for (const s of [-1, 1]) {
+    if (walls) for (const g of GATE_IDS) for (const s of [-1, 1]) {
       const a = gateAngle(g) + (s * (GATE_GAP + 2)) / R, x = Math.cos(a) * R, z = Math.sin(a) * R;
       towers.push(mat4(x, 9, z, 0, 4, 18, 4)); roofs.push(mat4(x, 21, z, 0, 4.6, 6, 4.6));
     }
     // silhueta do interior: casas, torres e cúpulas (só para ser lida de fora)
-    for (let k = 0; k < (high ? 90 : 50); k++) {
+    for (let k = 0; k < (inner ? (high ? 90 : 50) : 0); k++) {
       const a = (k * 2.39996) % (Math.PI * 2), r = 14 + ((k * 37) % 41), x = Math.cos(a) * r, z = Math.sin(a) * r;
       const tall = k % 7 === 0, h = tall ? 16 + (k % 5) * 3 : 5 + (k % 4) * 2;
       if (dead && k % 2 === 0) { spires.push(mat4(x, 1.5, z, k, 5, 3, 4)); continue; }
@@ -257,7 +258,7 @@ function ProceduralCity({ dead, high }: { dead: boolean; high: boolean }) {
       else if (k % 5 === 0) domes.push(mat4(x, h, z, 0, 3, 3, 3));
     }
     return { wall, towers, roofs, spires, domes };
-  }, [dead, high]);
+  }, [dead, high, walls, inner]);
   const geo = useMemo(() => ({ box: new THREE.BoxGeometry(1, 1, 1), cyl: new THREE.CylinderGeometry(0.5, 0.56, 1, 10), cone: new THREE.ConeGeometry(0.5, 1, 10), dome: new THREE.SphereGeometry(1, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2) }), []);
   const mat = useMemo(() => ({
     stone: new THREE.MeshLambertMaterial({ color: dead ? '#8a8378' : '#cfc6b2' }),
@@ -274,8 +275,10 @@ function ProceduralCity({ dead, high }: { dead: boolean; high: boolean }) {
       <Instanced geometry={geo.box} material={mat.dark} matrices={parts.spires} shadows={high} />
       <Instanced geometry={geo.dome} material={mat.dome} matrices={parts.domes} />
       {/* torre central do cristal */}
-      <mesh position={[0, 17, 0]} castShadow={high}><cylinderGeometry args={[4, 7, 34, 14]} /><meshLambertMaterial color={dead ? '#6d665d' : '#ddd3bd'} /></mesh>
-      <mesh position={[0, 35, 0]}><cylinderGeometry args={[5.5, 4.2, 3, 14]} /><meshLambertMaterial color={dead ? '#5a5450' : '#c2b48f'} /></mesh>
+      {inner && <>
+        <mesh position={[0, 17, 0]} castShadow={high}><cylinderGeometry args={[4, 7, 34, 14]} /><meshLambertMaterial color={dead ? '#6d665d' : '#ddd3bd'} /></mesh>
+        <mesh position={[0, 35, 0]}><cylinderGeometry args={[5.5, 4.2, 3, 14]} /><meshLambertMaterial color={dead ? '#5a5450' : '#c2b48f'} /></mesh>
+      </>}
     </group>
   );
 }
@@ -304,11 +307,19 @@ function CityFromOutside({ layout, state, high, labels = true }: { layout: CityL
     return out;
   }, []);
   useColliders('aster-wall', ring);
+  // a cidade montada no Estúdio aparece de fora também: muralha por trechos e, se já houver, os prédios
+  const pieces = useMemo(() => layout.pieces.filter((p) => visibleIn(p.show, state)), [layout, state]);
+  const hasWall = pieces.some((p) => p.wall), hasBuildings = pieces.some((p) => !p.wall);
+  const crystals = useMemo(() => layout.markers.filter((m) => m.kind === 'cristal' && visibleIn(m.show, state)), [layout, state]);
   return (
     <group>
       {layout.exterior.url
         ? <AssetBoundary><Suspense fallback={<ProceduralCity dead={dead} high={high} />}><ExteriorModel layout={layout} dead={dead} /></Suspense></AssetBoundary>
-        : <><ProceduralCity dead={dead} high={high} /><ApexCrystal y={46} size={1.4} dead={dead} /></>}
+        : <>
+          <ProceduralCity dead={dead} high={high} walls={!hasWall} inner={!hasBuildings} />
+          {hasBuildings ? crystals.map((m) => <MarkerView key={m.id} m={m} dead={dead} labels={false} />) : <ApexCrystal y={46} size={1.4} dead={dead} />}
+          {pieces.map((p) => <AssetBoundary key={p.id}><Suspense fallback={null}><Piece p={p} /></Suspense></AssetBoundary>)}
+        </>}
       {GATE_IDS.map((g) => { const p = outskirtsGatePoint(g, 1); return <RunePortal key={g} x={p.x} z={p.z} color="#9fd8ff" arch label={labels ? GATES[g].label : undefined} rot={-gateAngle(g) + Math.PI / 2} />; })}
     </group>
   );
@@ -416,7 +427,7 @@ export function InnerWall({ layout, dead }: { layout: CityLayout; dead: boolean 
   return <Instanced geometry={geo} material={mat} matrices={mats} shadows />;
 }
 
-function Piece({ p }: { p: CityPiece }) {
+export function Piece({ p }: { p: CityPiece }) {
   const { scene } = useGLTF(p.url);
   return <Clone object={scene} position={[p.x, p.y, p.z]} rotation={[0, p.rot, 0]} scale={p.scale} castShadow receiveShadow />;
 }
@@ -444,7 +455,7 @@ function CityInside({ layout, state }: { layout: CityLayout; state: CityState })
   return (
     <group>
       <CityGround layout={layout} />
-      <InnerWall layout={layout} dead={dead} />
+      {!pieces.some((p) => p.wall) && <InnerWall layout={layout} dead={dead} />}
       {pieces.map((p) => <AssetBoundary key={p.id}><Suspense fallback={null}><Piece p={p} /></Suspense></AssetBoundary>)}
       {markers.map((m) => <MarkerView key={m.id} m={m} dead={dead} />)}
     </group>
