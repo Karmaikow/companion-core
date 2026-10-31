@@ -766,6 +766,26 @@ Prompt com o mundo de fantasia, regra explícita de pronomes ("mim" = a pessoa; 
   boneco com os oito espaços, resumo (golpe, bônus, conjuntos, carga) e a bolsa por categoria com detalhes e ações.
   Arsenal: itens de todas as categorias, peso, elemento, espaço; "pôr na minha bolsa". Invocador: drops sugerem os itens
   do Arsenal e mostram se o nome casa. Capa e elmo aparecem no corpo; armadura, botas e acessórios só dão atributos.
+- **v1.42 — Áster, a Cidade-Farol (fases 1 e 2: mapas, viagem e Estúdio da Cidade).** Regras em `shared/rules/aster.ts`.
+  - **Estrada para Áster** (`ASTER_GATE` em `worldgen.ts`): portal fixo no Companion World a noroeste, a ~294 m do
+    Portal do Refúgio (o mais longe que dá para andar: o Companion anda até `WORLD_WALK_R` ≈ 301 m em qualquer
+    direção). Arco de pedra com o cristal e um feixe alto; chão plano e sem vegetação em volta.
+  - **Arredores** (mapa fixo, ~260 m de raio): a cidade vista de fora no centro (muralha raio 70 m; o .GLB grande do
+    ADM ou a muralha provisória) com o Cristal Ápice e o feixe; anéis Labirinto Prismático (paredes de pedra clara
+    com pilares-espelho), Trincheiras Rúnicas (dois fossos com pedras rúnicas, pontes nas estradas) e Campos
+    Cinzentos (crateras e cristais mortos); 4 portões (N/L/S/O) com estradas retas que dividem os 4 setores; o
+    portal dourado do sul volta ao Companion World. O brasão mostra "anel · setor".
+  - **Cidade** (mapa fixo, raio andável 64 m): o layout publicado na tabela `city_layouts` (migração
+    `20261030120000_city_layouts.sql`), com peças .GLB e marcadores (portões, chegada, cristal, loja, forja, bar,
+    guilda, escola, NPC). Cada item aparece na cidade normal, na destruída ou nas duas (`visibleIn`). Pisar num
+    portão leva ao portão de mesmo nome nos Arredores e vice-versa.
+  - **Estúdio da Cidade** (`ui/CityStudio.tsx`, O Administrador → Cidade, `/#/admin/cidade`): biblioteca dos .GLB
+    (bucket `world-assets/city/aster/`), vista 3D livre, setas de mover/girar/escalar (W/E/R) com encaixe 0,5 m e
+    15°, colisão pela base, duplicar, apagar, desfazer/refazer, marcadores, prévia normal/destruída, e a aba "Vista
+    de fora" para encaixar o modelo grande no anel dourado. Rascunho e publicação como nos biomas.
+  - Cena: `scene/AsterScene.tsx` (sem luzes pontuais; placas numa camada própria). Testes no jogo: `?aster`,
+    `?cidade`, `?destruida`, `?estrada` (Companion World ao lado do portal). Faltam: monstros e cerco (fases 3 e 5),
+    os painéis das lojas/escolas (fase 4).
 - **v1.41 — Efeitos do catálogo sem travar a tela.** Medido numa GPU integrada (AMD, Direct3D 11): a primeira vez
   de cada efeito do `threejs-vfx` travava 2–6 s, porque compilar os shaders grandes dele é lento no Windows e o motor
   descartava o efeito (e os shaders) ao terminar. `scene/vfx/catalogueRuntime.js` agora: guarda os efeitos em pool

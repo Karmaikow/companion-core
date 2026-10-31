@@ -435,6 +435,38 @@ html:has(.admin), body:has(.admin), #root:has(.admin) { height: auto; min-height
 .list-row input[type=number] { width: 70px; }
 .list-row .grow { flex: 1 1 140px; }
 .biome-form .list-row label { display: flex; align-items: center; gap: 4px; }
+
+/* ---------- Estúdio da Cidade ---------- */
+.city-studio { display: grid; grid-template-columns: minmax(220px, 270px) minmax(0, 1fr) minmax(240px, 300px); gap: 14px; align-items: start; }
+.city-studio .cs-left, .city-studio .cs-right { max-height: calc(100vh - 170px); overflow-y: auto; scrollbar-width: thin; padding-right: 2px; }
+.cs-center { display: grid; gap: 8px; min-width: 0; }
+.cs-toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.cs-seg { display: inline-flex; border: 1px solid #2c3b5c; border-radius: 10px; overflow: hidden; }
+.cs-seg button { border: 0; border-radius: 0; background: #0a1020; color: var(--parchment); padding: 6px 12px; font-size: 0.85rem; }
+.cs-seg button + button { border-left: 1px solid #2c3b5c; }
+.cs-seg button.on { background: color-mix(in srgb, var(--brass) 28%, #0a1020); color: #fff2d8; }
+.cs-seg button.on.dead { background: #4a2430; color: #ffd1c4; }
+.cs-seg button:disabled { opacity: 0.4; }
+.cs-check { display: flex; align-items: center; gap: 6px; font-size: 0.85rem; color: var(--mist); }
+.cs-canvas { position: relative; height: calc(100vh - 220px); min-height: 480px; border-radius: 14px; overflow: hidden; border: 1px solid #2c3b5c; background: #0a1020; }
+.cs-help { position: absolute; left: 10px; bottom: 8px; margin: 0; padding: 4px 10px; border-radius: 8px; background: #0b1330cc; color: #c8d6e8; font-size: 0.75rem; pointer-events: none; }
+.cs-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.cs-grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.cs-lib, .cs-items { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-height: 260px; overflow-y: auto; scrollbar-width: thin; }
+.cs-lib button, .cs-items button { width: 100%; text-align: left; background: #0a1020; border: 1px solid #2c3b5c; border-radius: 8px; padding: 5px 8px; color: var(--parchment); font-size: 0.82rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cs-lib button:hover, .cs-items button:hover { border-color: var(--brass-dim); }
+.cs-items li.on button { border-color: var(--brass); background: color-mix(in srgb, var(--brass) 18%, #0a1020); }
+.cs-items li.off button { opacity: 0.5; }
+.cs-items em { float: right; font-style: normal; font-size: 0.7rem; color: #ffb3a0; margin-left: 6px; }
+.cs-markers { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+.cs-markers button { background: #0a1020; border: 1px solid #2c3b5c; border-radius: 8px; padding: 5px 6px; color: var(--parchment); font-size: 0.78rem; text-align: left; }
+.cs-markers button:hover { border-color: var(--brass-dim); }
+.city-studio .danger { color: #ffb3a0; border-color: #6a3a3a; }
+@media (max-width: 1100px) {
+  .city-studio { grid-template-columns: 1fr; }
+  .city-studio .cs-left, .city-studio .cs-right { max-height: none; }
+  .cs-canvas { height: 60vh; }
+}
 .stat-bars { display: grid; gap: 4px; font-size: 0.8rem; color: var(--mist); }
 .stat-bars div { display: grid; grid-template-columns: 70px 1fr 34px; gap: 6px; align-items: center; }
 .stat-bars b { height: 6px; border-radius: 99px; background: linear-gradient(90deg, var(--brass), #f3d48d); display: block; }

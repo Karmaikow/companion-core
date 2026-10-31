@@ -8,7 +8,7 @@ import { Canvas, useFrame, type ThreeEvent } from '@react-three/fiber';
 import { EffectComposer, Bloom, Vignette, ToneMapping, SMAA } from '@react-three/postprocessing';
 import { ToneMappingMode } from 'postprocessing';
 import * as THREE from 'three';
-import { gameTime, CHUNK, WORLD_R, WORLD_ROLE, layerRole, type CompanionWorld, type WorldSite, type BiomePalette, type CreatureDef } from '@rules';
+import { gameTime, CHUNK, WORLD_WALK_R, WORLD_ROLE, layerRole, type CompanionWorld, type WorldSite, type BiomePalette, type CreatureDef } from '@rules';
 import { WorldCreatures } from './WorldCreatures';
 import { Vale } from './Vale';
 import type { AppendageSpec } from './Appendages';
@@ -45,6 +45,10 @@ export interface WorldSceneProps {
   onRegion: (site: WorldSite) => void;
   onDiscover: (site: WorldSite) => void;
   onHome: () => void;
+  /** pisou no portal da Estrada para Áster */
+  onAster: () => void;
+  /** onde o Companion aparece (padrão: o Portal do Refúgio; voltando de Áster, ao lado do portal de lá) */
+  start?: [number, number];
 }
 
 const C = (h: string) => new THREE.Color(h);
@@ -179,12 +183,47 @@ function Portal({ color }: { color: string }) {
   );
 }
 
+/** Estrada para Áster: arco de pedra com o cristal de Áster e um feixe alto (dá para achar de longe). */
+function AsterGate({ site, y }: { site: WorldSite; y: number }) {
+  const runes = useMemo(runeTexture, []);
+  const ring = useRef<THREE.Mesh>(null), gem = useRef<THREE.Mesh>(null), veil = useRef<THREE.Mesh>(null);
+  useFrame((s, dt) => {
+    const t = s.clock.elapsedTime;
+    if (ring.current) ring.current.rotation.z += dt * 0.2;
+    if (gem.current) { gem.current.rotation.y = t * 0.5; gem.current.position.y = 6.4 + Math.sin(t * 1.1) * 0.15; }
+    if (veil.current) (veil.current.material as THREE.MeshBasicMaterial).opacity = 0.2 + Math.sin(t * 2) * 0.07;
+  });
+  const tint = useMemo(() => C('#b9a5ff').multiplyScalar(1.6), []);
+  // de frente para o centro do mapa (quem vem do Refúgio chega pela frente)
+  const face = Math.atan2(-site.x, -site.z);
+  return (
+    <group position={[site.x, y, site.z]} rotation={[0, face, 0]}>
+      <mesh position={[0, 0.08, 0]} receiveShadow><cylinderGeometry args={[3.2, 3.5, 0.16, 48]} /><meshLambertMaterial color="#d8d2c4" /></mesh>
+      <mesh ref={ring} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.18, 0]}><circleGeometry args={[2.6, 64]} /><meshBasicMaterial map={runes} color={tint} transparent blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} /></mesh>
+      {[-1, 1].map((s) => <mesh key={s} position={[s * 2.4, 2.6, 0]} castShadow><boxGeometry args={[0.9, 5.2, 0.9]} /><meshLambertMaterial color="#cfc6b2" /></mesh>)}
+      <mesh position={[0, 5.5, 0]} castShadow><boxGeometry args={[5.8, 0.8, 1.1]} /><meshLambertMaterial color="#b3a991" /></mesh>
+      <mesh ref={veil} position={[0, 2.6, 0]}><planeGeometry args={[3.9, 5]} /><meshBasicMaterial color={tint} transparent opacity={0.22} blending={THREE.AdditiveBlending} depthWrite={false} side={THREE.DoubleSide} toneMapped={false} /></mesh>
+      <mesh ref={gem} scale={[0.45, 0.9, 0.45]}><octahedronGeometry args={[1, 0]} /><meshBasicMaterial color={tint} toneMapped={false} /></mesh>
+      <mesh position={[0, 30, 0]}><cylinderGeometry args={[0.35, 0.9, 50, 16, 1, true]} /><meshBasicMaterial color={tint} transparent opacity={0.12} blending={THREE.AdditiveBlending} depthWrite={false} side={THREE.DoubleSide} toneMapped={false} /></mesh>
+    </group>
+  );
+}
+
 function Waystones({ cw, discovered, center }: { cw: CompanionWorld; discovered: Set<string>; center: [number, number] }) {
-  const near = useMemo(() => cw.sites.filter((s) => !s.home && Math.hypot(s.x - (center[0] + 0.5) * CHUNK, s.z - (center[1] + 0.5) * CHUNK) < 150), [cw, center]);
-  useEffect(() => { colliders.set('waystones', near.map((s) => ({ x: s.x, z: s.z, r: 0.75 }))); return () => { colliders.delete('waystones'); }; }, [near]);
+  const all = useMemo(() => cw.sites.filter((s) => !s.home && Math.hypot(s.x - (center[0] + 0.5) * CHUNK, s.z - (center[1] + 0.5) * CHUNK) < 150), [cw, center]);
+  const near = useMemo(() => all.filter((s) => !s.gate), [all]);
+  const gates = useMemo(() => all.filter((s) => s.gate), [all]);
+  useEffect(() => {
+    // pedras-guia e os pilares do arco de Áster (o meio do arco fica livre para passar)
+    const list = near.map((s) => ({ x: s.x, z: s.z, r: 0.75 }));
+    for (const g of gates) { const f = Math.atan2(-g.x, -g.z), cx = Math.cos(f), sz = -Math.sin(f); for (const s of [-1, 1]) list.push({ x: g.x + cx * 2.4 * s, z: g.z + sz * 2.4 * s, r: 0.6 }); }
+    colliders.set('waystones', list);
+    return () => { colliders.delete('waystones'); };
+  }, [near, gates]);
   return (
     <group>
       {near.map((s) => <Waystone key={s.name} site={s} y={cw.heightAt(s.x, s.z)} lit={discovered.has(s.name)} palette={cw.biomes[s.biome].palette} />)}
+      {gates.map((s) => <AsterGate key={s.name} site={s} y={cw.heightAt(s.x, s.z)} />)}
     </group>
   );
 }
@@ -207,9 +246,10 @@ function Waystone({ site, y, lit, palette }: { site: WorldSite; y: number; lit: 
 // Lógica: chunk atual, região, descobertas, volta pelo portal, explorar sozinho
 // ---------------------------------------------------------------------------
 
-function WorldLogic(p: { cw: CompanionWorld; discovered: Set<string>; explore: boolean; goal: { current: THREE.Vector3 | null }; onCenter: (c: [number, number]) => void; onRegion: (s: WorldSite) => void; onDiscover: (s: WorldSite) => void; onHome: () => void }) {
+function WorldLogic(p: { cw: CompanionWorld; discovered: Set<string>; explore: boolean; goal: { current: THREE.Vector3 | null }; onCenter: (c: [number, number]) => void; onRegion: (s: WorldSite) => void; onDiscover: (s: WorldSite) => void; onHome: () => void; onAster: () => void }) {
   const props = useRef(p); props.current = p;
-  const st = useRef({ t: 0, center: '', site: null as WorldSite | null, away: false, asked: new Set<string>() });
+  const st = useRef({ t: 0, center: '', site: null as WorldSite | null, away: false, awayAster: false, asked: new Set<string>() });
+  const asterSite = useMemo(() => p.cw.sites.find((x) => x.gate === 'aster') ?? null, [p.cw]);
   // lugares que ela conhece pelo nome (pedras-guia e regiões) — para "vá até a Floresta Densa"
   useEffect(() => {
     const out: Place[] = p.cw.sites.filter((x) => !x.home).map((x) => ({ name: x.name, x: x.x, z: x.z }));
@@ -237,6 +277,12 @@ function WorldLogic(p: { cw: CompanionWorld; discovered: Set<string>; explore: b
     const r0 = Math.hypot(f.x, f.z);
     if (r0 > 6) s.away = true;
     if (s.away && r0 < 1.2) { s.away = false; P.onHome(); }
+    // Estrada para Áster (só depois de se afastar: quem volta de lá aparece ao lado do portal)
+    if (asterSite) {
+      const da = Math.hypot(f.x - asterSite.x, f.z - asterSite.z);
+      if (da > 7) s.awayAster = true;
+      if (s.awayAster && da < 1.8) { s.awayAster = false; P.onAster(); return; }
+    }
     // ordens: ir até um lugar (e avisar ao chegar) ou caçar num lugar (vai até lá primeiro)
     const o = brain.order;
     const dest = o?.kind === 'goto' ? { name: o.name, x: o.x, z: o.z } : o?.kind === 'hunt' && o.place && !o.arrived ? o.place : null;
@@ -272,18 +318,19 @@ export function WorldScene(props: WorldSceneProps) {
   const high = props.quality === 'high';
   const shape = useMemo(() => shapeOf(cw), [cw]);
   const pals = useMemo(() => cw.biomes.map((b) => palOf(b.palette)), [cw]);
-  const [center, setCenter] = useState<[number, number]>([0, 0]);
-  const [region, setRegion] = useState<WorldSite>(() => cw.regionAt(0, 0).site);
+  const start = props.start ?? [0, 0.6];
+  const [center, setCenter] = useState<[number, number]>(() => [Math.floor(start[0] / CHUNK), Math.floor(start[1] / CHUNK)]);
+  const [region, setRegion] = useState<WorldSite>(() => cw.regionAt(start[0], start[1]).site);
   const [daylight, setDaylight] = useState(() => gameTime(Date.now()).daylight);
   useEffect(() => { const t = setInterval(() => setDaylight(gameTime(Date.now()).daylight), 60_000); return () => clearInterval(t); }, []);
-  useEffect(() => { companionFocus.set(0, 0, 0); }, []);
+  useEffect(() => { companionFocus.set(start[0], cw.heightAt(start[0], start[1]), start[1]); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const night = 1 - daylight;
   const goal = useRef<THREE.Vector3 | null>(null);
   const roam = useMemo<Roam>(() => ({
-    limit: WORLD_R - 14,
+    limit: WORLD_WALK_R,
     wander: (x, z) => { const a = Math.random() * Math.PI * 2, r = 2 + Math.random() * 5; return [x + Math.cos(a) * r, z + Math.sin(a) * r]; },
-    goal, start: [0, 0.6],
-  }), []);
+    goal, start,
+  }), []); // eslint-disable-line react-hooks/exhaustive-deps
   const TR = high ? 4 : 3;
   const chunks = useMemo(() => {
     const out: [number, number][] = [];
@@ -294,7 +341,7 @@ export function WorldScene(props: WorldSceneProps) {
     <Canvas
       shadows={high ? 'soft' : false}
       dpr={high ? [1, 1.75] : [0.75, 1]}
-      camera={{ position: [0, 9, 13], fov: 34, near: 0.3, far: 140 }}
+      camera={{ position: [start[0], 9, start[1] + 13], fov: 34, near: 0.3, far: 140 }}
       gl={{ antialias: false, powerPreference: 'high-performance' }}
       onCreated={({ gl }) => { gl.toneMapping = THREE.NoToneMapping; }}
     >
@@ -315,7 +362,7 @@ export function WorldScene(props: WorldSceneProps) {
         <CompanionModel files={props.model} world={shape} burstKey={props.burstKey} speech={props.speech} onFail={props.onHome} roam={roam} appendages={props.appendages} speed={props.speed} gear={props.gear} />
       <CombatFx world={shape} />
       </Suspense>
-      <WorldLogic cw={cw} discovered={props.discovered} explore={props.explore} goal={goal} onCenter={setCenter} onRegion={(s) => { setRegion(s); props.onRegion(s); }} onDiscover={props.onDiscover} onHome={props.onHome} />
+      <WorldLogic cw={cw} discovered={props.discovered} explore={props.explore} goal={goal} onCenter={setCenter} onRegion={(s) => { setRegion(s); props.onRegion(s); }} onDiscover={props.onDiscover} onHome={props.onHome} onAster={props.onAster} />
       <EffectComposer multisampling={0} enableNormalPass={false}>
         <Bloom mipmapBlur intensity={0.5 + night * 0.45} luminanceThreshold={0.8 - night * 0.12} luminanceSmoothing={0.2} />
         <Vignette offset={0.3} darkness={0.32} />

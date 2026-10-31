@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { buildArtPrompt, animKind, ANIM_KINDS, type ArtPrompt, type IdentityContractV1 } from '@rules';
 import { supabase } from '../backend/online';
 import { BiomeStudio } from './BiomeStudio';
+import { CityStudio } from './CityStudio';
 import { ForgeStudio } from './ForgeStudio';
 import { SummonerStudio } from './SummonerStudio';
 import { ArsenalStudio } from './ArsenalStudio';
@@ -17,11 +18,12 @@ import { AdminVoid } from './AdminVoid';
 import { AnimStudio } from './AnimStudio';
 import { AutoRig, glbHasRig } from './RigEditor';
 
-type View = 'companions' | 'animacoes' | 'biomas' | 'forja' | 'invocador' | 'arsenal' | 'servidor';
+type View = 'companions' | 'animacoes' | 'biomas' | 'cidade' | 'forja' | 'invocador' | 'arsenal' | 'servidor';
 const VIEWS: { key: View; label: string; hash: string; title: string; hint: string }[] = [
   { key: 'companions', label: 'Companions', hash: '#/admin', title: 'Companions', hint: 'Todos os Companions: ficha, progressão, coleta, build e os pedidos de arte da Fábrica. O jogador nunca vê este painel.' },
   { key: 'animacoes', label: 'Animações', hash: '#/admin/animacoes', title: 'Animações', hint: 'Qual clipe faz cada papel (parado, andando, golpes, coleta…) para Companions e monstros, com campo de treino.' },
   { key: 'biomas', label: 'Biomas', hash: '#/admin/biomas', title: 'Estúdio de Biomas', hint: 'Refúgios e regiões do Companion World: cores, modelos e a aparência de cada modelo, com prévia 3D.' },
+  { key: 'cidade', label: 'Cidade', hash: '#/admin/cidade', title: 'Estúdio da Cidade', hint: 'Áster, a Cidade-Farol: monte o interior com os seus modelos, marque lojas, forja, escolas e portões, e encaixe a cidade vista de fora.' },
   { key: 'forja', label: 'Forja de Batalha', hash: '#/admin/forja', title: 'Forja de Batalha', hint: 'Habilidades genéricas que qualquer Companion daquela essência e corpo pode usar.' },
   { key: 'invocador', label: 'Invocador de Monstros', hash: '#/admin/invocador', title: 'Invocador de Monstros', hint: 'O catálogo de criaturas: corpo, jeito de lutar, onde aparecem e o que soltam.' },
   { key: 'arsenal', label: 'Arsenal', hash: '#/admin/arsenal', title: 'Arsenal', hint: 'Armas e equipamentos: modelo, atributos, raridade, pegada na mão e a receita da Forja (só Taurinas forjam).' },
@@ -267,6 +269,7 @@ export function AdminPanel() {
         );
       })()}
       {session && view === 'biomas' && <BiomeStudio />}
+      {session && view === 'cidade' && <CityStudio />}
       {session && view === 'forja' && <ForgeStudio />}
       {session && view === 'invocador' && <SummonerStudio />}
       {session && view === 'arsenal' && <ArsenalStudio />}
