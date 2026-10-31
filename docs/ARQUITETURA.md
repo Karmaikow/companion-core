@@ -789,6 +789,13 @@ Prompt com o mundo de fantasia, regra explícita de pronomes ("mim" = a pessoa; 
     modelo (se for o Z, gira 90°), o centro da caixa vai à linha e a base ao chão — o pivô do .GLB não importa. As
     peças ficam marcadas com `wall` e aparecem por dentro e na vista de fora (no lugar da muralha provisória; a
     silhueta provisória do interior some quando houver prédios do ADM). Mudar as opções remonta a muralha inteira.
+  - **Fossos e pontes**: água em volta da muralha por fora (`MOAT_OUT`, 71,5–82 m, relevo rebaixado em
+    `outskirtsHeight` via `moatBand`) e por dentro (`MOAT_IN`, do portal de dentro, 61 m, até a muralha). Só se
+    atravessa pelas pontes (`BRIDGE_DECKS`, piso de 6 m em cada portão, dentro e fora): colisão nas bordas da água e
+    nos parapeitos, e o piso tem altura fixa (`decks` em `scene/world.ts`, `layout.wall.bridgeDeck`). O modelo da
+    ponte (campo Ponte do Estúdio) estica sozinho para atravessar cada fosso; sem ele, ponte de pedra provisória. O
+    Labirinto foi empurrado para fora (anéis a 87/95/103 m) e quem sai da cidade chega depois da ponte
+    (`OUT_GATE_ARRIVE`).
   - **Presença em Áster**: o mesmo canal `mundo` do Companion World; cada `hello`/`pose` leva o mapa
     (`world`, `arredores`, `cidade`; sem mapa = versão antiga = `world`). `remotePoses`/`others` só têm quem está no
     mesmo mapa (cena, chat e grupo não mudaram); `farPoses`/`all` guardam os outros mapas para o painel GOD.

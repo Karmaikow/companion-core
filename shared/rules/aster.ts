@@ -31,7 +31,17 @@ export const GATES: Record<GateId, { label: string; dx: number; dz: number }> = 
 // ---------------------------------------------------------------------------
 
 export const OUT_WALL_R = 70;    // muralha da cidade vista de fora (m)
-export const LABYRINTH_R = 104;  // fim do Labirinto Prismático
+/** fosso de água em volta da muralha, por fora (raio de onde começa a onde termina) */
+export const MOAT_OUT: readonly [number, number] = [OUT_WALL_R + 1.5, OUT_WALL_R + 12];
+/** fosso por dentro: do portal de dentro até a muralha (o Companion chega até o começo da ponte) */
+export const MOAT_IN: readonly [number, number] = [61, OUT_WALL_R - 1.5];
+export const MOAT_DEPTH = 2.4;
+export const WATER_Y = -0.8;     // nível da água nos fossos
+/** meia largura do piso de cada ponte (m): por onde o Companion anda sobre o fosso */
+export const BRIDGE_HW = 3;
+/** quanto para fora do portão se chega vindo da cidade (já do outro lado da ponte) */
+export const OUT_GATE_ARRIVE = MOAT_OUT[1] - OUT_WALL_R + 3;
+export const LABYRINTH_R = 108;  // fim do Labirinto Prismático
 export const TRENCH_R = 150;     // fim das Trincheiras Rúnicas
 export const FIELDS_R = 246;     // fim dos Campos Cinzentos
 export const OUT_R = 262;        // além disso, morros fecham o mapa
@@ -113,7 +123,7 @@ export interface LabyrinthWall { x: number; z: number; len: number; rot: number 
  */
 export const LABYRINTH_WALLS: LabyrinthWall[] = (() => {
   const out: LabyrinthWall[] = [];
-  const rings = [OUT_WALL_R + 9, OUT_WALL_R + 19, OUT_WALL_R + 29];
+  const rings = [OUT_WALL_R + 17, OUT_WALL_R + 25, OUT_WALL_R + 33];
   rings.forEach((r, ri) => {
     const seg = 7, n = Math.floor((2 * Math.PI * r) / seg);
     for (let i = 0; i < n; i++) {
@@ -126,7 +136,7 @@ export const LABYRINTH_WALLS: LabyrinthWall[] = (() => {
   });
   // paredes radiais curtas, fechando corredores
   for (let k = 0; k < 40; k++) {
-    const a = hash(k, 41) * Math.PI * 2, r = OUT_WALL_R + 14 + (k % 2) * 10, x = Math.cos(a) * r, z = Math.sin(a) * r;
+    const a = hash(k, 41) * Math.PI * 2, r = OUT_WALL_R + 21 + (k % 2) * 8, x = Math.cos(a) * r, z = Math.sin(a) * r;
     if (roadDistance(x, z) < ROAD_W + 3) continue;
     out.push({ x, z, len: 8, rot: -a });
   }
@@ -151,7 +161,30 @@ export function outskirtsHeight(x: number, z: number): number {
   y *= smooth(OUT_WALL_R - 2, OUT_WALL_R + 6, r);            // plano colado na muralha
   y *= smooth(10, 18, Math.hypot(x - OUT_ARRIVAL.x, z - OUT_ARRIVAL.z)); // plano na chegada
   y += smooth(OUT_R - 22, OUT_R + 6, r) * (12 + fbm(x * 0.05, z * 0.05, 7) * 8); // morros
+  y -= MOAT_DEPTH * moatBand(r);                                // fosso da muralha (as pontes passam por cima)
   return y;
+}
+
+/** 0..1: fundo do fosso de fora (barrancos de ~1,5 m). */
+export function moatBand(r: number): number {
+  return smooth(MOAT_OUT[0] - 1.5, MOAT_OUT[0] + 0.5, r) * (1 - smooth(MOAT_OUT[1] - 0.5, MOAT_OUT[1] + 1.5, r));
+}
+
+/** Pisos das pontes sobre os fossos (retângulos ao longo de cada portão): por dentro e por fora. */
+export interface BridgeDeck { gate: GateId; side: 'fora' | 'dentro'; from: number; to: number; hw: number }
+export const BRIDGE_DECKS: BridgeDeck[] = GATE_IDS.flatMap((gate) => [
+  { gate, side: 'fora' as const, from: OUT_WALL_R - 2, to: MOAT_OUT[1] + 1.5, hw: BRIDGE_HW },
+  { gate, side: 'dentro' as const, from: MOAT_IN[0] - 1, to: OUT_WALL_R + 2, hw: BRIDGE_HW },
+]);
+/** Ponto (x, z) a `r` do centro e `t` para o lado no eixo do portão. */
+export function gateAxisPoint(g: GateId, r: number, t = 0): { x: number; z: number } {
+  const G = GATES[g];
+  return { x: G.dx * r - G.dz * t, z: G.dz * r + G.dx * t };
+}
+/** O ponto está em cima de uma ponte? (para a altura do piso) */
+export function onBridge(x: number, z: number, side?: 'fora' | 'dentro'): boolean {
+  const r = Math.hypot(x, z);
+  return BRIDGE_DECKS.some((d) => (!side || d.side === side) && r >= d.from && r <= d.to && Math.abs(GATES[d.gate].dx ? z : x) <= d.hw && (GATES[d.gate].dx ? x * GATES[d.gate].dx : z * GATES[d.gate].dz) > 0);
 }
 
 /** 0..1: quanto o chão é terra/lama (estradas, trincheiras, crateras). */
@@ -161,7 +194,7 @@ export function outskirtsDirt(x: number, z: number): number {
   const trench = Math.max(...TRENCH_RINGS.map((t) => 1 - smooth(3, 6, Math.abs(r - t))));
   let crater = 0;
   for (const c of CRATERS) { const d = Math.hypot(x - c.x, z - c.z); if (d < c.r * 1.3) crater = Math.max(crater, 1 - smooth(c.r * 0.7, c.r * 1.3, d)); }
-  return Math.max(road, trench * 0.9, crater * 0.8);
+  return Math.max(road, trench * 0.9, crater * 0.8, moatBand(r));
 }
 
 /** Ponto de cada portão na muralha vista de fora (onde o Companion entra na cidade). */
@@ -195,8 +228,8 @@ export interface CityPiece {
   wall?: WallPart;
 }
 
-export type WallPart = 'trecho' | 'torre' | 'portao';
-const WALL_PARTS: WallPart[] = ['trecho', 'torre', 'portao'];
+export type WallPart = 'trecho' | 'torre' | 'portao' | 'ponte';
+const WALL_PARTS: WallPart[] = ['trecho', 'torre', 'portao', 'ponte'];
 
 /** Escolhas da muralha por trechos (o Estúdio remonta as peças a partir delas). */
 export interface CityWall {
@@ -211,9 +244,17 @@ export interface CityWall {
   y: number;
   /** vira as peças 180° (se a face de fora do modelo ficou para dentro) */
   flip: boolean;
+  /** ponte sobre os fossos, nos 4 portões, por dentro e por fora (escala sozinha para atravessar o fosso) */
+  bridge: string | null;
+  bridgeScale: number;  // multiplica a escala automática
+  bridgeY: number;      // altura da base do modelo (m)
+  bridgeDeck: number;   // altura do piso por onde o Companion anda (m)
 }
 
-export const DEFAULT_CITY_WALL: CityWall = { segment: null, tower: null, gate: null, segmentBroken: null, towerBroken: null, towerEvery: 3, scale: 1, y: 0, flip: false };
+export const DEFAULT_CITY_WALL: CityWall = {
+  segment: null, tower: null, gate: null, segmentBroken: null, towerBroken: null, towerEvery: 3, scale: 1, y: 0, flip: false,
+  bridge: null, bridgeScale: 1, bridgeY: -1, bridgeDeck: 0.4,
+};
 
 /** Medidas de um modelo como veio no .GLB (caixa em volta dele, escala 1). */
 export interface ModelBox { min: [number, number, number]; max: [number, number, number] }
@@ -224,22 +265,33 @@ export interface ModelBox { min: [number, number, number]; max: [number, number,
  * seu lado mais longo no chão; o centro da caixa vai para a linha da muralha e a base encosta no chão, então o
  * pivô do modelo não importa.
  */
-export function buildWall(w: CityWall, boxes: Partial<Record<'segment' | 'tower' | 'gate', ModelBox>>): CityPiece[] {
+export function buildWall(w: CityWall, boxes: Partial<Record<'segment' | 'tower' | 'gate' | 'bridge', ModelBox>>): CityPiece[] {
   const out: CityPiece[] = [];
   if (!w.segment || !boxes.segment) return out;
-  const R = OUT_WALL_R, s = w.scale;
-  const fit = (b: ModelBox) => {
+  const s = w.scale;
+  const fit = (b: ModelBox, sc = s) => {
     const sx = b.max[0] - b.min[0], sz = b.max[2] - b.min[2];
-    return { len: Math.max(sx, sz) * s, alongZ: sz > sx * 1.2, cx: (b.min[0] + b.max[0]) / 2, cz: (b.min[2] + b.max[2]) / 2, minY: b.min[1] };
+    return { len: Math.max(sx, sz) * sc, raw: Math.max(sx, sz), alongZ: sz > sx * 1.2, cx: (b.min[0] + b.max[0]) / 2, cz: (b.min[2] + b.max[2]) / 2, minY: b.min[1] };
   };
-  const place = (id: string, name: string, url: string, part: WallPart, a: number, b: ModelBox | undefined, show: CityShow): CityPiece => {
-    const f = b ? fit(b) : { alongZ: false, cx: 0, cz: 0, minY: 0 };
-    const rot = Math.PI / 2 - a + (f.alongZ ? Math.PI / 2 : 0) + (w.flip ? Math.PI : 0);
+  /** `radial`: o comprimento do modelo vai na direção do centro (pontes) em vez de ao longo da muralha */
+  const place = (id: string, name: string, url: string, part: WallPart, a: number, b: ModelBox | undefined, show: CityShow, o: { R?: number; sc?: number; y?: number; radial?: boolean } = {}): CityPiece => {
+    const sc = o.sc ?? s, R = o.R ?? OUT_WALL_R;
+    const f = b ? fit(b, sc) : { alongZ: false, cx: 0, cz: 0, minY: 0 };
+    const rot = Math.PI / 2 - a + (f.alongZ ? Math.PI / 2 : 0) + (o.radial ? Math.PI / 2 : 0) + (w.flip && !o.radial ? Math.PI : 0);
     const c = Math.cos(rot), sn = Math.sin(rot);
-    const ox = (f.cx * c + f.cz * sn) * s, oz = (-f.cx * sn + f.cz * c) * s;
+    const ox = (f.cx * c + f.cz * sn) * sc, oz = (-f.cx * sn + f.cz * c) * sc;
     const r3 = (v: number) => Math.round(v * 1000) / 1000;
-    return { id, name, url, x: r3(Math.cos(a) * R - ox), y: r3(w.y - f.minY * s), z: r3(Math.sin(a) * R - oz), rot: r3(rot), scale: s, show, solid: 0, wall: part };
+    return { id, name, url, x: r3(Math.cos(a) * R - ox), y: r3((o.y ?? w.y) - f.minY * sc), z: r3(Math.sin(a) * R - oz), rot: r3(rot), scale: r3(sc), show, solid: 0, wall: part };
   };
+  const R = OUT_WALL_R;
+  // pontes: cada uma atravessa o seu fosso de ponta a ponta (a escala sai do comprimento do modelo)
+  if (w.bridge && boxes.bridge) {
+    const raw = fit(boxes.bridge, 1).raw || 1;
+    for (const d of BRIDGE_DECKS) {
+      const sc = ((d.to - d.from) / raw) * w.bridgeScale, a = (Math.atan2(GATES[d.gate].dz, GATES[d.gate].dx) + Math.PI * 2) % (Math.PI * 2);
+      out.push(place(`muro-ponte-${d.side}-${d.gate}`, `Ponte · ${GATES[d.gate].label} (${d.side})`, w.bridge, 'ponte', a, boxes.bridge, 'ambos', { R: (d.from + d.to) / 2, sc, y: w.bridgeY, radial: true }));
+    }
+  }
   const seg = fit(boxes.segment);
   const half = w.gate && boxes.gate ? fit(boxes.gate).len / 2 : GATE_GAP;
   const gates = GATE_IDS.map((g) => ({ g, a: (Math.atan2(GATES[g].dz, GATES[g].dx) + Math.PI * 2) % (Math.PI * 2) })).sort((p, q) => p.a - q.a);
@@ -298,7 +350,8 @@ export interface CityLayout {
   markers: CityMarker[];
   /** a cidade inteira vista de fora (nos arredores): um .GLB grande no lugar da muralha provisória */
   exterior: { url: string | null; scale: number; rot: number; y: number };
-  ground: { color: string; plaza: string };
+  /** `water`: cor da água dos fossos (para combinar com a água dos modelos da muralha) */
+  ground: { color: string; plaza: string; water: string };
   wall: CityWall;
 }
 
@@ -313,7 +366,7 @@ export const DEFAULT_CITY_LAYOUT: CityLayout = {
     ...GATE_IDS.map(gateMarker),
   ],
   exterior: { url: null, scale: 1, rot: 0, y: 0 },
-  ground: { color: '#8f8a7e', plaza: '#c9c1ae' },
+  ground: { color: '#8f8a7e', plaza: '#c9c1ae', water: '#3b87ad' },
   wall: DEFAULT_CITY_WALL,
 };
 
@@ -369,11 +422,12 @@ export function sanitizeCityLayout(input: unknown): CityLayout {
     name: str(d.name, 60, 'Áster') || 'Áster',
     pieces, markers,
     exterior: { url: safeAssetUrl(e.url), scale: num(e.scale, 0.01, 500, 1), rot: num(e.rot, -Math.PI * 4, Math.PI * 4, 0), y: num(e.y, -50, 100, 0) },
-    ground: { color: color(gr.color, DEFAULT_CITY_LAYOUT.ground.color), plaza: color(gr.plaza, DEFAULT_CITY_LAYOUT.ground.plaza) },
+    ground: { color: color(gr.color, DEFAULT_CITY_LAYOUT.ground.color), plaza: color(gr.plaza, DEFAULT_CITY_LAYOUT.ground.plaza), water: color(gr.water, DEFAULT_CITY_LAYOUT.ground.water) },
     wall: {
       segment: safeAssetUrl(w.segment), tower: safeAssetUrl(w.tower), gate: safeAssetUrl(w.gate),
       segmentBroken: safeAssetUrl(w.segmentBroken), towerBroken: safeAssetUrl(w.towerBroken),
       towerEvery: Math.round(num(w.towerEvery, 0, 20, DEFAULT_CITY_WALL.towerEvery)), scale: num(w.scale, 0.01, 200, 1), y: num(w.y, -50, 100, 0), flip: w.flip === true,
+      bridge: safeAssetUrl(w.bridge), bridgeScale: num(w.bridgeScale, 0.1, 10, 1), bridgeY: num(w.bridgeY, -10, 10, DEFAULT_CITY_WALL.bridgeY), bridgeDeck: num(w.bridgeDeck, -2, 5, DEFAULT_CITY_WALL.bridgeDeck),
     },
   };
 }

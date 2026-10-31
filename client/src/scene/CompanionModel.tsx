@@ -627,7 +627,7 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
       }
     }
     // sobe em plataformas baixas (o altar) com suavidade
-    s.lift += (platformHeight(r.position.x, r.position.z) - s.lift) * Math.min(1, dt * 10);
+    s.lift += (platformHeight(r.position.x, r.position.z, world.heightAt(r.position.x, r.position.z)) - s.lift) * Math.min(1, dt * 10);
     let hop = 0;
     if (s.jumpT >= 0) {
       s.jumpT += dt; const k2 = s.jumpT / 0.62;

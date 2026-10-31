@@ -1,6 +1,6 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { canCompleteEquipment, masculinize, ELEMENTS, derivePalette, refugeFeatures, animKind, sanitizeBiome, sanitizeCreature, makeCompanionWorld, characterSheet, sanitizeItem, DEFAULT_ITEMS, isWearable, validateEquipped, equipmentBonus, equippedItems, ITEM_TYPES, sanitizeWeather, weatherAt, WEATHERS, DEFAULT_WEATHER, DEFAULT_BIOME_WEATHER, type ItemDef, type WeatherConfig, WORLD_SEED, REFUGE_BIOME, WORLD_FALLBACK_BIOMES, DEFAULT_CREATURES, type BiomeConfig, type CreatureDef, type WorldSite,
-  ASTER_GATE, DEFAULT_CITY_LAYOUT, OUT_ARRIVAL, cityArrival, outskirtsGatePoint, sanitizeCityLayout, type CityLayout, type CityState } from '@rules';
+  ASTER_GATE, DEFAULT_CITY_LAYOUT, OUT_ARRIVAL, OUT_GATE_ARRIVE, cityArrival, outskirtsGatePoint, sanitizeCityLayout, type CityLayout, type CityState } from '@rules';
 import { Refuge } from './scene/Refuge';
 import { WorldScene } from './scene/WorldScene';
 import { AsterScene, type AsterTravel } from './scene/AsterScene';
@@ -272,7 +272,7 @@ export function App() {
     setTravelKey((k) => k + 1);
     if (t.to === 'mundo') { setWorldStart([ASTER_GATE.x + 6, ASTER_GATE.z + 6]); setPlace('world'); toast('De volta ao Companion World.', 'soft'); }
     else if (t.to === 'cidade') { setArrive(cityArrival(cityLayout, t.gate)); setPlace('cidade'); toast('Você entrou em Áster.', 'gold'); }
-    else { setArrive(outskirtsGatePoint(t.gate, 9)); setPlace('arredores'); }
+    else { setArrive(outskirtsGatePoint(t.gate, OUT_GATE_ARRIVE)); setPlace('arredores'); }
   };
 
   // teleporte do modo GOD: no mesmo mapa só move o Companion; em outro, troca de mapa já no ponto

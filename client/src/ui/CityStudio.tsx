@@ -57,10 +57,11 @@ function Measure({ url, onBox }: { url: string; onBox: (b: THREE.Box3) => void }
   return null;
 }
 
-const WALL_SLOTS: { key: keyof Pick<CityWall, 'segment' | 'tower' | 'gate' | 'segmentBroken' | 'towerBroken'>; label: string }[] = [
+const WALL_SLOTS: { key: keyof Pick<CityWall, 'segment' | 'tower' | 'gate' | 'bridge' | 'segmentBroken' | 'towerBroken'>; label: string }[] = [
   { key: 'segment', label: 'Trecho reto *' },
   { key: 'tower', label: 'Torre' },
   { key: 'gate', label: 'Portão' },
+  { key: 'bridge', label: 'Ponte (sobre o fosso, dentro e fora)' },
   { key: 'segmentBroken', label: 'Trecho quebrado (destruída)' },
   { key: 'towerBroken', label: 'Torre caída (destruída)' },
 ];
@@ -281,13 +282,13 @@ export function CityStudio() {
   const library = [...lib, ...used].filter((x) => !filter || x.name.toLowerCase().includes(filter.toLowerCase()));
   const dead = state === 'destruida';
   const wallCount = layout.pieces.filter((p) => p.wall).length;
-  const wallUrls = [...new Set([layout.wall.segment, layout.wall.tower, layout.wall.gate].filter((u): u is string => !!u))];
+  const wallUrls = [...new Set([layout.wall.segment, layout.wall.tower, layout.wall.gate, layout.wall.bridge].filter((u): u is string => !!u))];
   const onBox = (url: string, b: THREE.Box3) => { if (!boxes.current.has(url)) { boxes.current.set(url, b); bump((x) => x + 1); } };
   /** peças da muralha para estas escolhas, ou o motivo de ainda não dar */
   const wallPieces = (w: CityWall): CityPiece[] | string => {
     if (!w.segment) return 'Escolha pelo menos o trecho reto.';
-    const bx: Partial<Record<'segment' | 'tower' | 'gate', ModelBox>> = {};
-    for (const k of ['segment', 'tower', 'gate'] as const) {
+    const bx: Partial<Record<'segment' | 'tower' | 'gate' | 'bridge', ModelBox>> = {};
+    for (const k of ['segment', 'tower', 'gate', 'bridge'] as const) {
       const u = w[k]; if (!u) continue;
       const b = boxes.current.get(u); if (!b) return 'Os modelos ainda estão carregando — tente de novo em instantes.';
       bx[k] = { min: [b.min.x, b.min.y, b.min.z], max: [b.max.x, b.max.y, b.max.z] };
@@ -305,6 +306,7 @@ export function CityStudio() {
   const patchWall = (p: Partial<CityWall>) => {
     const w = { ...layout.wall, ...p };
     const parts = wallCount ? wallPieces(w) : null;
+    if (typeof parts === 'string') setMsg({ text: 'Modelo novo carregando: clique em "Remontar muralha" em instantes.' });
     commit((l) => ({ ...l, wall: w, ...(Array.isArray(parts) ? { pieces: [...l.pieces.filter((x) => !x.wall), ...parts] } : {}) }));
   };
   const autoSolid = () => {
@@ -361,6 +363,13 @@ export function CityStudio() {
             <label>Altura (m)<input type="number" step={0.25} value={layout.wall.y} onChange={(e) => patchWall({ y: Number(e.target.value) || 0 })} /></label>
           </div>
           <label className="cs-check"><input type="checkbox" checked={layout.wall.flip} onChange={(e) => patchWall({ flip: e.target.checked })} /> Virar 180° (a face de fora ficou para dentro)</label>
+          <label className="swatch"><input type="color" value={layout.ground.water} onChange={(e) => commit((l) => ({ ...l, ground: { ...l.ground, water: e.target.value } }))} /> Cor da água dos fossos</label>
+          <small className="hint">Ponte: estica sozinha para atravessar cada fosso. Ajuste a altura do modelo e a do piso até os pés do Companion encostarem nela (sem modelo, aparece uma ponte de pedra provisória).</small>
+          <div className="cs-grid3">
+            <label title="Multiplica a escala automática da ponte">Escala ponte<input type="number" min={0.1} max={10} step={0.05} value={layout.wall.bridgeScale} onChange={(e) => patchWall({ bridgeScale: Math.max(0.1, Number(e.target.value) || 1) })} /></label>
+            <label title="Altura da base do modelo da ponte">Altura ponte<input type="number" step={0.1} value={layout.wall.bridgeY} onChange={(e) => patchWall({ bridgeY: Number(e.target.value) || 0 })} /></label>
+            <label title="Altura do piso por onde o Companion anda">Piso (m)<input type="number" step={0.05} value={layout.wall.bridgeDeck} onChange={(e) => patchWall({ bridgeDeck: Number(e.target.value) || 0 })} /></label>
+          </div>
           <div className="cs-row">
             <button className="primary" disabled={!layout.wall.segment} onClick={buildWallNow}>{wallCount ? 'Remontar muralha' : 'Montar muralha'}</button>
             {!!wallCount && <button className="ghost danger" onClick={() => commit((l) => ({ ...l, pieces: l.pieces.filter((p) => !p.wall) }))}>Tirar</button>}
