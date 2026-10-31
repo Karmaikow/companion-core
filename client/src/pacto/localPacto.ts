@@ -4,10 +4,12 @@
  */
 import {
   SPECIES, OFFICES, canCompleteEquipment, transformationById, checkTransformation, blueprintById, forgePreview, DEFAULT_PACTO, coreCost,
-  recycleReturn, REPAIR_KIT_AMOUNT, superiorBlockFor, lineageOf, officesOf, LINEAGE_LIMITS, ELEMENTS, type ForgePlan, type SpeciesKey, type Element, type ToolKey, type Conduct, type Temper,
+  recycleReturn, REPAIR_KIT_AMOUNT, superiorBlockFor, lineageOf, officesOf, LINEAGE_LIMITS, ELEMENTS,
+  goodById, buyCheck, shopKey, valeSellPrice, bagSellPrice, SHOP_KINDS, type ForgePlan, type SpeciesKey, type Element, type ToolKey, type Conduct, type Temper,
 } from '@rules';
 import { useGame } from '../store';
 import { localBag, localHooks } from '../ecos/localEcos';
+import { localInventory } from '../backend/local';
 import type { EquipmentView, JobView, PactoReply, PactoView } from './types';
 
 const KEY = 'companion-core:pacto-local:v1';
@@ -31,7 +33,9 @@ const forms = (): SpeciesKey[] => (load().testClass ? [load().testClass!] : line
 localHooks.tools = () => [...new Set(load().equipment.filter((e) => e.kind === 'ferramenta' && e.durability > 0 && e.tool).map((e) => e.tool as ToolKey))];
 localHooks.wear = (tool) => { const s = load(); const e = s.equipment.filter((x) => x.tool === tool && x.durability > 0).sort((a, b) => a.durability - b.durability)[0]; if (e) { e.durability -= 1; save(); } };
 localHooks.superior = (node) => superiorBlockFor(node, forms());
-localHooks.reward = (key, kind) => { const s = load(); if (s.rewards.includes(key)) return; s.rewards.push(key); s.lumes += kind === 'descoberta' ? DEFAULT_PACTO.discoveryLumes : DEFAULT_PACTO.projectStageLumes; save(); };
+/** Lumes que caem dos monstros no modo local. */
+export const addLocalLumes = (n: number) => { const s = load(); s.lumes += n; save(); };
+localHooks.reward =(key, kind) => { const s = load(); if (s.rewards.includes(key)) return; s.rewards.push(key); s.lumes += kind === 'descoberta' ? DEFAULT_PACTO.discoveryLumes : DEFAULT_PACTO.projectStageLumes; save(); };
 
 function view(s: Save): PactoView {
   const m = me();
@@ -133,6 +137,34 @@ export async function localPacto(action: string, b: Record<string, unknown> = {}
         localBag.apply([{ key: cost.key, qty: 1 }], []);
         Object.assign(e, { plan, stats: pv.stats, weight: pv.weight, mark: pv.mark, history: [...(e.history ?? []), { at: new Date().toISOString(), what: `reforjado por ${m.name} (${conduct}, ${temper})` }] });
         save(); return { reforged: true, pacto: view(s) };
+      }
+      // lojas de Áster (mesmas regras do servidor; a bolsa é a do modo local)
+      case 'pacto.shop.grant': { const n = Math.max(1, Math.min(100000, Math.round(Number(b.amount) || 0))); s.lumes += n; save(); return { shop: { ok: true, delta: n }, pacto: view(s) }; }
+      case 'pacto.shop.buy': {
+        const g = goodById(String(b.good ?? '')), qty = Math.round(Number(b.qty) || 1);
+        const fail = buyCheck(g, qty, s.lumes); if (fail) throw new Fail(fail);
+        if (g!.kind === 'ferramenta') {
+          const dur = blueprintById(g!.blueprint ?? '')?.durability ?? 50;
+          s.equipment.unshift({ id: uuid(), blueprint: g!.blueprint!, kind: 'ferramenta', tool: g!.tool!, durability: dur, maxDurability: dur, createdAt: new Date().toISOString(), name: g!.name, rarity: 'comum', history: [{ at: new Date().toISOString(), what: `comprado na ${SHOP_KINDS[g!.shop].label}` }] });
+        } else localInventory.add(shopKey(g!.id), qty, { label: g!.name, description: g!.description, category: 'diversos', shop: g!.id });
+        s.lumes -= g!.price * qty; save();
+        return { shop: { ok: true, delta: -g!.price * qty }, pacto: view(s) };
+      }
+      case 'pacto.shop.sell': {
+        const key = String(b.key ?? ''), qty = Math.round(Number(b.qty) || 1);
+        if (!Number.isInteger(qty) || qty < 1) throw new Fail('Quantidade inválida.');
+        let price: number | null;
+        if (b.from === 'vale') {
+          price = valeSellPrice(key); if (price == null) throw new Fail('A loja não compra isso.');
+          if (localBag.apply([{ key, qty }], []) !== 'ok') throw new Fail('Esse material não está mais na mochila.');
+        } else {
+          const row = localInventory.rows().find((r) => r.item_key === key);
+          if (!row || row.qty < qty) throw new Fail('Esse item não está na bolsa.');
+          price = bagSellPrice(key, row.meta, useGame.getState().items); if (price == null) throw new Fail('A loja não compra isso.');
+          localInventory.add(key, -qty);
+        }
+        s.lumes += price * qty; save();
+        return { shop: { ok: true, delta: price * qty }, pacto: view(s) };
       }
       case 'pacto.order.create': case 'pacto.order.accept': case 'pacto.order.deliver': case 'pacto.order.cancel': case 'pacto.board.post':
         throw new Fail('Encomendas e o quadro do Pacto são entre pessoas: precisam do modo online.');

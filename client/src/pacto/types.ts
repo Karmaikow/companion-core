@@ -29,6 +29,8 @@ export interface PactoView {
 }
 export interface PactoReply {
   pacto?: PactoView;
+  /** lojas de Áster: Lumes que entraram (+) ou saíram (−) */
+  shop?: { ok: boolean; delta: number; repeat?: boolean };
   started?: { request: string; seconds: number; fee?: number };
   job?: { ok: boolean; wait?: number; kind?: string; label?: string; repeat?: boolean; equipment?: string | null };
   delivered?: boolean;

@@ -17,6 +17,7 @@ import {
   CITY_MARKERS, CITY_R, CITY_SHOW, DEFAULT_CITY_LAYOUT, GATES, GATE_IDS, OUT_WALL_R, buildWall, sanitizeCityLayout, visibleIn,
   type BiomePalette, type CityLayout, type CityMarker, type CityMarkerKind, type CityPiece, type CityShow, type CityState, type CityWall, type GateId, type ModelBox,
 } from '@rules';
+import { SHOP_KINDS, SHOP_KIND_IDS, type ShopKind } from '@rules';
 import { SCHOOL_IDS, SCHOOL_DEFINITIONS } from '../../../shared/rules/combat/schools';
 import { supabase } from '../backend/online';
 import { AssetBoundary, Sky } from '../scene/Biome';
@@ -176,7 +177,7 @@ export function CityStudio() {
     commit((l) => ({ ...l, pieces: [...l.pieces, p] })); setSel({ kind: 'piece', id: p.id }); setView('cidade');
   };
   const addMarker = (kind: CityMarkerKind) => {
-    const m: CityMarker = { id: newId(kind), kind, name: CITY_MARKERS[kind].label, ...at(), rot: 0, show: 'ambos', ...(kind === 'portao' ? { gate: 'sul' as GateId } : {}), ...(kind === 'escola' ? { school: SCHOOL_IDS[0] } : {}) };
+    const m: CityMarker = { id: newId(kind), kind, name: CITY_MARKERS[kind].label, ...at(), rot: 0, show: 'ambos', ...(kind === 'portao' ? { gate: 'sul' as GateId } : {}), ...(kind === 'escola' ? { school: SCHOOL_IDS[0] } : {}), ...(kind === 'loja' ? { shop: 'pocoes' as ShopKind, name: SHOP_KINDS.pocoes.label } : {}) };
     commit((l) => ({ ...l, markers: [...l.markers, m] })); setSel({ kind: 'marker', id: m.id }); setView('cidade');
   };
   const remove = () => {
@@ -506,7 +507,11 @@ export function CityStudio() {
             {marker.kind === 'escola' && (
               <label>Escola<select value={marker.school ?? SCHOOL_IDS[0]} onChange={(e) => patchMarker(marker.id, { school: e.target.value })}>{SCHOOL_IDS.map((s) => <option key={s} value={s}>{SCHOOL_DEFINITIONS[s].label}</option>)}</select></label>
             )}
+            {marker.kind === 'loja' && (
+              <label>Vende<select value={marker.shop ?? 'pocoes'} onChange={(e) => patchMarker(marker.id, { shop: e.target.value as ShopKind, name: marker.name === CITY_MARKERS.loja.label || SHOP_KIND_IDS.some((k) => SHOP_KINDS[k].label === marker.name) ? SHOP_KINDS[e.target.value as ShopKind].label : marker.name })}>{SHOP_KIND_IDS.map((k) => <option key={k} value={k}>{SHOP_KINDS[k].icon} {SHOP_KINDS[k].label}</option>)}</select></label>
+            )}
             <label>Aparece<select value={marker.show} onChange={(e) => patchMarker(marker.id, { show: e.target.value as CityShow })}>{(Object.keys(CITY_SHOW) as CityShow[]).map((k) => <option key={k} value={k}>{CITY_SHOW[k]}</option>)}</select></label>
+            {marker.kind === 'loja' && <small className="hint">Ponha o marcador na porta do prédio. Clicar no prédio (até 14 m do marcador) ou na placa faz o Companion andar até aqui e abre o mercador.</small>}
             {marker.kind === 'portao' && <small className="hint">Pisar no portão leva ao portão de mesmo nome nos Arredores; quem entra por ele aparece aqui, um pouco para dentro.</small>}
             <div className="cs-row">
               {marker.kind !== 'cristal' && <button className="ghost" onClick={duplicate}>Duplicar</button>}

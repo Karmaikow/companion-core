@@ -294,6 +294,10 @@ export function SummonerStudio() {
 
             <fieldset>
               <legend>O que solta ao ser acalmada</legend>
+              <div className="list-row">
+                <label title="Lumes que caem a cada derrota, sorteados no servidor. Sobe 10% por nível acima do 1. 0–0 = nenhum.">✧ Lumes <input type="number" min={0} max={9999} value={draft.lumes[0]} onChange={(e) => edit({ lumes: [Number(e.target.value), draft.lumes[1]] })} />–<input type="number" min={0} max={9999} value={draft.lumes[1]} onChange={(e) => edit({ lumes: [draft.lumes[0], Number(e.target.value)] })} /></label>
+                <small className="hint">+10% por nível acima do 1</small>
+              </div>
               {draft.drops.map((d, i) => (
                 <div key={i} className="list-row">
                   <input className="grow" list="drop-items" value={d.item} onChange={(e) => edit({ drops: draft.drops.map((x, j) => (j === i ? { ...x, item: e.target.value } : x)) })} placeholder="Item (ex.: Pelo gelado)" maxLength={40} aria-label="Item" />

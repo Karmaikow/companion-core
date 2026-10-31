@@ -806,6 +806,21 @@ Prompt com o mundo de fantasia, regra explícita de pronomes ("mim" = a pessoa; 
   - Cena: `scene/AsterScene.tsx` (sem luzes pontuais; placas numa camada própria). Testes no jogo: `?aster`,
     `?cidade`, `?destruida`, `?estrada` (Companion World ao lado do portal). Faltam: monstros e cerco (fases 3 e 5),
     os painéis das lojas/escolas (fase 4).
+- **v1.43 — Lojas de Áster (etapa 1).** Regras em `shared/rules/shop.ts`; a moeda é a mesma do Pacto (Lumes,
+  `pacto_profile` + livro-razão `pacto_ledger`).
+  - **Marcador "loja"** com o tipo (`shop`: Poções, Equipamentos, Rotação), posto na porta do prédio. Clicar no
+    prédio (peça a até 14 m do marcador) ou na placa leva o Companion até a porta; ao chegar abre o modal do
+    mercador (`ui/ShopPanel.tsx`, Comprar/Vender). Outro clique de andar cancela.
+  - **Estoque fixo:** poções de HP/SP, comidas (HP, SP, stamina; efeito usado na etapa 2) e Machado, Picareta e
+    Foice de Colheita simples (ferramenta `faca`), que viram peças do Pacto com durabilidade. A Rotação (estoque
+    global diário, limitado e com requisitos) é a etapa 3.
+  - **Venda:** materiais da mochila do Vale (raridade × qualidade), drops dos monstros (raridade) e consumíveis da
+    loja (40%); descobertas, raros, itens de quest e armas/equipamentos não se vendem.
+  - **Servidor:** `pacto.shop.buy`/`pacto.shop.sell` em `supabase/functions/refuge/shop.ts`, gravando numa transação
+    só (`shop_trade`, migração `20261031120000_aster_shops.sql`, idempotente pelo request_id). `pacto.shop.grant`:
+    Lumes de teste (só ADM, Modo GOD → Poderes). Offline: simulado em `pacto/localPacto.ts`.
+  - **Lumes entram** por monstros (intervalo `lumes` no Invocador, +10% por nível acima do 1; padrão 1–3), por
+    quest concluída (`QUEST_LUMES` = 40) e pela venda; além de descobertas/obras/encomendas do Pacto.
 - **v1.41 — Efeitos do catálogo sem travar a tela.** Medido numa GPU integrada (AMD, Direct3D 11): a primeira vez
   de cada efeito do `threejs-vfx` travava 2–6 s, porque compilar os shaders grandes dele é lento no Windows e o motor
   descartava o efeito (e os shaders) ao terminar. `scene/vfx/catalogueRuntime.js` agora: guarda os efeitos em pool

@@ -29,6 +29,7 @@ export * from './barks.ts';
 export * from './ecos.ts';
 export * from './ecosPlay.ts';
 export * from './pacto.ts';
+export * from './shop.ts';
 export * from './constellation.ts';
 export * from './social.ts';
 export * from './creatureArt.ts';

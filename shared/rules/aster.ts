@@ -11,6 +11,7 @@
  *
  * Funções puras e determinísticas: o cliente desenha, os testes conferem e o servidor do cerco (fase 5) usa o mesmo.
  */
+import { SHOP_KIND_IDS, type ShopKind } from './shop.ts';
 
 // ---------------------------------------------------------------------------
 // Portões
@@ -345,6 +346,7 @@ export interface CityMarker {
   show: CityShow;
   gate?: GateId;    // portão: qual saída (leva ao portão de mesmo nome nos arredores)
   school?: string;  // escola: qual (arcane, blood, forge, ink, chrono)
+  shop?: ShopKind;  // loja: o que vende (o marcador fica na porta; o prédio perto dele abre a loja no clique)
 }
 
 export interface CityLayout {
@@ -414,6 +416,7 @@ export function sanitizeCityLayout(input: unknown): CityLayout {
     };
     if (m.kind === 'portao') out.gate = GATE_IDS.includes(m.gate as GateId) ? m.gate : 'sul';
     if (m.kind === 'escola' && typeof m.school === 'string') out.school = m.school.slice(0, 20);
+    if (m.kind === 'loja') out.shop = SHOP_KIND_IDS.includes(m.shop as ShopKind) ? m.shop : 'pocoes';
     markers.push(out);
   }
   // toda cidade precisa das quatro saídas
