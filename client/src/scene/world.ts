@@ -167,10 +167,15 @@ export function resolveCollisions(p: { x: number; z: number }, body = BODY_R): b
   return hit;
 }
 
-/** Altura extra de plataformas em que dá para subir (o altar). */
-export function platformHeight(x: number, z: number): number {
+/** Pisos em altura fixa (as pontes de Áster): a cena liga `at`, que devolve a altura do piso em (x, z) ou null. */
+export const decks: { at: null | ((x: number, z: number) => number | null) } = { at: null };
+
+/** Altura extra de plataformas em que dá para subir (o altar, as pontes). `ground`: altura do chão ali. */
+export function platformHeight(x: number, z: number, ground = 0): number {
   let h = 0;
   for (const pl of platforms) if (Math.hypot(x - pl.x, z - pl.z) < pl.r) h = Math.max(h, pl.top);
+  const d = decks.at?.(x, z);
+  if (d != null) h = Math.max(h, d - ground);
   return h;
 }
 

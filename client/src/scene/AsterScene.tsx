@@ -13,8 +13,9 @@ import { EffectComposer, Bloom, Vignette, ToneMapping, SMAA } from '@react-three
 import { ToneMappingMode } from 'postprocessing';
 import * as THREE from 'three';
 import {
-  gameTime, CITY_MARKERS, CITY_R, CRATERS, DEAD_CRYSTALS, GATES, GATE_IDS, GATE_GAP, LABYRINTH_R, LABYRINTH_WALLS, OUT_ARRIVAL, OUT_R, OUT_WALL_R,
-  ROAD_W, TRENCH_R, TRENCH_RINGS, outskirtsDirt, outskirtsGatePoint, outskirtsHeight, outskirtsPlaceName, roadDistance, visibleIn,
+  gameTime, BRIDGE_DECKS, BRIDGE_HW, CITY_MARKERS, CITY_R, CRATERS, DEAD_CRYSTALS, GATES, GATE_IDS, GATE_GAP, LABYRINTH_R, LABYRINTH_WALLS, MOAT_DEPTH, MOAT_IN, MOAT_OUT,
+  OUT_ARRIVAL, OUT_GATE_ARRIVE, OUT_R, OUT_WALL_R, ROAD_W, TRENCH_R, TRENCH_RINGS, WATER_Y, gateAxisPoint, onBridge, outskirtsDirt, outskirtsGatePoint, outskirtsHeight,
+  outskirtsPlaceName, roadDistance, visibleIn,
   type BiomePalette, type CityLayout, type CityMarker, type CityPiece, type CityState, type GateId, type WeatherKind,
 } from '@rules';
 import type { AppendageSpec } from './Appendages';
@@ -24,7 +25,7 @@ import { CombatFx } from './Combat';
 import { RemoteCompanions } from './RemoteCompanions';
 import { WeatherFx } from './Weather';
 import { AssetBoundary, CameraRig, ClickMarker, Sky, WindClock } from './Biome';
-import { colliders, companionFocus, groundDown, groundMove, smooth, type Circle, type WorldShape } from './world';
+import { colliders, companionFocus, decks, groundDown, groundMove, smooth, type Circle, type WorldShape } from './world';
 import { runeTexture } from './textures';
 import { settings } from '../settings';
 
@@ -308,9 +309,12 @@ function CityFromOutside({ layout, state, high, labels = true }: { layout: CityL
     return out;
   }, []);
   useColliders('aster-wall', ring);
+  // fosso de fora: só se passa pelas pontes
+  useColliders('aster-moat', useMemo(() => moatColliders(MOAT_OUT[1] + 0.8, 'fora', Infinity), []));
+  useBridgeDecks(layout.wall.bridgeDeck, 'fora');
   // a cidade montada no Estúdio aparece de fora também: muralha por trechos e, se já houver, os prédios
   const pieces = useMemo(() => layout.pieces.filter((p) => visibleIn(p.show, state)), [layout, state]);
-  const hasWall = pieces.some((p) => p.wall), hasBuildings = pieces.some((p) => !p.wall);
+  const hasWall = pieces.some((p) => p.wall), hasBuildings = pieces.some((p) => !p.wall), hasBridge = pieces.some((p) => p.wall === 'ponte');
   const crystals = useMemo(() => layout.markers.filter((m) => m.kind === 'cristal' && visibleIn(m.show, state)), [layout, state]);
   return (
     <group>
@@ -321,9 +325,68 @@ function CityFromOutside({ layout, state, high, labels = true }: { layout: CityL
           {hasBuildings ? crystals.map((m) => <MarkerView key={m.id} m={m} dead={dead} labels={false} />) : <ApexCrystal y={46} size={1.4} dead={dead} />}
           {pieces.map((p) => <AssetBoundary key={p.id}><Suspense fallback={null}><Piece p={p} /></Suspense></AssetBoundary>)}
         </>}
+      <WaterRing r0={MOAT_OUT[0] - 1.5} r1={MOAT_OUT[1] + 1.5} color={layout.ground.water} />
+      {!hasBridge && <PlaceholderBridges deck={layout.wall.bridgeDeck} side="fora" />}
       {GATE_IDS.map((g) => { const p = outskirtsGatePoint(g, 1); return <RunePortal key={g} x={p.x} z={p.z} color="#9fd8ff" arch label={labels ? GATES[g].label : undefined} rot={-gateAngle(g) + Math.PI / 2} />; })}
     </group>
   );
+}
+
+// ---------------------------------------------------------------------------
+// Fossos e pontes
+// ---------------------------------------------------------------------------
+
+const axisDist = (x: number, z: number) => Math.min(Math.abs(x), Math.abs(z));
+
+/** Água de um fosso (anel), com um brilho que corre devagar. */
+function WaterRing({ r0, r1, color, walkable }: { r0: number; r1: number; color: string; walkable?: boolean }) {
+  const mat = useMemo(() => new THREE.MeshLambertMaterial({ transparent: true, opacity: 0.9 }), []);
+  const glow = useMemo(() => new THREE.Color(color).multiplyScalar(0.3), [color]);
+  useEffect(() => { mat.color.set(color); }, [mat, color]);
+  useFrame(() => { mat.emissive.copy(glow).multiplyScalar(1 + Math.sin(performance.now() / 1400) * 0.12); });
+  return (
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, WATER_Y, 0]} material={mat} {...(walkable ? walkHandlers() : {})}>
+      <ringGeometry args={[r0, r1, 160, 1]} />
+    </mesh>
+  );
+}
+
+/** Ponte provisória de pedra (até o ADM escolher o modelo da ponte no Estúdio). */
+function PlaceholderBridges({ deck, side }: { deck: number; side: 'fora' | 'dentro' }) {
+  const mats = useMemo(() => {
+    const floor: THREE.Matrix4[] = [], rail: THREE.Matrix4[] = [];
+    for (const d of BRIDGE_DECKS.filter((b) => b.side === side)) {
+      const len = d.to - d.from, mid = (d.from + d.to) / 2, rot = -Math.atan2(GATES[d.gate].dz, GATES[d.gate].dx);
+      const c = gateAxisPoint(d.gate, mid);
+      floor.push(mat4(c.x, deck - 0.35, c.z, rot, len, 0.7, d.hw * 2));
+      for (const t of [-1, 1]) { const p = gateAxisPoint(d.gate, mid, t * (d.hw - 0.2)); rail.push(mat4(p.x, deck + 0.35, p.z, rot, len, 0.7, 0.4)); }
+    }
+    return { floor, rail };
+  }, [deck, side]);
+  const geo = useMemo(() => new THREE.BoxGeometry(1, 1, 1), []);
+  const mat = useMemo(() => new THREE.MeshLambertMaterial({ color: '#cbbf9f' }), []);
+  return <><Instanced geometry={geo} material={mat} matrices={mats.floor} shadows /><Instanced geometry={geo} material={mat} matrices={mats.rail} shadows /></>;
+}
+
+/** Bordas da água (não dá para cair no fosso) e os parapeitos de cada ponte. */
+function moatColliders(edgeR: number, side: 'fora' | 'dentro', reach: number): Circle[] {
+  const out: Circle[] = [];
+  for (let a = 0; a < Math.PI * 2; a += 1.4 / edgeR) {
+    const x = Math.cos(a) * edgeR, z = Math.sin(a) * edgeR;
+    if (axisDist(x, z) < BRIDGE_HW + 0.6) continue;
+    out.push({ x, z, r: 0.9 });
+  }
+  for (const d of BRIDGE_DECKS.filter((b) => b.side === side))
+    for (let r = d.from; r <= Math.min(d.to, reach); r += 0.9) for (const t of [-1, 1]) { const p = gateAxisPoint(d.gate, r, t * (d.hw + 0.45)); out.push({ ...p, r: 0.45 }); }
+  return out;
+}
+
+/** Liga o piso das pontes (altura fixa) enquanto a cena existe. */
+function useBridgeDecks(deck: number, side: 'fora' | 'dentro') {
+  useEffect(() => {
+    decks.at = (x, z) => (onBridge(x, z, side) ? deck : null);
+    return () => { decks.at = null; };
+  }, [deck, side]);
 }
 
 // ---------------------------------------------------------------------------
@@ -391,22 +454,34 @@ function TrenchesAndFields({ dead }: { dead: boolean }) {
 // Cidade por dentro
 // ---------------------------------------------------------------------------
 
+/** Chão da cidade: o miolo até o fosso de dentro e o anel sob a muralha; no meio, o fosso com água e barrancos. */
 export function CityGround({ layout, walkable = true }: { layout: CityLayout; walkable?: boolean }) {
-  const geo = useMemo(() => {
-    const g = new THREE.CircleGeometry(CITY_R + 45, 96, 0, Math.PI * 2);
-    const pos = g.attributes.position as THREE.BufferAttribute, col = new Float32Array(pos.count * 3);
+  const geos = useMemo(() => {
     const base = C(layout.ground.color), plaza = C(layout.ground.plaza), c = new THREE.Color();
-    for (let i = 0; i < pos.count; i++) {
-      const x = pos.getX(i), y = pos.getY(i), r = Math.hypot(x, y);
-      c.copy(base).lerp(plaza, 1 - smooth(16, 22, r)).multiplyScalar(0.92 + noise2(x * 0.4, y * 0.4) * 0.16);
-      col.set([c.r, c.g, c.b], i * 3);
-    }
-    g.setAttribute('color', new THREE.BufferAttribute(col, 3));
-    g.rotateX(-Math.PI / 2);
-    return g;
+    const paint = (g: THREE.BufferGeometry) => {
+      const pos = g.attributes.position as THREE.BufferAttribute, col = new Float32Array(pos.count * 3);
+      for (let i = 0; i < pos.count; i++) {
+        const x = pos.getX(i), y = pos.getY(i), r = Math.hypot(x, y);
+        c.copy(base).lerp(plaza, 1 - smooth(16, 22, r)).multiplyScalar(0.92 + noise2(x * 0.4, y * 0.4) * 0.16);
+        col.set([c.r, c.g, c.b], i * 3);
+      }
+      g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+      g.rotateX(-Math.PI / 2);
+      return g;
+    };
+    return [paint(new THREE.CircleGeometry(MOAT_IN[0], 128)), paint(new THREE.RingGeometry(MOAT_IN[1], CITY_R + 45, 128, 2))];
   }, [layout.ground.color, layout.ground.plaza]);
-  useEffect(() => () => geo.dispose(), [geo]);
-  return <mesh geometry={geo} receiveShadow {...(walkable ? walkHandlers() : {})}><meshLambertMaterial vertexColors /></mesh>;
+  useEffect(() => () => geos.forEach((g) => g.dispose()), [geos]);
+  const bank = useMemo(() => new THREE.MeshLambertMaterial({ color: '#8d8573', side: THREE.DoubleSide }), []);
+  return (
+    <group>
+      {geos.map((g, i) => <mesh key={i} geometry={g} receiveShadow {...(walkable ? walkHandlers() : {})}><meshLambertMaterial vertexColors /></mesh>)}
+      {/* fosso de dentro: barrancos de pedra, fundo escuro e a água */}
+      {MOAT_IN.map((r) => <mesh key={r} position={[0, -MOAT_DEPTH / 2, 0]} material={bank}><cylinderGeometry args={[r, r, MOAT_DEPTH, 160, 1, true]} /></mesh>)}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -MOAT_DEPTH, 0]}><ringGeometry args={[MOAT_IN[0], MOAT_IN[1], 160, 1]} /><meshLambertMaterial color="#1d3440" /></mesh>
+      <WaterRing r0={MOAT_IN[0]} r1={MOAT_IN[1]} color={layout.ground.water} walkable={walkable} />
+    </group>
+  );
 }
 
 /** Muralha por dentro (provisória: aparece até o ADM montar a dele), com aberturas nos portões. */
@@ -415,7 +490,7 @@ export function InnerWall({ layout, dead }: { layout: CityLayout; dead: boolean 
   const key = gates.map((a) => a.toFixed(2)).join(',');
   // sem colisão: o raio andável (CITY_R) já para o Companion antes dela
   const mats = useMemo(() => {
-    const R = CITY_R + 3, seg = 5, n = Math.floor((2 * Math.PI * R) / seg), out: THREE.Matrix4[] = [];
+    const R = OUT_WALL_R, seg = 5, n = Math.floor((2 * Math.PI * R) / seg), out: THREE.Matrix4[] = [];
     for (let i = 0; i < n; i++) {
       const a = (i + 0.5) * (2 * Math.PI / n);
       if (gates.some((g) => angDist(a, g) * R < GATE_GAP)) continue;
@@ -453,9 +528,13 @@ function CityInside({ layout, state }: { layout: CityLayout; state: CityState })
   const markers = useMemo(() => layout.markers.filter((m) => visibleIn(m.show, state)), [layout, state]);
   const solid = useMemo(() => pieces.filter((p) => p.solid > 0).map((p) => ({ x: p.x, z: p.z, r: p.solid })), [pieces]);
   useColliders('aster-pieces', solid);
+  // fosso de dentro: o Companion vai até o começo da ponte (o portal de dentro fica ali)
+  useColliders('aster-moat-in', useMemo(() => moatColliders(MOAT_IN[0] - 0.7, 'dentro', CITY_R + 1), []));
+  useBridgeDecks(layout.wall.bridgeDeck, 'dentro');
   return (
     <group>
       <CityGround layout={layout} />
+      {!pieces.some((p) => p.wall === 'ponte') && <PlaceholderBridges deck={layout.wall.bridgeDeck} side="dentro" />}
       {!pieces.some((p) => p.wall) && <InnerWall layout={layout} dead={dead} />}
       {pieces.map((p) => <AssetBoundary key={p.id}><Suspense fallback={null}><Piece p={p} /></Suspense></AssetBoundary>)}
       {markers.map((m) => <MarkerView key={m.id} m={m} dead={dead} />)}

@@ -6,7 +6,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  CITY_MARKERS, DEFAULT_CREATURES, ELEMENTS, GATES, GATE_IDS, ITEM_CATEGORIES, OUT_ARRIVAL, SPECIES, categoryOf, cityArrival, creatureStatsAt, outskirtsGatePoint,
+  CITY_MARKERS, DEFAULT_CREATURES, ELEMENTS, GATES, GATE_IDS, ITEM_CATEGORIES, OUT_ARRIVAL, OUT_GATE_ARRIVE, SPECIES, categoryOf, cityArrival, creatureStatsAt, outskirtsGatePoint,
   type CityLayout, type CompanionWorld, type Element, type ItemCategory, type SpeciesKey,
 } from '@rules';
 import { supabase } from '../backend/online';
@@ -118,7 +118,7 @@ function Teleport({ place, world, city }: Where) {
     for (const s of [...world.sites].sort((a, b) => Number(b.home) - Number(a.home) || Number(!!b.gate) - Number(!!a.gate) || a.name.localeCompare(b.name)))
       out.push({ key: `w-${s.i}-${s.j}`, group: 'Companion World', name: s.home && !/portal/i.test(s.name) ? `${s.name} (Portal do Refúgio)` : s.name, place: 'world', x: s.x + 4, z: s.z + 4 });
     out.push({ key: 'a-chegada', group: 'Áster · Arredores', name: 'Chegada (portal do sul)', place: 'arredores', x: OUT_ARRIVAL.x, z: OUT_ARRIVAL.z - 6 });
-    for (const g of GATE_IDS) { const p = outskirtsGatePoint(g, 9); out.push({ key: 'a-' + g, group: 'Áster · Arredores', name: `${GATES[g].label} (de fora)`, place: 'arredores', x: p.x, z: p.z }); }
+    for (const g of GATE_IDS) { const p = outskirtsGatePoint(g, OUT_GATE_ARRIVE); out.push({ key: 'a-' + g, group: 'Áster · Arredores', name: `${GATES[g].label} (de fora)`, place: 'arredores', x: p.x, z: p.z }); }
     for (const m of city.markers) {
       if (m.kind === 'chegada') continue;
       const p = m.kind === 'portao' ? cityArrival(city, m.gate ?? 'sul') : m.kind === 'cristal' ? { x: m.x, z: m.z + 8 } : { x: m.x + 2, z: m.z + 2 };
