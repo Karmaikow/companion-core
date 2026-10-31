@@ -1,7 +1,9 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { canCompleteEquipment, masculinize, ELEMENTS, derivePalette, refugeFeatures, animKind, sanitizeBiome, sanitizeCreature, makeCompanionWorld, characterSheet, sanitizeItem, DEFAULT_ITEMS, isWearable, validateEquipped, equipmentBonus, equippedItems, ITEM_TYPES, sanitizeWeather, weatherAt, WEATHERS, DEFAULT_WEATHER, DEFAULT_BIOME_WEATHER, type ItemDef, type WeatherConfig, WORLD_SEED, REFUGE_BIOME, WORLD_FALLBACK_BIOMES, DEFAULT_CREATURES, type BiomeConfig, type CreatureDef, type WorldSite } from '@rules';
+import { canCompleteEquipment, masculinize, ELEMENTS, derivePalette, refugeFeatures, animKind, sanitizeBiome, sanitizeCreature, makeCompanionWorld, characterSheet, sanitizeItem, DEFAULT_ITEMS, isWearable, validateEquipped, equipmentBonus, equippedItems, ITEM_TYPES, sanitizeWeather, weatherAt, WEATHERS, DEFAULT_WEATHER, DEFAULT_BIOME_WEATHER, type ItemDef, type WeatherConfig, WORLD_SEED, REFUGE_BIOME, WORLD_FALLBACK_BIOMES, DEFAULT_CREATURES, type BiomeConfig, type CreatureDef, type WorldSite,
+  ASTER_GATE, DEFAULT_CITY_LAYOUT, OUT_ARRIVAL, cityArrival, outskirtsGatePoint, sanitizeCityLayout, type CityLayout, type CityState } from '@rules';
 import { Refuge } from './scene/Refuge';
-import { WorldScene } from './scene/World';
+import { WorldScene } from './scene/WorldScene';
+import { AsterScene, type AsterTravel } from './scene/AsterScene';
 import { WorldMap } from './ui/WorldMap';
 import { stableSeed } from './scene/world';
 import { useGame, type Tab } from './store';
@@ -63,6 +65,8 @@ function quality(): 'high' | 'low' {
 }
 
 const SkillsTab = () => <SkillsPanel Tree={SkillTreePanel} />;
+/** onde o Companion está: o Refúgio, o Companion World ou os dois mapas de Áster */
+export type Place = 'refuge' | 'world' | 'arredores' | 'cidade';
 
 export function App() {
   const { backend, snap, tab, setTab, run, error, toasts, lastReply, pulse, burst, busy, setBackend } = useGame();
@@ -173,7 +177,10 @@ export function App() {
   const model = godModel ?? testModel ?? snap?.visualJob?.model;
   const testWorld = useMemo(() => new URLSearchParams(location.search).has('mundo'), []);
   const passage = features.window || testWorld;
-  const [place, setPlace] = useState<'refuge' | 'world'>('refuge');
+  // teste: ?aster abre nos Arredores de Áster, ?cidade dentro da cidade (?destruida mostra a cidade caída),
+  // ?estrada no Companion World ao lado do portal de Áster
+  const testAster = useMemo(() => { const q = new URLSearchParams(location.search); return q.has('cidade') ? 'cidade' as const : q.has('aster') ? 'arredores' as const : q.has('estrada') ? 'estrada' as const : null; }, []);
+  const [place, setPlace] = useState<Place>(testAster === 'estrada' ? 'world' : testAster ?? 'refuge');
   const [explore, setExplore] = useState(false);
   const [regionName, setRegionName] = useState<string | null>(null);
   const [hereRegion, setHereRegion] = useState<string | null>(null); // fica no brasão (o banner some sozinho)
@@ -229,19 +236,43 @@ export function App() {
   const weather = useMemo(() => {
     const test = new URLSearchParams(location.search).get('clima');
     if (test && test in WEATHERS) return { kind: test as keyof typeof WEATHERS, intensity: 0.9 };
-    const here = place === 'world' ? companionWorld.biomes.find((b) => b.slug === regionBiome) : biome;
-    const w = weatherAt(weatherCfg, clock, (place === 'world' ? 'mundo:' : 'refugio:') + (here?.slug ?? 'refugio'), here?.settings.weather ?? DEFAULT_BIOME_WEATHER);
+    const here = place === 'world' ? companionWorld.biomes.find((b) => b.slug === regionBiome) : place === 'refuge' ? biome : undefined;
+    const key = place === 'world' ? 'mundo:' + (here?.slug ?? 'refugio') : place === 'refuge' ? 'refugio:' + (here?.slug ?? 'refugio') : 'aster:' + place;
+    const w = weatherAt(weatherCfg, clock, key, here?.settings.weather ?? DEFAULT_BIOME_WEATHER);
     return { kind: w.kind, intensity: w.intensity };
   }, [weatherCfg, clock, place, regionBiome, companionWorld, biome]);
 
   const enterRegion = (s: WorldSite) => {
     setRegionBiome(companionWorld.biomes[s.biome].slug);
-    const label = s.home ? 'Portal do Refúgio' : companionWorld.biomes[s.biome].name;
+    const label = s.home ? 'Portal do Refúgio' : s.gate ? s.name : companionWorld.biomes[s.biome].name;
     setRegionName(label); setHereRegion(label);
   };
   useEffect(() => { if (!regionName) return; const t = setTimeout(() => setRegionName(null), 3200); return () => clearTimeout(t); }, [regionName]);
-  const goWorld = () => { setPlace('world'); setExplore(false); };
+  const goWorld = () => { setWorldStart(undefined); setPlace('world'); setExplore(false); };
   const goHome = () => { setPlace('refuge'); setExplore(false); toast('De volta ao Refúgio.', 'soft'); };
+
+  // ---- Áster, a Cidade-Farol: Arredores (vista de fora + anéis de defesa) e a Cidade (montada no Estúdio da Cidade)
+  const inAster = place === 'arredores' || place === 'cidade';
+  const [arrive, setArrive] = useState<{ x: number; z: number }>(() => (testAster === 'cidade' ? cityArrival(DEFAULT_CITY_LAYOUT, 'sul') : { x: OUT_ARRIVAL.x, z: OUT_ARRIVAL.z - 6 }));
+  const [worldStart, setWorldStart] = useState<[number, number] | undefined>(() => (testAster === 'estrada' ? [ASTER_GATE.x + 9, ASTER_GATE.z + 9] : undefined));
+  const [travelKey, setTravelKey] = useState(0);
+  const [asterPlace, setAsterPlace] = useState<string | null>(null);
+  const [cityLayout, setCityLayout] = useState<CityLayout>(DEFAULT_CITY_LAYOUT);
+  const cityState: CityState = useMemo(() => (new URLSearchParams(location.search).has('destruida') ? 'destruida' : 'normal'), []);
+  useEffect(() => {
+    if (!inAster) return;
+    let alive = true;
+    supabase().from('city_layouts').select('data').eq('slug', 'aster').eq('status', 'published').maybeSingle()
+      .then(({ data }) => { if (alive && data?.data) setCityLayout(sanitizeCityLayout(data.data)); }, () => {});
+    return () => { alive = false; };
+  }, [inAster]);
+  const goAster = () => { setArrive({ x: OUT_ARRIVAL.x, z: OUT_ARRIVAL.z - 6 }); setTravelKey((k) => k + 1); setPlace('arredores'); setExplore(false); toast('Arredores de Áster, a Cidade-Farol.', 'gold'); };
+  const asterTravel = (t: AsterTravel) => {
+    setTravelKey((k) => k + 1);
+    if (t.to === 'mundo') { setWorldStart([ASTER_GATE.x + 6, ASTER_GATE.z + 6]); setPlace('world'); toast('De volta ao Companion World.', 'soft'); }
+    else if (t.to === 'cidade') { setArrive(cityArrival(cityLayout, t.gate)); setPlace('cidade'); toast('Você entrou em Áster.', 'gold'); }
+    else { setArrive(outskirtsGatePoint(t.gate, 9)); setPlace('arredores'); }
+  };
 
   // presença (MMO fase 1): no Companion World, os Companions de outros jogadores aparecem na mesma tela.
   // Online: canal do Supabase Realtime; no dev, `?eco` testa entre abas com um BroadcastChannel.
@@ -356,8 +387,10 @@ export function App() {
       <div className="stage">
         <SafeStage>
         <Suspense fallback={null}>
-          {place === 'world' && model ? (
-            <WorldScene world={companionWorld} creatures={creatures} model={model} appendages={appendages} speed={built.moveSpeed} gear={gear} weather={weather} speech={bubble} burstKey={burst} color={visual.color} quality={quality()} discovered={discovered} explore={explore || groupExplore} onRegion={enterRegion} onDiscover={discover} onHome={goHome} />
+          {inAster && model ? (
+            <AsterScene key={place + travelKey} map={place as 'arredores' | 'cidade'} layout={cityLayout} state={cityState} arrive={arrive} model={model} appendages={appendages} speed={built.moveSpeed} gear={gear} weather={weather} speech={bubble} burstKey={burst} quality={quality()} onTravel={asterTravel} onPlace={setAsterPlace} />
+          ) : place === 'world' && model ? (
+            <WorldScene key={'w' + travelKey} start={worldStart} onAster={goAster} world={companionWorld} creatures={creatures} model={model} appendages={appendages} speed={built.moveSpeed} gear={gear} weather={weather} speech={bubble} burstKey={burst} color={visual.color} quality={quality()} discovered={discovered} explore={explore || groupExplore} onRegion={enterRegion} onDiscover={discover} onHome={goHome} />
           ) : <Refuge color={visual.color} glow={visual.glow} element={d.element} energy={energy} pulseKey={pulse} burstKey={burst} features={passage && !features.window ? { ...features, window: true } : features} contract={c?.stage === 'awakened' ? c.identityContract : null} speech={bubble} model={model} seed={seed} biome={biome} quality={quality()} appendages={appendages} speed={built.moveSpeed} gear={gear} weather={weather} />}
         </Suspense>
         </SafeStage>
@@ -369,7 +402,7 @@ export function App() {
 
       {backend && c && (
         <>
-          <LocationHud place={place} region={hereRegion} />
+          <LocationHud place={place} region={inAster ? asterPlace : hereRegion} />
           {c.stage === 'particles' && <QuestTracker />}
           {tab !== 'chat' && <ChatComposer variant="world" speech={bubble} />}
           <header className="nameplate deco">
@@ -385,7 +418,7 @@ export function App() {
             <button className="leave" title="Sair" aria-label="Sair" onClick={() => void leave()}>⎋</button>
           </header>
 
-          {model && !tab && <div className="key-hint">{place === 'world' ? 'Clique ou WASD para andar (corre sozinho) · Shift anda devagar · Shift + 1–9 concentra a habilidade · pise no portal para voltar' : 'Clique ou WASD para andar (corre sozinho) · Shift anda devagar · Shift + 1–9 concentra a habilidade · arraste para girar a câmera'}</div>}
+          {model && !tab && <div className="key-hint">{place === 'world' ? 'Clique ou WASD para andar (corre sozinho) · Shift anda devagar · Shift + 1–9 concentra a habilidade · pise no portal para voltar' : inAster ? 'Clique ou WASD para andar · pise num portão para entrar ou sair da cidade · o portal dourado do sul volta ao Companion World' : 'Clique ou WASD para andar (corre sozinho) · Shift anda devagar · Shift + 1–9 concentra a habilidade · arraste para girar a câmera'}</div>}
           {model && (
             <div className="travel">
               {place === 'refuge' ? (
@@ -395,7 +428,7 @@ export function App() {
               ) : (
                 <>
                   <button onClick={goHome}>⌂ Voltar ao Refúgio</button>
-                  <button className={explore ? 'on' : ''} aria-pressed={explore} onClick={() => setExplore(!explore)}>{explore ? 'Explorando sozinho…' : 'Explorar sozinho'}</button>
+                  {place === 'world' && <button className={explore ? 'on' : ''} aria-pressed={explore} onClick={() => setExplore(!explore)}>{explore ? 'Explorando sozinho…' : 'Explorar sozinho'}</button>}
                 </>
               )}
             </div>
@@ -422,7 +455,7 @@ export function App() {
                   ? <button disabled={!passage} onClick={() => { setRailOpen(false); goWorld(); }}><span aria-hidden>✦</span><span>Companion World{!passage && <small>abre depois do primeiro sonho</small>}</span></button>
                   : <>
                     <button onClick={() => { setRailOpen(false); goHome(); }}><span aria-hidden>⌂</span><span>Voltar ao Refúgio</span></button>
-                    <button className={explore ? 'on' : ''} onClick={() => setExplore(!explore)}><span aria-hidden>➶</span><span>{explore ? 'Explorando sozinho…' : 'Explorar sozinho'}</span></button>
+                    {place === 'world' && <button className={explore ? 'on' : ''} onClick={() => setExplore(!explore)}><span aria-hidden>➶</span><span>{explore ? 'Explorando sozinho…' : 'Explorar sozinho'}</span></button>}
                   </>)}
               </div>
               {c.stage === 'particles' && <div className="mm-quest" onClick={() => setRailOpen(false)}><QuestTracker /></div>}
@@ -442,7 +475,7 @@ export function App() {
           {hudEditing && <HudEditor />}
           {model && !hudEditing && <GodMode inWorld={place === 'world'} />}
           {model && <AttackCursor />}
-          {model && <FaintCounter onReturn={place === 'world' ? goHome : undefined} />}
+          {model && <FaintCounter onReturn={place !== 'refuge' ? goHome : undefined} />}
           {model && (
             <button className={'attack-btn' + (bowEquipped ? ' bow' : '')} aria-label={bowEquipped ? 'Segure para carregar o arco e solte para atirar' : 'Atacar'}
               onPointerDown={(e) => { e.preventDefault(); (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId); pressAttack(); }}

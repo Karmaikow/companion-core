@@ -4,14 +4,14 @@ import { QUESTS, gameTime, questHelp, suggestedClass, SPECIES, DEFAULT_CONFIG } 
 import { useGame } from '../store';
 import { HudGlyph } from './HudGlyph';
 
-export function LocationHud({ place, region }: { place: 'refuge' | 'world'; region: string | null }) {
+export function LocationHud({ place, region }: { place: 'refuge' | 'world' | 'arredores' | 'cidade'; region: string | null }) {
   const name = useGame((s) => s.snap?.companion?.discoveries.name);
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => { const t = window.setInterval(() => setNow(Date.now()), 15000); return () => window.clearInterval(t); }, []);
   const t = gameTime(now);
   const day = t.phase === 'manha' || t.phase === 'tarde';
   return <>
-    <div className="location-crest deco"><span aria-hidden="true">◆</span>{place === 'refuge' ? 'Refúgio' + (name ? ' de ' + name : '') : region ?? 'Companion World'}<span aria-hidden="true">◆</span></div>
+    <div className="location-crest deco"><span aria-hidden="true">◆</span>{place === 'refuge' ? 'Refúgio' + (name ? ' de ' + name : '') : region ?? (place === 'world' ? 'Companion World' : 'Áster')}<span aria-hidden="true">◆</span></div>
     <div className="game-clock deco" title={'Horário do mundo · dia ' + (t.day + 1)}><HudGlyph kind={day ? 'sun' : 'moon'} /><time>{String(t.hour).padStart(2, '0')}:{String(t.minute).padStart(2, '0')}</time></div>
   </>;
 }
