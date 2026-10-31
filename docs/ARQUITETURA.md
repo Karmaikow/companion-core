@@ -102,7 +102,7 @@ o mesmo gerador). Botão **Companion World** no topo do Refúgio quando o Compan
 - Vegetação por chunk de 16 m, densidade tirada do próprio bioma (a quantidade da clareira ÷ a área da zona × fração por
   papel em `WORLD_ROLE`); zonas viram campo aberto (dentro), mata (fora) e meio-termo (borda) por um ruído de floresta.
   Cada modelo vira uma malha instanciada só, com reserva que cresce; grama a 1 chunk, árvores e pedras a 3.
-- Cena `client/src/scene/World.tsx`: chão em chunks com normais sem costura, luz e sombra seguindo o Companion, névoa
+- Cena `client/src/scene/WorldScene.tsx` (não `World.tsx`: no Windows ele se confunde com `world.ts`): chão em chunks com normais sem costura, luz e sombra seguindo o Companion, névoa
   escondendo a borda, câmera que sobe quando um morro fica na frente. Mapa no canto (toque amplia o mundo inteiro).
 - **Explorar sozinho**: o Companion corre em trechos até a pedra-guia mais perto ainda não descoberta, contornando o que
   travar. Primeiro passo da autonomia (GDD: agentes como protagonistas).

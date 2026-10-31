@@ -11,12 +11,18 @@ export function WeatherOverlay() {
   const tint = useRef<HTMLDivElement>(null);
   const flash = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    let raf = 0;
+    let raf = 0, kind = '', tintOp = '', flashOp = '';
     const loop = () => {
       raf = requestAnimationFrame(loop);
-      const [r, g, b, a] = TINT[weatherNow.kind] ?? TINT.limpo;
-      if (tint.current) tint.current.style.background = `radial-gradient(ellipse at 50% 40%, rgba(${r},${g},${b},${a * weatherNow.k * 0.6}) 0%, rgba(${r},${g},${b},${a * weatherNow.k}) 100%)`;
-      if (flash.current) flash.current.style.opacity = String(weatherNow.flash * 0.75);
+      // o degradê só é desenhado quando o clima muda; a força entra pela opacidade (sem repintar a tela)
+      if (tint.current && weatherNow.kind !== kind) {
+        kind = weatherNow.kind;
+        const [r, g, b, a] = TINT[kind] ?? TINT.limpo;
+        tint.current.style.background = `radial-gradient(ellipse at 50% 40%, rgba(${r},${g},${b},${a * 0.6}) 0%, rgba(${r},${g},${b},${a}) 100%)`;
+      }
+      const t = weatherNow.k.toFixed(2), f = (weatherNow.flash * 0.75).toFixed(2);
+      if (tint.current && t !== tintOp) tint.current.style.opacity = tintOp = t;
+      if (flash.current && f !== flashOp) flash.current.style.opacity = flashOp = f;
     };
     loop();
     return () => cancelAnimationFrame(raf);
