@@ -789,6 +789,13 @@ Prompt com o mundo de fantasia, regra explícita de pronomes ("mim" = a pessoa; 
     modelo (se for o Z, gira 90°), o centro da caixa vai à linha e a base ao chão — o pivô do .GLB não importa. As
     peças ficam marcadas com `wall` e aparecem por dentro e na vista de fora (no lugar da muralha provisória; a
     silhueta provisória do interior some quando houver prédios do ADM). Mudar as opções remonta a muralha inteira.
+  - **Presença em Áster**: o mesmo canal `mundo` do Companion World; cada `hello`/`pose` leva o mapa
+    (`world`, `arredores`, `cidade`; sem mapa = versão antiga = `world`). `remotePoses`/`others` só têm quem está no
+    mesmo mapa (cena, chat e grupo não mudaram); `farPoses`/`all` guardam os outros mapas para o painel GOD.
+    `watchWorld` só observa (o Administrador no Refúgio), pedindo as fichas com a mensagem `ask`.
+  - **Teleporte do modo GOD** (aba Teleporte): pedras-guia do Companion World, chegada e portões dos Arredores,
+    portões e marcadores da Cidade, coordenadas no mapa atual e os jogadores (com o mapa de cada um). No mesmo
+    mapa só move o Companion (`teleport` em `scene/world.ts`); em outro, o App troca de mapa já no ponto.
   - Cena: `scene/AsterScene.tsx` (sem luzes pontuais; placas numa camada própria). Testes no jogo: `?aster`,
     `?cidade`, `?destruida`, `?estrada` (Companion World ao lado do portal). Faltam: monstros e cerco (fases 3 e 5),
     os painéis das lojas/escolas (fase 4).

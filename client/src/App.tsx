@@ -5,7 +5,7 @@ import { Refuge } from './scene/Refuge';
 import { WorldScene } from './scene/WorldScene';
 import { AsterScene, type AsterTravel } from './scene/AsterScene';
 import { WorldMap } from './ui/WorldMap';
-import { stableSeed } from './scene/world';
+import { stableSeed, teleport } from './scene/world';
 import { useGame, type Tab } from './store';
 import { Icon } from './ui/icons';
 import { ChatPanel, MemoriesPanel, DiaryPanel, QuestsPanel, InventoryPanel, RecipesPanel, BondPanel } from './ui/Panels';
@@ -23,7 +23,7 @@ import { ChatComposer } from './ui/ChatComposer';
 import { AttackCursor } from './ui/AttackCursor';
 import { Joystick, RotateHint, useTouchLandscape } from './ui/TouchControls';
 import { useSkills } from './ui/skillState';
-import { joinWorld, type RemoteInfo } from './net/presence';
+import { joinWorld, type PresenceMap, type RemoteInfo } from './net/presence';
 import { SocialPanel } from './ui/SocialPanel';
 import { useSocialLoop, useSocial } from './net/social';
 import { HudGlyph } from './ui/HudGlyph';
@@ -259,13 +259,14 @@ export function App() {
   const [asterPlace, setAsterPlace] = useState<string | null>(null);
   const [cityLayout, setCityLayout] = useState<CityLayout>(DEFAULT_CITY_LAYOUT);
   const cityState: CityState = useMemo(() => (new URLSearchParams(location.search).has('destruida') ? 'destruida' : 'normal'), []);
+  const godAdmin = useGod((g) => g.admin);
   useEffect(() => {
-    if (!inAster) return;
+    if (!inAster && !godAdmin) return; // o Administrador precisa dos lugares da cidade para o teleporte
     let alive = true;
     supabase().from('city_layouts').select('data').eq('slug', 'aster').eq('status', 'published').maybeSingle()
       .then(({ data }) => { if (alive && data?.data) setCityLayout(sanitizeCityLayout(data.data)); }, () => {});
     return () => { alive = false; };
-  }, [inAster]);
+  }, [inAster, godAdmin]);
   const goAster = () => { setArrive({ x: OUT_ARRIVAL.x, z: OUT_ARRIVAL.z - 6 }); setTravelKey((k) => k + 1); setPlace('arredores'); setExplore(false); toast('Arredores de Áster, a Cidade-Farol.', 'gold'); };
   const asterTravel = (t: AsterTravel) => {
     setTravelKey((k) => k + 1);
@@ -274,14 +275,26 @@ export function App() {
     else { setArrive(outskirtsGatePoint(t.gate, 9)); setPlace('arredores'); }
   };
 
-  // presença (MMO fase 1): no Companion World, os Companions de outros jogadores aparecem na mesma tela.
-  // Online: canal do Supabase Realtime; no dev, `?eco` testa entre abas com um BroadcastChannel.
-  const presenceKey = place === 'world' && c?.id && (backend?.kind === 'online' || (import.meta.env.DEV && new URLSearchParams(location.search).has('eco'))) ? c.id + '|' + (model?.url.split('?')[0] ?? '') + '|' + c.discoveries.name : '';
+  // teleporte do modo GOD: no mesmo mapa só move o Companion; em outro, troca de mapa já no ponto
+  const godTp = useGod((g) => g.tp);
+  useEffect(() => {
+    if (!godTp) return;
+    const { place: to, x, z } = godTp;
+    if (to === place) { teleport.point.set(x, 0, z); teleport.id++; return; }
+    setExplore(false); setTravelKey((k) => k + 1);
+    if (to === 'world') setWorldStart([x, z]);
+    else if (to !== 'refuge') setArrive({ x, z });
+    setPlace(to);
+  }, [godTp?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // presença (MMO fase 1): no Companion World e em Áster, os Companions de outros jogadores aparecem na mesma tela
+  // (só quem está no mesmo mapa). Online: canal do Supabase Realtime; no dev, `?eco` testa entre abas.
+  const presenceKey = place !== 'refuge' && c?.id && (backend?.kind === 'online' || (import.meta.env.DEV && new URLSearchParams(location.search).has('eco'))) ? place + '|' + c.id + '|' + (model?.url.split('?')[0] ?? '') + '|' + c.discoveries.name : '';
   const presenceMe = useRef<RemoteInfo | null>(null);
   presenceMe.current = c ? { id: import.meta.env.DEV && new URLSearchParams(location.search).get('eco') ? c.id + ':' + new URLSearchParams(location.search).get('eco') : c.id, name: c.discoveries.name ?? 'Companion', color: visual.glow, model: model ?? null, pronoun: c.discoveries.pronoun, slots: Object.fromEntries(['idle', 'walk', 'run'].map((k) => [k, useSkills.getState().animMap['slot:' + k] ?? '']).filter(([, v]) => v)) } : null;
   useEffect(() => {
     if (!presenceKey || !presenceMe.current) return;
-    return joinWorld(presenceMe.current, backend?.kind !== 'online');
+    return joinWorld(presenceMe.current, backend?.kind !== 'online', place as PresenceMap);
   }, [presenceKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useSocialLoop({ on: backend?.kind === 'online' && c?.stage === 'awakened', inWorld: place === 'world', me: c?.id ?? null });
@@ -473,7 +486,7 @@ export function App() {
             </div>
           )}
           {hudEditing && <HudEditor />}
-          {model && !hudEditing && <GodMode inWorld={place === 'world'} />}
+          {model && !hudEditing && <GodMode inWorld={place === 'world'} place={place} world={companionWorld} city={cityLayout} />}
           {model && <AttackCursor />}
           {model && <FaintCounter onReturn={place !== 'refuge' ? goHome : undefined} />}
           {model && (
