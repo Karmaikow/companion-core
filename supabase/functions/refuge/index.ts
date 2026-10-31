@@ -5,14 +5,15 @@ import {
   resolveConfig, levelForXp, levelProgress, initialQuests, applyTurn, parseModelTurn, buildChatSystemPrompt,
   offlineTurn, assistDiscoveries, buildDreamPrompt, parseDream, checkAwakening, buildIdentityContract, gameTime, companionDay, clampText,
   QUESTS, QUEST_REWARDS, validateSetup, evaluateSecrets, isQuestionAboutCompanion, buildMusePrompt,
-  SECRET_BY_KEY, SECRET_XP, SECRET_BOOST_TURNS, buildArtPrompt, ANIM_KINDS, SPECIES, DEFAULT_CREATURES, sanitizeCreature, recordKill, rollDrops, DEFAULT_ITEMS, sanitizeItem, findItem, dropKey, categoryOf, isWearable, type ItemDef, combatMemoryLines, combatMemoryText,
+  SECRET_BY_KEY, SECRET_XP, SECRET_BOOST_TURNS, buildArtPrompt, ANIM_KINDS, SPECIES, DEFAULT_CREATURES, sanitizeCreature, recordKill, rollDrops, rollLumes, QUEST_LUMES, DEFAULT_ITEMS, sanitizeItem, findItem, dropKey, categoryOf, isWearable, type ItemDef, combatMemoryLines, combatMemoryText,
   masculinize, secretBonus, resolveBalance, type BalanceConfig, budget, deriveStats, progressionStage,
   BANK_EVENTS, MOMENT_EVENTS, withXpMultiplier, combatXp, resolveEcos, type EcosConfig, resolvePacto, type PactoConfig, buildBarkBankPrompt, parseBarkBank, buildMomentPrompt, parseMoment, dossier, type BarkEvent,
   type BestiaryEntry, type CreatureDef, type SecretKey, type GameConfig, type IdentityContractV1, type QuestState, type Discoveries, type MemoryLite, type ChatLine,
 } from './rules/index.ts';
 import { complete, providerName, refreshAi, loadAiRow, targetFromRow, callTarget, listModels, describeImage, envProviderName, envTarget, AI_PROVIDERS, AI_DEFAULTS, type AiProvider, type AiRow } from './llm.ts';
 import { ecosAction, EcosError } from './ecos.ts';
-import { pactoAction, PactoError } from './pacto.ts';
+import { pactoAction, pactoState, PactoError, lumes } from './pacto.ts';
+import { shopAction } from './shop.ts';
 import { schoolView } from './schools.ts';
 import { buildAction, BuildError, loadBuild } from './build.ts';
 import { socialAction, SocialError } from './social.ts';
@@ -410,7 +411,9 @@ async function actCombatKill(db: SupabaseClient, c: Record<string, unknown>, bod
   const rolled = def ? rollDrops(def, () => crypto.getRandomValues(new Uint32Array(1))[0] / 2 ** 32) : [];
   const drops = rolled.map((d) => { const it = findItem(d.item, catalog); return { key: dropKey(d.item, catalog), label: it?.name ?? d.item, qty: d.qty, category: it ? categoryOf(it.type) : 'material' }; });
   if (drops.length) await addToBag(db, cid, drops);
-  const ev = await event(db, cid, 'system', 'combat.kill', { slug, level, first: r.first, analyzed: r.analyzedNow, drops: drops.map((d) => ({ key: d.key, qty: d.qty })) });
+  const gotLumes = def ? rollLumes(def.lumes, level, () => crypto.getRandomValues(new Uint32Array(1))[0] / 2 ** 32) : 0;
+  const ev = await event(db, cid, 'system', 'combat.kill', { slug, level, first: r.first, analyzed: r.analyzedNow, drops: drops.map((d) => ({ key: d.key, qty: d.qty })), lumes: gotLumes });
+  if (gotLumes) await lumes(db, `kill:${ev}`, cid, gotLumes, 'monstro', slug);
   const me = (c.discoveries as Discoveries).name ?? 'O Companion';
   const mems: { subject: string; content: string; importance: number; source_event_ids: number[]; origin: string; companion_id: string }[] = [];
   if (r.first) mems.push({ companion_id: cid, subject: 'companion', content: combatMemoryText('first', me, def, name, level), importance: 3, source_event_ids: [ev], origin: 'combat' });
@@ -429,7 +432,7 @@ async function actCombatKill(db: SupabaseClient, c: Record<string, unknown>, bod
       if (la > lb) levelUp = la;
     }
   }
-  return { entry: r.entry, first: r.first, analyzed: r.analyzedNow, analyzedCount: r.analyzedCount, milestone: r.milestone, xp, levelUp, drops: drops.map((d) => ({ key: d.key, label: d.label, qty: d.qty })) };
+  return { entry: r.entry, first: r.first, analyzed: r.analyzedNow, analyzedCount: r.analyzedCount, milestone: r.milestone, xp, levelUp, drops: drops.map((d) => ({ key: d.key, label: d.label, qty: d.qty })), lumes: gotLumes };
 }
 
 /** Falas geradas pela IA: estoque por evento ("bank") ou uma fala de momento com contexto ("moment"). Não grava nada além do registro de uso. */
@@ -634,6 +637,7 @@ async function actChat(db: SupabaseClient, c: Record<string, unknown>, message: 
     await db.from('companion_quests').update({ status: 'done', completed_at: new Date().toISOString(), source_event_id: evId }).eq('companion_id', cid).eq('quest_key', comp.key);
     const reward = QUEST_REWARDS[comp.key];
     await db.from('companion_inventory').upsert({ companion_id: cid, item_key: reward.item, qty: 1, meta: { label: reward.label, description: reward.description, quest: comp.key, ...comp.patch } });
+    await lumes(db, `quest:${cid}:${comp.key}`, cid, QUEST_LUMES, 'quest', comp.key);
   }
   if (plan.rejected.length) await event(db, cid, 'system', 'quest.rejected', { items: plan.rejected });
   if (plan.renamed) await event(db, cid, 'system', 'identity.renamed', { from: d.name ?? null, to: plan.renamed, sources: [playerEventId, replyEventId] });
@@ -837,6 +841,10 @@ Deno.serve(async (req) => {
     if (action.startsWith('ecos.')) {
       const cc = c;
       return json(200, await ecosAction(action, body, { db, c: cc, cfg, ecfg: cfg.ecos, pcfg: cfg.pacto, admin: await isAdmin(db, userId), event: (kind, payload) => event(db, cc.id as string, 'system', kind, payload) }));
+    }
+    if (action.startsWith('pacto.shop.')) {
+      const cc = c, admin = await isAdmin(db, userId);
+      return json(200, await shopAction(action, body, { db, c: cc, admin, catalog: () => itemDefs(db), state: () => pactoState(db, cc, admin, cfg.pacto) }));
     }
     if (action.startsWith('pacto.')) {
       const cc = c;

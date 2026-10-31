@@ -91,6 +91,7 @@ export const useGame = create<State>((set, get) => ({
       // mantém a conversa; troca bestiário, memórias, vínculo (XP da luta) e o progresso do despertar
       set({ snap: cur ? { ...cur, bestiary: snap.bestiary, memories: snap.memories, inventory: snap.inventory ?? cur.inventory, companion: snap.companion ?? cur.companion, awakening: snap.awakening ?? cur.awakening } : snap });
       const r = snap.combat ?? null;
+      if (r?.lumes) get().toast(`+${r.lumes} ✧ Lumes`, 'gold');
       if (r?.levelUp) get().toast(`Vínculo nível ${r.levelUp}`, 'gold');
       if (r?.first) get().toast(`Memória de Combate: ${r.entry.name}`, 'soft');
       if (r?.analyzed) get().celebrate({ kind: 'quest', eyebrow: 'Análise de Partículas', title: r.entry.name, subtitle: 'Análise completa: fraquezas, atributos e o que solta estão no Bestiário (Memórias).' });

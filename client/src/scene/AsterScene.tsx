@@ -15,7 +15,7 @@ import * as THREE from 'three';
 import {
   gameTime, BRIDGE_DECKS, BRIDGE_HW, bridgeSpan, CITY_MARKERS, CITY_R, CRATERS, DEAD_CRYSTALS, GATES, GATE_IDS, GATE_GAP, LABYRINTH_R, LABYRINTH_WALLS, MOAT_DEPTH, MOAT_IN, MOAT_OUT,
   OUT_ARRIVAL, OUT_GATE_ARRIVE, OUT_R, OUT_WALL_R, ROAD_W, TRENCH_R, TRENCH_RINGS, WATER_Y, gateAxisPoint, onBridge, outskirtsDirt, outskirtsGatePoint, outskirtsHeight,
-  outskirtsPlaceName, roadDistance, visibleIn,
+  outskirtsPlaceName, roadDistance, visibleIn, SHOP_KINDS,
   type BiomePalette, type CityLayout, type CityMarker, type CityPiece, type CityState, type GateId, type WeatherKind,
 } from '@rules';
 import type { AppendageSpec } from './Appendages';
@@ -25,7 +25,8 @@ import { CombatFx } from './Combat';
 import { RemoteCompanions } from './RemoteCompanions';
 import { WeatherFx } from './Weather';
 import { AssetBoundary, CameraRig, ClickMarker, Sky, WindClock } from './Biome';
-import { colliders, companionFocus, decks, groundDown, groundMove, smooth, type Circle, type WorldShape } from './world';
+import { colliders, companionFocus, decks, groundDown, groundMove, groundPointer, moveRequest, requestMove, smooth, type Circle, type WorldShape } from './world';
+import { openShop } from '../ui/ShopPanel';
 import { runeTexture } from './textures';
 import { settings } from '../settings';
 
@@ -523,23 +524,45 @@ export function InnerWall({ layout, dead }: { layout: CityLayout; dead: boolean 
   return <Instanced geometry={geo} material={mat} matrices={mats} shadows />;
 }
 
-export function Piece({ p }: { p: CityPiece }) {
+/**
+ * Clique (botão de andar) que vira outra ordem: não deixa o chão de trás receber o mesmo clique — e anula o clique
+ * de andar se o chão estava na frente (a base do prédio rente ao chão).
+ */
+const pickHandlers = (onPick?: () => void) => onPick ? {
+  onPointerDown: (e: ThreeEvent<PointerEvent>) => {
+    if (e.nativeEvent.button !== 0) return;
+    e.stopPropagation();
+    if (groundPointer.down) { clearTimeout(groundPointer.down.timer); groundPointer.down = null; }
+    onPick();
+  },
+  onPointerOver: () => { document.body.style.cursor = 'pointer'; },
+  onPointerOut: () => { document.body.style.cursor = ''; },
+} : {};
+
+export function Piece({ p, onPick }: { p: CityPiece; onPick?: () => void }) {
   const { scene } = useGLTF(p.url);
   // pontes e portões: o piso por onde se anda sai do próprio modelo (ver useBridgeDecks)
   const reg = (o: THREE.Object3D | null) => { if (p.wall !== 'ponte' && p.wall !== 'portao') return; if (o) bridgeObjs.set(p.id, o); else bridgeObjs.delete(p.id); };
-  return <group ref={reg}><Clone object={scene} position={[p.x, p.y, p.z]} rotation={[0, p.rot, 0]} scale={p.scale} castShadow receiveShadow /></group>;
+  return <group ref={reg} {...pickHandlers(onPick)}><Clone object={scene} position={[p.x, p.y, p.z]} rotation={[0, p.rot, 0]} scale={p.scale} castShadow receiveShadow /></group>;
 }
 
-export function MarkerView({ m, dead, labels = true }: { m: CityMarker; dead: boolean; labels?: boolean }) {
+/** Loja pedida pelo clique (prédio ou placa): o Companion anda até a porta (o marcador) e o modal abre na chegada. */
+const shopWalk = { id: '', move: 0 };
+function goShop(m: CityMarker) { requestMove(new THREE.Vector3(m.x, 0, m.z)); shopWalk.id = m.id; shopWalk.move = moveRequest.id; }
+/** Distância da porta (marcador) até onde um prédio conta como daquela loja. */
+const SHOP_PICK_R = 14;
+
+export function MarkerView({ m, dead, labels = true, onPick }: { m: CityMarker; dead: boolean; labels?: boolean; onPick?: () => void }) {
   const info = CITY_MARKERS[m.kind];
   if (m.kind === 'cristal') return <group position={[m.x, 0, m.z]}><mesh position={[0, 9, 0]} castShadow><cylinderGeometry args={[2.6, 4.2, 18, 12]} /><meshLambertMaterial color={dead ? '#6d665d' : '#ddd3bd'} /></mesh><group position={[0, 0, 0]}><ApexCrystal y={27} size={0.8} dead={dead} /></group></group>;
   if (m.kind === 'portao') return <RunePortal x={m.x} z={m.z} color="#9fd8ff" arch rot={-Math.atan2(m.z, m.x) + Math.PI / 2} label={labels ? `${m.name} · sair para os arredores` : undefined} />;
   if (m.kind === 'chegada') return null;
+  const icon = m.kind === 'loja' && m.shop ? SHOP_KINDS[m.shop].icon : info.icon;
   return (
-    <group position={[m.x, 0, m.z]}>
+    <group position={[m.x, 0, m.z]} {...pickHandlers(onPick)}>
       <mesh position={[0, 1.4, 0]}><cylinderGeometry args={[0.07, 0.09, 2.8, 6]} /><meshLambertMaterial color="#5b4a36" /></mesh>
       <mesh position={[0.45, 2.3, 0]}><planeGeometry args={[0.85, 0.6]} /><meshBasicMaterial color={info.color} side={THREE.DoubleSide} /></mesh>
-      {labels && <Label y={3.4} distanceFactor={8}><div className="aster-label"><span aria-hidden>{info.icon}</span> {m.name}</div></Label>}
+      {labels && <Label y={3.4} distanceFactor={8}><div className="aster-label"><span aria-hidden>{icon}</span> {m.name}</div></Label>}
     </group>
   );
 }
@@ -553,13 +576,20 @@ function CityInside({ layout, state }: { layout: CityLayout; state: CityState })
   // fosso de dentro: o Companion vai até o começo da ponte (o portal de dentro fica ali)
   useColliders('aster-moat-in', useMemo(() => moatColliders(MOAT_IN[0] - 0.7, 'dentro', CITY_R + 1), []));
   useBridgeDecks(layout.wall.bridgeDeck, 'dentro');
+  // prédio de loja = peça (fora da muralha) perto de um marcador "loja": o clique leva até a porta
+  const shops = useMemo(() => markers.filter((m) => m.kind === 'loja'), [markers]);
+  const shopOf = (p: CityPiece) => {
+    if (p.wall || !shops.length) return undefined;
+    const near = shops.map((m) => ({ m, d: Math.hypot(m.x - p.x, m.z - p.z) })).sort((a, b) => a.d - b.d)[0];
+    return near.d <= SHOP_PICK_R ? () => goShop(near.m) : undefined;
+  };
   return (
     <group>
       <CityGround layout={layout} />
       {!pieces.some((p) => p.wall === 'ponte') && <PlaceholderBridges deck={layout.wall.bridgeDeck} side="dentro" />}
       {!pieces.some((p) => p.wall) && <InnerWall layout={layout} dead={dead} />}
-      {pieces.map((p) => <AssetBoundary key={p.id}><Suspense fallback={null}><Piece p={p} /></Suspense></AssetBoundary>)}
-      {markers.map((m) => <MarkerView key={m.id} m={m} dead={dead} />)}
+      {pieces.map((p) => <AssetBoundary key={p.id}><Suspense fallback={null}><Piece p={p} onPick={shopOf(p)} /></Suspense></AssetBoundary>)}
+      {markers.map((m) => <MarkerView key={m.id} m={m} dead={dead} onPick={m.kind === 'loja' ? () => goShop(m) : undefined} />)}
     </group>
   );
 }
@@ -586,6 +616,12 @@ function AsterLogic({ map, layout, state, onTravel, onPlace }: { map: AsterMap; 
       const d = Math.hypot(f.x - p.x, f.z - p.z);
       if (d > 7) s.away.set(p.key, true);
       if (d < 2.4 && s.away.get(p.key)) { s.done = true; P.onTravel(p.go); return; }
+    }
+    // loja pedida: abre ao chegar à porta; outro clique de andar cancela
+    if (shopWalk.id) {
+      const m = map === 'cidade' ? P.layout.markers.find((x) => x.id === shopWalk.id) : undefined;
+      if (!m || moveRequest.id !== shopWalk.move) shopWalk.id = '';
+      else if (Math.hypot(f.x - m.x, f.z - m.z) < 3) { shopWalk.id = ''; openShop(m.name, m.shop ?? 'pocoes'); }
     }
   });
   return null;
@@ -637,7 +673,7 @@ export function AsterScene(props: AsterSceneProps) {
       </EffectComposer>
     </Canvas>
     </LabelLayer.Provider>
-    <div ref={labels as React.RefObject<HTMLDivElement>} style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden' }} />
+    <div ref={labels as React.RefObject<HTMLDivElement>} style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden', isolation: 'isolate' }} />
     </div>
   );
 }

@@ -83,7 +83,9 @@ export interface CreatureDef {
   rarity: number;                // 0,05 (rara) .. 1 (comum)
   respawn: number;               // segundos até voltar depois de derrotada (no mesmo canto)
   drops: { item: string; chance: number; min: number; max: number }[];
-  color: string;                 // cor da criatura (corpo de reserva, brilho, partículas)
+  /** Lumes soltos na derrota (mín, máx), +10% por nível acima do 1; [0, 0] = nenhum */
+  lumes: [number, number];
+  color: string;                // cor da criatura (corpo de reserva, brilho, partículas)
   motion: Motion;                // movimento por código (.GLB sem rig/animação)
   look?: ModelLook;
   /** Crescimento por nível de cada atributo (0,08 = +8% por nível); vazio = vida, ataque e defesa +8%, o resto fixo. */
@@ -155,6 +157,7 @@ export function sanitizeCreature(input: unknown): CreatureDef | null {
     rarity: n(c.rarity, 0.02, 1, 0.5),
     respawn: Math.round(n(c.respawn, 5, 3600, 45)),
     drops: list(c.drops, 10, (d) => (typeof d.item === 'string' && d.item.trim() ? { item: d.item.trim().slice(0, 40), chance: n(d.chance, 0, 1, 0.5), ...(() => { const [a, b] = pair([d.min, d.max], 1, 99, [1, 1]); return { min: a, max: b }; })() } : null)),
+    lumes: (() => { const l = Array.isArray(c.lumes) ? c.lumes : [1, 3]; const a = Math.round(n(l[0], 0, 9999, 1)), b = Math.round(n(l[1], 0, 9999, 3)); return [Math.min(a, b), Math.max(a, b)] as [number, number]; })(),
     color: typeof c.color === 'string' && /^#[0-9a-f]{6}$/i.test(c.color) ? c.color.toLowerCase() : '#b9a6ff',
     look: sanitizeLook(c.look),
     motion: c.motion && c.motion in MOTIONS ? c.motion : 'auto',

@@ -18,12 +18,22 @@ export const CHUNK = 16;       // chunk de vegetação (m)
 export const WORLD_CELLS = 3;  // células de -3..3 → mundo de ~630 m
 export const WORLD_R = REGION * (WORLD_CELLS + 0.5); // além disso, morros fecham o mundo
 export const PORTAL_R = 7;     // área plana em volta do portal
+/**
+ * Estrada para Áster: lugar fixo o mais longe possível do Portal do Refúgio, a noroeste (a região do canto -3,-3).
+ * Fica a ~294 m do centro: o Companion anda até um raio de WORLD_R - 14 (~301 m), então o canto de verdade
+ * (~360 m) seria inalcançável. Pisar no portal leva aos Arredores de Áster.
+ */
+export const ASTER_GATE = { i: -WORLD_CELLS, j: -WORLD_CELLS, x: -208, z: -208, name: 'Estrada para Áster' } as const;
+/** raio até onde o Companion anda no Companion World */
+export const WORLD_WALK_R = WORLD_R - 14;
 
 export interface WorldSite {
   i: number; j: number; x: number; z: number;
   biome: number;             // índice em biomes
   name: string;              // nome do lugar (pedra-guia)
   home: boolean;             // o Portal do Refúgio
+  /** portal fixo para outro mapa (no lugar da pedra-guia) */
+  gate?: 'aster';
 }
 export interface RegionHit { site: WorldSite; other: WorldSite; edge: number /* d2 - d1, 0 = na borda */ }
 export interface Spot { x: number; z: number; rot: number; s: number }
@@ -76,15 +86,15 @@ export function makeCompanionWorld(seed: number, biomesIn: BiomeConfig[]): Compa
   const grid = new Map<string, WorldSite>();
   const usedNames = new Set<string>();
   for (let j = -WORLD_CELLS; j <= WORLD_CELLS; j++) for (let i = -WORLD_CELLS; i <= WORLD_CELLS; i++) {
-    const home = i === 0 && j === 0;
-    const x = home ? 0 : (i + 0.2 + hash(i, j, 1) * 0.6 - 0.5) * REGION, z = home ? 0 : (j + 0.2 + hash(i, j, 2) * 0.6 - 0.5) * REGION;
+    const home = i === 0 && j === 0, aster = i === ASTER_GATE.i && j === ASTER_GATE.j;
+    const x = home ? 0 : aster ? ASTER_GATE.x : (i + 0.2 + hash(i, j, 1) * 0.6 - 0.5) * REGION, z = home ? 0 : aster ? ASTER_GATE.z : (j + 0.2 + hash(i, j, 2) * 0.6 - 0.5) * REGION;
     // vizinhos do portal num bioma diferente quando houver mais de um
     let biome = home ? homeIdx : Math.floor(hash(i, j, 3) * biomes.length);
     if (!home && biomes.length > 1 && Math.abs(i) + Math.abs(j) === 1 && biome === homeIdx) biome = (biome + 1 + Math.floor(hash(i, j, 4) * (biomes.length - 1))) % biomes.length;
-    let name = home ? 'Portal do Refúgio' : '';
+    let name = home ? 'Portal do Refúgio' : aster ? ASTER_GATE.name : '';
     for (let t = 0; !name || usedNames.has(name); t++) name = PLACE_A[Math.floor(hash(i, j, 5, t) * PLACE_A.length)] + ' ' + PLACE_B[Math.floor(hash(i, j, 6, t) * PLACE_B.length)];
     usedNames.add(name);
-    const s: WorldSite = { i, j, x, z, biome, name, home };
+    const s: WorldSite = { i, j, x, z, biome, name, home, ...(aster ? { gate: 'aster' as const } : {}) };
     sites.push(s); grid.set(i + ',' + j, s);
   }
   const siteAt = (i: number, j: number) => grid.get(i + ',' + j);
@@ -141,7 +151,8 @@ export function makeCompanionWorld(seed: number, biomesIn: BiomeConfig[]): Compa
     let y = (fbm(x * 0.025, z * 0.025, 80) - 0.5) * 5 * hills + (fbm(x * 0.12, z * 0.12, 81) - 0.5) * 0.5;
     // plano no portal, nos marcos e (quase) nas trilhas
     const ds = Math.hypot(x - h.site.x, z - h.site.z);
-    y *= smooth(h.site.home ? PORTAL_R : 3, h.site.home ? PORTAL_R + 10 : 9, ds);
+    const flat = h.site.home || h.site.gate ? PORTAL_R : 3;
+    y *= smooth(flat, flat === 3 ? 9 : PORTAL_R + 10, ds);
     y *= 0.35 + 0.65 * smooth(1.5, 6, roadDist(x, z));
     // morros que fecham o mundo
     const r = Math.max(Math.abs(x), Math.abs(z));
@@ -166,7 +177,7 @@ export function makeCompanionWorld(seed: number, biomesIn: BiomeConfig[]): Compa
     const present = new Set<number>();
     for (const [u, v] of [[0.5, 0.5], [0, 0], [1, 0], [0, 1], [1, 1]]) present.add(regionAt(x0 + u * CHUNK, z0 + v * CHUNK).site.biome);
     const blocked = (x: number, z: number, h: RegionHit) =>
-      dirtAt(x, z) > 0.35 || Math.hypot(x - h.site.x, z - h.site.z) < (h.site.home ? PORTAL_R - 1 : 3.2) || Math.max(Math.abs(x), Math.abs(z)) > WORLD_R - 12 || insideVale(x, z, 1);
+      dirtAt(x, z) > 0.35 || Math.hypot(x - h.site.x, z - h.site.z) < (h.site.home || h.site.gate ? PORTAL_R - 1 : 3.2) || Math.max(Math.abs(x), Math.abs(z)) > WORLD_R - 12 || insideVale(x, z, 1);
     for (const bi of present) {
       const b = biomes[bi];
       const layers: { id: string; role: string; zone: BiomeZone; count: number }[] = b.assets.map((a: BiomeAsset) => ({ id: a.id, role: a.role, zone: a.zone, count: a.count }));

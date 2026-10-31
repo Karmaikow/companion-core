@@ -18,6 +18,7 @@ import { farPoses, remotePoses, usePresence, watchWorld } from '../net/presence'
 import { useSkills } from './skillState';
 import { useCompanionModels } from './companionModels';
 import { useGod, type TpPlace } from './godMode';
+import { usePacto, uuid } from '../pacto/pactoStore';
 
 type Tab = 'poderes' | 'teleporte' | 'monstros' | 'itens' | 'modelo' | 'habilidades' | 'perfil';
 const TABS: [Tab, string][] = [['poderes', 'Poderes'], ['teleporte', 'Teleporte'], ['monstros', 'Monstros'], ['itens', 'Itens'], ['modelo', 'Modelo 3D'], ['habilidades', 'Habilidades'], ['perfil', 'Classe e essência']];
@@ -93,6 +94,11 @@ function Powers() {
       <div className="god-row">
         <button onClick={() => { healCompanion(vitals.hpMax); vitals.sp = vitals.spMax; vitals.st = vitals.stMax; toast('Vida, SP e stamina cheios.', 'gold'); }}>Curar tudo</button>
         <button onClick={() => { if (!reviveCompanion(true)) toast('Ela não está desmaiada.', 'soft'); }}>Levantar</button>
+      </div>
+      <div className="god-row">
+        {[100, 1000, 30000].map((n) => (
+          <button key={n} title="Lumes na sua carteira (teste das lojas)" onClick={async () => { const r = await usePacto.getState().call('pacto.shop.grant', { request: uuid(), amount: n }); toast(r?.shop ? `+${n} ✧ Lumes.` : usePacto.getState().error ?? 'Não deu.', r?.shop ? 'gold' : 'warn'); }}>+{n} ✧</button>
+        ))}
       </div>
     </div>
   );

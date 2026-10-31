@@ -5,12 +5,12 @@ import { schoolJournal } from '../../../shared/rules/combat/schoolJournal';
  * e testar sem back-end, e como referência de comportamento.
  */
 import { localEcos } from '../ecos/localEcos';
-import { localPacto } from '../pacto/localPacto';
+import { localPacto, addLocalLumes } from '../pacto/localPacto';
 import { localBuild } from '../build/localBuild';
 import {
   DEFAULT_CONFIG, initialQuests, applyTurn, offlineTurn, levelForXp, levelProgress, checkAwakening,
   buildIdentityContract, companionDay, QUEST_REWARDS, validateSetup, evaluateSecrets, isQuestionAboutCompanion, gameTime,
-  SECRET_BY_KEY, SECRET_XP, SECRET_BOOST_TURNS, DEFAULT_CREATURES, DEFAULT_ITEMS, rollDrops, findItem, dropKey, categoryOf, recordKill, combatMemoryText, combatXp, withXpMultiplier, type BestiaryEntry, type SecretKey, type Discoveries, type QuestState, type IdentityContractV1,
+  SECRET_BY_KEY, SECRET_XP, SECRET_BOOST_TURNS, DEFAULT_CREATURES, DEFAULT_ITEMS, rollDrops, rollLumes, findItem, dropKey, categoryOf, recordKill, combatMemoryText, combatXp, withXpMultiplier, type BestiaryEntry, type SecretKey, type Discoveries, type QuestState, type IdentityContractV1,
   type CompanionSetup,
 } from '@rules';
 import type { Backend, Snapshot, MemoryRow, DiaryRow, InventoryRow, TimelineRow } from './types';
@@ -52,6 +52,18 @@ function save(s: LocalSave) {
 }
 
 let mem: LocalSave | null = null;
+
+function bagAdd(s: LocalSave, key: string, qty: number, meta: Record<string, unknown>) {
+  const row = s.inventory.find((i) => i.item_key === key);
+  if (row) { row.qty = Math.max(0, Math.min(9999, row.qty + qty)); row.meta = { ...row.meta, ...meta }; }
+  else if (qty > 0) s.inventory.push({ item_key: key, qty: Math.min(9999, qty), meta, acquired_at: new Date().toISOString() });
+}
+
+/** Bolsa offline para as lojas simuladas (localPacto): ler e pôr/tirar (qty negativa tira). */
+export const localInventory = {
+  rows: (): InventoryRow[] => (mem ??= load())?.inventory ?? [],
+  add(key: string, qty: number, meta: Record<string, unknown> = {}) { const s = (mem ??= load()); if (!s) return; bagAdd(s, key, qty, meta); save(s); },
+};
 
 export class LocalBackend implements Backend {
   readonly kind = 'local' as const;
@@ -106,11 +118,7 @@ export class LocalBackend implements Backend {
 
   async state() { return this.snap(); }
 
-  private addBag(s: LocalSave, key: string, qty: number, meta: Record<string, unknown>) {
-    const row = s.inventory.find((i) => i.item_key === key);
-    if (row) { row.qty = Math.max(0, Math.min(9999, row.qty + qty)); row.meta = { ...row.meta, ...meta }; }
-    else if (qty > 0) s.inventory.push({ item_key: key, qty: Math.min(9999, qty), meta, acquired_at: new Date().toISOString() });
-  }
+  private addBag(s: LocalSave, key: string, qty: number, meta: Record<string, unknown>) { bagAdd(s, key, qty, meta); }
 
   /** Bolsa offline: jogar fora; "pôr item" vale para teste (o jogo offline não tem economia). */
   async inventory(action: 'inventory.discard' | 'inventory.grant', body: Record<string, unknown>) {
@@ -146,7 +154,9 @@ export class LocalBackend implements Backend {
     // drops na bolsa (offline: catálogo de reserva)
     const drops = def ? rollDrops(def, Math.random).map((d) => { const it = findItem(d.item, DEFAULT_ITEMS); return { key: dropKey(d.item, DEFAULT_ITEMS), label: it?.name ?? d.item, qty: d.qty, category: it ? categoryOf(it.type) : 'material' }; }) : [];
     for (const d of drops) this.addBag(s, d.key, d.qty, { label: d.label, category: d.category });
-    const ev = this.ev(s, 'system', 'combat.kill', { slug, level, first: r.first, analyzed: r.analyzedNow });
+    const gotLumes = def && s.stage === 'awakened' ? rollLumes(def.lumes, level, Math.random) : 0;
+    if (gotLumes) addLocalLumes(gotLumes);
+    const ev = this.ev(s, 'system', 'combat.kill', { slug, level, first: r.first, analyzed: r.analyzedNow, lumes: gotLumes });
     const me = s.discoveries.name ?? 'O Companion';
     if (r.first) s.memories.push({ id: ++s.seq, subject: 'companion', content: combatMemoryText('first', me, def, r.entry.name, level), importance: 3, source_event_ids: [ev], origin: 'combat', created_at: now });
     if (r.analyzedNow) s.memories.push({ id: ++s.seq, subject: 'companion', content: combatMemoryText('analyzed', me, def, r.entry.name, level), importance: 4, source_event_ids: [ev], origin: 'combat', created_at: now });
@@ -155,7 +165,7 @@ export class LocalBackend implements Backend {
     if (xp > 0) { s.bondXp += xp; this.ev(s, 'system', 'bond.xp', { total: xp, reason: 'combate', meaningful: false, slug }); }
     const la = levelForXp(s.bondXp, cfg);
     save(s);
-    return this.snap({ combat: { entry: r.entry, first: r.first, analyzed: r.analyzedNow, analyzedCount: r.analyzedCount, milestone: r.milestone, xp, levelUp: la > lb ? la : null, drops: drops.map((d) => ({ key: d.key, label: d.label, qty: d.qty })) } });
+    return this.snap({ combat: { entry: r.entry, first: r.first, analyzed: r.analyzedNow, analyzedCount: r.analyzedCount, milestone: r.milestone, xp, levelUp: la > lb ? la : null, drops: drops.map((d) => ({ key: d.key, label: d.label, qty: d.qty })), lumes: gotLumes } });
   }
 
   async create(setup?: CompanionSetup) {
