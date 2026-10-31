@@ -70,7 +70,7 @@ function NodeDetail({ node, tree, alloc, bond, points, catalog, saving, notice, 
 }
 
 function SkillTreeContent({ large = false }: { large?: boolean }) {
-  const { companion: c, species, essence, bond, points, secrets, tree, catalog, alloc } = useSkillData();
+  const { companion: c, species, essence, bond, points, secrets, tree, catalog, alloc, testing } = useSkillData();
   const saving = useSkills((s) => s.saving);
   const toast = useGame((s) => s.toast);
   const [sel, setSel] = useState<string | null>(null);
@@ -106,6 +106,7 @@ function SkillTreeContent({ large = false }: { large?: boolean }) {
   const head = (
     <div className="st-head">
       <div>
+        {testing && <small role="status">Teste GOD · pontos temporários · restaure em GOD → Classe e essência</small>}
         <strong>{sp.label}</strong>{essence && <> · {ELEMENTS[essence].label}</>}
         <small>{sp.lineage} · afinidade com {sp.affinities.map((e) => ELEMENTS[e].label).join(' e ')} (−{Math.round(fx.classAffinity * 100)}% de SP) · velocidade {sp.speed.toLocaleString('pt-BR')}×</small>
       </div>
@@ -167,7 +168,7 @@ function SkillTreeContent({ large = false }: { large?: boolean }) {
 }
 
 export function SkillTreePanel() {
-  const { companion: c, species, tree, points } = useSkillData();
+  const { companion: c, species, tree, points, testKey } = useSkillData();
   const d = c?.discoveries;
   const [fullscreen, setFullscreen] = useState(false);
 
@@ -192,7 +193,7 @@ export function SkillTreePanel() {
       <button type="button" className="st-btn-expand" onClick={() => setFullscreen(true)} title="Abrir em tela cheia">
         ⛶ Tela cheia
       </button>
-      <SkillTreeContent />
+      <SkillTreeContent key={testKey ?? "original"} />
       {fullscreen && createPortal(
         <div className="st-screen game-ui" role="dialog" aria-modal="true" aria-label="Árvore de habilidades" tabIndex={-1}>
           <header className="st-screen-head deco">
@@ -202,7 +203,7 @@ export function SkillTreePanel() {
             </div>
             <button type="button" className="st-screen-close" onClick={() => setFullscreen(false)} aria-label="Fechar tela cheia">×</button>
           </header>
-          <SkillTreeContent large />
+          <SkillTreeContent key={testKey ?? "original"} large />
         </div>,
         document.body
       )}

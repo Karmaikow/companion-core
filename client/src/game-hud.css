@@ -588,11 +588,9 @@ canvas.cursor-attack { cursor: none !important; }
 .soc-kick:disabled, .soc-leave:disabled { opacity: 0.5; }
 
 /* ---------- Modo GOD (Administrador) ---------- */
-.god-btn { position: absolute; left: var(--hud-edge, 12px); top: calc(var(--hud-top, 12px) + 190px); z-index: 7; width: 46px; height: 46px; border-radius: 50%; border: 1px solid #c9a24c; background: #1b1330e6; color: #ffd77a; font-size: 1.15rem; line-height: 1; display: grid; place-items: center; box-shadow: 0 4px 12px #0008; }
-.god-btn small { font-size: 0.5rem; letter-spacing: 0.08em; margin-top: -4px; }
-.god-btn.on { background: radial-gradient(circle at 40% 35%, #ffe9a3, #d79a2d); color: #2a1604; border-color: #fff0b8; box-shadow: 0 0 14px #ffd77aaa; }
-.game-ui.touch-land .god-btn { left: max(10px, env(safe-area-inset-left)); top: calc(max(8px, env(safe-area-inset-top)) + 104px); width: 40px; height: 40px; }
-.game-ui.touch-land.has-panel .god-btn, .game-ui.touch-land.rail-open .god-btn { display: none; }
+.god-btn { color: #ffd77a; }
+.god-btn b { font-size: 1.15rem; line-height: 1; }
+.game-ui button.god-btn.on { background: radial-gradient(circle at 40% 35%, #ffe9a3, #d79a2d); color: #2a1604; border-color: #fff0b8; box-shadow: 0 0 14px #ffd77aaa; }
 .god-backdrop { position: fixed; inset: 0; z-index: 45; background: #0508149a; display: grid; place-items: center; }
 .god-panel { width: min(520px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); display: flex; flex-direction: column; border-radius: 14px; background: #0d1638; border: 1px solid #c9a24c; box-shadow: 0 12px 34px #000b; color: #f4ead2; overflow: hidden; }
 .god-panel header { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-bottom: 1px solid #c9a24c55; }

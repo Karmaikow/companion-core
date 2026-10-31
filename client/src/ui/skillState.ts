@@ -65,10 +65,15 @@ export const useSkills = create<SkillState>((set) => ({
 export function useSkillData() {
   const snap = useGame((s) => s.snap);
   const c = snap?.companion;
-  const species = c?.discoveries.form ?? null, essence = c?.discoveries.element ?? null;
+  const admin = useGod((g) => g.admin), profile = useGod((g) => g.treeProfile);
+  const testing = admin && !!c && profile?.companionId === c.id;
+  const species = testing ? profile.species : c?.discoveries.form ?? null;
+  const essence = testing ? profile.essence : c?.discoveries.element ?? null;
+  const testKey = testing ? `${c.id}:${profile.testId}` : null;
   const secrets = snap?.secrets?.length ?? 0;
   const bond = c?.bond.level ?? 1, points = skillPoints(bond, 0, secrets);
-  const catalog = useSkills((s) => s.catalog), alloc = useSkills((s) => s.alloc);
+  const catalog = useSkills((s) => s.catalog), savedAlloc = useSkills((s) => s.alloc);
+  const alloc = testing ? profile.alloc : savedAlloc;
   const granted = useGod((g) => g.skills);
   const tree: SkillTree | null = useMemo(() => (species ? buildSkillTree(catalog, { essence, species }) : null), [catalog, essence, species]);
   const fx = useMemo(() => (tree ? treeEffects(tree, alloc) : null), [tree, alloc]);
@@ -87,11 +92,13 @@ export function useSkillData() {
     }
     return base;
   }, [fx, known, granted]);
-  return { companion: c ?? null, species, essence, bond, points, secrets, tree, fx, unlocked, catalog: known, alloc };
+  return { companion: c ?? null, species, essence, bond, points, secrets, tree, fx, unlocked, catalog: known, alloc, testing, testKey };
 }
 
 /** Grava a distribuição (online ou neste navegador). */
 export async function persistAlloc(companionId: string, next: Allocation) {
+  const god = useGod.getState();
+  if (god.admin && god.treeProfile?.companionId === companionId) { god.setTestAlloc(next); return; }
   const st = useSkills.getState();
   st.setAlloc(next);
   st.setSaving(true);
@@ -103,13 +110,18 @@ export async function persistAlloc(companionId: string, next: Allocation) {
 
 export function saveBar(companionId: string, slots: (string | null)[], removed: string[]) {
   useSkills.getState().setBar(slots, removed);
+  const god = useGod.getState();
+  if (god.admin && god.treeProfile?.companionId === companionId) return;
   try { localStorage.setItem(barKey(companionId), JSON.stringify({ slots, removed } satisfies BarSave)); } catch { /* só nesta sessão */ }
 }
 
 /** Carrega catálogo, distribuição e barra; mantém a barra em dia com as habilidades abertas. Usar uma vez (App). */
 export function useSkillSync() {
   const backend = useGame((s) => s.backend);
-  const { companion: c, tree, bond, points, unlocked } = useSkillData();
+  const visualModel = useGame(s => s.snap?.visualJob?.model);
+  // Signed URL refreshes do not change the model; a new model/package does.
+  const visualKey = [visualModel?.url.split('?')[0] ?? '', ...(visualModel?.anims ?? []).map(a => a.url.split('?')[0])].join('|');
+  const { companion: c, tree, bond, points, unlocked, testing, testKey } = useSkillData();
 
   useEffect(() => {
     let alive = true;
@@ -121,7 +133,7 @@ export function useSkillSync() {
   }, []);
 
   useEffect(() => {
-    if (!c || !tree) return;
+    if (!c || !tree || testing) return;
     let alive = true;
     (async () => {
       let raw: Allocation = {};
@@ -132,25 +144,32 @@ export function useSkillSync() {
       if (alive) useSkills.getState().setAlloc(validateAllocation(tree, raw, bond, points));
     })();
     return () => { alive = false; };
-  }, [c?.id, tree, backend?.kind, bond, points]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [c?.id, tree, backend?.kind, bond, points, testing]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // animações escolhidas no Administrador para este Companion
+  // Refresh mappings for the current model and when returning from the Admin tab.
   useEffect(() => {
     if (!c || backend?.kind !== 'online') { useSkills.setState({ animMap: {} }); return; }
-    let alive = true;
-    supabase().from('companion_skill_anims').select('anims').eq('companion_id', c.id).maybeSingle().then(({ data }) => {
-      if (alive) useSkills.setState({ animMap: (data?.anims ?? {}) as Record<string, string> });
-    }, () => {});
-    return () => { alive = false; };
-  }, [c?.id, backend?.kind]); // eslint-disable-line react-hooks/exhaustive-deps
+    let alive = true, version = 0;
+    useSkills.setState({ animMap: {} });
+    const refresh = () => {
+      const request = ++version;
+      supabase().from('companion_skill_anims').select('anims').eq('companion_id', c.id).maybeSingle().then(({ data, error }) => {
+        if (alive && request === version && !error) useSkills.setState({ animMap: (data?.anims ?? {}) as Record<string, string> });
+      }, () => {});
+    };
+    refresh();
+    window.addEventListener('focus', refresh);
+    return () => { alive = false; window.removeEventListener('focus', refresh); };
+  }, [c?.id, backend?.kind, visualKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // barra salva deste Companion
   useEffect(() => {
     if (!c) return;
+    if (testing) { useSkills.getState().setBar(empty(), []); return; }
     let save: BarSave = { slots: empty(), removed: [] };
     try { const v = JSON.parse(localStorage.getItem(barKey(c.id)) ?? 'null'); if (v && Array.isArray(v.slots)) save = { slots: empty().map((_, i) => (typeof v.slots[i] === 'string' ? v.slots[i] : null)), removed: Array.isArray(v.removed) ? v.removed : [] }; } catch { /* vazia */ }
     useSkills.getState().setBar(save.slots, save.removed);
-  }, [c?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [c?.id, testKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // habilidade nova → primeiro espaço livre; habilidade que saiu da árvore → some da barra
   const open = unlocked.map((u) => u.skill.slug).join(',');
@@ -166,7 +185,7 @@ export function useSkillSync() {
       slots[i] = u.skill.slug;
     }
     if (slots.join() !== bar.join()) saveBar(c.id, slots, removed);
-  }, [open, c?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open, c?.id, testKey]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
 // testes no navegador (só no dev)
