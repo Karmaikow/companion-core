@@ -4,6 +4,7 @@
  * - `spawns`: monstros invocados aqui (entram junto dos do mundo).
  * - `skills`: habilidades dadas fora da árvore (valem na barra 1–9).
  * - `model`: modelo 3D de teste no lugar do modelo do Companion (só nesta aba).
+ * - `tp`: pedido de teleporte (o App troca de mapa se precisar e põe o Companion no ponto).
  */
 import { create } from 'zustand';
 import type { Spawn } from '@rules';
@@ -16,6 +17,9 @@ function load(): Saved {
   try { const v = JSON.parse(localStorage.getItem(KEY) ?? 'null'); if (v && typeof v === 'object') return { on: !!v.on, skills: v.skills && typeof v.skills === 'object' ? v.skills : {} }; } catch { /* padrão */ }
   return { on: false, skills: {} };
 }
+
+export type TpPlace = 'refuge' | 'world' | 'arredores' | 'cidade';
+export interface TpRequest { id: number; place: TpPlace; x: number; z: number }
 
 interface GodState extends Saved {
   /** esta conta é de Administrador (o servidor confirma) */
@@ -32,6 +36,8 @@ interface GodState extends Saved {
   grantSkill: (slug: string, level: number) => void;
   revokeSkill: (slug: string) => void;
   setModel: (m: CompanionModelFiles | null, name?: string | null) => void;
+  tp: TpRequest | null;
+  teleportTo: (place: TpPlace, x: number, z: number) => void;
 }
 
 let n = 0;
@@ -55,4 +61,6 @@ export const useGod = create<GodState>((set, get) => ({
   grantSkill: (slug, level) => { set({ skills: { ...get().skills, [slug]: Math.max(1, Math.min(5, Math.round(level))) } }); save(get()); },
   revokeSkill: (slug) => { const { [slug]: _x, ...rest } = get().skills; set({ skills: rest }); save(get()); },
   setModel: (model, name = null) => set({ model, modelName: model ? name : null }),
+  tp: null,
+  teleportTo: (place, x, z) => set({ tp: { id: (get().tp?.id ?? 0) + 1, place, x, z }, open: false }),
 }));

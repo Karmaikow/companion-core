@@ -4,22 +4,28 @@
  * trocar o modelo 3D por um dos enviados na Fábrica e dar habilidades da Forja (valem na barra 1–9).
  */
 import { useEffect, useMemo, useState } from 'react';
-import { DEFAULT_CREATURES, ITEM_CATEGORIES, categoryOf, creatureStatsAt, type ItemCategory } from '@rules';
+import {
+  CITY_MARKERS, DEFAULT_CREATURES, GATES, GATE_IDS, ITEM_CATEGORIES, OUT_ARRIVAL, categoryOf, cityArrival, creatureStatsAt, outskirtsGatePoint,
+  type CityLayout, type CompanionWorld, type ItemCategory,
+} from '@rules';
 import { supabase } from '../backend/online';
 import { useGame } from '../store';
 import { companionFocus } from '../scene/world';
 import { brain } from '../scene/brain';
 import { healCompanion, reviveCompanion, vitals } from '../scene/vitals';
+import { farPoses, remotePoses, usePresence, watchWorld } from '../net/presence';
 import { useSkills } from './skillState';
 import { useCompanionModels } from './companionModels';
-import { useGod } from './godMode';
+import { useGod, type TpPlace } from './godMode';
 
-type Tab = 'poderes' | 'monstros' | 'itens' | 'modelo' | 'habilidades';
-const TABS: [Tab, string][] = [['poderes', 'Poderes'], ['monstros', 'Monstros'], ['itens', 'Itens'], ['modelo', 'Modelo 3D'], ['habilidades', 'Habilidades']];
+type Tab = 'poderes' | 'teleporte' | 'monstros' | 'itens' | 'modelo' | 'habilidades';
+const TABS: [Tab, string][] = [['poderes', 'Poderes'], ['teleporte', 'Teleporte'], ['monstros', 'Monstros'], ['itens', 'Itens'], ['modelo', 'Modelo 3D'], ['habilidades', 'Habilidades']];
 const DEV_FORCE = typeof location !== 'undefined' && import.meta.env.DEV && new URLSearchParams(location.search).has('god');
+const PLACE_LABEL: Record<TpPlace, string> = { refuge: 'Refúgio', world: 'Companion World', arredores: 'Arredores de Áster', cidade: 'Cidade de Áster' };
+interface Where { place: TpPlace; world: CompanionWorld; city: CityLayout }
 
 /** Botão ⚡ (só aparece para o Administrador) e o painel. */
-export function GodMode({ inWorld }: { inWorld: boolean }) {
+export function GodMode({ inWorld, ...where }: { inWorld: boolean } & Where) {
   const admin = useGod((g) => g.admin), open = useGod((g) => g.open), on = useGod((g) => g.on);
   const online = useGame((s) => s.backend?.kind === 'online');
   useEffect(() => {
@@ -33,12 +39,12 @@ export function GodMode({ inWorld }: { inWorld: boolean }) {
   return (
     <>
       <button className={'god-btn' + (on ? ' on' : '')} onClick={() => useGod.getState().setOpen(!open)} aria-label="Modo GOD (Administrador)" aria-expanded={open}>⚡<small>GOD</small></button>
-      {open && <GodPanel inWorld={inWorld} />}
+      {open && <GodPanel inWorld={inWorld} where={where} />}
     </>
   );
 }
 
-function GodPanel({ inWorld }: { inWorld: boolean }) {
+function GodPanel({ inWorld, where }: { inWorld: boolean; where: Where }) {
   const [tab, setTab] = useState<Tab>('poderes');
   return (
     <div className="god-backdrop" onClick={(e) => { if (e.target === e.currentTarget) useGod.getState().setOpen(false); }}>
@@ -50,6 +56,7 @@ function GodPanel({ inWorld }: { inWorld: boolean }) {
         <nav className="god-tabs">{TABS.map(([k, l]) => <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}</button>)}</nav>
         <div className="god-body">
           {tab === 'poderes' && <Powers />}
+          {tab === 'teleporte' && <Teleport {...where} />}
           {tab === 'monstros' && <Monsters inWorld={inWorld} />}
           {tab === 'itens' && <Items />}
           {tab === 'modelo' && <Models />}
@@ -79,6 +86,79 @@ function Powers() {
         <button onClick={() => { healCompanion(vitals.hpMax); vitals.sp = vitals.spMax; vitals.st = vitals.stMax; toast('Vida, SP e stamina cheios.', 'gold'); }}>Curar tudo</button>
         <button onClick={() => { if (!reviveCompanion(true)) toast('Ela não está desmaiada.', 'soft'); }}>Levantar</button>
       </div>
+    </div>
+  );
+}
+
+interface Spot { key: string; group: string; name: string; place: TpPlace; x: number; z: number }
+
+function Teleport({ place, world, city }: Where) {
+  const toast = useGame((s) => s.toast);
+  const online = useGame((s) => s.backend?.kind === 'online');
+  const players = usePresence((s) => s.all);
+  const [q, setQ] = useState('');
+  const [xz, setXz] = useState(() => ({ x: Math.round(companionFocus.x), z: Math.round(companionFocus.z) }));
+  const [, tick] = useState(0);
+  useEffect(() => { const t = window.setInterval(() => tick((n) => n + 1), 1000); return () => window.clearInterval(t); }, []);
+  // no Refúgio a presença não está ligada: só observa os mapas (sem aparecer para ninguém)
+  const local = !online && import.meta.env.DEV && new URLSearchParams(location.search).has('eco');
+  useEffect(() => { if (place !== 'refuge' || (!online && !local)) return; return watchWorld(local); }, [place, online, local]);
+
+  const spots = useMemo<Spot[]>(() => {
+    const out: Spot[] = [{ key: 'refugio', group: 'Refúgio', name: 'Meu Refúgio', place: 'refuge', x: 0, z: 0 }];
+    // pedras-guia: um passo para o lado, para não nascer dentro delas
+    for (const s of [...world.sites].sort((a, b) => Number(b.home) - Number(a.home) || Number(!!b.gate) - Number(!!a.gate) || a.name.localeCompare(b.name)))
+      out.push({ key: `w-${s.i}-${s.j}`, group: 'Companion World', name: s.home && !/portal/i.test(s.name) ? `${s.name} (Portal do Refúgio)` : s.name, place: 'world', x: s.x + 4, z: s.z + 4 });
+    out.push({ key: 'a-chegada', group: 'Áster · Arredores', name: 'Chegada (portal do sul)', place: 'arredores', x: OUT_ARRIVAL.x, z: OUT_ARRIVAL.z - 6 });
+    for (const g of GATE_IDS) { const p = outskirtsGatePoint(g, 9); out.push({ key: 'a-' + g, group: 'Áster · Arredores', name: `${GATES[g].label} (de fora)`, place: 'arredores', x: p.x, z: p.z }); }
+    for (const m of city.markers) {
+      if (m.kind === 'chegada') continue;
+      const p = m.kind === 'portao' ? cityArrival(city, m.gate ?? 'sul') : m.kind === 'cristal' ? { x: m.x, z: m.z + 8 } : { x: m.x + 2, z: m.z + 2 };
+      out.push({ key: 'c-' + m.id, group: 'Áster · Cidade', name: m.kind === 'portao' ? `${m.name} (por dentro)` : `${CITY_MARKERS[m.kind].icon} ${m.name}`, place: 'cidade', x: p.x, z: p.z });
+    }
+    return out;
+  }, [world, city]);
+
+  const go = (to: TpPlace, x: number, z: number, label: string) => { useGod.getState().teleportTo(to, x, z); toast(`Teleporte: ${label}.`, 'gold'); };
+  const list = spots.filter((s) => !q || (s.group + ' ' + s.name).toLowerCase().includes(q.toLowerCase()));
+  const groups = [...new Set(list.map((s) => s.group))];
+  return (
+    <div className="god-col">
+      <p className="god-hint">Você está em <b>{PLACE_LABEL[place]}</b> · x {Math.round(companionFocus.x)}, z {Math.round(companionFocus.z)}</p>
+      <div className="god-row">
+        <label>X <input type="number" value={xz.x} onChange={(e) => setXz({ ...xz, x: Number(e.target.value) || 0 })} /></label>
+        <label>Z <input type="number" value={xz.z} onChange={(e) => setXz({ ...xz, z: Number(e.target.value) || 0 })} /></label>
+        <button onClick={() => go(place, xz.x, xz.z, `x ${xz.x}, z ${xz.z}`)}>Ir (neste mapa)</button>
+      </div>
+
+      <b>Jogadores</b>
+      <ul className="god-items">
+        {players.map(({ info: o, map }) => {
+          const pose = () => remotePoses.get(o.id) ?? farPoses.get(o.id);
+          const p = pose(), ok = !!p && Number.isFinite(p.x);
+          return (
+            <li key={o.id}>
+              <span><b style={{ color: o.color }}>{o.name}</b><small>{PLACE_LABEL[map]}{map === place ? ' (aqui)' : ''} · {ok ? `x ${Math.round(p!.x)}, z ${Math.round(p!.z)}` : 'esperando a posição…'}</small></span>
+              <button disabled={!ok} onClick={() => { const r = pose(); if (r && Number.isFinite(r.x)) go(map, r.x + 2, r.z + 2, `perto de ${o.name}`); }}>Ir</button>
+            </li>
+          );
+        })}
+        {!players.length && <li className="god-hint">{online || local ? 'Ninguém no Companion World nem em Áster agora (quem está no próprio Refúgio não aparece).' : 'Jogue online para ver os outros jogadores.'}</li>}
+      </ul>
+
+      <b>Lugares</b>
+      <input placeholder="Buscar lugar" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Buscar lugar" />
+      <ul className="god-items">
+        {groups.map((g) => [
+          <li key={'g-' + g} className="god-hint"><b>{g}</b></li>,
+          ...list.filter((s) => s.group === g).map((s) => (
+            <li key={s.key}>
+              <span><b>{s.name}</b>{s.place !== 'refuge' && <small>x {Math.round(s.x)}, z {Math.round(s.z)}</small>}</span>
+              <button onClick={() => go(s.place, s.x, s.z, s.name)}>Ir</button>
+            </li>
+          )),
+        ])}
+      </ul>
     </div>
   );
 }

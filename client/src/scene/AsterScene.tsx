@@ -21,6 +21,7 @@ import type { AppendageSpec } from './Appendages';
 import type { CompanionModelFiles } from '../backend/types';
 import { CompanionModel, type Gear, type Roam } from './CompanionModel';
 import { CombatFx } from './Combat';
+import { RemoteCompanions } from './RemoteCompanions';
 import { WeatherFx } from './Weather';
 import { AssetBoundary, CameraRig, ClickMarker, Sky, WindClock } from './Biome';
 import { colliders, companionFocus, groundDown, groundMove, smooth, type Circle, type WorldShape } from './world';
@@ -525,6 +526,7 @@ export function AsterScene(props: AsterSceneProps) {
         <CompanionModel files={props.model} world={shape} burstKey={props.burstKey} speech={props.speech} onFail={() => props.onTravel({ to: 'mundo' })} roam={roam} appendages={props.appendages} speed={props.speed} gear={props.gear} />
         <CombatFx world={shape} />
       </Suspense>
+      <RemoteCompanions world={shape} />
       <AsterLogic map={props.map} layout={props.layout} state={props.state} onTravel={props.onTravel} onPlace={props.onPlace} />
       <EffectComposer multisampling={0} enableNormalPass={false}>
         <Bloom mipmapBlur intensity={0.55 + night * 0.45} luminanceThreshold={0.78 - night * 0.12} luminanceSmoothing={0.2} />
