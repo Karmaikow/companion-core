@@ -7,18 +7,25 @@ import { worldNodeById, nodesNear, nodeAvailable, nodeEnvAt, DEFAULT_WEATHER, ty
 let world: CompanionWorld | null = null;
 let weatherCfg: WeatherConfig = DEFAULT_WEATHER;
 let env: { at: number; v: NodeEnv } | null = null;
+let unlocks: readonly string[] = [];
 
 export function setEcosWorld(w: CompanionWorld | null, cfg?: WeatherConfig) {
   world = w; env = null;
   if (cfg) weatherCfg = cfg;
 }
 export const ecosWorld = () => world;
+/** desbloqueios da Companion (variedades que só aparecem para quem concluiu a missão) */
+export function setEcosUnlocks(list: readonly string[] | undefined) {
+  const next = list ?? [];
+  if (next.length === unlocks.length && next.every((u) => unlocks.includes(u))) return;
+  unlocks = next; env = null;
+}
 
 /** horário e clima de agora (refeito a cada 20 s) */
 export function envNow(): NodeEnv | null {
   if (!world) return null;
   const now = Date.now();
-  if (!env || now - env.at > 20_000) env = { at: now, v: nodeEnvAt(world, now, weatherCfg) };
+  if (!env || now - env.at > 20_000) env = { at: now, v: nodeEnvAt(world, now, weatherCfg, unlocks) };
   return env.v;
 }
 

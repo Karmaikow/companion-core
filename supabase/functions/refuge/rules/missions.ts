@@ -86,6 +86,13 @@ export interface MissionDef {
   rewards: MissionRewards;
 }
 
+/** Desbloqueios conhecidos (prêmio de missão): o que cada um faz. Outros ids valem, mas sem texto próprio. */
+export const UNLOCKS: Record<string, string> = {
+  'variedade:erva-lunar': 'A Erva-de-orvalho Lunar passa a aparecer no mundo para você',
+  'variedade:veio-prateado': 'Veios Prateados passam a aparecer no mundo para você',
+};
+export const unlockText = (id: string) => UNLOCKS[id] ?? `Desbloqueio: ${id}`;
+
 export const MAX_OBJECTIVES = 6;
 export const MAX_ACTIVE_MISSIONS = 10;
 const SLUG = /^[a-z0-9][a-z0-9-]{1,40}$/;
@@ -251,6 +258,18 @@ export const DEFAULT_MISSIONS: MissionDef[] = [
     rarity: 'comum', repeat: 'diaria', giver: 'casa-dos-ecos', req: { after: ['primeiras-ervas'], bond: 0, schools: [], classes: [], essences: [] },
     objectives: [{ kind: 'entregar', qty: 8, category: 'madeira', prop: 'resistencia', min: 'media' }],
     rewards: { lumes: 30, bond: 10, materials: [], items: [] },
+  })!,
+  sanitizeMission({
+    slug: 'pocoes-de-aprendiz', name: 'Poções de aprendiz', description: 'A Escola do Veneno quer ver você preparar com o que a Casa dos Ecos ensinou. Quem passa aprende a achar a Erva Lunar.',
+    rarity: 'rara', repeat: 'unica', giver: 'escola-veneno', req: { after: ['primeiras-ervas'], bond: 0, schools: ['veneno'], classes: [], essences: [] },
+    objectives: [{ kind: 'coletar', qty: 10, category: 'planta', prop: 'estabilidade', min: 'media' }, { kind: 'fabricar', qty: 2, recipe: 'pocao-vida-p' }],
+    rewards: { lumes: 60, bond: 30, materials: [], items: [], unlock: 'variedade:erva-lunar' },
+  })!,
+  sanitizeMission({
+    slug: 'metal-de-aprendiz', name: 'Metal de aprendiz', description: 'A Escola da Forja só confia metal bom a quem sabe refinar. Traga lingotes e ganhe o mapa dos Veios Prateados.',
+    rarity: 'rara', repeat: 'unica', giver: 'escola-forja', req: { after: ['primeiras-ervas'], bond: 0, schools: ['forja'], classes: [], essences: [] },
+    objectives: [{ kind: 'fabricar', qty: 1, recipe: 'lingote-de-cobre' }, { kind: 'entregar', qty: 1, material: 'lingote-de-cobre' }],
+    rewards: { lumes: 80, bond: 30, materials: [], items: [], unlock: 'variedade:veio-prateado' },
   })!,
   sanitizeMission({
     slug: 'lascas-da-fenda', name: 'Lascas da fenda', description: 'Os Distorcidos estão se espalhando. Reduza o enxame dos pequenos antes que cresçam.',

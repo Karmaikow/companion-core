@@ -283,26 +283,28 @@ export interface ForgeBlueprint {
   offices: OfficeKey[];
   description: string;
 }
+/** onde a Forja pede cobre: o refinado da Casa dos Ecos e a prata (variedade da Escola da Forja) também servem */
+const METAL = ['minerio-cobre', 'lingote-de-cobre', 'minerio-prata'];
 const wood = (min?: Band, prop: PropKey = 'resistencia') => ({ category: 'madeira' as ResCategory, prop, min });
 export const BLUEPRINTS: ForgeBlueprint[] = [
   { id: 'faca-de-colheita', name: 'Faca de Colheita', tier: 'basico', kind: 'ferramenta', tool: 'faca', intents: ['trabalho'], seconds: 15, durability: 40, offices: ['forja'], description: 'Corta flores, seiva e raízes sem estragar a planta.',
-    slots: [{ layer: 'corpo', label: 'Cabo (qualquer madeira)', qty: 1, accepts: [wood()] }, { layer: 'corpo', label: 'Lâmina (cobre)', qty: 1, accepts: [{ materials: ['minerio-cobre'] }] }] },
+    slots: [{ layer: 'corpo', label: 'Cabo (qualquer madeira)', qty: 1, accepts: [wood()] }, { layer: 'corpo', label: 'Lâmina (cobre)', qty: 1, accepts: [{ materials: METAL }] }] },
   { id: 'machado-simples', name: 'Machado Simples', tier: 'basico', kind: 'ferramenta', tool: 'machado', intents: ['trabalho'], seconds: 20, durability: 50, offices: ['forja'], description: 'Para cortar árvores inteiras.',
     slots: [{ layer: 'corpo', label: 'Cabo resistente', qty: 1, accepts: [wood('media')] }, { layer: 'corpo', label: 'Cabeça (cobre ou granito)', qty: 2, accepts: [{ materials: ['minerio-cobre', 'pedra-granito'] }] }] },
   { id: 'picareta-simples', name: 'Picareta Simples', tier: 'basico', kind: 'ferramenta', tool: 'picareta', intents: ['trabalho'], seconds: 20, durability: 50, offices: ['forja'], description: 'Quebra rocha e escava veios.',
-    slots: [{ layer: 'corpo', label: 'Cabo resistente', qty: 1, accepts: [wood('media')] }, { layer: 'corpo', label: 'Ponta de cobre', qty: 2, accepts: [{ materials: ['minerio-cobre'] }] }] },
+    slots: [{ layer: 'corpo', label: 'Cabo resistente', qty: 1, accepts: [wood('media')] }, { layer: 'corpo', label: 'Ponta de cobre', qty: 2, accepts: [{ materials: METAL }] }] },
   { id: 'cinzel-de-cobre', name: 'Cinzel de Cobre', tier: 'basico', kind: 'ferramenta', tool: 'cinzel', intents: ['trabalho'], seconds: 20, durability: 30, offices: ['forja'], description: 'Solta gemas inteiras sem rachar.',
-    slots: [{ layer: 'corpo', label: 'Cobre puro', qty: 2, accepts: [{ materials: ['minerio-cobre'], prop: 'pureza', min: 'media' }] }, { layer: 'corpo', label: 'Cabo resistente', qty: 1, accepts: [wood('media')] }] },
+    slots: [{ layer: 'corpo', label: 'Cobre puro', qty: 2, accepts: [{ materials: METAL, prop: 'pureza', min: 'media' }] }, { layer: 'corpo', label: 'Cabo resistente', qty: 1, accepts: [wood('media')] }] },
   { id: 'arco-de-salgueiro', name: 'Arco de Salgueiro', tier: 'basico', kind: 'equipamento', itemType: 'arco', intents: ['precisao', 'mobilidade'], seconds: 25, durability: 60, offices: ['forja'], description: 'Dobra sem quebrar. Madeira comum e flexível é a ideal.',
     slots: [{ layer: 'corpo', label: 'Madeira flexível', qty: 3, accepts: [wood('media', 'flexibilidade')] }, { layer: 'marca', label: 'Seiva Azul (afinidade de água)', qty: 1, accepts: [{ materials: ['seiva-azul'] }], optional: true }] },
   { id: 'escudo-de-tabuas', name: 'Escudo de Tábuas', tier: 'basico', kind: 'equipamento', itemType: 'escudo', intents: ['protecao'], seconds: 25, durability: 70, offices: ['forja'], description: 'Simples, pesado e honesto.',
-    slots: [{ layer: 'corpo', label: 'Tábuas resistentes', qty: 3, accepts: [wood('media')] }, { layer: 'corpo', label: 'Rebites de cobre', qty: 1, accepts: [{ materials: ['minerio-cobre'] }] }] },
+    slots: [{ layer: 'corpo', label: 'Tábuas resistentes', qty: 3, accepts: [wood('media')] }, { layer: 'corpo', label: 'Rebites de cobre', qty: 1, accepts: [{ materials: METAL }] }] },
   { id: 'kit-de-reparo', name: 'Kit de Reparo', tier: 'basico', kind: 'consumivel', intents: ['trabalho'], seconds: 10, durability: 0, offices: ['forja'], description: 'Qualquer pessoa usa: devolve durabilidade a um equipamento (sem passar do máximo).',
-    slots: [{ layer: 'corpo', label: 'Madeira', qty: 1, accepts: [wood()] }, { layer: 'corpo', label: 'Cobre', qty: 1, accepts: [{ materials: ['minerio-cobre'] }] }] },
+    slots: [{ layer: 'corpo', label: 'Madeira', qty: 1, accepts: [wood()] }, { layer: 'corpo', label: 'Cobre', qty: 1, accepts: [{ materials: METAL }] }] },
   { id: 'guardiao-da-nascente', name: 'Guardião da Nascente', tier: 'avancado', kind: 'equipamento', itemType: 'escudo', intents: ['protecao', 'conducao'], seconds: 40, durability: 120, offices: ['manejo', 'confluencia', 'harmonizacao', 'inscricao', 'forja'], description: 'Escudo aquático: depois de uma defesa válida, ergue uma barreira breve.',
     slots: [
       { layer: 'corpo', label: 'Cerne Preservado (Feral)', qty: 1, accepts: [{ components: ['cerne-preservado'] }] },
-      { layer: 'corpo', label: 'Cobre de pureza média ou alta', qty: 2, accepts: [{ materials: ['minerio-cobre'], prop: 'pureza', min: 'media' }] },
+      { layer: 'corpo', label: 'Cobre de pureza média ou alta', qty: 2, accepts: [{ materials: METAL, prop: 'pureza', min: 'media' }] },
       { layer: 'trama', label: 'Trama de Distribuição (Alada)', qty: 1, accepts: [{ components: ['trama-distribuicao'] }] },
       { layer: 'marca', label: 'Matriz de Barreira Breve (Feérica)', qty: 1, accepts: [{ components: ['matriz-barreira'] }] },
       { layer: 'tempera', label: 'Agente de Têmpera Aquática (Dracônica)', qty: 1, accepts: [{ components: ['agente-tempera-agua'] }] },

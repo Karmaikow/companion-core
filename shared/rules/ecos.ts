@@ -81,6 +81,9 @@ export const MATERIALS: Record<string, MaterialDef> = Object.fromEntries([
   M({ id: 'fibra-aerea', name: 'Fibra dos Ventos', category: 'madeira', rarity: 3, uses: ['Tramas leves (Alada)', 'Cordas de arco'], ranges: { flexibilidade: [80, 99], resistencia: [20, 45] }, fixed: { afinidade: 'vento' } }),
   M({ id: 'cristal-inscrito', name: 'Cristal Inscrito', category: 'gema', rarity: 3, uses: ['Suporte de matrizes rúnicas (Feérica)'], ranges: { integridade: [75, 98] }, fixed: { afinidade: 'luz' } }),
   M({ id: 'quartzo-fragmento', name: 'Fragmentos de Quartzo', category: 'gema', rarity: 2, uses: ['Pó de encantamento', 'Lanternas'], ranges: { integridade: [8, 32] }, fixed: { afinidade: 'água' } }),
+  // variedades (só aparecem para quem concluiu a missão da escola que as ensina)
+  M({ id: 'erva-lunar', name: 'Erva Lunar', category: 'planta', rarity: 3, uses: ['Poção de Vida Grande e Elixir Lunar (Escola do Veneno)', 'Remédios raros'], ranges: { potencia: [70, 98], estabilidade: [70, 98] }, fixed: { parte: 'folhas lunares' } }),
+  M({ id: 'minerio-prata', name: 'Prata Nativa', category: 'minerio', rarity: 3, uses: ['Lâminas e peças superiores (Escola da Forja)', 'Aceita onde a Forja pede cobre'], ranges: { pureza: [55, 95] }, fixed: { composicao: 'prata' } }),
   // refinados (Casa dos Ecos): muitos materiais comuns viram um melhor; a qualidade vem da média do que entrou
   M({ id: 'extrato-de-orvalho', name: 'Extrato de Orvalho', category: 'planta', rarity: 3, uses: ['Poções e comidas superiores (Escola do Veneno)', 'Unguentos fortes'], ranges: { potencia: [30, 95], estabilidade: [30, 95] }, fixed: { parte: 'extrato' } }),
   M({ id: 'tabua-nobre', name: 'Tábua Nobre', category: 'madeira', rarity: 3, uses: ['Cabos, arcos e escudos superiores (Forja)', 'Estruturas de Áster'], ranges: { flexibilidade: [30, 95], resistencia: [30, 95] }, fixed: { afinidade: 'neutra' } }),
@@ -288,6 +291,20 @@ export const NODE_KINDS: Record<string, ResourceNodeKind> = {
     approaches: [
       { id: 'colher-no-vento', label: 'Colher no sopro do vento', seconds: 9, cost: 1, tool: null, yields: [{ material: 'fibra-aerea', qty: [1, 1], guaranteed: 1 }], risk: 'nenhum', riskLevel: 0, effect: 'Os fios voltam rápido.', pitch: 'Fibras inteiras, leves.' },
       { id: 'arrancar-tufos', label: 'Arrancar os tufos', seconds: 6, cost: 3, tool: null, yields: [{ material: 'fibra-aerea', qty: [2, 2], guaranteed: 2 }], risk: 'altura (leve)', riskLevel: 1, effect: 'A rocha fica pelada por ~4 h.', pitch: 'Bastante fibra de uma vez.' },
+    ],
+  },
+  'erva-lunar': {
+    kind: 'erva-lunar', name: 'Erva-de-orvalho Lunar', category: 'planta', zone: 'riacho', capacity: 6, regenPerHour: 2, sign: 'Folhas prateadas que brilham fraco, mesmo de dia.',
+    approaches: [
+      { id: 'colher', label: 'Colher com cuidado', seconds: 6, cost: 1, tool: null, yields: [{ material: 'erva-lunar', qty: [1, 1], guaranteed: 1 }], risk: 'nenhum', riskLevel: 0, effect: 'A planta rebrota.', pitch: 'Pouco, sem ferramenta.' },
+      { id: 'colher-tudo', label: 'Colher o tufo inteiro', seconds: 9, cost: 3, tool: 'faca', yields: [{ material: 'erva-lunar', qty: [2, 3], guaranteed: 2 }], risk: 'nenhum', riskLevel: 0, effect: 'A planta some por ~1,5 h.', pitch: 'Mais erva de uma vez.' },
+    ],
+  },
+  'veio-prateado': {
+    kind: 'veio-prateado', name: 'Veio Prateado', category: 'minerio', zone: 'afloramento', capacity: 6, regenPerHour: 1.5, sign: 'Riscos de metal claro numa rocha escura.',
+    approaches: [
+      { id: 'garimpar', label: 'Garimpar o entorno', seconds: 7, cost: 1, tool: null, yields: [{ material: 'minerio-prata', qty: [1, 1], guaranteed: 1 }], risk: 'nenhum', riskLevel: 0, effect: 'Nenhum.', pitch: 'Pouca prata, sem mexer no veio.' },
+      { id: 'escavar', label: 'Escavar o veio', seconds: 10, cost: 3, tool: 'picareta', yields: [{ material: 'minerio-prata', qty: [2, 3], guaranteed: 2 }], risk: 'pedra solta (leve)', riskLevel: 1, effect: 'O veio fica raso por ~2 h.', pitch: 'Mais prata de uma vez.' },
     ],
   },
   'pedra-inscrita': {

@@ -52,8 +52,11 @@ export interface BiomeResource {
   time: ResourceTime;
   weather: WeatherKind[];     // vazio = qualquer clima
   terrain: ResourceTerrain;
+  /** só aparece para quem tem este desbloqueio (prêmio de missão), ex.: "variedade:erva-lunar" */
+  unlock?: string;
 }
 export const RESOURCE_MAX_DENSITY = 3;
+const UNLOCK_ID = /^[a-z0-9][a-z0-9:_-]{1,60}$/;
 /** Tabela padrão (bioma sem tabela própria): o básico em toda parte, as fontes superiores raras. */
 export const DEFAULT_BIOME_RESOURCES: BiomeResource[] = [
   { kind: 'erva', density: 0.45, time: 'sempre', weather: [], terrain: 'qualquer' },
@@ -67,6 +70,9 @@ export const DEFAULT_BIOME_RESOURCES: BiomeResource[] = [
   { kind: 'liquen-dos-ventos', density: 0.02, time: 'sempre', weather: [], terrain: 'aberto' },
   { kind: 'remanso-profundo', density: 0.03, time: 'sempre', weather: ['chuva', 'tempestade'], terrain: 'qualquer' },
   { kind: 'pedra-inscrita', density: 0.025, time: 'noite', weather: [], terrain: 'qualquer' },
+  // variedades: só para quem concluiu a missão da escola (Admin → Missões, prêmio "desbloqueio")
+  { kind: 'erva-lunar', density: 0.12, time: 'sempre', weather: [], terrain: 'qualquer', unlock: 'variedade:erva-lunar' },
+  { kind: 'veio-prateado', density: 0.06, time: 'sempre', weather: [], terrain: 'qualquer', unlock: 'variedade:veio-prateado' },
 ];
 /** Tabela de um bioma: a dele (até 24 linhas, um tipo por linha) ou null para usar a padrão. */
 export function sanitizeBiomeResources(v: unknown): BiomeResource[] | undefined {
@@ -81,6 +87,7 @@ export function sanitizeBiomeResources(v: unknown): BiomeResource[] | undefined 
       time: r.time === 'dia' || r.time === 'noite' ? r.time : 'sempre',
       weather: Array.isArray(r.weather) ? [...new Set(r.weather.filter((w): w is WeatherKind => typeof w === 'string' && w in WEATHERS))] : [],
       terrain: r.terrain === 'mata' || r.terrain === 'aberto' ? r.terrain : 'qualquer',
+      ...(typeof r.unlock === 'string' && UNLOCK_ID.test(r.unlock) ? { unlock: r.unlock } : {}),
     });
   }
   return out;

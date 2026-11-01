@@ -77,7 +77,7 @@ export async function ecosState(db: SupabaseClient, cid: string, ecfg: EcosConfi
   const toolsP = ownedTools(db, cid);
   await db.from('ecos_profile').upsert({ companion_id: cid }, { onConflict: 'companion_id', ignoreDuplicates: true });
   const [prof, bag, nodes, sites, proj, mine] = await Promise.all([
-    db.from('ecos_profile').select('tools,seen,known_materials,techniques,chain').eq('companion_id', cid).maybeSingle(),
+    db.from('ecos_profile').select('tools,seen,known_materials,techniques,chain,unlocks').eq('companion_id', cid).maybeSingle(),
     db.from('ecos_bag').select('batch_key,qty').eq('companion_id', cid),
     db.from('ecos_nodes').select('node_id,amount,at').eq('companion_id', cid).gt('at', new Date(Date.now() - 2 * 86_400_000).toISOString()),
     db.from('ecos_sites').select('site_id,stored,at,cared_at,created_at').eq('companion_id', cid),
@@ -86,12 +86,12 @@ export async function ecosState(db: SupabaseClient, cid: string, ecfg: EcosConfi
   ]);
   const now = Date.now();
   const tools = await toolsP;
-  const p = prof.data ?? { tools: [], seen: [], known_materials: [], techniques: [], chain: {} };
+  const p = prof.data ?? { tools: [], seen: [], known_materials: [], techniques: [], chain: {}, unlocks: [] };
   const pr = proj.data ?? { project_id: PONTE.id, stage: 0, progress: PONTE.stages[0].needs.map(() => 0), started_at: new Date(now).toISOString(), completed_at: null };
   const stage = PONTE.stages[pr.stage as number];
   return {
     serverNow: now,
-    profile: { tools: tools as ToolKey[], seen: p.seen as string[], knownMaterials: p.known_materials as string[], techniques: p.techniques as string[], chain: p.chain as Record<string, unknown> },
+    profile: { tools: tools as ToolKey[], seen: p.seen as string[], knownMaterials: p.known_materials as string[], techniques: p.techniques as string[], chain: p.chain as Record<string, unknown>, unlocks: (p.unlocks as string[] | null) ?? [] },
     bag: (bag.data ?? []).map((b) => ({ key: b.batch_key as string, qty: b.qty as number })).filter((b) => b.qty > 0),
     nodes: Object.fromEntries((nodes.data ?? []).map((n) => [n.node_id as string, { amount: Number(n.amount), at: Date.parse(n.at as string) }])),
     sites: (sites.data ?? []).map((s) => ({ id: s.site_id as string, stored: Number(s.stored), at: Date.parse(s.at as string), caredAt: s.cared_at ? Date.parse(s.cared_at as string) : null, createdAt: s.created_at as string,
@@ -161,6 +161,10 @@ export async function ecosAction(action: string, body: Record<string, unknown>, 
     const node = await findNode(db, body.node);
     const ap = approachOf(node, String(body.approach)); if (!ap) throw new EcosError(400, 'Abordagem inexistente.');
     await assertAvailable(db, node);
+    if (node.unlock) {
+      const { data: pr } = await db.from('ecos_profile').select('unlocks').eq('companion_id', cid).maybeSingle();
+      if (!((pr?.unlocks as string[] | null) ?? []).includes(node.unlock)) throw new EcosError(403, 'Você ainda não conhece essa variedade: uma missão das escolas ensina a achá-la.');
+    }
     const p = pos(body);
     if (Math.hypot(p.x - node.x, p.z - node.z) > ecfg.reach) throw new EcosError(409, 'Longe demais: chegue mais perto do recurso.');
     const block = superiorBlock(node.id, (await classInfo(db, c, ctx.admin)).forms);

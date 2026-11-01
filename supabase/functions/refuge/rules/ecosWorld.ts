@@ -18,6 +18,8 @@ export interface WorldNode extends ResourceNode {
   time: ResourceTime;
   /** climas em que aparece (vazio = qualquer) */
   weather: WeatherKind[];
+  /** só para quem tem este desbloqueio */
+  unlock?: string;
 }
 
 const NODE_ID = /^([a-z][a-z-]{1,40})@(-?\d{1,4}),(-?\d{1,4})#(\d{1,3})$/;
@@ -70,7 +72,7 @@ export function chunkResources(w: CompanionWorld, cx: number, cz: number): World
       if (w.dirtAt(x, z) > 0.3 || Math.hypot(x, z) > WORLD_WALK_R - 3) continue;
       if (Math.hypot(x - reg.site.x, z - reg.site.z) < (reg.site.home || reg.site.gate ? PORTAL_R + 2 : 4.5)) continue;
       if (out.some((o) => Math.hypot(o.x - x, o.z - z) < NODE_GAP)) continue;
-      out.push({ id: `${kind}@${cx},${cz}#${j}`, kind, x, z, biome: b.slug, time: row.time, weather: row.weather });
+      out.push({ id: `${kind}@${cx},${cz}#${j}`, kind, x, z, biome: b.slug, time: row.time, weather: row.weather, ...(row.unlock ? { unlock: row.unlock } : {}) });
     }
   }
   if (cache.size > 900) cache.clear();
@@ -102,16 +104,17 @@ export function regionWeather(w: CompanionWorld, biomeSlug: string, now: number,
   return weatherAt(cfg, now, 'mundo:' + biomeSlug, b?.settings.weather).kind;
 }
 
-export interface NodeEnv { night: boolean; weatherOf: (biomeSlug: string) => WeatherKind }
-/** O recurso está à vista agora (horário e clima)? */
+export interface NodeEnv { night: boolean; weatherOf: (biomeSlug: string) => WeatherKind; unlocks?: readonly string[] }
+/** O recurso está à vista agora (horário, clima e, para as variedades, o desbloqueio)? */
 export function nodeAvailable(n: WorldNode, env: NodeEnv): boolean {
+  if (n.unlock && !env.unlocks?.includes(n.unlock)) return false;
   if (n.time === 'dia' && env.night) return false;
   if (n.time === 'noite' && !env.night) return false;
   return !n.weather.length || n.weather.includes(env.weatherOf(n.biome));
 }
 
 /** Ambiente de agora para `nodeAvailable`. */
-export function nodeEnvAt(w: CompanionWorld, now: number, cfg?: WeatherConfig): NodeEnv {
+export function nodeEnvAt(w: CompanionWorld, now: number, cfg?: WeatherConfig, unlocks: readonly string[] = []): NodeEnv {
   const memo = new Map<string, WeatherKind>();
-  return { night: isNightAt(now), weatherOf: (slug) => { let k = memo.get(slug); if (!k) { k = regionWeather(w, slug, now, cfg); memo.set(slug, k); } return k; } };
+  return { night: isNightAt(now), unlocks, weatherOf: (slug) => { let k = memo.get(slug); if (!k) { k = regionWeather(w, slug, now, cfg); memo.set(slug, k); } return k; } };
 }

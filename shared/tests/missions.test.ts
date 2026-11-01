@@ -77,3 +77,16 @@ describe('missões', () => {
     for (const m of DEFAULT_MISSIONS) expect(sanitizeMission(m)).toEqual(m);
   });
 });
+
+describe('missões das escolas', () => {
+  it('ensinam variedades e pedem a missão da Casa dos Ecos antes', async () => {
+    const { DEFAULT_MISSIONS, BREWS, brewCheck, batchKey: bk, goodById, DEFAULT_SHOP, SCHOOL_ONLY_GOODS } = await import('../rules/index');
+    const veneno = DEFAULT_MISSIONS.find((m) => m.slug === 'pocoes-de-aprendiz')!;
+    expect(veneno).toMatchObject({ giver: 'escola-veneno', req: { after: ['primeiras-ervas'], schools: ['veneno'] }, rewards: { unlock: 'variedade:erva-lunar' } });
+    expect(DEFAULT_MISSIONS.find((m) => m.slug === 'metal-de-aprendiz')!.rewards.unlock).toBe('variedade:veio-prateado');
+    const big = BREWS.find((b) => b.id === 'pocao-vida-g')!;
+    expect(goodById(big.good)).toBeTruthy();
+    expect(brewCheck(big, 1, [{ key: bk('extrato-de-orvalho', { potencia: 'alta', estabilidade: 'alta' }), qty: 1 }, { key: bk('erva-lunar', { potencia: 'alta', estabilidade: 'alta' }), qty: 1 }]).ok).toBe(true);
+    expect(DEFAULT_SHOP.entries.some((e) => SCHOOL_ONLY_GOODS.includes(e.id))).toBe(false);
+  });
+});

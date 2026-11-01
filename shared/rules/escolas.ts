@@ -59,6 +59,10 @@ export const BREWS: Brew[] = [
   R('pao-de-mel', 2, ['erva-orvalho-folha', 2], ['erva-orvalho-flor', 1]),
   R('sopa-de-raizes', 2, ['erva-orvalho-raiz', 2]),
   R('torta-de-frutas', 1, ['erva-orvalho-folha', 1], ['erva-orvalho-flor', 1], ['erva-orvalho-raiz', 1], ['seiva-azul', 1]),
+  // superiores: refinados da Casa dos Ecos e a Erva Lunar (variedade que a missão da escola ensina)
+  R('pocao-vida-g', 1, ['extrato-de-orvalho', 1], ['erva-lunar', 1]),
+  R('pocao-sp-g', 1, ['extrato-de-orvalho', 1], ['seiva-azul', 1]),
+  R('elixir-lunar', 1, ['erva-lunar', 2], ['quartzo-lapidado', 1]),
 ];
 export const brewById = (id: string) => BREWS.find((r) => r.id === id) ?? null;
 export const MAX_BREW = 10;

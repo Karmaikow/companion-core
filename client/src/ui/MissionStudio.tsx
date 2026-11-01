@@ -7,7 +7,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   sanitizeMission, biomeSlug, objectiveLabel, batchKey, parseBatchKey, recipeName, sanitizeCreature, sanitizeItem, sanitizeBiome,
   MISSION_RARITIES, MISSION_REPEATS, MISSION_GIVERS, OBJECTIVE_KINDS, MAX_OBJECTIVES, DEFAULT_MISSIONS, CRAFTABLES, CREATURE_FAMILIES,
-  MATERIALS, CATEGORIES, PROP_LABEL, BAND_LABEL, CITY_SCHOOLS, CLASS_LABEL, ELEMENTS, RARITIES,
+  MATERIALS, CATEGORIES, PROP_LABEL, BAND_LABEL, CITY_SCHOOLS, CLASS_LABEL, ELEMENTS, RARITIES, UNLOCKS,
   type MissionDef, type MissionObjective, type MissionRarity, type MissionRepeat, type MissionGiver, type ObjectiveKind,
   type ResCategory, type PropKey, type Band, type CitySchool, type SpeciesKey, type Element, type CreatureDef, type ItemDef, type BiomeConfig,
 } from '@rules';
@@ -194,7 +194,9 @@ function Rewards({ draft, edit, items }: { draft: MissionDef; edit: (p: Partial<
     <div className="row-3">
       <label>Lumes<input type="number" min={0} max={100000} value={rw.lumes} onChange={(e) => set({ lumes: Number(e.target.value) || 0 })} /></label>
       <label>XP de vínculo<input type="number" min={0} max={10000} value={rw.bond} onChange={(e) => set({ bond: Number(e.target.value) || 0 })} /></label>
-      <label>Desbloqueio (opcional)<input value={rw.unlock ?? ''} onChange={(e) => set({ unlock: e.target.value.trim() || undefined })} placeholder="ex.: erva:lunar" maxLength={60} /></label>
+      <label>Desbloqueio (opcional)<input list="unlock-ids" value={rw.unlock ?? ''} onChange={(e) => set({ unlock: e.target.value.trim() || undefined })} placeholder="ex.: variedade:erva-lunar" maxLength={60} />
+        <datalist id="unlock-ids">{Object.entries(UNLOCKS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</datalist>
+        {rw.unlock && <small className="hint">{UNLOCKS[rw.unlock] ?? 'Sem texto próprio: use o mesmo id na tabela de recursos de um bioma.'}</small>}</label>
     </div>
     <fieldset><legend>Materiais da coleta</legend>
       {rw.materials.map((m, i) => { const p = parseBatchKey(m.key); return (

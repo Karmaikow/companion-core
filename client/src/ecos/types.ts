@@ -5,7 +5,7 @@ import type { EcosConfig, EnvironmentalClue, ToolKey } from '@rules';
 export interface ChainView { step: number; choice?: 'extrair' | 'preservar'; completedAt?: string; at?: string }
 export interface EcosView {
   serverNow: number;
-  profile: { tools: ToolKey[]; seen: string[]; knownMaterials: string[]; techniques: string[]; chain: Record<string, ChainView> };
+  profile: { tools: ToolKey[]; seen: string[]; knownMaterials: string[]; techniques: string[]; chain: Record<string, ChainView>; unlocks?: string[] };
   bag: { key: string; qty: number }[];
   nodes: Record<string, { amount: number; at: number }>;
   sites: { id: string; stored: number; at: number; caredAt: number | null; createdAt: string; now: number }[];

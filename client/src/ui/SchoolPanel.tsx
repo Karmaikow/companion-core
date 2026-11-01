@@ -14,6 +14,7 @@ import { usePacto, uuid } from '../pacto/pactoStore';
 import { useEcos, bagBatches } from '../ecos/ecosStore';
 import { useSkills } from './skillState';
 import { ForgeBench, Jobs, Orders, Pieces } from './PactoPanel';
+import { MissionList } from './MissionsPanel';
 import type { PactoView } from '../pacto/types';
 
 export const useSchool = create<{ open: { name: string; school: CitySchool } | null }>(() => ({ open: null }));
@@ -75,7 +76,7 @@ export function SchoolPanel() {
 
 function ForgeSchool({ view }: { view: PactoView }) {
   const bag = useEcos((s) => s.view?.bag) ?? [];
-  const [tab, setTab] = useState<'forja' | 'encomendas' | 'pecas'>('forja');
+  const [tab, setTab] = useState<'forja' | 'encomendas' | 'pecas' | 'missoes'>('forja');
   const [order, setOrder] = useState<string | null>(null);
   return (
     <div className="pacto">
@@ -83,11 +84,13 @@ function ForgeSchool({ view }: { view: PactoView }) {
         <button className={tab === 'forja' ? 'on' : ''} onClick={() => setTab('forja')}>Forja</button>
         <button className={tab === 'encomendas' ? 'on' : ''} onClick={() => setTab('encomendas')}>Encomendas</button>
         <button className={tab === 'pecas' ? 'on' : ''} onClick={() => setTab('pecas')}>Peças</button>
+        <button className={tab === 'missoes' ? 'on' : ''} onClick={() => setTab('missoes')}>Missões</button>
       </nav>
-      <Jobs view={view} />
+      {tab !== 'missoes' && <Jobs view={view} />}
       {tab === 'forja' && <ForgeBench view={view} bag={bag} orderId={order} setOrder={setOrder} />}
       {tab === 'encomendas' && <Orders view={view} bag={bag} onForge={(id) => { setOrder(id); setTab('forja'); }} />}
       {tab === 'pecas' && <Pieces view={view} bag={bag} atForge />}
+      {tab === 'missoes' && <MissionList giver="escola-forja" />}
     </div>
   );
 }
@@ -97,7 +100,7 @@ function PoisonSchool({ view, busy, setMsg }: { view: PactoView; busy: boolean; 
   const bag = bagBatches(ecos);
   const catalog = useSkills((s) => s.catalog);
   const bond = useGame((s) => s.snap?.companion?.bond.level ?? 1);
-  const [tab, setTab] = useState<'bancada' | 'tecnicas'>('bancada');
+  const [tab, setTab] = useState<'bancada' | 'tecnicas' | 'missoes'>('bancada');
   const [times, setTimes] = useState<Record<string, number>>({});
   const have = (material: string) => bag.filter((b) => parseBatchKey(b.key)?.material === material).reduce((a, b) => a + b.qty, 0);
 
@@ -116,11 +119,12 @@ function PoisonSchool({ view, busy, setMsg }: { view: PactoView; busy: boolean; 
       <nav className="st-tabs" aria-label="Escola do Veneno">
         <button className={tab === 'bancada' ? 'on' : ''} onClick={() => setTab('bancada')}>Bancada</button>
         <button className={tab === 'tecnicas' ? 'on' : ''} onClick={() => setTab('tecnicas')}>Técnicas</button>
+        <button className={tab === 'missoes' ? 'on' : ''} onClick={() => setTab('missoes')}>Missões</button>
       </nav>
-      <div className="shop-list">
+      {tab === 'missoes' ? <MissionList giver="escola-veneno" /> : <div className="shop-list">
         {tab === 'bancada' ? (
           <>
-            <p className="hint">Usa as plantas da mochila de coleta (as de maior potência primeiro). Se todas tiverem potência alta, sai uma a mais por preparo. O que você prepara vai para a bolsa.</p>
+            <p className="hint">Usa as plantas da mochila de coleta (as de maior potência primeiro). Se todas tiverem potência alta, sai uma a mais por preparo. As receitas grandes pedem refinados da Casa dos Ecos e a Erva Lunar (que a missão da escola ensina a achar). O que você prepara vai para a bolsa.</p>
             {BREWS.map((r) => {
               const g = goodById(r.good)!, n = times[r.id] ?? 1;
               const chk = brewCheck(r, n, bag);
@@ -149,7 +153,7 @@ function PoisonSchool({ view, busy, setMsg }: { view: PactoView; busy: boolean; 
             ))}
           </>
         )}
-      </div>
+      </div>}
     </>
   );
 }

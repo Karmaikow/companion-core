@@ -69,3 +69,15 @@ describe('recursos espalhados pelo mundo', () => {
     expect(superiorBlockFor('erva@2,2#0', 'felino')).toBeNull();
   });
 });
+
+describe('variedades desbloqueáveis', () => {
+  it('só aparecem para quem tem o desbloqueio', () => {
+    const w = makeCompanionWorld(WORLD_SEED, worldBiomeList([]));
+    const lunar = nodesNear(w, 0, 0, 280).find((n) => n.kind === 'erva-lunar')!;
+    expect(lunar.unlock).toBe('variedade:erva-lunar');
+    const env = { night: false, weatherOf: () => 'limpo' as const };
+    expect(nodeAvailable(lunar, env)).toBe(false);
+    expect(nodeAvailable(lunar, { ...env, unlocks: ['variedade:erva-lunar'] })).toBe(true);
+    expect(sanitizeBiomeResources([{ kind: 'erva', density: 1, unlock: 'variedade:x' }, { kind: 'granito', density: 1, unlock: 'NÃO VALE' }])!.map((r) => r.unlock)).toEqual(['variedade:x', undefined]);
+  });
+});

@@ -6,7 +6,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   BIOME_ROLES, BIOME_ZONES, BIOME_AMBIENTS, DEFAULT_PALETTE, REFUGE_BIOME, LOOK_PRESETS, LOOK_ORIGINAL, biomeSlug, sanitizeBiome,
-  DEFAULT_BIOME_RESOURCES, RESOURCE_TIMES, RESOURCE_TERRAINS, RESOURCE_MAX_DENSITY, NODE_KINDS, CATEGORIES, WEATHERS, WEATHER_KINDS, CHUNK,
+  DEFAULT_BIOME_RESOURCES, RESOURCE_TIMES, RESOURCE_TERRAINS, RESOURCE_MAX_DENSITY, NODE_KINDS, CATEGORIES, WEATHERS, WEATHER_KINDS, CHUNK, UNLOCKS,
   type BiomeAmbient, type BiomeKind, type ModelLook, type BiomeAsset, type BiomeAssetRole, type BiomeConfig, type BiomePalette, type BiomeZone,
   type BiomeResource, type ResourceTime, type ResourceTerrain,
 } from '@rules';
@@ -303,11 +303,14 @@ function ResourceTable({ value, onChange }: { value: BiomeResource[] | undefined
                 })}
                 <small>{r.weather.length ? '' : 'qualquer clima'}</small>
               </span>
+              <input value={r.unlock ?? ''} list="res-unlocks" onChange={(e) => set(i, { unlock: e.target.value.trim() || undefined })} placeholder="para todos" maxLength={60} aria-label={'Só para quem tem o desbloqueio (' + k.name + ')'} title="Só aparece para quem ganhou este desbloqueio numa missão" style={{ width: 170 }} />
               <button className="link" onClick={() => onChange(rows.filter((_, k2) => k2 !== i))}>tirar</button>
             </div>
           );
         })}
       </div>
+      <datalist id="res-unlocks">{Object.entries(UNLOCKS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</datalist>
+      <small className="hint">Desbloqueio: o recurso só aparece para quem ganhou esse desbloqueio como prêmio de missão (Admin → Missões). Vazio = para todos.</small>
       <div className="row">
         {free.length > 0 && <button className="ghost" onClick={() => onChange([...rows, { kind: free[0], density: 0.1, time: 'sempre', weather: [], terrain: 'qualquer' }])}>+ Recurso</button>}
         {custom && <button className="link" onClick={() => onChange(undefined)}>voltar à tabela padrão</button>}

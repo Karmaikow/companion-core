@@ -3,7 +3,8 @@
  * materiais e receber os prêmios. O progresso vem do servidor (ele conta só o que registrou).
  */
 import { create } from 'zustand';
-import type { MissionDef } from '@rules';
+import { unlockText, type MissionDef } from '@rules';
+import { useEcos } from '../ecos/ecosStore';
 import { useGame } from '../store';
 
 export type MissionStatus = 'disponivel' | 'bloqueada' | 'ativa' | 'pronta' | 'concluida';
@@ -35,7 +36,8 @@ export const useMissions = create<MissionsStore>((set, get) => ({
       if (r.missions) set({ view: r.missions });
       if (r.claimed) {
         const rw = r.claimed.rewards;
-        useGame.getState().celebrate({ kind: 'quest', eyebrow: 'Missão concluída', title: r.claimed.name, subtitle: [rw.lumes ? `${rw.lumes} Lumes` : '', rw.bond ? `+${rw.bond} de vínculo` : '', rw.materials.length || rw.items.length ? 'materiais e itens na bolsa' : ''].filter(Boolean).join(' · ') || 'Bom trabalho!' });
+        useGame.getState().celebrate({ kind: 'quest', eyebrow: 'Missão concluída', title: r.claimed.name, subtitle: [rw.lumes ? `${rw.lumes} Lumes` : '', rw.bond ? `+${rw.bond} de vínculo` : '', rw.materials.length || rw.items.length ? 'materiais e itens na bolsa' : '', rw.unlock ? unlockText(rw.unlock) : ''].filter(Boolean).join(' · ') || 'Bom trabalho!' });
+        if (rw.unlock) void useEcos.getState().refresh();
         if (r.bond?.levelUp) useGame.getState().toast(`Vínculo nível ${r.bond.levelUp}`, 'gold');
         void useGame.getState().run((x) => x.state());
       }

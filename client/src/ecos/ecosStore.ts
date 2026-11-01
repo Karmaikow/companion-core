@@ -16,7 +16,7 @@ import { useGame } from '../store';
 import { companionFocus, moveRequest } from '../scene/world';
 import type { EcosReply, EcosView } from './types';
 import { playMaterialSound } from './sounds';
-import { findNode, availableNear, isAvailable } from './worldNodes';
+import { findNode, availableNear, isAvailable, setEcosUnlocks } from './worldNodes';
 
 export type RunPhase = 'andando' | 'coletando' | 'confirmando' | 'concluido' | 'interrompido' | 'erro';
 export interface Run { node: string; approach: string; request: string; phase: RunPhase; seconds: number; started: number; by: 'pessoa' | 'companion'; message?: string; inspect?: boolean;
@@ -128,6 +128,7 @@ export const useEcos = create<EcosStore>((set, get) => ({
     try {
       const r = await b.ecos(action, body);
       set({ conn: 'ok', error: null, ...(r.ecos ? { view: r.ecos } : {}) });
+      if (r.ecos) setEcosUnlocks(r.ecos.profile.unlocks);
       if (r.clue) {
         const c = r.clue;
         set({ journal: [{ at: Date.now(), text: `${c.title}: ${c.evidence.text}`, kind: 'clue' as const }, ...get().journal].slice(0, 60) });

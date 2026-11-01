@@ -44,12 +44,12 @@ function Oak({ amount, cap }: { amount: number; cap: number }) {
     </group>
   );
 }
-function Herb({ amount, cap }: { amount: number; cap: number }) {
+function Herb({ amount, cap, leaf = '#5fae6a', glow = '#9fd8ff' }: { amount: number; cap: number; leaf?: string; glow?: string }) {
   const k = amount / cap;
   return (
     <group scale={0.5 + 0.5 * Math.max(0.15, k)}>
-      {[0, 1, 2, 3, 4].map((i) => { const a = (i / 5) * Math.PI * 2; return <mesh key={i} position={[Math.cos(a) * 0.18, 0.18, Math.sin(a) * 0.18]} rotation={[Math.sin(a) * 0.8, a, Math.cos(a) * 0.8]} scale={[0.22, 0.04, 0.12]}><sphereGeometry args={[1, 6, 4]} /><meshLambertMaterial color="#5fae6a" /></mesh>; })}
-      {k > 0.4 && [0, 1, 2].map((i) => <mesh key={'f' + i} position={[Math.cos(i * 2.1) * 0.12, 0.38 + i * 0.03, Math.sin(i * 2.1) * 0.12]}><sphereGeometry args={[0.06, 6, 4]} /><meshLambertMaterial color="#f2f6ff" emissive="#9fd8ff" emissiveIntensity={0.3} /></mesh>)}
+      {[0, 1, 2, 3, 4].map((i) => { const a = (i / 5) * Math.PI * 2; return <mesh key={i} position={[Math.cos(a) * 0.18, 0.18, Math.sin(a) * 0.18]} rotation={[Math.sin(a) * 0.8, a, Math.cos(a) * 0.8]} scale={[0.22, 0.04, 0.12]}><sphereGeometry args={[1, 6, 4]} /><meshLambertMaterial color={leaf} /></mesh>; })}
+      {k > 0.4 && [0, 1, 2].map((i) => <mesh key={'f' + i} position={[Math.cos(i * 2.1) * 0.12, 0.38 + i * 0.03, Math.sin(i * 2.1) * 0.12]}><sphereGeometry args={[0.06, 6, 4]} /><meshLambertMaterial color="#f2f6ff" emissive={glow} emissiveIntensity={0.3} /></mesh>)}
     </group>
   );
 }
@@ -135,6 +135,8 @@ function NodeMesh({ node, amount }: { node: ResourceNode; amount: number }) {
     case 'granito': return <Rock amount={amount} cap={k.capacity} tint="#8d8f94" vein="#e6e2da" />;
     case 'cobre': return <Rock amount={amount} cap={k.capacity} tint="#7d7468" vein="#4fb38a" />;
     case 'geodo': return <Geode amount={amount} cap={k.capacity} />;
+    case 'erva-lunar': return <Herb amount={amount} cap={k.capacity} leaf="#a9c6d8" glow="#d9e8ff" />;
+    case 'veio-prateado': return <Rock amount={amount} cap={k.capacity} tint="#55545e" vein="#e4e8f0" />;
     case 'salgueiro-antigo': return <AncientWillow amount={amount} cap={k.capacity} />;
     case 'remanso-profundo': return <DeepPool amount={amount} cap={k.capacity} />;
     case 'liquen-dos-ventos': return <WindLichen amount={amount} cap={k.capacity} />;
@@ -145,7 +147,7 @@ function NodeMesh({ node, amount }: { node: ResourceNode; amount: number }) {
 
 const VFX_OF: Record<string, string> = { madeira: 'folhas', planta: 'folhas', pedra: 'pedras', minerio: 'pedras', gema: 'luz', magico: 'luz', caca: 'impacto' };
 const COLOR_OF: Record<string, string> = { madeira: '#a68a64', planta: '#7bd47a', pedra: '#c9c3b6', minerio: '#62c39a', gema: '#8fd8ff', magico: '#7fd6ff', caca: '#d0b090' };
-const SOLID = new Set(['salgueiro', 'carvalho', 'granito', 'cobre', 'geodo', 'salgueiro-antigo', 'liquen-dos-ventos', 'pedra-inscrita']);
+const SOLID = new Set(['salgueiro', 'carvalho', 'granito', 'cobre', 'geodo', 'veio-prateado', 'salgueiro-antigo', 'liquen-dos-ventos', 'pedra-inscrita']);
 /** chunks em volta do Companion com recursos na cena (5×5 = ~80 m) */
 const R = 2;
 

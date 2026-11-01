@@ -5,7 +5,7 @@
  */
 import { useEffect, useState } from 'react';
 import {
-  MISSION_RARITIES, MISSION_REPEATS, MISSION_GIVERS, CREATURE_FAMILIES, DEFAULT_CREATURES, objectiveLabel, batchFits, batchKey, parseBatchKey,
+  MISSION_RARITIES, MISSION_REPEATS, MISSION_GIVERS, CREATURE_FAMILIES, DEFAULT_CREATURES, objectiveLabel, batchFits, batchKey, parseBatchKey, unlockText,
   type MissionDef, type MissionGiver,
 } from '@rules';
 import { useMissions, type MissionEntry, type MissionStatus } from '../missions/missionsStore';
@@ -26,7 +26,7 @@ export function rewardText(rw: MissionDef['rewards']): string {
     rw.bond ? `+${rw.bond} de vínculo` : '',
     ...rw.materials.map((m) => { const p = parseBatchKey(m.key); return p ? `${m.qty}× ${batchLabel(m.key)}` : ''; }),
     ...rw.items.map((i) => `${i.qty}× ${pretty(i.item)}`),
-    rw.unlock ? 'um desbloqueio' : '',
+    rw.unlock ? unlockText(rw.unlock) : '',
   ].filter(Boolean);
   return parts.length ? parts.join(' · ') : 'reconhecimento';
 }
