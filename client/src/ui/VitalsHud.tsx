@@ -52,14 +52,39 @@ export function FaintCounter({ onReturn }: { onReturn?: () => void }) {
   );
 }
 
+/** Ícones dos botões de toque (traço dourado, preenchimento suave). */
+function MoveIcon({ kind }: { kind: 'pular' | 'defender' | 'sentar' }) {
+  const stroke = { stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
+  return (
+    <svg className="tm-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      {kind === 'pular' && <>
+        <path d="M7 12.5 12 7.5l5 5" {...stroke} />
+        <path d="M7 7.5 12 2.5l5 5" {...stroke} opacity=".55" />
+        <ellipse cx="12" cy="19.5" rx="6" ry="1.6" fill="currentColor" opacity=".35" />
+        <path d="M12 8v8.5" {...stroke} />
+      </>}
+      {kind === 'defender' && <>
+        <path d="M12 2.8 19.5 5.6v5.6c0 5-3.4 8.6-7.5 10-4.1-1.4-7.5-5-7.5-10V5.6L12 2.8Z" fill="currentColor" fillOpacity=".18" {...stroke} />
+        <path d="M12 6.5v11M8.2 10.5h7.6" {...stroke} strokeWidth={1.6} opacity=".85" />
+      </>}
+      {kind === 'sentar' && <>
+        <circle cx="9.5" cy="4.6" r="2.1" fill="currentColor" />
+        <path d="M9.5 8v6.2h5.3l.9 5.6" {...stroke} />
+        <path d="M9.5 10.4l3.6 1.6" {...stroke} />
+        <path d="M4.5 17h8" {...stroke} opacity=".55" />
+      </>}
+    </svg>
+  );
+}
+
 /** Pulo, defesa e sentar para toque (no PC: Espaço, E e C). */
 export function TouchMoves() {
   return (
     <div className="touch-moves">
-      <button aria-label="Pular" onPointerDown={(e) => { e.preventDefault(); moveInput.jumpId++; }}>⤒<small>pular</small></button>
+      <button aria-label="Pular" onPointerDown={(e) => { e.preventDefault(); moveInput.jumpId++; }}><MoveIcon kind="pular" /><small>pular</small></button>
       <button aria-label="Defender (segure)" onPointerDown={(e) => { e.preventDefault(); (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId); moveInput.block = true; }}
-        onPointerUp={() => { moveInput.block = false; }} onPointerCancel={() => { moveInput.block = false; }} onContextMenu={(e) => e.preventDefault()}>🛡<small>defender</small></button>
-      <button aria-label="Sentar" onPointerDown={(e) => { e.preventDefault(); moveInput.sitId++; }}>⌄<small>sentar</small></button>
+        onPointerUp={() => { moveInput.block = false; }} onPointerCancel={() => { moveInput.block = false; }} onContextMenu={(e) => e.preventDefault()}><MoveIcon kind="defender" /><small>defender</small></button>
+      <button aria-label="Sentar" onPointerDown={(e) => { e.preventDefault(); moveInput.sitId++; }}><MoveIcon kind="sentar" /><small>sentar</small></button>
     </div>
   );
 }
