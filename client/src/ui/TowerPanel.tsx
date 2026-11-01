@@ -3,7 +3,7 @@
  * inteiro — Cristais Ápice (dos baús de monstro), materiais da coleta (refinados da Casa dos Ecos) e Lumes. Cada um
  * entrega o que puder; quando tudo fecha, Áster volta ao normal. Com a cidade de pé, a Torre só conta a história.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { create } from 'zustand';
 import { CRYSTAL_KEY, CRYSTALS_LABEL, needText, rebuildFits, rebuildRatio } from '@rules';
 import { useGame } from '../store';
@@ -36,15 +36,6 @@ export function TowerPanel() {
     if (r.given.done) useGame.getState().celebrate({ kind: 'quest', eyebrow: 'Áster', title: 'A Torre voltou a brilhar', subtitle: 'A cidade foi reconstruída com a ajuda de todos. Obrigado!' });
     void useGame.getState().run((b) => b.state()); void usePacto.getState().refresh(); void useEcos.getState().refresh();
   };
-  const Row = ({ label, have, goal, children }: { label: string; have: number; goal: number; children?: React.ReactNode }) => (
-    <div className="shop-row tower-row">
-      <div className="shop-info">
-        <b>{label}: {Math.min(have, goal)}/{goal}</b>
-        <div className="bar" role="progressbar" aria-valuemin={0} aria-valuemax={goal} aria-valuenow={Math.min(have, goal)}><i style={{ width: `${goal ? Math.min(100, (have / goal) * 100) : 100}%` }} /></div>
-      </div>
-      {have < goal && children}
-    </div>
-  );
   return (
     <div className="shop-back" role="dialog" aria-modal="true" aria-label="Torre Central de Áster" onClick={close}>
       <div className="shop school framed" onClick={(e) => e.stopPropagation()}>
@@ -83,6 +74,19 @@ export function TowerPanel() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+/** uma parte da meta: barra de progresso e, enquanto falta, como entregar */
+function Row({ label, have, goal, children }: { label: string; have: number; goal: number; children?: ReactNode }) {
+  return (
+    <div className="shop-row tower-row">
+      <div className="shop-info">
+        <b>{label}: {Math.min(have, goal)}/{goal}</b>
+        <div className="bar" role="progressbar" aria-valuemin={0} aria-valuemax={goal} aria-valuenow={Math.min(have, goal)}><i style={{ width: `${goal ? Math.min(100, (have / goal) * 100) : 100}%` }} /></div>
+      </div>
+      {have < goal && children}
     </div>
   );
 }
