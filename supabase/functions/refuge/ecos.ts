@@ -59,7 +59,8 @@ async function findNode(db: SupabaseClient, id: unknown): Promise<WorldNode> {
 /** some fora do horário ou do clima dele (só confere ao começar: quem já começou termina) */
 async function assertAvailable(db: SupabaseClient, n: WorldNode) {
   const { w, weather } = await worldNow(db);
-  if (nodeAvailable(n, nodeEnvAt(w, Date.now(), weather))) return;
+  // o desbloqueio (variedades) é conferido à parte, com mensagem própria
+  if (nodeAvailable({ ...n, unlock: undefined }, nodeEnvAt(w, Date.now(), weather))) return;
   throw new EcosError(409, n.time === 'noite' ? 'Esse recurso só aparece de noite.' : n.time === 'dia' ? 'Esse recurso só aparece de dia.' : 'Esse recurso só aparece com outro clima.');
 }
 
@@ -160,11 +161,11 @@ export async function ecosAction(action: string, body: Record<string, unknown>, 
     const request = cleanRequestId(body.request); if (!request) throw new EcosError(400, 'Pedido inválido.');
     const node = await findNode(db, body.node);
     const ap = approachOf(node, String(body.approach)); if (!ap) throw new EcosError(400, 'Abordagem inexistente.');
-    await assertAvailable(db, node);
     if (node.unlock) {
       const { data: pr } = await db.from('ecos_profile').select('unlocks').eq('companion_id', cid).maybeSingle();
       if (!((pr?.unlocks as string[] | null) ?? []).includes(node.unlock)) throw new EcosError(403, 'Você ainda não conhece essa variedade: uma missão das escolas ensina a achá-la.');
     }
+    await assertAvailable(db, node);
     const p = pos(body);
     if (Math.hypot(p.x - node.x, p.z - node.z) > ecfg.reach) throw new EcosError(409, 'Longe demais: chegue mais perto do recurso.');
     const block = superiorBlock(node.id, (await classInfo(db, c, ctx.admin)).forms);
