@@ -4,7 +4,7 @@ import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import {
   SPECIES, OFFICES, CLASS_LABEL, canCompleteEquipment, transformationById, checkTransformation, blueprintById, forgePreview, resolvePacto, coreCost,
   meetsRequirements, cancelSettlement, payout, recycleReturn, REPAIR_KIT_AMOUNT, parseComponentKey, COMPONENTS, cleanRequestId, nodeById, NODE_KINDS,
-  superiorBlockFor, lineageOf, officesOf, LINEAGE_LIMITS, ELEMENTS, type PactoConfig, type ForgePlan, type SpeciesKey, type Element, type IdentityContractV1, type Discoveries,
+  superiorBlockFor, lineageOf, officesOf, LINEAGE_LIMITS, COMPANION_ELEMENTS, cleanSchools, studiesAt, companionElement, type PactoConfig, type ForgePlan, type SpeciesKey, type Element, type IdentityContractV1, type Discoveries,
   type OrderRequirements, type EcosConfig, type Conduct, type Temper,
 } from './rules/index.ts';
 
@@ -45,7 +45,7 @@ export async function classInfo(db: SupabaseClient, c: Record<string, unknown>, 
   const real = ((c.identity_contract as IdentityContractV1 | null)?.species?.family ?? null) as SpeciesKey | null;
   const { data } = await db.from('pacto_profile').select('test_class').eq('companion_id', c.id).maybeSingle();
   const test = admin ? ((data?.test_class as SpeciesKey | null) ?? null) : null;
-  const essence = ((c.discoveries as Discoveries).element ?? null) as Element | null;
+  const essence = companionElement((c.discoveries as Discoveries).element);
   // linhagem (segredo de lore)
   const { data: lin } = await db.from('companion_lineage').select('forms,essences').eq('companion_id', c.id).maybeSingle();
   const lineage = lineageOf(real, essence, lin as { forms: string[]; essences: string[] } | null);
@@ -89,7 +89,7 @@ export async function pactoState(db: SupabaseClient, c: Record<string, unknown>,
   await expireOrders(db);
   const [cls, prof, eq, jobs, open, mine, board] = await Promise.all([
     classInfo(db, c, admin),
-    db.from('pacto_profile').select('lumes').eq('companion_id', cid).maybeSingle(),
+    db.from('pacto_profile').select('*').eq('companion_id', cid).maybeSingle(),
     db.from('pacto_equipment').select('id,blueprint,kind,tool,data,durability,max_durability,created_at').eq('owner', cid).eq('status', 'ativo').order('created_at', { ascending: false }),
     db.from('pacto_jobs').select('request_id,kind,ref,order_id,started_at,seconds,status,plan').eq('artisan', cid).eq('status', 'running'),
     db.from('pacto_orders').select('id,client,artisan,blueprint,requirements,deposit,substitutions,payment,deadline,status,history,item,created_at').eq('status', 'aberta').order('created_at', { ascending: false }).limit(30),
@@ -108,6 +108,7 @@ export async function pactoState(db: SupabaseClient, c: Record<string, unknown>,
     serverNow: now,
     me: cid,
     lumes: Number(prof.data?.lumes ?? 0),
+    schools: cleanSchools(prof.data?.schools),
     cls: { real: cls.real, effective: cls.effective, test: cls.test, essence: cls.essence, forms: cls.forms, essences: cls.essences, lineage: cls.lineage, admin },
     equipment: (eq.data ?? []).map((e) => ({ id: e.id, blueprint: e.blueprint, kind: e.kind, tool: e.tool, durability: e.durability, maxDurability: e.max_durability, createdAt: e.created_at, ...(e.data as Record<string, unknown>) })),
     jobs: (jobs.data ?? []).map((j) => ({ request: j.request_id, kind: j.kind, ref: j.ref, order: j.order_id, startedAt: Date.parse(j.started_at as string), seconds: Number(j.seconds) })),
@@ -164,13 +165,19 @@ export async function pactoAction(action: string, body: Record<string, unknown>,
     if (!admin) throw new PactoError(403, 'Só para administradores (teste).');
     const kind = body.kind === 'form' ? 'form' : body.kind === 'essence' ? 'essence' : null;
     const value = String(body.value ?? '');
-    if (!kind || (kind === 'form' ? !(value in SPECIES) : !(value in ELEMENTS))) throw new PactoError(400, 'Valor inválido.');
+    if (!kind || (kind === 'form' ? !(value in SPECIES) : !COMPANION_ELEMENTS.includes(value as Element))) throw new PactoError(400, 'Valor inválido.');
     const r = await rpc<{ ok: boolean; reason?: string }>(db, 'lineage_set', { p_cid: cid, p_kind: kind, p_value: value, p_on: body.on !== false, p_max: (kind === 'form' ? LINEAGE_LIMITS.forms : LINEAGE_LIMITS.essences) - 1, p_source: 'teste-admin' });
     if (!r.ok) throw new PactoError(409, r.reason === 'limite' ? 'Já tem o máximo.' : 'Não deu certo.');
     return { pacto: await state() };
   }
 
   const cls = await classInfo(db, c, admin);
+  // a forja só existe na Escola da Forja (Taurina matriculada)
+  const forgeSchool = async () => {
+    if (!canCompleteEquipment(cls.forms)) throw new PactoError(403, 'Só Taurinas forjam e concluem equipamentos.');
+    const { data } = await db.from('pacto_profile').select('*').eq('companion_id', cid).maybeSingle();
+    if (!studiesAt('forja', cleanSchools(data?.schools), cls.forms, cls.essences)) throw new PactoError(403, 'A forja fica na Escola da Forja, em Áster: matricule-se lá.');
+  };
 
   // ---- ofício (transformação)
   if (action === 'pacto.office.start') {
@@ -193,7 +200,7 @@ export async function pactoAction(action: string, body: Record<string, unknown>,
   // ---- forja (só Taurina)
   if (action === 'pacto.forge.start') {
     const request = rid(body.request);
-    if (!canCompleteEquipment(cls.forms)) throw new PactoError(403, 'Só Taurinas forjam e concluem equipamentos.');
+    await forgeSchool();
     const plan = body.plan as ForgePlan;
     const bp = plan && blueprintById(String(plan.blueprint)); if (!bp) throw new PactoError(400, 'Projeto inexistente.');
     const clean: ForgePlan = { blueprint: bp.id, picks: (Array.isArray(plan.picks) ? plan.picks : []).slice(0, 16).map((p) => ({ slot: Number(p.slot), key: String(p.key), qty: Number(p.qty) })), conduct: plan.conduct === 'leveza' ? 'leveza' : 'resistencia', temper: plan.temper === 'reativa' ? 'reativa' : 'estavel', name: typeof plan.name === 'string' ? plan.name.slice(0, 40) : undefined };
@@ -286,7 +293,7 @@ export async function pactoAction(action: string, body: Record<string, unknown>,
     return { pacto: await state() };
   }
   if (action === 'pacto.order.accept') {
-    if (!canCompleteEquipment(cls.forms)) throw new PactoError(403, 'Só Taurinas aceitam encomendas de equipamento.');
+    await forgeSchool();
     const r = await rpc<{ ok: boolean; reason?: string }>(db, 'pacto_order_accept', { p_id: rid(body.id), p_artisan: cid, p_max_active: pcfg.perArtisan * 2 });
     if (!r.ok) throw new PactoError(409, reason(r.reason));
     return { pacto: await state() };
@@ -352,7 +359,7 @@ export async function pactoAction(action: string, body: Record<string, unknown>,
     return { recycled: r.repeat ? [] : give, pacto: await state() };
   }
   if (action === 'pacto.item.reforge') {
-    if (!canCompleteEquipment(cls.forms)) throw new PactoError(403, 'Reforja estrutural é da Taurina.');
+    await forgeSchool();
     const item = rid(body.item);
     const { data: e } = await db.from('pacto_equipment').select('data,owner,status,blueprint').eq('id', item).maybeSingle();
     if (!e || e.owner !== cid || e.status !== 'ativo') throw new PactoError(409, 'Só dá para reforjar uma peça sua (para a de outra pessoa, use uma encomenda).');

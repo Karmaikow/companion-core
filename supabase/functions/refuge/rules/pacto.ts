@@ -2,7 +2,8 @@
  * Pacto das Cinco — Ofícios da Criação (primeira entrega). Regras puras, iguais no cliente, no servidor e nos testes.
  *
  * Princípios (regras imutáveis):
- *  - Só a classe Taurina CONCLUI equipamentos (armas, armaduras, ferramentas, vestíveis), na Forja Primordial.
+ *  - Só a classe Taurina CONCLUI equipamentos (armas, armaduras, ferramentas, vestíveis), e só na Escola da Forja
+ *    em Áster (matriculada; ver escolas.ts). A bancada não fica mais no painel do Pacto.
  *  - Nenhum equipamento vem de drop, baú ou recompensa: monstros e atividades dão materiais, conhecimento e
  *    COMPONENTES não equipáveis. Componente nenhum vira arma fora da Forja.
  *  - Cada classe tem um Ofício de Origem com decisões próprias e produtos negociáveis (componentes):
@@ -15,7 +16,7 @@
  *    de Terra que só Taurinas operam. Uma Taurina de Fogo ou de Terra traz a própria metade (o núcleo dela não
  *    é cobrado). A essência do Companion nunca muda por isso.
  */
-import type { Element } from './identity.ts';
+import { companionElement, type Element } from './identity.ts';
 import type { SpeciesKey, AttrKey } from './species.ts';
 import type { ItemType, Rarity } from './equipment.ts';
 import { MATERIALS, parseBatchKey, bandRank, atLeast, nodeById, NODE_KINDS, type Band, type PropKey, type ResCategory, type MaterialBatch, type ToolKey } from './ecos.ts';
@@ -30,7 +31,7 @@ export const OFFICES: Record<SpeciesKey, OfficeDef> = {
   serpente: { key: 'confluencia', cls: 'serpente', name: 'Confluência', icon: '🌊', focus: 'Purificação, estabilização elemental, agentes de têmpera e componentes de barreira.', superior: 'Fontes aquáticas, sob pressão e substâncias elementais instáveis.' },
   passaro: { key: 'harmonizacao', cls: 'passaro', name: 'Harmonização', icon: '🪶', focus: 'Equilíbrio, distribuição de esforço, circulação de energia, componentes leves e mecanismos de alcance.', superior: 'Altitude, correntes de ar, fibras e recursos suspensos.' },
   felino: { key: 'manejo', cls: 'felino', name: 'Manejo Primordial', icon: '🌿', focus: 'Extração e preservação de recursos naturais superiores, alimentos e preparados de recuperação física.', superior: 'Fontes naturais terrestres: flora, caça e depósitos acessíveis.' },
-  touro: { key: 'forja', cls: 'touro', name: 'Forja Primordial', icon: '🔨', focus: 'Fabricação, integração estrutural, reforja e conclusão de todos os equipamentos.', superior: 'Só coleta básica; localiza e anuncia oportunidades superiores.' },
+  touro: { key: 'forja', cls: 'touro', name: 'Forja Primordial', icon: '🔨', focus: 'Fabricação, integração estrutural, reforja e conclusão de todos os equipamentos, na Escola da Forja em Áster.', superior: 'Só coleta básica; localiza e anuncia oportunidades superiores.' },
   mistica: { key: 'inscricao', cls: 'mistica', name: 'Inscrição Vital', icon: '✶', focus: 'Matrizes rúnicas, catalisadores de cura e tratamento de corrupção e maldições.', superior: 'Fontes encantadas, espirituais e inscrições naturais.' },
 };
 export const officeOf = (cls: SpeciesKey | null | undefined) => (cls ? OFFICES[cls] : null);
@@ -58,7 +59,7 @@ export const LINEAGE_LIMITS = { forms: 2, essences: 2 };
 export const ADVANCED_FORM = 4;
 export function lineageOf(primaryForm: SpeciesKey | null, primaryEssence: Element | null, extra?: { forms?: string[]; essences?: string[] } | null): Lineage {
   const forms = [...new Set([primaryForm, ...(extra?.forms ?? [])].filter(Boolean))] as SpeciesKey[];
-  const essences = [...new Set([primaryEssence, ...(extra?.essences ?? [])].filter(Boolean))] as Element[];
+  const essences = [...new Set([primaryEssence, ...(extra?.essences ?? [])].map((e) => companionElement(e as Element | null)).filter(Boolean))] as Element[];
   return { forms: forms.slice(0, LINEAGE_LIMITS.forms), essences: essences.slice(0, LINEAGE_LIMITS.essences) };
 }
 /** null = pode; senão um código neutro ('limite' | 'estagio' | 'item'). */

@@ -461,6 +461,7 @@ html:has(.admin), body:has(.admin), #root:has(.admin) { height: auto; min-height
 .cs-markers { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
 .cs-markers button { background: #0a1020; border: 1px solid #2c3b5c; border-radius: 8px; padding: 5px 6px; color: var(--parchment); font-size: 0.78rem; text-align: left; }
 .cs-markers button:hover { border-color: var(--brass-dim); }
+.cs-group { display: block; margin: 6px 0 3px; color: var(--brass-dim); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; }
 .city-studio .danger { color: #ffb3a0; border-color: #6a3a3a; }
 @media (max-width: 1100px) {
   .city-studio { grid-template-columns: 1fr; }
@@ -1345,6 +1346,9 @@ html:has(.admin), body:has(.admin), #root:has(.admin) { height: auto; min-height
 /* ---------- lojas de Áster (modal do mercador) ---------- */
 .shop-back { position: absolute; inset: 0; z-index: 40; display: grid; place-items: center; padding: 16px; background: rgba(6, 10, 20, 0.45); }
 .shop { width: min(560px, 100%); max-height: min(640px, calc(100% - 24px)); border-radius: 16px; display: flex; flex-direction: column; gap: 10px; padding: 14px 16px 16px; animation: panel-in 0.2s ease-out; color: var(--parchment); }
+.shop.school.wide { width: min(1100px, 100%); max-height: calc(100% - 24px); }
+.shop.school .pacto { overflow-y: auto; min-height: 0; }
+.school-join { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
 .shop-head { display: flex; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
 .shop-face { width: 64px; height: 64px; flex: none; border-radius: 50%; display: grid; place-items: center; font-size: 2rem; background: radial-gradient(circle at 40% 35%, #3a4a6e, var(--night-2)); border: 2px solid var(--brass-dim); box-shadow: 0 0 0 3px color-mix(in srgb, var(--brass) 25%, transparent); }
 .shop-who { flex: 1; min-width: 160px; display: grid; gap: 2px; }

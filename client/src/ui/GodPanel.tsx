@@ -6,7 +6,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  CITY_MARKERS, DEFAULT_CREATURES, ELEMENTS, GATES, GATE_IDS, ITEM_CATEGORIES, OUT_ARRIVAL, OUT_GATE_ARRIVE, SPECIES, categoryOf, cityArrival, creatureStatsAt, outskirtsGatePoint,
+  CITY_MARKERS, DEFAULT_CREATURES, ELEMENTS, COMPANION_ELEMENTS, GATES, GATE_IDS, ITEM_CATEGORIES, OUT_ARRIVAL, OUT_GATE_ARRIVE, SPECIES, categoryOf, cityArrival, creatureStatsAt, outskirtsGatePoint,
   type CityLayout, type CompanionWorld, type Element, type ItemCategory, type SpeciesKey,
 } from '@rules';
 import { supabase } from '../backend/online';
@@ -308,7 +308,7 @@ function TreeProfile() {
   return <div className="god-col">
     <p className="god-hint">Escolha a combinação e abra Habilidades para testar a árvore. Os pontos e a barra de teste duram só nesta sessão; o vínculo atual continua definindo os requisitos.</p>
     <label>Classe de teste<select value={species} onChange={e => setSpecies(e.target.value as SpeciesKey)}>{(Object.keys(SPECIES) as SpeciesKey[]).map(key => <option key={key} value={key}>{SPECIES[key].label}</option>)}</select></label>
-    <label>Essência de teste<select value={essence} onChange={e => setEssence(e.target.value as Element | '')}><option value="">Sem essência</option>{(Object.keys(ELEMENTS) as Element[]).map(key => <option key={key} value={key}>{ELEMENTS[key].label}</option>)}</select></label>
+    <label>Essência de teste<select value={essence} onChange={e => setEssence(e.target.value as Element | '')}><option value="">Sem essência</option>{COMPANION_ELEMENTS.map(key => <option key={key} value={key}>{ELEMENTS[key].label}</option>)}</select></label>
     {active && <p className="god-warn" role="status">Teste ativo: {SPECIES[active.species].label} · {active.essence ? ELEMENTS[active.essence].label : 'Sem essência'}</p>}
     <div className="god-row">
       <button className="primary" onClick={() => { useGod.getState().testTree(c.id, species, essence || null); useGod.getState().setOpen(false); }}>Aplicar teste</button>

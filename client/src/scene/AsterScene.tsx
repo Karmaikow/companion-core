@@ -13,7 +13,7 @@ import { EffectComposer, Bloom, Vignette, ToneMapping, SMAA } from '@react-three
 import { ToneMappingMode } from 'postprocessing';
 import * as THREE from 'three';
 import {
-  gameTime, BRIDGE_DECKS, BRIDGE_HW, bridgeSpan, CITY_MARKERS, CITY_R, CRATERS, DEAD_CRYSTALS, GATES, GATE_IDS, GATE_GAP, LABYRINTH_R, LABYRINTH_WALLS, MOAT_DEPTH, MOAT_IN, MOAT_OUT,
+  gameTime, BRIDGE_DECKS, BRIDGE_HW, bridgeSpan, CITY_MARKERS, CITY_R, CITY_SCHOOLS, CRYSTAL_Y, CRATERS, DEAD_CRYSTALS, GATES, GATE_IDS, GATE_GAP, LABYRINTH_R, LABYRINTH_WALLS, MOAT_DEPTH, MOAT_IN, MOAT_OUT,
   OUT_ARRIVAL, OUT_GATE_ARRIVE, OUT_R, OUT_WALL_R, ROAD_W, TRENCH_R, TRENCH_RINGS, WATER_Y, gateAxisPoint, onBridge, outskirtsDirt, outskirtsGatePoint, outskirtsHeight,
   outskirtsPlaceName, roadDistance, visibleIn, SHOP_KINDS,
   type BiomePalette, type CityLayout, type CityMarker, type CityPiece, type CityState, type GateId, type WeatherKind,
@@ -27,6 +27,7 @@ import { WeatherFx } from './Weather';
 import { AssetBoundary, CameraRig, ClickMarker, Sky, WindClock } from './Biome';
 import { colliders, companionFocus, decks, groundDown, groundMove, groundPointer, moveRequest, requestMove, smooth, type Circle, type WorldShape } from './world';
 import { openShop } from '../ui/ShopPanel';
+import { openSchool } from '../ui/SchoolPanel';
 import { runeTexture } from './textures';
 import { settings } from '../settings';
 
@@ -198,16 +199,13 @@ function ApexCrystal({ y, size = 1, dead }: { y: number; size?: number; dead: bo
 }
 
 // ---------------------------------------------------------------------------
-// Portais (círculo de runas no chão + véu de luz)
+// Portais (círculo de runas no chão; `arch` só sobe o rótulo — o véu de luz saiu, destoava da cidade)
 // ---------------------------------------------------------------------------
 
 function RunePortal({ x, z, y = 0, color, label, rot = 0, arch = false }: { x: number; z: number; y?: number; color: string; label?: string; rot?: number; arch?: boolean }) {
   const runes = useMemo(runeTexture, []);
-  const ring = useRef<THREE.Mesh>(null), veil = useRef<THREE.Mesh>(null);
-  useFrame((s, dt) => {
-    if (ring.current) ring.current.rotation.z += dt * 0.25;
-    if (veil.current) (veil.current.material as THREE.MeshBasicMaterial).opacity = 0.22 + Math.sin(s.clock.elapsedTime * 2.1) * 0.08;
-  });
+  const ring = useRef<THREE.Mesh>(null);
+  useFrame((_, dt) => { if (ring.current) ring.current.rotation.z += dt * 0.25; });
   const tint = useMemo(() => C(color).multiplyScalar(1.6), [color]);
   return (
     <group position={[x, y, z]} rotation={[0, rot, 0]}>
@@ -215,7 +213,6 @@ function RunePortal({ x, z, y = 0, color, label, rot = 0, arch = false }: { x: n
         <circleGeometry args={[2.2, 48]} />
         <meshBasicMaterial map={runes} color={tint} transparent blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} />
       </mesh>
-      {arch && <mesh ref={veil} position={[0, 2.6, 0]}><planeGeometry args={[4.4, 5.2]} /><meshBasicMaterial color={tint} transparent opacity={0.25} blending={THREE.AdditiveBlending} depthWrite={false} side={THREE.DoubleSide} toneMapped={false} /></mesh>}
       {label && <Label y={arch ? 5.8 : 3} distanceFactor={9}><div className="aster-label">{label}</div></Label>}
     </group>
   );
@@ -277,11 +274,6 @@ function ProceduralCity({ dead, high, walls = true, inner = true }: { dead: bool
       <Instanced geometry={geo.cone} material={mat.roof} matrices={parts.roofs} />
       <Instanced geometry={geo.box} material={mat.dark} matrices={parts.spires} shadows={high} />
       <Instanced geometry={geo.dome} material={mat.dome} matrices={parts.domes} />
-      {/* torre central do cristal */}
-      {inner && <>
-        <mesh position={[0, 17, 0]} castShadow={high}><cylinderGeometry args={[4, 7, 34, 14]} /><meshLambertMaterial color={dead ? '#6d665d' : '#ddd3bd'} /></mesh>
-        <mesh position={[0, 35, 0]}><cylinderGeometry args={[5.5, 4.2, 3, 14]} /><meshLambertMaterial color={dead ? '#5a5450' : '#c2b48f'} /></mesh>
-      </>}
     </group>
   );
 }
@@ -551,13 +543,16 @@ const shopWalk = { id: '', move: 0 };
 function goShop(m: CityMarker) { requestMove(new THREE.Vector3(m.x, 0, m.z)); shopWalk.id = m.id; shopWalk.move = moveRequest.id; }
 /** Distância da porta (marcador) até onde um prédio conta como daquela loja. */
 const SHOP_PICK_R = 14;
+/** Marcadores que abrem um painel na chegada (lojas e escolas). */
+const opens = (m: CityMarker) => m.kind === 'loja' || m.kind === 'escola';
 
 export function MarkerView({ m, dead, labels = true, onPick }: { m: CityMarker; dead: boolean; labels?: boolean; onPick?: () => void }) {
   const info = CITY_MARKERS[m.kind];
-  if (m.kind === 'cristal') return <group position={[m.x, 0, m.z]}><mesh position={[0, 9, 0]} castShadow><cylinderGeometry args={[2.6, 4.2, 18, 12]} /><meshLambertMaterial color={dead ? '#6d665d' : '#ddd3bd'} /></mesh><group position={[0, 0, 0]}><ApexCrystal y={27} size={0.8} dead={dead} /></group></group>;
+  // só o cristal: a torre é um modelo do ADM
+  if (m.kind === 'cristal') return <group position={[m.x, 0, m.z]}><ApexCrystal y={m.y ?? CRYSTAL_Y} size={0.8} dead={dead} /></group>;
   if (m.kind === 'portao') return <RunePortal x={m.x} z={m.z} color="#9fd8ff" arch rot={-Math.atan2(m.z, m.x) + Math.PI / 2} label={labels ? `${m.name} · sair para os arredores` : undefined} />;
   if (m.kind === 'chegada') return null;
-  const icon = m.kind === 'loja' && m.shop ? SHOP_KINDS[m.shop].icon : info.icon;
+  const icon = m.kind === 'loja' && m.shop ? SHOP_KINDS[m.shop].icon : m.kind === 'escola' && m.school ? CITY_SCHOOLS[m.school].icon : info.icon;
   return (
     <group position={[m.x, 0, m.z]} {...pickHandlers(onPick)}>
       <mesh position={[0, 1.4, 0]}><cylinderGeometry args={[0.07, 0.09, 2.8, 6]} /><meshLambertMaterial color="#5b4a36" /></mesh>
@@ -576,8 +571,8 @@ function CityInside({ layout, state }: { layout: CityLayout; state: CityState })
   // fosso de dentro: o Companion vai até o começo da ponte (o portal de dentro fica ali)
   useColliders('aster-moat-in', useMemo(() => moatColliders(MOAT_IN[0] - 0.7, 'dentro', CITY_R + 1), []));
   useBridgeDecks(layout.wall.bridgeDeck, 'dentro');
-  // prédio de loja = peça (fora da muralha) perto de um marcador "loja": o clique leva até a porta
-  const shops = useMemo(() => markers.filter((m) => m.kind === 'loja'), [markers]);
+  // prédio de loja/escola = peça (fora da muralha) perto de um marcador "loja" ou "escola": o clique leva até a porta
+  const shops = useMemo(() => markers.filter(opens), [markers]);
   const shopOf = (p: CityPiece) => {
     if (p.wall || !shops.length) return undefined;
     const near = shops.map((m) => ({ m, d: Math.hypot(m.x - p.x, m.z - p.z) })).sort((a, b) => a.d - b.d)[0];
@@ -589,7 +584,7 @@ function CityInside({ layout, state }: { layout: CityLayout; state: CityState })
       {!pieces.some((p) => p.wall === 'ponte') && <PlaceholderBridges deck={layout.wall.bridgeDeck} side="dentro" />}
       {!pieces.some((p) => p.wall) && <InnerWall layout={layout} dead={dead} />}
       {pieces.map((p) => <AssetBoundary key={p.id}><Suspense fallback={null}><Piece p={p} onPick={shopOf(p)} /></Suspense></AssetBoundary>)}
-      {markers.map((m) => <MarkerView key={m.id} m={m} dead={dead} onPick={m.kind === 'loja' ? () => goShop(m) : undefined} />)}
+      {markers.map((m) => <MarkerView key={m.id} m={m} dead={dead} onPick={opens(m) ? () => goShop(m) : undefined} />)}
     </group>
   );
 }
@@ -621,7 +616,7 @@ function AsterLogic({ map, layout, state, onTravel, onPlace }: { map: AsterMap; 
     if (shopWalk.id) {
       const m = map === 'cidade' ? P.layout.markers.find((x) => x.id === shopWalk.id) : undefined;
       if (!m || moveRequest.id !== shopWalk.move) shopWalk.id = '';
-      else if (Math.hypot(f.x - m.x, f.z - m.z) < 3) { shopWalk.id = ''; openShop(m.name, m.shop ?? 'pocoes'); }
+      else if (Math.hypot(f.x - m.x, f.z - m.z) < 3) { shopWalk.id = ''; if (m.kind === 'escola') openSchool(m.name, m.school ?? 'forja'); else openShop(m.name, m.shop ?? 'pocoes'); }
     }
   });
   return null;

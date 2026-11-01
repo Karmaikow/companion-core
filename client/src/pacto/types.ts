@@ -1,5 +1,5 @@
 /** O que o servidor (ou o modo offline simulado) devolve sobre o Pacto das Cinco. */
-import type { Element, MarkConfig, OrderRequirements, PactoConfig, Rarity, SpeciesKey, AttrKey, ForgePlan, ArtisanSignature } from '@rules';
+import type { Element, MarkConfig, OrderRequirements, PactoConfig, Rarity, SpeciesKey, AttrKey, ForgePlan, ArtisanSignature, CitySchool } from '@rules';
 
 export interface EquipmentView {
   id: string; blueprint: string; kind: 'equipamento' | 'ferramenta'; tool: string | null; durability: number; maxDurability: number; createdAt: string;
@@ -18,6 +18,8 @@ export interface PactoView {
   serverNow: number;
   me: string;
   lumes: number;
+  /** escolas de Áster em que está matriculado(a) */
+  schools?: CitySchool[];
   cls: { real: SpeciesKey | null; effective: SpeciesKey | null; test: SpeciesKey | null; essence: Element | null; admin: boolean; forms?: SpeciesKey[]; essences?: Element[]; lineage?: { forms: SpeciesKey[]; essences: Element[] } };
   equipment: EquipmentView[];
   jobs: JobView[];
@@ -31,6 +33,9 @@ export interface PactoReply {
   pacto?: PactoView;
   /** lojas de Áster: Lumes que entraram (+) ou saíram (−) */
   shop?: { ok: boolean; delta: number; repeat?: boolean };
+  school?: { ok: boolean; school: CitySchool };
+  /** bancada da Escola do Veneno: o que saiu */
+  brewed?: { good: string; qty: number; bonus: boolean };
   started?: { request: string; seconds: number; fee?: number };
   job?: { ok: boolean; wait?: number; kind?: string; label?: string; repeat?: boolean; equipment?: string | null };
   delivered?: boolean;
