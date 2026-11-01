@@ -199,16 +199,13 @@ function ApexCrystal({ y, size = 1, dead }: { y: number; size?: number; dead: bo
 }
 
 // ---------------------------------------------------------------------------
-// Portais (círculo de runas no chão + véu de luz)
+// Portais (círculo de runas no chão; `arch` só sobe o rótulo — o véu de luz saiu, destoava da cidade)
 // ---------------------------------------------------------------------------
 
 function RunePortal({ x, z, y = 0, color, label, rot = 0, arch = false }: { x: number; z: number; y?: number; color: string; label?: string; rot?: number; arch?: boolean }) {
   const runes = useMemo(runeTexture, []);
-  const ring = useRef<THREE.Mesh>(null), veil = useRef<THREE.Mesh>(null);
-  useFrame((s, dt) => {
-    if (ring.current) ring.current.rotation.z += dt * 0.25;
-    if (veil.current) (veil.current.material as THREE.MeshBasicMaterial).opacity = 0.22 + Math.sin(s.clock.elapsedTime * 2.1) * 0.08;
-  });
+  const ring = useRef<THREE.Mesh>(null);
+  useFrame((_, dt) => { if (ring.current) ring.current.rotation.z += dt * 0.25; });
   const tint = useMemo(() => C(color).multiplyScalar(1.6), [color]);
   return (
     <group position={[x, y, z]} rotation={[0, rot, 0]}>
@@ -216,7 +213,6 @@ function RunePortal({ x, z, y = 0, color, label, rot = 0, arch = false }: { x: n
         <circleGeometry args={[2.2, 48]} />
         <meshBasicMaterial map={runes} color={tint} transparent blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} />
       </mesh>
-      {arch && <mesh ref={veil} position={[0, 2.6, 0]}><planeGeometry args={[4.4, 5.2]} /><meshBasicMaterial color={tint} transparent opacity={0.25} blending={THREE.AdditiveBlending} depthWrite={false} side={THREE.DoubleSide} toneMapped={false} /></mesh>}
       {label && <Label y={arch ? 5.8 : 3} distanceFactor={9}><div className="aster-label">{label}</div></Label>}
     </group>
   );
@@ -278,11 +274,6 @@ function ProceduralCity({ dead, high, walls = true, inner = true }: { dead: bool
       <Instanced geometry={geo.cone} material={mat.roof} matrices={parts.roofs} />
       <Instanced geometry={geo.box} material={mat.dark} matrices={parts.spires} shadows={high} />
       <Instanced geometry={geo.dome} material={mat.dome} matrices={parts.domes} />
-      {/* torre central do cristal */}
-      {inner && <>
-        <mesh position={[0, 17, 0]} castShadow={high}><cylinderGeometry args={[4, 7, 34, 14]} /><meshLambertMaterial color={dead ? '#6d665d' : '#ddd3bd'} /></mesh>
-        <mesh position={[0, 35, 0]}><cylinderGeometry args={[5.5, 4.2, 3, 14]} /><meshLambertMaterial color={dead ? '#5a5450' : '#c2b48f'} /></mesh>
-      </>}
     </group>
   );
 }
