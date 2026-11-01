@@ -5,7 +5,7 @@
  */
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import {
-  DEFAULT_CREATURES, DEFAULT_SKILLS, WORLD_FALLBACK_BIOMES, ELEMENTS, BODIES, ARCHETYPES, TEMPERAMENTS, BATTLE_STYLES, TIMES, ANIM_KINDS,
+  DEFAULT_CREATURES, DEFAULT_SKILLS, CREATURE_FAMILIES, FAMILY_TIERS, WORLD_FALLBACK_BIOMES, ELEMENTS, BODIES, ARCHETYPES, TEMPERAMENTS, BATTLE_STYLES, TIMES, ANIM_KINDS,
   sanitizeCreature, sanitizeSkill, sanitizeItem, findItem, DEFAULT_ITEMS, ITEM_TYPES, type ItemDef, rigForBody, type CreatureRig, sanitizeBiome, kitFor, MOTIONS, biomeSlug, animKind, creatureStatsAt, creatureSkillsAt, mitigate,
   type CreatureDef, type Motion, type Archetype, type Temperament, type BattleStyle, type TimeOfDay, type Element, type BodyPlan, type SkillDef,
 } from '@rules';
@@ -124,15 +124,28 @@ export function SummonerStudio() {
           {found.map((r) => (
             <li key={r.slug}>
               <button className={sel === r.slug ? 'on' : ''} onClick={() => pick(r.slug)}>
-                <strong><i className="look-dot" style={{ background: r.data.color }} />{r.name}</strong>
+                <strong><i className="look-dot" style={{ background: r.data.color }} />{r.name}{r.data.family && <em className={'tier-badge tier-' + r.data.family.tier}>{FAMILY_TIERS[r.data.family.tier].label}</em>}</strong>
                 <small>{ARCHETYPES[r.data.archetype].label} · {TEMPERAMENTS[r.data.temperament].label} · nv {r.data.level[0]}–{r.data.level[1]}{r.data.model ? ' · 3D' : r.data.art ? ' · imagem' : ' · slime'}{r.status === 'draft' ? ' · rascunho' : ''}</small>
               </button>
             </li>
           ))}
         </ul>
-        <details className="list-extra">
-          <summary>Sobre o Invocador</summary>
+        <details className="list-extra" open={CREATURE_FAMILIES.some((f) => f.creatures.some((c) => !cat.rows?.some((r) => r.slug === c.slug)))}>
+          <summary>Sobre o Invocador e famílias</summary>
           <small className="hint">As criaturas do Companion World (as Brumas do design de batalha: acalmadas, não mortas). Publicadas, já andam nas regiões marcadas.</small>
+          {CREATURE_FAMILIES.map((fam) => {
+            const missing = fam.creatures.filter((c) => !cat.rows?.some((r) => r.slug === c.slug));
+            return (
+              <div key={fam.id} className="family-card">
+                <b>{fam.name}</b>
+                <small className="hint">{fam.lore}</small>
+                <small className="hint">{fam.creatures.map((c) => `${FAMILY_TIERS[c.family!.tier].label}: ${c.name} (nv ${c.level[0]}–${c.level[1]})`).join(' · ')}</small>
+                {missing.length > 0
+                  ? <button className="ghost" disabled={busy} onClick={() => void ask({ title: `Adicionar ${missing.length} criatura${missing.length > 1 ? 's' : ''} da família?`, body: 'Entram como rascunho: revise, ajuste e publique uma a uma quando quiser que apareçam no mundo.', lines: missing.map((c) => `${FAMILY_TIERS[c.family!.tier].label} · ${c.name}`), confirm: 'Adicionar como rascunho' }).then((ok) => { if (ok) void run(() => cat.saveMany(missing, 'draft'), `${missing.length} criatura${missing.length > 1 ? 's' : ''} da família adicionada${missing.length > 1 ? 's' : ''} como rascunho.`); })}>+ Família inteira ({missing.length})</button>
+                  : <small className="hint">Família completa no catálogo.</small>}
+              </div>
+            );
+          })}
         </details>
       </aside>
 
@@ -140,7 +153,7 @@ export function SummonerStudio() {
         <section className="biome-empty"><p>Escolha uma criatura ou invoque uma nova. Sem modelo nem imagem, ela aparece como um slime de gelatina na cor escolhida (o rosto muda com o temperamento e o enfeite no topo com a essência).</p></section>
       ) : (
         <section className="biome-editor">
-          <EditorHead name={draft.name} sub={`${ARCHETYPES[draft.archetype].label} · ${TEMPERAMENTS[draft.temperament].label} · nv ${draft.level[0]}–${draft.level[1]}`} color={draft.color} status={status} dirty={dirty} />
+          <EditorHead name={draft.name} sub={`${draft.family ? FAMILY_TIERS[draft.family.tier].label + ' · ' : ''}${ARCHETYPES[draft.archetype].label} · ${TEMPERAMENTS[draft.temperament].label} · nv ${draft.level[0]}–${draft.level[1]}`} color={draft.color} status={status} dirty={dirty} />
           <div className="biome-preview">
             <Suspense fallback={<div className="art-empty">Carregando prévia…</div>}>
               <CreaturePreview def={clean} act={act} />

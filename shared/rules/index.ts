@@ -20,6 +20,7 @@ export * from './combat/skills.ts';
 export * from './combat/skillIcon.ts';
 export * from './combat/vfx.ts';
 export * from './creatures.ts';
+export * from './families.ts';
 export * from './species.ts';
 export * from './combat/tree.ts';
 export * from './equipment.ts';

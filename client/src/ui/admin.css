@@ -439,3 +439,11 @@ html:has(.admin) { scrollbar-color: var(--a-line-2, #3a4b70) #0c0b15; scroll-pad
   .admin *, .admin *::before, .admin *::after { transition-duration: 0.01ms !important; }
   ::view-transition-old(root), ::view-transition-new(root) { animation: none; }
 }
+
+/* ---------- famílias de monstros (Invocador) ---------- */
+.tier-badge { font-style: normal; font-family: var(--sans); font-size: 0.68rem; font-weight: 700; margin-left: 6px; padding: 1px 7px; border-radius: 99px; vertical-align: 1px; background: var(--a-raise-2); color: var(--a-ink-2); border: 1px solid var(--a-line-2); }
+.tier-badge.tier-elite { color: #9fd0ff; border-color: #3d5f8a; }
+.tier-badge.tier-chefe { color: #ffcf7a; border-color: #8a6a35; }
+.tier-badge.tier-mvp { color: #2a0d1e; background: linear-gradient(180deg, #ff9ae6, #ff5ad1); border-color: #ffb8ec; }
+.family-card { display: grid; gap: 6px; padding: 10px 0 2px; border-top: 1px solid var(--a-line); }
+.family-card b { font-family: var(--serif); font-size: 0.98rem; }

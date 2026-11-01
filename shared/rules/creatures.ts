@@ -97,6 +97,8 @@ export interface CreatureDef {
   animMap?: Record<string, string>;
   model?: { url: string; path?: string; anims: { url: string; path?: string; kind: string; name: string }[] };
   art?: { url: string; path?: string };
+  /** linhagem e estágio (bebê → MVP), quando a criatura faz parte de uma família (families.ts) */
+  family?: { id: string; tier: 'bebe' | 'jovem' | 'adulto' | 'elite' | 'chefe' | 'mvp' };
 }
 
 const ELEMENT_KEYS: Element[] = ['fogo', 'agua', 'terra', 'vento', 'luz', 'sombra', 'gelo', 'raio', 'natureza', 'veneno'];
@@ -168,6 +170,7 @@ export function sanitizeCreature(input: unknown): CreatureDef | null {
     })(),
     model: m,
     art: c.art && typeof c.art.url === 'string' && URL_OK.test(c.art.url) ? { url: c.art.url, path: typeof c.art.path === 'string' ? c.art.path : undefined } : undefined,
+    family: c.family && typeof c.family.id === 'string' && SLUG.test(c.family.id) && ['bebe', 'jovem', 'adulto', 'elite', 'chefe', 'mvp'].includes(c.family.tier) ? { id: c.family.id, tier: c.family.tier } : undefined,
   };
 }
 
