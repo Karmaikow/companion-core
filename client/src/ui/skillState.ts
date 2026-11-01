@@ -9,8 +9,9 @@ import { useEffect, useMemo } from 'react';
 import { create } from 'zustand';
 import {
   DEFAULT_SKILLS, ELEMENTS, RANK_COOLDOWN, buildSkillTree, validateAllocation, treeEffects, skillPoints, sanitizeSkill, skillPowerMult,
-  type Allocation, type SkillDef, type SkillTree,
+  companionElement, studiesAt, schoolSkills, type Allocation, type SkillDef, type SkillTree, type CitySchool,
 } from '@rules';
+import { usePacto } from '../pacto/pactoStore';
 import { useGame } from '../store';
 import { castSkill } from '../build/combatStats';
 import { supabase } from '../backend/online';
@@ -68,7 +69,10 @@ export function useSkillData() {
   const admin = useGod((g) => g.admin), profile = useGod((g) => g.treeProfile);
   const testing = admin && !!c && profile?.companionId === c.id;
   const species = testing ? profile.species : c?.discoveries.form ?? null;
-  const essence = testing ? profile.essence : c?.discoveries.element ?? null;
+  const essence = companionElement(testing ? profile.essence : c?.discoveries.element);
+  // técnicas das escolas de Áster (ex.: Escola do Veneno) — valem enquanto a matrícula valer
+  const pacto = usePacto((s) => s.view);
+  const schoolKey = pacto ? (pacto.schools ?? []).filter((k) => studiesAt(k, pacto.schools ?? [], pacto.cls.forms?.length ? pacto.cls.forms : species ? [species] : [], pacto.cls.essences?.length ? pacto.cls.essences : [essence])).join(',') : '';
   const testKey = testing ? `${c.id}:${profile.testId}` : null;
   const secrets = snap?.secrets?.length ?? 0;
   const bond = c?.bond.level ?? 1, points = skillPoints(bond, 0, secrets);
@@ -83,6 +87,9 @@ export function useSkillData() {
   const unlocked = useMemo(() => {
     const base: Unlocked[] = [];
     for (const [slug, level] of fx?.skills ?? []) { const sk = known.find((s) => s.slug === slug); if (sk) base.push({ skill: sk, level, mult: skillPowerMult(fx, sk, level) }); }
+    for (const sk of schoolSkills(catalog, schoolKey ? (schoolKey.split(',') as CitySchool[]) : [])) {
+      if (sk.unlockBond <= bond && !base.some((b) => b.skill.slug === sk.slug)) base.push({ skill: sk, level: 1, mult: skillPowerMult(fx, sk, 1) });
+    }
     // Modo GOD: habilidades dadas pelo painel do Administrador (valem mesmo fora da árvore)
     for (const [slug, level] of Object.entries(granted)) {
       const sk = known.find((x) => x.slug === slug), at = base.findIndex((b) => b.skill.slug === slug);
@@ -91,7 +98,7 @@ export function useSkillData() {
       if (at >= 0) base[at] = u; else base.push(u);
     }
     return base;
-  }, [fx, known, granted]);
+  }, [fx, known, granted, catalog, schoolKey, bond]);
   return { companion: c ?? null, species, essence, bond, points, secrets, tree, fx, unlocked, catalog: known, alloc, testing, testKey };
 }
 
@@ -122,6 +129,8 @@ export function useSkillSync() {
   // Signed URL refreshes do not change the model; a new model/package does.
   const visualKey = [visualModel?.url.split('?')[0] ?? '', ...(visualModel?.anims ?? []).map(a => a.url.split('?')[0])].join('|');
   const { companion: c, tree, bond, points, unlocked, testing, testKey } = useSkillData();
+  // matrículas das escolas (técnicas de escola) chegam com o estado do Pacto
+  useEffect(() => { if (c?.stage === 'awakened' && !usePacto.getState().view) void usePacto.getState().refresh(); }, [c?.id, c?.stage]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     let alive = true;

@@ -1,11 +1,12 @@
-// Lojas de Áster no servidor: preço, estoque e o que entra/sai vêm das regras (shared/rules/shop.ts); a gravação é
+// Lojas e escolas de Áster no servidor (matrícula e bancada da Escola do Veneno): preço, estoque e o que entra/sai vêm das regras (shared/rules/shop.ts); a gravação é
 // uma transação só (`shop_trade`), idempotente pelo request_id. O cliente nunca diz quanto custa.
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import {
   goodById, buyCheck, shopKey, valeSellPrice, bagSellPrice, blueprintById, cleanRequestId, SHOP_KINDS, MAX_BUY,
+  isCitySchool, schoolBlock, cleanSchools, studiesAt, brewById, brewCheck,
   type ItemDef,
 } from './rules/index.ts';
-import { PactoError } from './pacto.ts';
+import { PactoError, classInfo } from './pacto.ts';
 
 interface Ctx { db: SupabaseClient; c: Record<string, unknown>; admin: boolean; catalog: () => Promise<ItemDef[]>; state: () => Promise<unknown> }
 
@@ -22,8 +23,8 @@ export async function shopAction(action: string, body: Record<string, unknown>, 
   const request = cleanRequestId(body.request);
   if (!request) throw new PactoError(400, 'Pedido inválido.');
   const qty = Math.round(Number(body.qty) || 1);
-  const trade = async (delta: number, ref: string, inv: unknown[], bag: unknown[], equip: unknown) => {
-    const { data, error } = await db.rpc('shop_trade', { p_request: request, p_cid: cid, p_delta: delta, p_ref: ref, p_inv: inv, p_bag: bag, p_equip: equip });
+  const trade = async (delta: number, ref: string, inv: unknown[], bag: unknown[], equip: unknown, why: string | null = null) => {
+    const { data, error } = await db.rpc('shop_trade', { p_request: request, p_cid: cid, p_delta: delta, p_ref: ref, p_inv: inv, p_bag: bag, p_equip: equip, p_reason: why });
     if (error) throw new PactoError(500, 'Falha no servidor (loja).');
     const r = data as { ok: boolean; reason?: string; repeat?: boolean };
     if (!r.ok) throw new PactoError(409, REASON[r.reason ?? ''] ?? 'Não deu certo.');
@@ -67,6 +68,35 @@ export async function shopAction(action: string, body: Record<string, unknown>, 
     const price = bagSellPrice(key, (row.meta ?? {}) as Record<string, unknown>, await ctx.catalog());
     if (price == null) throw new PactoError(409, 'A loja não compra isso.');
     return trade(price * qty, key, [{ key, qty: -qty }], [], null);
+  }
+
+  // ---- escolas de Áster
+  if (action === 'pacto.school.join') {
+    const school = body.school;
+    if (!isCitySchool(school)) throw new PactoError(400, 'Escola inexistente.');
+    const cls = await classInfo(db, c, ctx.admin);
+    const block = schoolBlock(school, cls.forms, cls.essences);
+    if (block) throw new PactoError(403, block);
+    const { data: prof } = await db.from('pacto_profile').select('*').eq('companion_id', cid).maybeSingle();
+    const schools = cleanSchools(prof?.schools);
+    if (!schools.includes(school)) {
+      const { error } = await db.from('pacto_profile').update({ schools: [...schools, school], updated_at: new Date().toISOString() }).eq('companion_id', cid);
+      if (error) throw new PactoError(500, 'Falha no servidor (matrícula).');
+    }
+    return { school: { ok: true, school }, pacto: await ctx.state() };
+  }
+
+  if (action === 'pacto.school.brew') {
+    const cls = await classInfo(db, c, ctx.admin);
+    const { data: prof } = await db.from('pacto_profile').select('*').eq('companion_id', cid).maybeSingle();
+    if (!studiesAt('veneno', cleanSchools(prof?.schools), cls.forms, cls.essences)) throw new PactoError(403, 'Só quem estuda na Escola do Veneno prepara poções e comidas.');
+    const recipe = brewById(String(body.recipe ?? ''));
+    const { data: bag } = await db.from('ecos_bag').select('batch_key,qty').eq('companion_id', cid);
+    const chk = brewCheck(recipe, Math.round(Number(body.times) || 1), (bag ?? []).map((b) => ({ key: b.batch_key as string, qty: b.qty as number })));
+    if (!chk.ok) throw new PactoError(409, chk.reason);
+    const g = goodById(recipe!.good)!;
+    const r = await trade(0, 'escola:' + recipe!.id, [{ key: shopKey(g.id), qty: chk.give, meta: { label: g.name, description: g.description, category: 'diversos', shop: g.id } }], chk.consume, null, 'escola-preparo');
+    return { ...r, brewed: { good: g.id, qty: chk.give, bonus: chk.bonus } };
   }
 
   throw new PactoError(404, 'Ação desconhecida.');

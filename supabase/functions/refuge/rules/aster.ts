@@ -12,6 +12,7 @@
  * Funções puras e determinísticas: o cliente desenha, os testes conferem e o servidor do cerco (fase 5) usa o mesmo.
  */
 import { SHOP_KIND_IDS, type ShopKind } from './shop.ts';
+import { CITY_SCHOOL_IDS, type CitySchool } from './escolas.ts';
 
 // ---------------------------------------------------------------------------
 // Portões
@@ -339,13 +340,6 @@ export const CITY_MARKERS: Record<CityMarkerKind, { label: string; icon: string;
   npc: { label: 'NPC', icon: '☺', color: '#c8d6e8' },
 };
 
-/** As escolas que têm prédio em Áster. */
-export type CitySchool = 'forja' | 'veneno';
-export const CITY_SCHOOLS: Record<CitySchool, { label: string; icon: string }> = {
-  forja: { label: 'Escola da Forja', icon: '🔨' },
-  veneno: { label: 'Escola do Veneno', icon: '☠️' },
-};
-export const CITY_SCHOOL_IDS = Object.keys(CITY_SCHOOLS) as CitySchool[];
 /** Altura padrão do cristal sobre o marcador (o ADM ajusta para ficar no topo da torre dele). */
 export const CRYSTAL_Y = 27;
 

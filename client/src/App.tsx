@@ -35,6 +35,7 @@ import { SkillBar } from './ui/SkillBar';
 import { HudEditor } from './ui/HudEditor';
 import { GodMode, GodButton } from './ui/GodPanel';
 import { ShopPanel } from './ui/ShopPanel';
+import { SchoolPanel } from './ui/SchoolPanel';
 import { useGod } from './ui/godMode';
 import { SafeStage, glLostBefore } from './scene/SafeStage';
 import { useHud } from './ui/hudLayout';
@@ -488,6 +489,7 @@ export function App() {
           )}
           {hudEditing && <HudEditor />}
           {place === 'cidade' && <ShopPanel />}
+          {place === 'cidade' && <SchoolPanel />}
           {model && !hudEditing && <GodMode inWorld={place === 'world'} place={place} world={companionWorld} city={cityLayout} />}
           {model && <AttackCursor />}
           {model && <FaintCounter onReturn={place !== 'refuge' ? goHome : undefined} />}

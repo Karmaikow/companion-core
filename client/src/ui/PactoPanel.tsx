@@ -6,7 +6,7 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import {
-  OFFICES, CLASS_LABEL, SPECIES, COMPONENTS, BLUEPRINTS, TRANSFORMATIONS, ESSENCE_CRAFT, ELEMENTS, RARITIES, INTENT_LABEL, CONDUCT_LABEL, TEMPER_LABEL,
+  OFFICES, CLASS_LABEL, SPECIES, COMPONENTS, BLUEPRINTS, TRANSFORMATIONS, ESSENCE_CRAFT, ELEMENTS, COMPANION_ELEMENTS, RARITIES, INTENT_LABEL, CONDUCT_LABEL, TEMPER_LABEL,
   SOURCE_LABEL, SOURCE_CLASS, AFFINITY_COLOR, canCompleteEquipment, transformationFor, checkTransformation, essenceApplies, inputFits, forgePreview, assistPlan,
   coreCost, meetsRequirements, recycleReturn, parseComponentKey, componentPropLabel, bandWord, blueprintById, cancelSettlement, payout, CERNE_ALTERNATIVE, REPAIR_KIT_AMOUNT,
   type SpeciesKey, type ForgePlan, type Pick, type Conduct, type Temper, type ForgeBlueprint, type OrderRequirements, type SourceKind,
@@ -39,15 +39,14 @@ export function PactoPanel() {
   const view = usePacto((s) => s.view);
   const error = usePacto((s) => s.error), notice = usePacto((s) => s.notice), conn = usePacto((s) => s.conn);
   const ecos = useEcos((s) => s.view);
-  const [tab, setTab] = useState<'bancada' | 'oficio' | 'encomendas' | 'pecas' | 'pacto'>('bancada');
-  const [forOrder, setForOrder] = useState<string | null>(null);
+  const [tab, setTab] = useState<'bancada' | 'encomendas' | 'pecas' | 'pacto'>('bancada');
   useEffect(() => { void usePacto.getState().refresh(); if (!useEcos.getState().view) void useEcos.getState().refresh(); }, []);
   if (!view) return <p className="empty">{conn === 'perdida' ? 'Sem conexão com a oficina. Tentando de novo…' : 'Abrindo a oficina…'}</p>;
   const cls = view.cls.effective;
   const forms = formsOfView(view);
   const office = cls ? OFFICES[cls] : null;
-  const forge = canCompleteEquipment(forms);
-  const hybridOffice = forge && forms.some((f) => f !== 'touro');
+  // a forja saiu daqui: fica só na Escola da Forja, em Áster
+  const onlyForge = canCompleteEquipment(forms) && !forms.some((f) => f !== 'touro');
   const showTest = view.cls.admin && (typeof location === 'undefined' || location.hostname !== PROD_HOST);
   const mineActive = view.orders.mine.filter((o) => o.artisan === view.me && (o.status === 'aceita' || o.status === 'em_forja')).length;
 
@@ -71,8 +70,7 @@ export function PactoPanel() {
       {notice && <p className="pacto-notice" role="status" onClick={() => usePacto.getState().clear()}>{notice}</p>}
 
       <nav className="st-tabs pacto-tabs" aria-label="Oficina">
-        <button className={tab === 'bancada' ? 'on' : ''} onClick={() => setTab('bancada')}>{forge ? 'Forja' : 'Ofício'}</button>
-        {hybridOffice && <button className={tab === 'oficio' ? 'on' : ''} onClick={() => setTab('oficio')}>Ofício</button>}
+        <button className={tab === 'bancada' ? 'on' : ''} onClick={() => setTab('bancada')}>Ofício</button>
         <button className={tab === 'encomendas' ? 'on' : ''} onClick={() => setTab('encomendas')}>Encomendas{mineActive ? <em>{mineActive}</em> : null}</button>
         <button className={tab === 'pecas' ? 'on' : ''} onClick={() => setTab('pecas')}>Peças{view.equipment.length ? <em>{view.equipment.length}</em> : null}</button>
         <button className={tab === 'pacto' ? 'on' : ''} onClick={() => setTab('pacto')}>As Cinco</button>
@@ -80,12 +78,8 @@ export function PactoPanel() {
 
       <Jobs view={view} />
 
-      {tab === 'bancada' && (forge
-        ? <ForgeBench view={view} bag={ecos?.bag ?? []} orderId={forOrder} setOrder={setForOrder} />
-        : <OfficeBench view={view} bag={ecos?.bag ?? []} />)}
-      {tab === 'oficio' && hybridOffice && <OfficeBench view={view} bag={ecos?.bag ?? []} />}
-      {tab === 'bancada' && forge && !hybridOffice && <TaurinaOffice />}
-      {tab === 'encomendas' && <Orders view={view} bag={ecos?.bag ?? []} onForge={(id) => { setForOrder(id); setTab('bancada'); }} />}
+      {tab === 'bancada' && (onlyForge ? <TaurinaOffice /> : <OfficeBench view={view} bag={ecos?.bag ?? []} />)}
+      {tab === 'encomendas' && <Orders view={view} bag={ecos?.bag ?? []} />}
       {tab === 'pecas' && <Pieces view={view} bag={ecos?.bag ?? []} />}
       {tab === 'pacto' && <TheFive view={view} />}
     </div>
@@ -116,7 +110,7 @@ function TestClass({ view }: { view: PactoView }) {
       <label>+ essência
         <select value="" onChange={(e) => e.target.value && void call('pacto.lineage.set', { kind: 'essence', value: e.target.value, on: true })}>
           <option value="">{extraEss.length ? extraEss.map((x) => ELEMENTS[x].label).join(', ') : '—'}</option>
-          {(Object.keys(ELEMENTS) as (keyof typeof ELEMENTS)[]).filter((k) => !lin?.essences.includes(k)).map((k) => <option key={k} value={k}>{ELEMENTS[k].label}</option>)}
+          {COMPANION_ELEMENTS.filter((k) => !lin?.essences.includes(k)).map((k) => <option key={k} value={k}>{ELEMENTS[k].label}</option>)}
         </select>
       </label>
       {(extraForms.length > 0 || extraEss.length > 0) && <button className="ghost" onClick={() => { for (const f of extraForms) void call('pacto.lineage.set', { kind: 'form', value: f, on: false }); for (const x of extraEss) void call('pacto.lineage.set', { kind: 'essence', value: x, on: false }); }}>limpar</button>}
@@ -124,7 +118,7 @@ function TestClass({ view }: { view: PactoView }) {
   );
 }
 
-function Jobs({ view }: { view: PactoView }) {
+export function Jobs({ view }: { view: PactoView }) {
   const [, force] = useState(0);
   useEffect(() => { if (!view.jobs.length) return; const t = setInterval(() => force((x) => x + 1), 500); return () => clearInterval(t); }, [view.jobs.length]);
   if (!view.jobs.length) return null;
@@ -229,7 +223,7 @@ function OfficeBench({ view, bag }: { view: PactoView; bag: { key: string; qty: 
 }
 
 function TaurinaOffice() {
-  return <p className="hint">Taurina: você coleta o básico e conclui todas as peças. Fontes superiores você localiza e anuncia (aba Encomendas → quadro); os componentes vêm dos ofícios das outras classes.</p>;
+  return <p className="hint">Taurina: você coleta o básico e conclui todas as peças, mas a forja fica na <b>🔨 Escola da Forja, em Áster</b> (matricule-se lá). Fontes superiores você localiza e anuncia (aba Encomendas → quadro); os componentes vêm dos ofícios das outras classes.</p>;
 }
 
 // ---------------------------------------------------------------------------
@@ -238,7 +232,8 @@ function TaurinaOffice() {
 
 const STEPS = ['Leitura', 'Montagem', 'Condução', 'Têmpera', 'Assinatura'] as const;
 
-function ForgeBench({ view, bag, orderId, setOrder }: { view: PactoView; bag: { key: string; qty: number }[]; orderId: string | null; setOrder: (id: string | null) => void }) {
+/** Bancada da Forja Primordial: só na Escola da Forja (SchoolPanel). */
+export function ForgeBench({ view, bag, orderId, setOrder }: { view: PactoView; bag: { key: string; qty: number }[]; orderId: string | null; setOrder: (id: string | null) => void }) {
   const order = view.orders.mine.find((o) => o.id === orderId && o.artisan === view.me && o.status === 'aceita') ?? null;
   const [bpId, setBp] = useState(order?.blueprint ?? BLUEPRINTS[0].id);
   const bp = blueprintById(order?.blueprint ?? bpId)!;
@@ -373,7 +368,8 @@ function reqText(r: OrderRequirements) {
 
 const STATUS: Record<OrderView['status'], string> = { aberta: 'aberta', aceita: 'aceita', em_forja: 'na forja', entregue: 'entregue', cancelada: 'cancelada', expirada: 'expirada' };
 
-function Orders({ view, bag, onForge }: { view: PactoView; bag: { key: string; qty: number }[]; onForge: (id: string) => void }) {
+/** `onForge`: só dentro da Escola da Forja (fora dela, aceitar e forjar ficam para lá). */
+export function Orders({ view, bag, onForge }: { view: PactoView; bag: { key: string; qty: number }[]; onForge?: (id: string) => void }) {
   const [creating, setCreating] = useState(false);
   const taurina = canCompleteEquipment(formsOfView(view));
   const call = usePacto.getState().call;
@@ -392,12 +388,13 @@ function Orders({ view, bag, onForge }: { view: PactoView; bag: { key: string; q
       </ul>
       {taurina && (<>
         <h3>Abertas no quadro</h3>
+        {!onForge && <p className="hint">Aceitar e forjar encomendas: na 🔨 Escola da Forja, em Áster.</p>}
         {!others.length && <p className="empty">Nenhuma encomenda aberta agora.</p>}
         <ul className="order-list">
           {others.map((o) => (
             <li key={o.id} className="order">
               <OrderSummary o={o} view={view} />
-              <button className="primary" onClick={() => void call('pacto.order.accept', { id: o.id })}>Aceitar</button>
+              {onForge && <button className="primary" onClick={() => void call('pacto.order.accept', { id: o.id })}>Aceitar</button>}
             </li>
           ))}
         </ul>
@@ -419,7 +416,7 @@ function OrderSummary({ o, view }: { o: OrderView; view: PactoView }) {
   );
 }
 
-function OrderItem({ o, view, onForge }: { o: OrderView; view: PactoView; onForge: (id: string) => void }) {
+function OrderItem({ o, view, onForge }: { o: OrderView; view: PactoView; onForge?: (id: string) => void }) {
   const [hist, setHist] = useState(false);
   const call = usePacto.getState().call;
   const iAmArtisan = o.artisan === view.me, iAmClient = o.client === view.me;
@@ -429,7 +426,7 @@ function OrderItem({ o, view, onForge }: { o: OrderView; view: PactoView; onForg
     <li className="order">
       <OrderSummary o={o} view={view} />
       <div className="order-actions">
-        {iAmArtisan && o.status === 'aceita' && !o.item && <button className="primary" onClick={() => onForge(o.id)}>Forjar na bancada</button>}
+        {iAmArtisan && o.status === 'aceita' && !o.item && (onForge ? <button className="primary" onClick={() => onForge(o.id)}>Forjar na bancada</button> : <small className="d">Forjar: na Escola da Forja</small>)}
         {iAmArtisan && (o.status === 'aceita' || o.status === 'em_forja') && o.item && !running && <button className="primary" onClick={() => void call('pacto.order.deliver', { id: o.id, item: o.item })}>Entregar (recebe {payout(o.payment, view.config).artisan})</button>}
         {(iAmClient || iAmArtisan) && st && <button className="ghost" onClick={() => { if (confirmCancel(o, iAmClient, view)) void call('pacto.order.cancel', { id: o.id }); }}>Cancelar</button>}
         <button className="ghost" onClick={() => setHist((x) => !x)}>Histórico</button>
@@ -516,7 +513,8 @@ function Board({ view }: { view: PactoView }) {
 // Peças: durabilidade, reparo, reforja, reciclagem, assinatura
 // ---------------------------------------------------------------------------
 
-function Pieces({ view, bag }: { view: PactoView; bag: { key: string; qty: number }[] }) {
+/** `atForge`: dentro da Escola da Forja (só lá a Taurina reforja). */
+export function Pieces({ view, bag, atForge = false }: { view: PactoView; bag: { key: string; qty: number }[]; atForge?: boolean }) {
   const kits = bag.find((b) => b.key === KIT)?.qty ?? 0;
   const taurina = canCompleteEquipment(formsOfView(view));
   const call = usePacto.getState().call;
@@ -542,7 +540,7 @@ function Pieces({ view, bag }: { view: PactoView; bag: { key: string; qty: numbe
                     {e.layers && <p><b>Corpo:</b> {e.layers.corpo.join(', ') || '—'} · <b>Trama:</b> {e.layers.trama.join(', ') || '—'} · <b>Marca:</b> {[...e.layers.marca, ...e.layers.tempera].join(', ') || '—'}</p>}
                     <p><b>Reciclar devolve:</b> {back.map((b) => `${b.qty}× ${keyLabel(b.key, view)}`).join(', ') || 'nada (componentes se perdem)'} — sempre menos do que entrou.</p>
                     <ol className="history">{(e.history ?? []).map((h, i) => <li key={i}><small>{new Date(h.at).toLocaleString()}</small> {h.what}</li>)}</ol>
-                    {taurina && e.plan && <Reforge id={e.id} plan={e.plan} />}
+                    {taurina && e.plan && (atForge ? <Reforge id={e.id} plan={e.plan} /> : <p className="d">Reforja: na Escola da Forja.</p>)}
                   </div>
                 )}
               </div>
@@ -592,7 +590,7 @@ function TheFive({ view }: { view: PactoView }) {
       <h4>Essências na criação</h4>
       <p className="hint">A essência modifica a técnica (sobe uma propriedade uma faixa), sem transferir exclusividade. Fogo e Terra são os núcleos da forja: a oficina cobra cada núcleo, e a Taurina de Fogo ou de Terra traz a própria metade.</p>
       <ul className="ess">
-        {(Object.keys(ESSENCE_CRAFT) as (keyof typeof ESSENCE_CRAFT)[]).map((e) => <li key={e} style={{ borderColor: AFFINITY_COLOR[e] }}><b style={{ color: AFFINITY_COLOR[e] }}>{ELEMENTS[e].label}</b> · {ESSENCE_CRAFT[e].label}: {ESSENCE_CRAFT[e].hint}</li>)}
+        {COMPANION_ELEMENTS.map((e) => <li key={e} style={{ borderColor: AFFINITY_COLOR[e] }}><b style={{ color: AFFINITY_COLOR[e] }}>{ELEMENTS[e].label}</b> · {ESSENCE_CRAFT[e].label}: {ESSENCE_CRAFT[e].hint}</li>)}
       </ul>
     </div>
   );

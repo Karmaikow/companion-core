@@ -395,7 +395,7 @@ export function CityStudio() {
           <div className="cs-markers">
             {(['npc', 'portao', 'chegada'] as const).map((k) => <button key={k} onClick={() => addMarker(k)}><span aria-hidden>{CITY_MARKERS[k].icon}</span> {CITY_MARKERS[k].label}</button>)}
           </div>
-          <small className="hint">Ponha cada marcador na porta do prédio. As lojas já abrem; escolas, guilda, hotel e bar ganham painel na fase 4.</small>
+          <small className="hint">Ponha cada marcador na porta do prédio. Lojas e escolas já abrem; guilda, hotel e bar ganham painel na fase 4.</small>
         </fieldset>
       </aside>
 
@@ -527,7 +527,7 @@ export function CityStudio() {
               <label>Vende<select value={marker.shop ?? 'pocoes'} onChange={(e) => patchMarker(marker.id, { shop: e.target.value as ShopKind, name: marker.name === CITY_MARKERS.loja.label || SHOP_KIND_IDS.some((k) => SHOP_KINDS[k].label === marker.name) ? SHOP_KINDS[e.target.value as ShopKind].label : marker.name })}>{SHOP_KIND_IDS.map((k) => <option key={k} value={k}>{SHOP_KINDS[k].icon} {SHOP_KINDS[k].label}</option>)}</select></label>
             )}
             <label>Aparece<select value={marker.show} onChange={(e) => patchMarker(marker.id, { show: e.target.value as CityShow })}>{(Object.keys(CITY_SHOW) as CityShow[]).map((k) => <option key={k} value={k}>{CITY_SHOW[k]}</option>)}</select></label>
-            {marker.kind === 'loja' && <small className="hint">Ponha o marcador na porta do prédio. Clicar no prédio (até 14 m do marcador) ou na placa faz o Companion andar até aqui e abre o mercador.</small>}
+            {(marker.kind === 'loja' || marker.kind === 'escola') && <small className="hint">Ponha o marcador na porta do prédio. Clicar no prédio (até 14 m do marcador) ou na placa faz o Companion andar até aqui e abre {marker.kind === 'loja' ? 'o mercador' : 'a escola'}.</small>}
             {marker.kind === 'portao' && <small className="hint">Pisar no portão leva ao portão de mesmo nome nos Arredores; quem entra por ele aparece aqui, um pouco para dentro.</small>}
             <div className="cs-row">
               {marker.kind !== 'cristal' && <button className="ghost" onClick={duplicate}>Duplicar</button>}

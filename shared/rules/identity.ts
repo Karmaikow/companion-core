@@ -87,10 +87,18 @@ export function resolveForm(input: string): FormFamily | null {
   return best?.family ?? null;
 }
 
+/**
+ * Essências que um Companion pode ter. Veneno virou a Escola do Veneno (poções e comidas): continua só como
+ * elemento de monstros e de dano. Quem tinha Veneno passou a ser Natureza.
+ */
+export const COMPANION_ELEMENTS: Element[] = (Object.keys(ELEMENTS) as Element[]).filter((e) => e !== 'veneno');
+export const companionElement = (e: Element | null | undefined): Element | null => (e === 'veneno' ? 'natureza' : e ?? null);
+
+/** Essência dita na conversa (o antigo Veneno vira Natureza). */
 export function resolveElement(input: string): Element | null {
   const n = ' ' + normalize(input) + ' ';
   for (const [el, def] of Object.entries(ELEMENTS) as [Element, (typeof ELEMENTS)[Element]][]) {
-    if (def.aliases.some((a) => n.includes(' ' + a + ' '))) return el;
+    if (def.aliases.some((a) => n.includes(' ' + a + ' '))) return companionElement(el);
   }
   return null;
 }

@@ -806,6 +806,17 @@ Prompt com o mundo de fantasia, regra explícita de pronomes ("mim" = a pessoa; 
   - Cena: `scene/AsterScene.tsx` (sem luzes pontuais; placas numa camada própria). Testes no jogo: `?aster`,
     `?cidade`, `?destruida`, `?estrada` (Companion World ao lado do portal). Faltam: monstros e cerco (fases 3 e 5),
     os painéis das lojas/escolas (fase 4).
+- **v1.44 — Escolas de Áster (Forja e Veneno).** Regras em `shared/rules/escolas.ts`. Marcador "escola" (Estúdio
+  da Cidade) com `school: 'forja' | 'veneno'`; clicar no prédio leva à porta e abre `SchoolPanel` (matrícula grátis,
+  guardada em `pacto_profile.schools`). **Escola da Forja**: só Taurinas; é o único lugar com a bancada da Forja
+  Primordial, reforja e aceitar encomendas (o painel do Pacto não forja mais; o servidor exige matrícula em
+  `pacto.forge.start`, `pacto.item.reforge` e `pacto.order.accept`). **Escola do Veneno**: essência Natureza ou Água;
+  bancada `BREWS` (plantas do Vale → consumíveis `loja:<id>`, +1 por preparo se todas as plantas tiverem potência alta)
+  via `pacto.school.brew` → `shop_trade(..., p_reason 'escola-preparo')`; ensina Cuspe Tóxico e Névoa Venenosa
+  (`schoolSkills`, entram no kit pelo vínculo). **Veneno não é mais essência de Companion**: `COMPANION_ELEMENTS`,
+  `companionElement()` e `resolveElement` mapeiam Veneno → Natureza; continua como elemento de monstros e de dano.
+  Migração `20261031150000_escolas.sql` (coluna `schools`, Veneno → Natureza nos Companions e na linhagem, `shop_trade`
+  com motivo).
 - **v1.43 — Lojas de Áster (etapa 1).** Regras em `shared/rules/shop.ts`; a moeda é a mesma do Pacto (Lumes,
   `pacto_profile` + livro-razão `pacto_ledger`).
   - **Marcador "loja"** com o tipo (`shop`: Poções, Equipamentos, Rotação), posto na porta do prédio. Clicar no

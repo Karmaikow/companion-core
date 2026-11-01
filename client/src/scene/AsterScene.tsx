@@ -27,6 +27,7 @@ import { WeatherFx } from './Weather';
 import { AssetBoundary, CameraRig, ClickMarker, Sky, WindClock } from './Biome';
 import { colliders, companionFocus, decks, groundDown, groundMove, groundPointer, moveRequest, requestMove, smooth, type Circle, type WorldShape } from './world';
 import { openShop } from '../ui/ShopPanel';
+import { openSchool } from '../ui/SchoolPanel';
 import { runeTexture } from './textures';
 import { settings } from '../settings';
 
@@ -551,6 +552,8 @@ const shopWalk = { id: '', move: 0 };
 function goShop(m: CityMarker) { requestMove(new THREE.Vector3(m.x, 0, m.z)); shopWalk.id = m.id; shopWalk.move = moveRequest.id; }
 /** Distância da porta (marcador) até onde um prédio conta como daquela loja. */
 const SHOP_PICK_R = 14;
+/** Marcadores que abrem um painel na chegada (lojas e escolas). */
+const opens = (m: CityMarker) => m.kind === 'loja' || m.kind === 'escola';
 
 export function MarkerView({ m, dead, labels = true, onPick }: { m: CityMarker; dead: boolean; labels?: boolean; onPick?: () => void }) {
   const info = CITY_MARKERS[m.kind];
@@ -577,8 +580,8 @@ function CityInside({ layout, state }: { layout: CityLayout; state: CityState })
   // fosso de dentro: o Companion vai até o começo da ponte (o portal de dentro fica ali)
   useColliders('aster-moat-in', useMemo(() => moatColliders(MOAT_IN[0] - 0.7, 'dentro', CITY_R + 1), []));
   useBridgeDecks(layout.wall.bridgeDeck, 'dentro');
-  // prédio de loja = peça (fora da muralha) perto de um marcador "loja": o clique leva até a porta
-  const shops = useMemo(() => markers.filter((m) => m.kind === 'loja'), [markers]);
+  // prédio de loja/escola = peça (fora da muralha) perto de um marcador "loja" ou "escola": o clique leva até a porta
+  const shops = useMemo(() => markers.filter(opens), [markers]);
   const shopOf = (p: CityPiece) => {
     if (p.wall || !shops.length) return undefined;
     const near = shops.map((m) => ({ m, d: Math.hypot(m.x - p.x, m.z - p.z) })).sort((a, b) => a.d - b.d)[0];
@@ -590,7 +593,7 @@ function CityInside({ layout, state }: { layout: CityLayout; state: CityState })
       {!pieces.some((p) => p.wall === 'ponte') && <PlaceholderBridges deck={layout.wall.bridgeDeck} side="dentro" />}
       {!pieces.some((p) => p.wall) && <InnerWall layout={layout} dead={dead} />}
       {pieces.map((p) => <AssetBoundary key={p.id}><Suspense fallback={null}><Piece p={p} onPick={shopOf(p)} /></Suspense></AssetBoundary>)}
-      {markers.map((m) => <MarkerView key={m.id} m={m} dead={dead} onPick={m.kind === 'loja' ? () => goShop(m) : undefined} />)}
+      {markers.map((m) => <MarkerView key={m.id} m={m} dead={dead} onPick={opens(m) ? () => goShop(m) : undefined} />)}
     </group>
   );
 }
@@ -622,7 +625,7 @@ function AsterLogic({ map, layout, state, onTravel, onPlace }: { map: AsterMap; 
     if (shopWalk.id) {
       const m = map === 'cidade' ? P.layout.markers.find((x) => x.id === shopWalk.id) : undefined;
       if (!m || moveRequest.id !== shopWalk.move) shopWalk.id = '';
-      else if (Math.hypot(f.x - m.x, f.z - m.z) < 3) { shopWalk.id = ''; openShop(m.name, m.shop ?? 'pocoes'); }
+      else if (Math.hypot(f.x - m.x, f.z - m.z) < 3) { shopWalk.id = ''; if (m.kind === 'escola') openSchool(m.name, m.school ?? 'forja'); else openShop(m.name, m.shop ?? 'pocoes'); }
     }
   });
   return null;

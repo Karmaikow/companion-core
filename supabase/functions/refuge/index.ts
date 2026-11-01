@@ -842,7 +842,7 @@ Deno.serve(async (req) => {
       const cc = c;
       return json(200, await ecosAction(action, body, { db, c: cc, cfg, ecfg: cfg.ecos, pcfg: cfg.pacto, admin: await isAdmin(db, userId), event: (kind, payload) => event(db, cc.id as string, 'system', kind, payload) }));
     }
-    if (action.startsWith('pacto.shop.')) {
+    if (action.startsWith('pacto.shop.') || action.startsWith('pacto.school.')) {
       const cc = c, admin = await isAdmin(db, userId);
       return json(200, await shopAction(action, body, { db, c: cc, admin, catalog: () => itemDefs(db), state: () => pactoState(db, cc, admin, cfg.pacto) }));
     }

@@ -4,7 +4,8 @@
  */
 import {
   SPECIES, OFFICES, canCompleteEquipment, transformationById, checkTransformation, blueprintById, forgePreview, DEFAULT_PACTO, coreCost,
-  recycleReturn, REPAIR_KIT_AMOUNT, superiorBlockFor, lineageOf, officesOf, LINEAGE_LIMITS, ELEMENTS,
+  recycleReturn, REPAIR_KIT_AMOUNT, superiorBlockFor, lineageOf, officesOf, LINEAGE_LIMITS, COMPANION_ELEMENTS, companionElement,
+  isCitySchool, schoolBlock, studiesAt, brewById, brewCheck, type CitySchool,
   goodById, buyCheck, shopKey, valeSellPrice, bagSellPrice, SHOP_KINDS, type ForgePlan, type SpeciesKey, type Element, type ToolKey, type Conduct, type Temper,
 } from '@rules';
 import { useGame } from '../store';
@@ -14,7 +15,7 @@ import type { EquipmentView, JobView, PactoReply, PactoView } from './types';
 
 const KEY = 'companion-core:pacto-local:v1';
 const KIT = 'item:kit-de-reparo';
-interface Save { lumes: number; testClass: SpeciesKey | null; lineage?: { forms: string[]; essences: string[] }; equipment: EquipmentView[]; jobs: (JobView & { plan: Record<string, unknown>; take: { key: string; qty: number }[]; fee: number; done?: Record<string, unknown> })[]; rewards: string[] }
+interface Save { lumes: number; testClass: SpeciesKey | null; schools?: CitySchool[]; lineage?: { forms: string[]; essences: string[] }; equipment: EquipmentView[]; jobs: (JobView & { plan: Record<string, unknown>; take: { key: string; qty: number }[]; fee: number; done?: Record<string, unknown> })[]; rewards: string[] }
 const fresh = (): Save => ({ lumes: DEFAULT_PACTO.starterLumes, testClass: null, equipment: [], jobs: [], rewards: [] });
 let mem: Save | null = null;
 function load(): Save { if (mem) return mem; try { mem = { ...fresh(), ...JSON.parse(localStorage.getItem(KEY) ?? 'null') }; } catch { mem = fresh(); } return mem!; }
@@ -23,7 +24,12 @@ const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xx
 
 function me() {
   const c = useGame.getState().snap?.companion;
-  return { id: c?.id ?? 'local', name: c?.discoveries.name ?? 'Companion', real: (c?.identityContract?.species?.family ?? c?.discoveries.form ?? null) as SpeciesKey | null, essence: (c?.discoveries.element ?? null) as Element | null };
+  return { id: c?.id ?? 'local', name: c?.discoveries.name ?? 'Companion', real: (c?.identityContract?.species?.family ?? c?.discoveries.form ?? null) as SpeciesKey | null, essence: companionElement(c?.discoveries.element) };
+}
+/** A forja só existe na Escola da Forja (Taurina matriculada). */
+function forgeSchool() {
+  if (!canCompleteEquipment(forms())) throw new Fail('Só Taurinas forjam e concluem equipamentos.');
+  if (!studiesAt('forja', load().schools ?? [], forms(), lineage().essences)) throw new Fail('A forja fica na Escola da Forja, em Áster: matricule-se lá.');
 }
 const effective = () => load().testClass ?? me().real;
 const lineage = () => { const m = me(); return lineageOf(m.real, m.essence, load().lineage ?? null); };
@@ -40,7 +46,7 @@ localHooks.reward =(key, kind) => { const s = load(); if (s.rewards.includes(key
 function view(s: Save): PactoView {
   const m = me();
   return {
-    serverNow: Date.now(), me: m.id, lumes: s.lumes, simulated: true,
+    serverNow: Date.now(), me: m.id, lumes: s.lumes, simulated: true, schools: s.schools ?? [],
     cls: { real: m.real, effective: effective(), test: s.testClass, essence: m.essence, admin: true, forms: forms(), essences: lineage().essences, lineage: lineage() },
     equipment: s.equipment, jobs: s.jobs.filter((j) => !j.done).map(({ request, kind, ref, order, startedAt, seconds }) => ({ request, kind, ref, order, startedAt, seconds })),
     orders: { open: [], mine: [] }, board: [], names: { [m.id]: { name: m.name, cls: m.real } }, config: DEFAULT_PACTO,
@@ -58,7 +64,7 @@ export async function localPacto(action: string, b: Record<string, unknown> = {}
       case 'pacto.testClass': s.testClass = typeof b.cls === 'string' && b.cls in SPECIES ? b.cls as SpeciesKey : null; save(); return { pacto: view(s) };
       case 'pacto.lineage.set': {
         const kind = b.kind === 'form' ? 'forms' : 'essences', v = String(b.value);
-        if (kind === 'forms' ? !(v in SPECIES) : !(v in ELEMENTS)) throw new Fail('Valor inválido.');
+        if (kind === 'forms' ? !(v in SPECIES) : !COMPANION_ELEMENTS.includes(v as Element)) throw new Fail('Valor inválido.');
         const l = (s.lineage ??= { forms: [], essences: [] });
         if (b.on === false) l[kind] = l[kind].filter((x) => x !== v);
         else if (!l[kind].includes(v)) { if (l[kind].length >= (kind === 'forms' ? LINEAGE_LIMITS.forms : LINEAGE_LIMITS.essences) - 1) throw new Fail('Já tem o máximo.'); l[kind].push(v); }
@@ -77,7 +83,7 @@ export async function localPacto(action: string, b: Record<string, unknown> = {}
       }
       case 'pacto.forge.start': {
         const req = String(b.request); if (s.jobs.some((j) => j.request === req)) return { pacto: view(s) };
-        if (!canCompleteEquipment(cls)) throw new Fail('Só Taurinas forjam e concluem equipamentos.');
+        forgeSchool();
         const plan = b.plan as ForgePlan, bp = blueprintById(String(plan?.blueprint)); if (!bp) throw new Fail('Projeto inexistente.');
         if (s.jobs.filter((j) => j.kind === 'forja' && !j.done).length >= DEFAULT_PACTO.perArtisan) throw new Fail('Você já está no limite de trabalhos ao mesmo tempo.');
         const pv = forgePreview(plan, localBag.list()); if (!pv.ok) throw new Fail(pv.reason + (pv.missing ? ': ' + pv.missing.join(', ') : ''));
@@ -128,7 +134,7 @@ export async function localPacto(action: string, b: Record<string, unknown> = {}
         return { recycled: give, pacto: view(s) };
       }
       case 'pacto.item.reforge': {
-        if (!canCompleteEquipment(cls)) throw new Fail('Reforja estrutural é da Taurina.');
+        forgeSchool();
         const e = s.equipment.find((x) => x.id === b.item); if (!e?.plan || !e.consumed) throw new Fail('Peça inválida.');
         const conduct: Conduct = b.conduct === 'leveza' ? 'leveza' : 'resistencia', temper: Temper = b.temper === 'reativa' ? 'reativa' : 'estavel';
         const plan = { ...e.plan, conduct, temper }, pv = forgePreview(plan, e.consumed); if (!pv.ok) throw new Fail(pv.reason);
@@ -165,6 +171,22 @@ export async function localPacto(action: string, b: Record<string, unknown> = {}
         }
         s.lumes += price * qty; save();
         return { shop: { ok: true, delta: price * qty }, pacto: view(s) };
+      }
+      // escolas de Áster
+      case 'pacto.school.join': {
+        const school = b.school; if (!isCitySchool(school)) throw new Fail('Escola inexistente.');
+        const block = schoolBlock(school, cls, essAll); if (block) throw new Fail(block);
+        s.schools = [...new Set([...(s.schools ?? []), school])]; save();
+        return { school: { ok: true, school }, pacto: view(s) };
+      }
+      case 'pacto.school.brew': {
+        if (!studiesAt('veneno', s.schools ?? [], cls, essAll)) throw new Fail('Só quem estuda na Escola do Veneno prepara poções e comidas.');
+        const recipe = brewById(String(b.recipe ?? '')), chk = brewCheck(recipe, Math.round(Number(b.times) || 1), localBag.list());
+        if (!chk.ok) throw new Fail(chk.reason);
+        if (localBag.apply(chk.consume, []) !== 'ok') throw new Fail('Faltam materiais na mochila.');
+        const g = goodById(recipe!.good)!;
+        localInventory.add(shopKey(g.id), chk.give, { label: g.name, description: g.description, category: 'diversos', shop: g.id });
+        return { shop: { ok: true, delta: 0 }, brewed: { good: g.id, qty: chk.give, bonus: chk.bonus }, pacto: view(s) };
       }
       case 'pacto.order.create': case 'pacto.order.accept': case 'pacto.order.deliver': case 'pacto.order.cancel': case 'pacto.board.post':
         throw new Fail('Encomendas e o quadro do Pacto são entre pessoas: precisam do modo online.');
