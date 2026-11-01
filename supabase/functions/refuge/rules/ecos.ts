@@ -61,6 +61,8 @@ export interface MaterialDef {
   ranges: Partial<Record<PropKey, [number, number]>>;
   /** propriedades descritivas fixas (composição, afinidade, parte, efeito, estabilização) */
   fixed: Partial<Record<PropKey, string>>;
+  /** lendário: só de fontes que uma missão lendária revela */
+  legendary?: boolean;
 }
 
 const M = (d: MaterialDef) => d;
@@ -84,6 +86,9 @@ export const MATERIALS: Record<string, MaterialDef> = Object.fromEntries([
   // variedades (só aparecem para quem concluiu a missão da escola que as ensina)
   M({ id: 'erva-lunar', name: 'Erva Lunar', category: 'planta', rarity: 3, uses: ['Poção de Vida Grande e Elixir Lunar (Escola do Veneno)', 'Remédios raros'], ranges: { potencia: [70, 98], estabilidade: [70, 98] }, fixed: { parte: 'folhas lunares' } }),
   M({ id: 'minerio-prata', name: 'Prata Nativa', category: 'minerio', rarity: 3, uses: ['Lâminas e peças superiores (Escola da Forja)', 'Aceita onde a Forja pede cobre'], ranges: { pureza: [55, 95] }, fixed: { composicao: 'prata' } }),
+  // lendários: só das fontes que as missões lendárias revelam (rendem muito pouco)
+  M({ id: 'lagrima-da-nascente', name: 'Lágrima da Nascente Azul', category: 'magico', rarity: 3, legendary: true, uses: ['Água da Vida (Escola do Veneno)', 'Encantamentos lendários'], ranges: {}, fixed: { efeito: 'cura completa e afinidade de água', estabilizacao: 'frasco de cristal, longe da luz' } }),
+  M({ id: 'cerne-ancestral', name: 'Cerne Ancestral', category: 'madeira', rarity: 3, legendary: true, uses: ['Arcos, cajados e escudos lendários (Forja)', 'Aceito onde a Forja pede madeira'], ranges: { flexibilidade: [85, 99], resistencia: [85, 99] }, fixed: { afinidade: 'natureza' } }),
   // refinados (Casa dos Ecos): muitos materiais comuns viram um melhor; a qualidade vem da média do que entrou
   M({ id: 'extrato-de-orvalho', name: 'Extrato de Orvalho', category: 'planta', rarity: 3, uses: ['Poções e comidas superiores (Escola do Veneno)', 'Unguentos fortes'], ranges: { potencia: [30, 95], estabilidade: [30, 95] }, fixed: { parte: 'extrato' } }),
   M({ id: 'tabua-nobre', name: 'Tábua Nobre', category: 'madeira', rarity: 3, uses: ['Cabos, arcos e escudos superiores (Forja)', 'Estruturas de Áster'], ranges: { flexibilidade: [30, 95], resistencia: [30, 95] }, fixed: { afinidade: 'neutra' } }),
@@ -305,6 +310,20 @@ export const NODE_KINDS: Record<string, ResourceNodeKind> = {
     approaches: [
       { id: 'garimpar', label: 'Garimpar o entorno', seconds: 7, cost: 1, tool: null, yields: [{ material: 'minerio-prata', qty: [1, 1], guaranteed: 1 }], risk: 'nenhum', riskLevel: 0, effect: 'Nenhum.', pitch: 'Pouca prata, sem mexer no veio.' },
       { id: 'escavar', label: 'Escavar o veio', seconds: 10, cost: 3, tool: 'picareta', yields: [{ material: 'minerio-prata', qty: [2, 3], guaranteed: 2 }], risk: 'pedra solta (leve)', riskLevel: 1, effect: 'O veio fica raso por ~2 h.', pitch: 'Mais prata de uma vez.' },
+    ],
+  },
+  'nascente-azul': {
+    kind: 'nascente-azul', name: 'Nascente Azul', category: 'magico', zone: 'riacho', capacity: 1, regenPerHour: 1 / 24, sign: 'Água que brilha azul e não corre para lugar nenhum.',
+    approaches: [
+      { id: 'recolher-lagrima', label: 'Recolher uma lágrima', seconds: 18, cost: 1, tool: null, yields: [{ material: 'lagrima-da-nascente', qty: [1, 1], guaranteed: 1 }], risk: 'nenhum', riskLevel: 0, effect: 'A nascente leva um dia para chorar de novo.', pitch: 'Uma por dia. Lendária.' },
+      { id: 'encher-frascos', label: 'Encher frascos de água', seconds: 10, cost: 1, tool: null, yields: [{ material: 'agua-da-nascente', qty: [2, 3], guaranteed: 2 }], risk: 'nenhum', riskLevel: 0, effect: 'Gasta a lágrima do dia.', pitch: 'Água pura em vez da lágrima.' },
+    ],
+  },
+  'arvore-ancestral': {
+    kind: 'arvore-ancestral', name: 'Árvore Ancestral', category: 'madeira', zone: 'bosque', capacity: 2, regenPerHour: 1 / 12, sign: 'Um tronco enorme que pulsa devagar, como se respirasse.',
+    approaches: [
+      { id: 'pedir-cerne', label: 'Pedir um pedaço do cerne', seconds: 20, cost: 1, tool: 'machado', yields: [{ material: 'cerne-ancestral', qty: [1, 1], guaranteed: 1 }], risk: 'nenhum', riskLevel: 0, effect: 'A árvore leva meio dia para soltar outro.', pitch: 'Pouquíssimo. Lendário.' },
+      { id: 'galhos-antigos', label: 'Recolher galhos antigos', seconds: 12, cost: 1, tool: null, yields: [{ material: 'cerne-salgueiro', qty: [1, 2], guaranteed: 1 }], risk: 'nenhum', riskLevel: 0, effect: 'Gasta o cerne do dia.', pitch: 'Sem machado, madeira rara em vez da lendária.' },
     ],
   },
   'pedra-inscrita': {

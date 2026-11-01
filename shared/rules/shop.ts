@@ -53,6 +53,7 @@ export const SHOP_GOODS: ShopGood[] = [
   P('espetinho', 'Espetinho Assado', 10, '🍢', { st: 0.5, over: 10 }, 'Recupera metade da stamina aos poucos (10 s).'),
   P('pocao-vida-g', 'Poção de Vida Grande', 90, '🧪', { hp: 1 }, 'Recupera toda a vida na hora. Só preparada na Escola do Veneno.'),
   P('pocao-sp-g', 'Poção de SP Grande', 90, '🔹', { sp: 1 }, 'Recupera todo o SP na hora. Só preparada na Escola do Veneno.'),
+  P('agua-da-vida', 'Água da Vida', 400, '💧', { hp: 1, sp: 1, st: 1 }, 'Vida, SP e stamina cheios na hora. Feita com a Lágrima da Nascente Azul.'),
   P('elixir-lunar', 'Elixir Lunar', 140, '🌙', { hp: 0.6, sp: 0.6, st: 1, over: 20 }, 'Vida, SP e stamina aos poucos (20 s). Feito com Erva Lunar.'),
   P('torta-de-frutas', 'Torta de Frutas', 25, '🥧', { hp: 0.3, sp: 0.3, st: 0.3, over: 20 }, 'Um pouco de tudo: vida, SP e stamina (20 s).'),
   T('machado-simples', 'Machado Simples', 120, '🪓', 'machado', 'machado-simples', 'Para cortar árvores inteiras.'),
@@ -144,7 +145,7 @@ export interface ShopConfig { entries: ShopEntry[]; sellRate: number; rotationPe
 
 const entryOf = (g: ShopGood): ShopEntry => ({ id: g.id, shop: g.shop, ref: { kind: 'loja', good: g.id }, price: g.price, maxBuy: g.kind === 'ferramenta' ? 1 : MAX_BUY, enabled: true, stock: 0, weight: 1, school: null, materials: [] });
 /** bens que só a Escola do Veneno prepara (a loja padrão não vende; o ADM pode pôr à venda na aba Lojas) */
-export const SCHOOL_ONLY_GOODS = ['pocao-vida-g', 'pocao-sp-g', 'elixir-lunar'];
+export const SCHOOL_ONLY_GOODS = ['pocao-vida-g', 'pocao-sp-g', 'elixir-lunar', 'agua-da-vida'];
 export const DEFAULT_SHOP: ShopConfig = { entries: SHOP_GOODS.filter((g) => !SCHOOL_ONLY_GOODS.includes(g.id)).map(entryOf), sellRate: SELL_RATE, rotationPerDay: 4 };
 export const MAX_SHOP_ENTRIES = 120;
 

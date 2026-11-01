@@ -13,7 +13,7 @@ export interface MissionsView { serverNow: number; missions: MissionEntry[]; act
 export interface MissionsReply {
   missions?: MissionsView;
   delivered?: { accepted: number };
-  claimed?: { mission: string; name: string; rewards: MissionDef['rewards'] };
+  claimed?: { mission: string; name: string; rarity?: MissionDef['rarity']; rewards: MissionDef['rewards'] };
   bond?: { xp: number; levelUp: number | null } | null;
 }
 
@@ -36,7 +36,7 @@ export const useMissions = create<MissionsStore>((set, get) => ({
       if (r.missions) set({ view: r.missions });
       if (r.claimed) {
         const rw = r.claimed.rewards;
-        useGame.getState().celebrate({ kind: 'quest', eyebrow: 'Missão concluída', title: r.claimed.name, subtitle: [rw.lumes ? `${rw.lumes} Lumes` : '', rw.bond ? `+${rw.bond} de vínculo` : '', rw.materials.length || rw.items.length ? 'materiais e itens na bolsa' : '', rw.unlock ? unlockText(rw.unlock) : ''].filter(Boolean).join(' · ') || 'Bom trabalho!' });
+        useGame.getState().celebrate({ kind: r.claimed.rarity === 'lendaria' ? 'secret' : 'quest', eyebrow: r.claimed.rarity === 'lendaria' ? 'Missão lendária concluída' : 'Missão concluída', title: r.claimed.name, subtitle: [rw.lumes ? `${rw.lumes} Lumes` : '', rw.bond ? `+${rw.bond} de vínculo` : '', rw.materials.length || rw.items.length ? 'materiais e itens na bolsa' : '', rw.unlock ? unlockText(rw.unlock) : ''].filter(Boolean).join(' · ') || 'Bom trabalho!' });
         if (rw.unlock) void useEcos.getState().refresh();
         if (r.bond?.levelUp) useGame.getState().toast(`Vínculo nível ${r.bond.levelUp}`, 'gold');
         void useGame.getState().run((x) => x.state());

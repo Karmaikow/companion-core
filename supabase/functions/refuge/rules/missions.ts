@@ -90,6 +90,8 @@ export interface MissionDef {
 export const UNLOCKS: Record<string, string> = {
   'variedade:erva-lunar': 'A Erva-de-orvalho Lunar passa a aparecer no mundo para você',
   'variedade:veio-prateado': 'Veios Prateados passam a aparecer no mundo para você',
+  'lendaria:nascente-azul': 'A Nascente Azul (lendária) passa a aparecer no mundo para você',
+  'lendaria:arvore-ancestral': 'A Árvore Ancestral (lendária) passa a aparecer no mundo para você',
 };
 export const unlockText = (id: string) => UNLOCKS[id] ?? `Desbloqueio: ${id}`;
 
@@ -270,6 +272,32 @@ export const DEFAULT_MISSIONS: MissionDef[] = [
     rarity: 'rara', repeat: 'unica', giver: 'escola-forja', req: { after: ['primeiras-ervas'], bond: 0, schools: ['forja'], classes: [], essences: [] },
     objectives: [{ kind: 'fabricar', qty: 1, recipe: 'lingote-de-cobre' }, { kind: 'entregar', qty: 1, material: 'lingote-de-cobre' }],
     rewards: { lumes: 80, bond: 30, materials: [], items: [], unlock: 'variedade:veio-prateado' },
+  })!,
+  // ---- lendária: A Seiva Azul (a antiga descoberta do vale, em três partes)
+  sanitizeMission({
+    slug: 'seiva-azul-1', name: 'A Seiva Azul · I. Casca que brilha', description: 'Alguns salgueiros soltam uma seiva azul. A Mestra Ilvana quer saber de onde vem esse brilho: traga madeira e a própria seiva.',
+    rarity: 'epica', repeat: 'unica', giver: 'casa-dos-ecos', req: { after: ['primeiras-ervas'], bond: 3, schools: [], classes: [], essences: [] },
+    objectives: [{ kind: 'coletar', qty: 6, material: 'madeira-salgueiro' }, { kind: 'entregar', qty: 2, material: 'seiva-azul' }],
+    rewards: { lumes: 80, bond: 40, materials: [], items: [] },
+  })!,
+  sanitizeMission({
+    slug: 'seiva-azul-2', name: 'A Seiva Azul · II. Pistas na correnteza', description: 'Os fragmentos de quartzo têm o mesmo azul da seiva. Lapide um deles e veja o que a luz mostra.',
+    rarity: 'epica', repeat: 'unica', giver: 'casa-dos-ecos', req: { after: ['seiva-azul-1'], bond: 3, schools: [], classes: [], essences: [] },
+    objectives: [{ kind: 'coletar', qty: 10, material: 'pedra-seixo' }, { kind: 'fabricar', qty: 1, recipe: 'quartzo-lapidado' }],
+    rewards: { lumes: 100, bond: 50, materials: [], items: [] },
+  })!,
+  sanitizeMission({
+    slug: 'seiva-azul-3', name: 'A Seiva Azul · III. A Nascente Azul', description: 'O quartzo lapidado aponta uma nascente que só aparece para quem já viu o brilho. Os Distorcidos rondam a água: limpe o caminho e entregue o quartzo.',
+    rarity: 'lendaria', repeat: 'unica', giver: 'casa-dos-ecos', req: { after: ['seiva-azul-2'], bond: 5, schools: [], classes: [], essences: [] },
+    objectives: [{ kind: 'cacar', qty: 5, family: 'distorcidos' }, { kind: 'entregar', qty: 1, material: 'quartzo-lapidado' }, { kind: 'entregar', qty: 3, material: 'seiva-azul' }],
+    rewards: { lumes: 250, bond: 120, materials: [{ key: batchKey('lagrima-da-nascente', {}), qty: 1 }], items: [], unlock: 'lendaria:nascente-azul' },
+  })!,
+  // ---- lendária: O Coração Rachado (o MVP dos Distorcidos)
+  sanitizeMission({
+    slug: 'coracao-rachado', name: 'O Coração Rachado', description: 'A lasca que apodreceu o Cristal Ápice ganhou corpo. Derrube o Coração Rachado e a mata mostra a árvore que ele escondia.',
+    rarity: 'lendaria', repeat: 'unica', giver: 'livre', req: { after: [], bond: 8, schools: [], classes: [], essences: [] },
+    objectives: [{ kind: 'cacar', qty: 3, creature: 'matriarca-das-lascas' }, { kind: 'cacar', qty: 1, creature: 'coracao-rachado' }],
+    rewards: { lumes: 400, bond: 200, materials: [{ key: batchKey('cerne-ancestral', { flexibilidade: 'alta', resistencia: 'alta' }), qty: 1 }], items: [], unlock: 'lendaria:arvore-ancestral' },
   })!,
   sanitizeMission({
     slug: 'lascas-da-fenda', name: 'Lascas da fenda', description: 'Os Distorcidos estão se espalhando. Reduza o enxame dos pequenos antes que cresçam.',

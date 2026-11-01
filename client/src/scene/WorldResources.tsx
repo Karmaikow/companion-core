@@ -90,6 +90,18 @@ function AncientWillow({ amount, cap }: { amount: number; cap: number }) {
     </group>
   );
 }
+/** Fonte lendária: um halo de luz que pulsa sobre o modelo (Nascente Azul, Árvore Ancestral). */
+function LegendGlow({ color, y }: { color: string; y: number }) {
+  const ref = useRef<THREE.Mesh>(null);
+  useFrame((s) => { if (ref.current) { const k = 1 + Math.sin(s.clock.elapsedTime * 1.4) * 0.15; ref.current.scale.set(k, k, k); } });
+  return (
+    <group>
+      <mesh ref={ref} position={[0, y, 0]}><icosahedronGeometry args={[0.22, 0]} /><meshBasicMaterial color={color} toneMapped={false} /></mesh>
+      <pointLight position={[0, y, 0]} color={color} intensity={1.6} distance={8} decay={1.6} />
+    </group>
+  );
+}
+
 /** Remanso Profundo: poça escura e funda que só se forma com chuva. */
 function DeepPool({ amount, cap }: { amount: number; cap: number }) {
   return (
@@ -138,6 +150,8 @@ function NodeMesh({ node, amount }: { node: ResourceNode; amount: number }) {
     case 'erva-lunar': return <Herb amount={amount} cap={k.capacity} leaf="#a9c6d8" glow="#d9e8ff" />;
     case 'veio-prateado': return <Rock amount={amount} cap={k.capacity} tint="#55545e" vein="#e4e8f0" />;
     case 'salgueiro-antigo': return <AncientWillow amount={amount} cap={k.capacity} />;
+    case 'nascente-azul': return <group><DeepPool amount={amount} cap={k.capacity} /><LegendGlow color="#7fd6ff" y={1.4} /></group>;
+    case 'arvore-ancestral': return <group scale={1.5}><AncientWillow amount={amount} cap={k.capacity} /><LegendGlow color="#ffd27a" y={3.4} /></group>;
     case 'remanso-profundo': return <DeepPool amount={amount} cap={k.capacity} />;
     case 'liquen-dos-ventos': return <WindLichen amount={amount} cap={k.capacity} />;
     case 'pedra-inscrita': return <InscribedStone amount={amount} />;
@@ -147,7 +161,7 @@ function NodeMesh({ node, amount }: { node: ResourceNode; amount: number }) {
 
 const VFX_OF: Record<string, string> = { madeira: 'folhas', planta: 'folhas', pedra: 'pedras', minerio: 'pedras', gema: 'luz', magico: 'luz', caca: 'impacto' };
 const COLOR_OF: Record<string, string> = { madeira: '#a68a64', planta: '#7bd47a', pedra: '#c9c3b6', minerio: '#62c39a', gema: '#8fd8ff', magico: '#7fd6ff', caca: '#d0b090' };
-const SOLID = new Set(['salgueiro', 'carvalho', 'granito', 'cobre', 'geodo', 'veio-prateado', 'salgueiro-antigo', 'liquen-dos-ventos', 'pedra-inscrita']);
+const SOLID = new Set(['salgueiro', 'carvalho', 'granito', 'cobre', 'geodo', 'veio-prateado', 'arvore-ancestral', 'salgueiro-antigo', 'liquen-dos-ventos', 'pedra-inscrita']);
 /** chunks em volta do Companion com recursos na cena (5×5 = ~80 m) */
 const R = 2;
 

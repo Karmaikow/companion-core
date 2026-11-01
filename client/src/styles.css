@@ -1510,3 +1510,7 @@ body:has(.admin), #root:has(.admin) { height: auto; min-height: 100%; overflow: 
 /* campos do mural e da Torre no tom do jogo (como os da Oficina) */
 .trade-new select, .trade-new input[type=number], .tower-row input[type=number] { background: var(--night); color: var(--parchment); border: 1px solid #33425f; border-radius: 6px; padding: 4px 6px; font: inherit; }
 .trade-new select:focus-visible, .trade-new input:focus-visible, .tower-row input:focus-visible { outline: 2px solid var(--ecos-glow); outline-offset: 1px; }
+/* missão lendária: moldura dourada que respira */
+.mission-card.lendaria { border-left-width: 4px; box-shadow: 0 0 0 1px color-mix(in srgb, var(--rarity) 45%, transparent), 0 0 18px color-mix(in srgb, var(--rarity) 22%, transparent); }
+@media (prefers-reduced-motion: no-preference) { .mission-card.lendaria { animation: legend-breathe 3.2s ease-in-out infinite; } }
+@keyframes legend-breathe { 50% { box-shadow: 0 0 0 1px color-mix(in srgb, var(--rarity) 70%, transparent), 0 0 26px color-mix(in srgb, var(--rarity) 34%, transparent); } }

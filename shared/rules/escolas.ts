@@ -63,6 +63,8 @@ export const BREWS: Brew[] = [
   R('pocao-vida-g', 1, ['extrato-de-orvalho', 1], ['erva-lunar', 1]),
   R('pocao-sp-g', 1, ['extrato-de-orvalho', 1], ['seiva-azul', 1]),
   R('elixir-lunar', 1, ['erva-lunar', 2], ['quartzo-lapidado', 1]),
+  // lendária: a Lágrima da Nascente Azul (missão lendária "A Seiva Azul")
+  R('agua-da-vida', 1, ['lagrima-da-nascente', 1], ['extrato-de-orvalho', 1]),
 ];
 export const brewById = (id: string) => BREWS.find((r) => r.id === id) ?? null;
 export const MAX_BREW = 10;

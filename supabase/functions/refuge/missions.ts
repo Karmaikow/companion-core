@@ -154,7 +154,7 @@ export async function missionAction(action: string, body: Record<string, unknown
       if (adds.length) await ctx.addToBag(adds);
     }
     await ctx.event('mission.done', { mission: slug, period: r.period, rarity: def.rarity });
-    return { claimed: { mission: slug, name: def.name, rewards: rw }, bond, missions: await missionState(ctx) };
+    return { claimed: { mission: slug, name: def.name, rarity: def.rarity, rewards: rw }, bond, missions: await missionState(ctx) };
   }
 
   throw new MissionError(404, 'Ação desconhecida.');

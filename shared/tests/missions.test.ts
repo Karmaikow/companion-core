@@ -90,3 +90,21 @@ describe('missões das escolas', () => {
     expect(DEFAULT_SHOP.entries.some((e) => SCHOOL_ONLY_GOODS.includes(e.id))).toBe(false);
   });
 });
+
+describe('missões lendárias', () => {
+  it('a Seiva Azul é uma cadeia que termina revelando a Nascente Azul', async () => {
+    const { DEFAULT_MISSIONS, parseBatchKey, MATERIALS, DEFAULT_BIOME_RESOURCES, NODE_KINDS, BREWS } = await import('../rules/index');
+    const by = (s: string) => DEFAULT_MISSIONS.find((m) => m.slug === s)!;
+    expect(by('seiva-azul-2').req.after).toEqual(['seiva-azul-1']);
+    const fim = by('seiva-azul-3');
+    expect(fim).toMatchObject({ rarity: 'lendaria', req: { after: ['seiva-azul-2'] }, rewards: { unlock: 'lendaria:nascente-azul' } });
+    expect(parseBatchKey(fim.rewards.materials[0].key)?.material).toBe('lagrima-da-nascente');
+    expect(by('coracao-rachado').rewards.unlock).toBe('lendaria:arvore-ancestral');
+    for (const id of ['lagrima-da-nascente', 'cerne-ancestral']) expect(MATERIALS[id].legendary).toBe(true);
+    for (const k of ['nascente-azul', 'arvore-ancestral']) {
+      expect(NODE_KINDS[k]).toBeTruthy();
+      expect(DEFAULT_BIOME_RESOURCES.find((r) => r.kind === k)?.unlock).toMatch(/^lendaria:/);
+    }
+    expect(BREWS.some((b) => b.inputs.some((i) => i.material === 'lagrima-da-nascente'))).toBe(true);
+  });
+});

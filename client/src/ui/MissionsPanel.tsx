@@ -92,7 +92,7 @@ function MissionCard({ m, at }: { m: MissionEntry; at: MissionGiver }) {
   const here = m.def.giver === 'livre' || m.def.giver === at;
   const where = MISSION_GIVERS[m.def.giver].replace(/ \(Áster\)$/, '');
   return (
-    <li className={'mission-card ' + m.status} style={{ ['--rarity' as string]: r.color }}>
+    <li className={'mission-card ' + m.status + (m.def.rarity === 'lendaria' ? ' lendaria' : '')} style={{ ['--rarity' as string]: r.color }}>
       <header>
         <b><i className="look-dot" style={{ background: r.color }} />{m.def.name}</b>
         <small>{r.label} · {MISSION_REPEATS[m.def.repeat]} · {MISSION_GIVERS[m.def.giver]}</small>

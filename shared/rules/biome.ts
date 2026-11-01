@@ -73,6 +73,9 @@ export const DEFAULT_BIOME_RESOURCES: BiomeResource[] = [
   // variedades: só para quem concluiu a missão da escola (Admin → Missões, prêmio "desbloqueio")
   { kind: 'erva-lunar', density: 0.12, time: 'sempre', weather: [], terrain: 'qualquer', unlock: 'variedade:erva-lunar' },
   { kind: 'veio-prateado', density: 0.06, time: 'sempre', weather: [], terrain: 'qualquer', unlock: 'variedade:veio-prateado' },
+  // lendárias: raríssimas, só para quem concluiu a missão lendária que as revela
+  { kind: 'nascente-azul', density: 0.012, time: 'sempre', weather: [], terrain: 'aberto', unlock: 'lendaria:nascente-azul' },
+  { kind: 'arvore-ancestral', density: 0.01, time: 'sempre', weather: [], terrain: 'mata', unlock: 'lendaria:arvore-ancestral' },
 ];
 /** Tabela de um bioma: a dele (até 24 linhas, um tipo por linha) ou null para usar a padrão. */
 export function sanitizeBiomeResources(v: unknown): BiomeResource[] | undefined {
