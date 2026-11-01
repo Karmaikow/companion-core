@@ -22,6 +22,7 @@ export interface EcosReply {
   clue?: ClueGain | null;
   chosen?: { choice: string; gave: { key: string; qty: number }[]; site: string | null };
   crafted?: { recipe: string; label: string; quality: string; kind: string };
+  refined?: { refine: string; key: string };
   contributed?: { accepted: number; stageDone: boolean; requested: number };
   harvested?: { key: string; qty: number }[];
   cared?: boolean;

@@ -7,13 +7,14 @@
  *  - coletar: juntar N de um material/categoria (faixa mínima opcional), opcionalmente numa região (bioma);
  *  - entregar: tirar N da mochila de coleta e entregar (conta na hora, não volta);
  *  - cacar: derrotar N de uma criatura, de uma família ou qualquer uma (nível mínimo opcional);
- *  - fabricar: fazer N vezes uma receita da Coleta ou um preparo das Escolas.
+ *  - fabricar: fazer N vezes uma receita da Coleta, um preparo das Escolas ou um refino da Casa dos Ecos.
  */
 import { clampText } from './text.ts';
 import { MATERIALS, CATEGORIES, PROP_LABEL, BAND_LABEL, atLeast, parseBatchKey, batchKey, type ResCategory, type PropKey, type Band } from './ecos.ts';
 import { RECIPES } from './ecosPlay.ts';
 import { BREWS, CITY_SCHOOLS, type CitySchool } from './escolas.ts';
 import { goodById } from './shop.ts';
+import { REFINES } from './refine.ts';
 import { ELEMENTS, type Element } from './identity.ts';
 import { CLASS_LABEL } from './pacto.ts';
 import type { SpeciesKey } from './species.ts';
@@ -152,9 +153,9 @@ export function sanitizeMission(input: unknown): MissionDef | null {
 }
 
 export const recipeName = (id: string): string | null =>
-  RECIPES.find((r) => r.id === id)?.name ?? (BREWS.some((b) => b.id === id) ? goodById(id)?.name ?? id : null);
+  RECIPES.find((r) => r.id === id)?.name ?? (BREWS.some((b) => b.id === id) ? goodById(id)?.name ?? id : REFINES.some((r) => r.id === id) ? `Refinar ${MATERIALS[REFINES.find((r) => r.id === id)!.to].name}` : null);
 /** receitas e preparos que um objetivo "fabricar" aceita */
-export const CRAFTABLES = [...RECIPES.map((r) => r.id), ...BREWS.map((b) => b.id)];
+export const CRAFTABLES = [...RECIPES.map((r) => r.id), ...BREWS.map((b) => b.id), ...REFINES.map((r) => r.id)];
 
 /** Texto do objetivo para a interface (o do Admin, ou gerado). `names` resolve slugs de criatura, família e bioma. */
 export function objectiveLabel(o: MissionObjective, names: (kind: 'creature' | 'family' | 'biome', slug: string) => string = (_k, s) => s): string {

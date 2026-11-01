@@ -37,6 +37,7 @@ import { HudEditor } from './ui/HudEditor';
 import { GodMode, GodButton } from './ui/GodPanel';
 import { ShopPanel } from './ui/ShopPanel';
 import { SchoolPanel } from './ui/SchoolPanel';
+import { EcosHouse } from './ui/EcosHouse';
 import { useGod } from './ui/godMode';
 import { SafeStage, glLostBefore } from './scene/SafeStage';
 import { useHud } from './ui/hudLayout';
@@ -51,7 +52,7 @@ import { supabase } from './backend/online';
 /** Menu lateral em grupos: o Companion, a jornada, a bolsa, os ofícios e os ajustes. A Forja só aparece para Taurinas. */
 const TAB_GROUPS: { label: string; tabs: { key: Tab; label: string }[] }[] = [
   { label: 'Companion', tabs: [{ key: 'chat', label: 'Conversa' }, { key: 'bond', label: 'Vínculo' }, { key: 'skills', label: 'Habilidades' }] },
-  { label: 'Jornada', tabs: [{ key: 'quests', label: 'Quests' }, { key: 'missoes', label: 'Missões' }, { key: 'ecos', label: 'Coleta' }, { key: 'diary', label: 'Diário' }, { key: 'memories', label: 'Memórias' }] },
+  { label: 'Jornada', tabs: [{ key: 'quests', label: 'Quests' }, { key: 'missoes', label: 'Missões' }, { key: 'diary', label: 'Diário' }, { key: 'memories', label: 'Memórias' }] },
   { label: 'Bolsa', tabs: [{ key: 'inventory', label: 'Inventário' }, { key: 'recipes', label: 'Receitas' }] },
   { label: 'Ofícios', tabs: [{ key: 'pacto', label: 'Oficina' }, { key: 'forja', label: 'Forja Primordial' }] },
   { label: 'Mundo', tabs: [{ key: 'social', label: 'Amigos e grupo' }] },
@@ -486,6 +487,7 @@ export function App() {
           {hudEditing && <HudEditor />}
           {place === 'cidade' && <ShopPanel />}
           {place === 'cidade' && <SchoolPanel />}
+          {place === 'cidade' && <EcosHouse />}
           {model && !hudEditing && <GodMode inWorld={place === 'world'} place={place} world={companionWorld} city={cityLayout} />}
           {model && <AttackCursor />}
           {model && <FaintCounter onReturn={place !== 'refuge' ? goHome : undefined} />}

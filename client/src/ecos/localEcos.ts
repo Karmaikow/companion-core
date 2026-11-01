@@ -5,6 +5,7 @@
  */
 import { scoreTune, cleanTune, COMPANION_TUNE,
   NODE_KINDS, NASCENTE, approachOf, rollGather, parseBatchKey, abundanceNow, DEFAULT_ECOS, SEIVA_AZUL, CHAINS, stepSatisfied,
+  checkRefine, refineById,
   chainReward, JARDIM, siteStoredNow, recipeById, checkCraft, PONTE, needFits, scaledNeed, acceptContribution, stageComplete, STARTER_TOOLS,
   type MaterialBatch, type ToolKey,
 } from '@rules';
@@ -138,6 +139,17 @@ export async function localEcos(action: string, b: Record<string, unknown> = {})
         add(s, chk.consume, -1);
         if (r.output.kind === 'tool' && !s.tools.includes(r.output.key as ToolKey)) s.tools.push(r.output.key as ToolKey);
         const out: EcosReply = { crafted: { recipe: r.id, label: r.output.label, quality: chk.quality, kind: r.output.kind } };
+        s.actions[req] = { startedAt: now, status: 'done', result: out as unknown as Record<string, unknown> };
+        save();
+        return { ...out, ecos: view(s) };
+      }
+      case 'ecos.refine': {
+        const req = String(b.request);
+        if (s.actions[req]) return { ...(s.actions[req].result as EcosReply), ecos: view(s) };
+        const chk = checkRefine(refineById(String(b.refine)), (Array.isArray(b.picks) ? b.picks : []) as { key: string; qty: number }[], bagList(s), cfg.refine);
+        if (!chk.ok) throw new Fail(chk.reason);
+        add(s, chk.take, -1); add(s, [chk.give], 1);
+        const out: EcosReply = { refined: { refine: String(b.refine), key: chk.give.key } };
         s.actions[req] = { startedAt: now, status: 'done', result: out as unknown as Record<string, unknown> };
         save();
         return { ...out, ecos: view(s) };

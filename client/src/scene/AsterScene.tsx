@@ -28,6 +28,7 @@ import { AssetBoundary, CameraRig, ClickMarker, Sky, WindClock } from './Biome';
 import { colliders, companionFocus, decks, groundDown, groundMove, groundPointer, moveRequest, requestMove, smooth, type Circle, type WorldShape } from './world';
 import { openShop } from '../ui/ShopPanel';
 import { openSchool } from '../ui/SchoolPanel';
+import { openEcosHouse } from '../ui/EcosHouse';
 import { runeTexture } from './textures';
 import { settings } from '../settings';
 
@@ -543,8 +544,8 @@ const shopWalk = { id: '', move: 0 };
 function goShop(m: CityMarker) { requestMove(new THREE.Vector3(m.x, 0, m.z)); shopWalk.id = m.id; shopWalk.move = moveRequest.id; }
 /** Distância da porta (marcador) até onde um prédio conta como daquela loja. */
 const SHOP_PICK_R = 14;
-/** Marcadores que abrem um painel na chegada (lojas e escolas). */
-const opens = (m: CityMarker) => m.kind === 'loja' || m.kind === 'escola';
+/** Marcadores que abrem um painel na chegada (lojas, escolas e a Casa dos Ecos). */
+const opens = (m: CityMarker) => m.kind === 'loja' || m.kind === 'escola' || m.kind === 'ecos';
 
 export function MarkerView({ m, dead, labels = true, onPick }: { m: CityMarker; dead: boolean; labels?: boolean; onPick?: () => void }) {
   const info = CITY_MARKERS[m.kind];
@@ -616,7 +617,7 @@ function AsterLogic({ map, layout, state, onTravel, onPlace }: { map: AsterMap; 
     if (shopWalk.id) {
       const m = map === 'cidade' ? P.layout.markers.find((x) => x.id === shopWalk.id) : undefined;
       if (!m || moveRequest.id !== shopWalk.move) shopWalk.id = '';
-      else if (Math.hypot(f.x - m.x, f.z - m.z) < 3) { shopWalk.id = ''; if (m.kind === 'escola') openSchool(m.name, m.school ?? 'forja'); else openShop(m.name, m.shop ?? 'pocoes'); }
+      else if (Math.hypot(f.x - m.x, f.z - m.z) < 3) { shopWalk.id = ''; if (m.kind === 'escola') openSchool(m.name, m.school ?? 'forja'); else if (m.kind === 'ecos') openEcosHouse(m.name); else openShop(m.name, m.shop ?? 'pocoes'); }
     }
   });
   return null;

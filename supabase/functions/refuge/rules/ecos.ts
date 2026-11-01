@@ -81,6 +81,12 @@ export const MATERIALS: Record<string, MaterialDef> = Object.fromEntries([
   M({ id: 'fibra-aerea', name: 'Fibra dos Ventos', category: 'madeira', rarity: 3, uses: ['Tramas leves (Alada)', 'Cordas de arco'], ranges: { flexibilidade: [80, 99], resistencia: [20, 45] }, fixed: { afinidade: 'vento' } }),
   M({ id: 'cristal-inscrito', name: 'Cristal Inscrito', category: 'gema', rarity: 3, uses: ['Suporte de matrizes rúnicas (Feérica)'], ranges: { integridade: [75, 98] }, fixed: { afinidade: 'luz' } }),
   M({ id: 'quartzo-fragmento', name: 'Fragmentos de Quartzo', category: 'gema', rarity: 2, uses: ['Pó de encantamento', 'Lanternas'], ranges: { integridade: [8, 32] }, fixed: { afinidade: 'água' } }),
+  // refinados (Casa dos Ecos): muitos materiais comuns viram um melhor; a qualidade vem da média do que entrou
+  M({ id: 'extrato-de-orvalho', name: 'Extrato de Orvalho', category: 'planta', rarity: 3, uses: ['Poções e comidas superiores (Escola do Veneno)', 'Unguentos fortes'], ranges: { potencia: [30, 95], estabilidade: [30, 95] }, fixed: { parte: 'extrato' } }),
+  M({ id: 'tabua-nobre', name: 'Tábua Nobre', category: 'madeira', rarity: 3, uses: ['Cabos, arcos e escudos superiores (Forja)', 'Estruturas de Áster'], ranges: { flexibilidade: [30, 95], resistencia: [30, 95] }, fixed: { afinidade: 'neutra' } }),
+  M({ id: 'bloco-lapidado', name: 'Bloco Lapidado', category: 'pedra', rarity: 3, uses: ['Construções de Áster', 'Cabeças de martelo e maças'], ranges: { resistencia: [30, 95] }, fixed: { composicao: 'pedra lapidada' } }),
+  M({ id: 'lingote-de-cobre', name: 'Lingote de Cobre', category: 'minerio', rarity: 3, uses: ['Lâminas e peças de armadura superiores (Forja)', 'Ferramentas finas'], ranges: { pureza: [30, 95] }, fixed: { composicao: 'cobre refinado' } }),
+  M({ id: 'quartzo-lapidado', name: 'Quartzo Lapidado', category: 'gema', rarity: 3, uses: ['Focos mágicos', 'Encantamentos de equipamento'], ranges: { integridade: [30, 95] }, fixed: { afinidade: 'água' } }),
 ].map((m) => [m.id, m]));
 
 // ---------------------------------------------------------------------------
@@ -428,12 +434,14 @@ export interface EcosConfig {
   timeSlack: number;
   /** distância máxima até o nó para coletar (m) */
   reach: number;
+  /** quantos materiais comuns viram um refinado na Casa dos Ecos */
+  refine: number;
 }
-export const DEFAULT_ECOS: EcosConfig = { bag: BAG_CAPACITY, projectScale: 1, capShare: 0.4, capHours: 2, timeSlack: 0.85, reach: 4.5 };
+export const DEFAULT_ECOS: EcosConfig = { bag: BAG_CAPACITY, projectScale: 1, capShare: 0.4, capHours: 2, timeSlack: 0.85, reach: 4.5, refine: 30 };
 export function resolveEcos(v: unknown): EcosConfig {
   const o = (v && typeof v === 'object' ? v : {}) as Record<string, unknown>;
   const n = (k: keyof EcosConfig, lo: number, hi: number) => { const x = Number(o[k]); return Number.isFinite(x) ? Math.min(hi, Math.max(lo, x)) : DEFAULT_ECOS[k]; };
-  return { bag: Math.round(n('bag', 10, 500)), projectScale: n('projectScale', 0.1, 20), capShare: n('capShare', 0.1, 1), capHours: n('capHours', 0, 720), timeSlack: n('timeSlack', 0.3, 1), reach: n('reach', 2, 20) };
+  return { bag: Math.round(n('bag', 10, 500)), projectScale: n('projectScale', 0.1, 20), capShare: n('capShare', 0.1, 1), capHours: n('capHours', 0, 720), timeSlack: n('timeSlack', 0.3, 1), reach: n('reach', 2, 20), refine: Math.round(n('refine', 2, 200)) };
 }
 export const bagUsed = (bag: { qty: number }[]) => bag.reduce((a, b) => a + Math.max(0, b.qty), 0);
 

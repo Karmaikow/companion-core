@@ -3,7 +3,7 @@
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import {
   sanitizeMission, missionPeriod, missionBlock, missionProgress, missionComplete, batchFits, cleanRequestId, parseBatchKey, levelForXp,
-  cleanSchools, worldNodeById, categoryOf, MAX_ACTIVE_MISSIONS,
+  cleanSchools, worldNodeById, categoryOf, MAX_ACTIVE_MISSIONS, MISSION_GIVERS,
   type MissionDef, type MissionLog, type GameConfig, type CreatureDef, type ItemDef, type ItemCategory,
 } from './rules/index.ts';
 import { classInfo, lumes } from './pacto.ts';
@@ -38,13 +38,13 @@ async function logSince(ctx: Ctx, since: string): Promise<(acceptedAt: string) =
   const [g, k, f] = await Promise.all([
     db.from('ecos_actions').select('node_id,result,created_at').eq('companion_id', cid).eq('kind', 'gather').eq('status', 'done').gte('created_at', since).order('created_at').limit(1000),
     db.from('companion_events').select('payload,created_at').eq('companion_id', cid).eq('kind', 'combat.kill').gte('created_at', since).order('created_at').limit(2000),
-    db.from('companion_events').select('kind,payload,created_at').eq('companion_id', cid).in('kind', ['ecos.craft', 'escola.preparo']).gte('created_at', since).order('created_at').limit(1000),
+    db.from('companion_events').select('kind,payload,created_at').eq('companion_id', cid).in('kind', ['ecos.craft', 'escola.preparo', 'ecos.refine']).gte('created_at', since).order('created_at').limit(1000),
   ]);
   const w = (await worldNow(db)).w;
   const fam = new Map((await ctx.creatures()).map((d) => [d.slug, d.family?.id ?? null]));
   const gathers = (g.data ?? []).map((r) => ({ at: r.created_at as string, biome: (r.node_id && worldNodeById(w, r.node_id as string)?.biome) || null, items: (((r.result as { items?: { key: string; qty: number }[] })?.items) ?? []).map((i) => ({ key: String(i.key), qty: Number(i.qty) || 0 })) }));
   const kills = (k.data ?? []).map((r) => { const p = r.payload as { slug?: string; level?: number }; return { at: r.created_at as string, slug: String(p?.slug ?? ''), level: Number(p?.level) || 1, family: fam.get(String(p?.slug ?? '')) ?? null }; });
-  const crafts = (f.data ?? []).map((r) => { const p = r.payload as { recipe?: string; brew?: string; times?: number }; return { at: r.created_at as string, recipe: String((r.kind === 'ecos.craft' ? p?.recipe : p?.brew) ?? ''), times: r.kind === 'ecos.craft' ? 1 : Math.max(1, Number(p?.times) || 1) }; });
+  const crafts = (f.data ?? []).map((r) => { const p = r.payload as { recipe?: string; brew?: string; times?: number }; return { at: r.created_at as string, recipe: String((r.kind === 'ecos.craft' || r.kind === 'ecos.refine' ? p?.recipe : p?.brew) ?? ''), times: r.kind === 'escola.preparo' ? Math.max(1, Number(p?.times) || 1) : 1 }; });
   return (acceptedAt) => ({ gathers: gathers.filter((x) => x.at >= acceptedAt), kills: kills.filter((x) => x.at >= acceptedAt), crafts: crafts.filter((x) => x.at >= acceptedAt) });
 }
 
@@ -93,6 +93,8 @@ export async function missionAction(action: string, body: Record<string, unknown
   const slug = typeof body.mission === 'string' ? body.mission : '';
   const def = (await catalog(db)).find((d) => d.slug === slug);
   if (!def) throw new MissionError(404, 'Missão não encontrada.');
+  // missão dada por um prédio de Áster: pega, entrega e recebe lá (o cliente diz onde está, como nas lojas)
+  if (def.giver !== 'livre' && action !== 'missions.abandon' && body.at !== def.giver) throw new MissionError(409, `Isso se faz na ${MISSION_GIVERS[def.giver]}.`);
   const activeRow = async () => (await db.from('companion_missions').select('mission,period,status,accepted_at,delivered,completed_at').eq('companion_id', cid).eq('mission', slug).eq('status', 'ativa').maybeSingle()).data as Row | null;
 
   if (action === 'missions.accept') {

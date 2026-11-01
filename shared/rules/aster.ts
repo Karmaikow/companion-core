@@ -326,7 +326,7 @@ export function buildWall(w: CityWall, boxes: Partial<Record<'segment' | 'tower'
 }
 
 /** `forja` é antigo (virou a Escola da Forja): continua aceito nos layouts salvos, mas o Estúdio não oferece mais. */
-export type CityMarkerKind = 'portao' | 'chegada' | 'cristal' | 'loja' | 'forja' | 'bar' | 'guilda' | 'escola' | 'hotel' | 'npc';
+export type CityMarkerKind = 'portao' | 'chegada' | 'cristal' | 'loja' | 'forja' | 'bar' | 'guilda' | 'escola' | 'ecos' | 'hotel' | 'npc';
 export const CITY_MARKERS: Record<CityMarkerKind, { label: string; icon: string; color: string }> = {
   portao: { label: 'Portão', icon: '⛩', color: '#9fd8ff' },
   chegada: { label: 'Chegada', icon: '✦', color: '#ffd98a' },
@@ -336,6 +336,7 @@ export const CITY_MARKERS: Record<CityMarkerKind, { label: string; icon: string;
   bar: { label: 'Bar', icon: '🍺', color: '#e8b46a' },
   guilda: { label: 'Guilda de Aventureiros', icon: '⚔', color: '#f0e0b0' },
   escola: { label: 'Escola', icon: '📜', color: '#8fe0c0' },
+  ecos: { label: 'Casa dos Ecos', icon: '🌿', color: '#9fe08a' },
   hotel: { label: 'Hotel', icon: '🏨', color: '#d9b8ff' },
   npc: { label: 'NPC', icon: '☺', color: '#c8d6e8' },
 };
@@ -369,6 +370,9 @@ export interface CityLayout {
 }
 
 const gateMarker = (g: GateId): CityMarker => ({ id: 'portao-' + g, kind: 'portao', name: GATES[g].label, x: GATES[g].dx * CITY_GATE_R, z: GATES[g].dz * CITY_GATE_R, rot: 0, show: 'ambos', gate: g });
+
+/** Casa dos Ecos: missões de coleta, refino e a mochila. Posição padrão perto da praça, até o ADM pôr na porta do prédio. */
+export const ECOS_HOUSE_MARKER: CityMarker = { id: 'casa-dos-ecos', kind: 'ecos', name: 'Casa dos Ecos', x: 16, z: 12, rot: 0, show: 'ambos' };
 
 export const DEFAULT_CITY_LAYOUT: CityLayout = {
   version: 1,
@@ -427,8 +431,9 @@ export function sanitizeCityLayout(input: unknown): CityLayout {
     if (m.kind === 'loja') out.shop = SHOP_KIND_IDS.includes(m.shop as ShopKind) ? m.shop : 'pocoes';
     markers.push(out);
   }
-  // toda cidade precisa das quatro saídas
+  // toda cidade precisa das quatro saídas e da Casa dos Ecos (o ADM move o marcador para a porta do prédio)
   for (const g of GATE_IDS) if (!markers.some((m) => m.kind === 'portao' && m.gate === g)) markers.push(gateMarker(g));
+  if (!markers.some((m) => m.kind === 'ecos')) markers.push(ECOS_HOUSE_MARKER);
   const e = (d.exterior ?? {}) as Partial<CityLayout['exterior']>;
   const gr = (d.ground ?? {}) as Partial<CityLayout['ground']>;
   const w = (d.wall ?? {}) as Partial<CityWall>;

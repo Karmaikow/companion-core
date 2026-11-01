@@ -389,7 +389,7 @@ export function CityStudio() {
           <div className="cs-markers">
             {(['npc', 'portao', 'chegada'] as const).map((k) => <button key={k} onClick={() => addMarker(k)}><span aria-hidden>{CITY_MARKERS[k].icon}</span> {CITY_MARKERS[k].label}</button>)}
           </div>
-          <small className="hint">Ponha cada marcador na porta do prédio. Lojas e escolas já abrem; guilda, hotel e bar ganham painel na fase 4.</small>
+          <small className="hint">Ponha cada marcador na porta do prédio. Lojas, escolas e a Casa dos Ecos (🌿, sempre presente: arraste para a porta do prédio dela) já abrem; guilda, hotel e bar ganham painel na fase 4.</small>
         </fieldset>
       </aside>
 

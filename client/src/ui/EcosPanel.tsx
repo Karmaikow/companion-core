@@ -47,7 +47,7 @@ export function EcosPanel() {
   );
 }
 
-function Bag() {
+export function Bag() {
   const view = useEcos((s) => s.view)!;
   const list = bagBatches(view), used = bagUsedOf(view);
   const byCat = useMemo(() => {
@@ -78,7 +78,7 @@ function Bag() {
   );
 }
 
-function Recipes() {
+export function Recipes() {
   const view = useEcos((s) => s.view)!;
   const bag = bagBatches(view);
   const [msg, setMsg] = useState<string | null>(null);

@@ -3,6 +3,7 @@
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import {
   NODE_KINDS, NASCENTE, approachOf, rollGather, cleanRequestId, parseBatchKey, scoreTune, cleanTune, COMPANION_TUNE,
+  refineById, checkRefine,
   makeCompanionWorld, worldBiomeList, WORLD_SEED, sanitizeBiome, sanitizeWeather, DEFAULT_WEATHER, worldNodeById, nodeAvailable, nodeEnvAt,
   type CompanionWorld, type WeatherConfig, type WorldNode,
   SEIVA_AZUL, CHAINS, stepSatisfied, chainReward, JARDIM, siteStoredNow, recipeById, checkCraft, PONTE, needFits, scaledNeed, levelForXp,
@@ -250,6 +251,25 @@ export async function ecosAction(action: string, body: Record<string, unknown>, 
     if (!r.ok) throw new EcosError(409, reasonText(r.reason));
     if (!r.repeat) await ctx.event('ecos.craft', { recipe: recipe.id, quality: chk.quality });
     return { crafted: { recipe: recipe.id, label: recipe.output.label, quality: chk.quality, kind: recipe.output.kind }, ecos: await ecosState(db, cid, ecfg) };
+  }
+
+  if (action === 'ecos.refine') {
+    // Casa dos Ecos: N materiais comuns viram um refinado (a qualidade é a média do que entrou)
+    const request = cleanRequestId(body.request); if (!request) throw new EcosError(400, 'Pedido inválido.');
+    const def = refineById(String(body.refine ?? ''));
+    const picks = Array.isArray(body.picks) ? (body.picks as Record<string, unknown>[]).slice(0, 40).map((x) => ({ key: String(x.key), qty: Number(x.qty) })) : [];
+    const { data } = await db.from('ecos_bag').select('batch_key,qty').eq('companion_id', cid);
+    const bag: MaterialBatch[] = (data ?? []).map((b) => { const p = parseBatchKey(b.batch_key as string); return p ? { key: b.batch_key as string, qty: b.qty as number, ...p } : null; }).filter((x): x is MaterialBatch => !!x);
+    const chk = checkRefine(def, picks, bag, ecfg.refine);
+    if (!chk.ok) {
+      const prev = await db.from('ecos_actions').select('result').eq('request_id', request).maybeSingle();
+      if (prev.data?.result) return { refined: prev.data.result, ecos: await ecosState(db, cid, ecfg) };
+      throw new EcosError(409, chk.reason);
+    }
+    const r = await rpc<{ ok: boolean; reason?: string; repeat?: boolean }>(db, 'ecos_bag_apply', { p_request: request, p_cid: cid, p_kind: 'refine', p_take: chk.take, p_give: [chk.give], p_bag_cap: ecfg.bag, p_tool: null, p_item: null });
+    if (!r.ok) throw new EcosError(409, reasonText(r.reason));
+    if (!r.repeat) await ctx.event('ecos.refine', { recipe: def!.id, key: chk.give.key });
+    return { refined: { refine: def!.id, key: chk.give.key }, ecos: await ecosState(db, cid, ecfg) };
   }
 
   if (action === 'ecos.drop') {

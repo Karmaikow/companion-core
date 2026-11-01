@@ -1,11 +1,12 @@
 /**
  * Painel "Missões" (Jornada): prontas para receber, em andamento (com progresso e entrega de materiais), disponíveis e,
- * recolhidas, as bloqueadas e as concluídas. O progresso vem do servidor.
+ * recolhidas, as bloqueadas e as concluídas. O progresso vem do servidor. Missões dadas por um prédio de Áster (Casa
+ * dos Ecos, escolas) se pegam, entregam e recebem lá (`MissionList` com `at`); aqui elas só mostram o andamento.
  */
 import { useEffect, useState } from 'react';
 import {
   MISSION_RARITIES, MISSION_REPEATS, MISSION_GIVERS, CREATURE_FAMILIES, DEFAULT_CREATURES, objectiveLabel, batchFits, batchKey, parseBatchKey,
-  type MissionDef,
+  type MissionDef, type MissionGiver,
 } from '@rules';
 import { useMissions, type MissionEntry, type MissionStatus } from '../missions/missionsStore';
 import { useEcos, bagBatches, batchLabel } from '../ecos/ecosStore';
@@ -54,7 +55,7 @@ export function MissionsPanel() {
           {GROUPS.map((g) => {
             const list = view.missions.filter((m) => m.status === g.status);
             if (!list.length) return null;
-            const body = <ul className="mission-list">{list.map((m) => <MissionCard key={m.def.slug} m={m} />)}</ul>;
+            const body = <ul className="mission-list">{list.map((m) => <MissionCard key={m.def.slug} m={m} at="livre" />)}</ul>;
             return g.open
               ? <section key={g.status} className="mission-group"><h4>{g.title} <small>{list.length}</small></h4>{body}</section>
               : <details key={g.status} className="mission-group"><summary>{g.title} <small>{list.length}</small></summary>{body}</details>;
@@ -65,11 +66,31 @@ export function MissionsPanel() {
   );
 }
 
-function MissionCard({ m }: { m: MissionEntry }) {
+/** Missões de um lugar (Casa dos Ecos, escolas): as que ele dá, prontas e em andamento primeiro. */
+export function MissionList({ giver }: { giver: MissionGiver }) {
+  const view = useMissions((s) => s.view), error = useMissions((s) => s.error);
+  const online = useGame((s) => s.backend?.kind === 'online');
+  useEffect(() => { if (online) void useMissions.getState().refresh(); }, [online]);
+  if (!online) return <p className="empty">As missões funcionam só conectado (online).</p>;
+  const order: MissionStatus[] = ['pronta', 'ativa', 'disponivel', 'bloqueada', 'concluida'];
+  const list = (view?.missions ?? []).filter((m) => m.def.giver === giver).sort((a, b) => order.indexOf(a.status) - order.indexOf(b.status));
+  return (
+    <div className="missions-tab">
+      {error && <p className="ecos-error" role="alert">{error}</p>}
+      {!view ? <p className="hint">Carregando as missões…</p> : !list.length ? <p className="empty">Nenhuma missão por aqui agora. Volte depois.</p>
+        : <ul className="mission-list">{list.map((m) => <MissionCard key={m.def.slug} m={m} at={giver} />)}</ul>}
+    </div>
+  );
+}
+
+function MissionCard({ m, at }: { m: MissionEntry; at: MissionGiver }) {
   const busy = useMissions((s) => s.busy === m.def.slug);
   const r = MISSION_RARITIES[m.def.rarity];
-  const run = (action: string, body: Record<string, unknown> = {}) => void useMissions.getState().call(action, { mission: m.def.slug, ...body });
+  const run = (action: string, body: Record<string, unknown> = {}) => void useMissions.getState().call(action, { mission: m.def.slug, at, ...body });
   const live = m.status === 'ativa' || m.status === 'pronta';
+  // missão de um prédio: aqui só se ela for deste lugar
+  const here = m.def.giver === 'livre' || m.def.giver === at;
+  const where = MISSION_GIVERS[m.def.giver].replace(/ \(Áster\)$/, '');
   return (
     <li className={'mission-card ' + m.status} style={{ ['--rarity' as string]: r.color }}>
       <header>
@@ -84,7 +105,7 @@ function MissionCard({ m }: { m: MissionEntry }) {
             <li key={i} className={done ? 'done' : ''}>
               <span>{done ? '✓ ' : ''}{objectiveLabel(o, missionNames)}</span>
               {live && <><span className="mission-count">{have}/{o.qty}</span><div className="bar" role="progressbar" aria-valuemin={0} aria-valuemax={o.qty} aria-valuenow={have}><i style={{ width: `${Math.min(100, (have / o.qty) * 100)}%` }} /></div></>}
-              {m.status === 'ativa' && o.kind === 'entregar' && !done && <Deliver m={m} idx={i} />}
+              {m.status === 'ativa' && o.kind === 'entregar' && !done && (here ? <Deliver m={m} idx={i} at={at} /> : <small className="hint">Entregue na {where}.</small>)}
               {m.status === 'ativa' && o.kind !== 'entregar' && !done && (o.kind === 'coletar') && (
                 <button type="button" className="link" onClick={() => { useEcos.getState().setObjective({ label: objectiveLabel(o, missionNames), qty: o.qty - have, match: { category: o.category, materials: o.material ? [o.material] : undefined, prop: o.prop, min: o.min }, source: 'receita' }); useGame.getState().toast('Objetivo de coleta marcado', 'soft'); }}>marcar na coleta</button>
               )}
@@ -94,9 +115,10 @@ function MissionCard({ m }: { m: MissionEntry }) {
       </ol>
       <p className="mission-reward">Prêmio: {rewardText(m.def.rewards)}</p>
       {m.block && <p className="ap-why">{m.block}</p>}
+      {!here && (m.status === 'disponivel' || m.status === 'pronta') && <p className="hint">{m.status === 'pronta' ? 'Receba o prêmio' : 'Pegue esta missão'} na {where}, em Áster.</p>}
       <div className="row">
-        {m.status === 'disponivel' && <button type="button" className="primary" disabled={busy} onClick={() => run('missions.accept')}>Aceitar</button>}
-        {m.status === 'pronta' && <button type="button" className="primary" disabled={busy} onClick={() => run('missions.claim')}>Receber prêmio</button>}
+        {m.status === 'disponivel' && here && <button type="button" className="primary" disabled={busy} onClick={() => run('missions.accept')}>Aceitar</button>}
+        {m.status === 'pronta' && here && <button type="button" className="primary" disabled={busy} onClick={() => run('missions.claim')}>Receber prêmio</button>}
         {live && <button type="button" className="link" disabled={busy} onClick={() => run('missions.abandon')}>largar</button>}
       </div>
     </li>
@@ -104,7 +126,7 @@ function MissionCard({ m }: { m: MissionEntry }) {
 }
 
 /** Entregar: escolhe um lote da mochila de coleta que sirva e entrega até completar. */
-function Deliver({ m, idx }: { m: MissionEntry; idx: number }) {
+function Deliver({ m, idx, at }: { m: MissionEntry; idx: number; at: MissionGiver }) {
   const ecos = useEcos((s) => s.view);
   const busy = useMissions((s) => s.busy === m.def.slug);
   const o = m.def.objectives[idx], need = o.qty - (m.progress[idx] ?? 0);
@@ -118,7 +140,7 @@ function Deliver({ m, idx }: { m: MissionEntry; idx: number }) {
         {fits.map((b) => <option key={b.key} value={b.key}>{b.qty}× {batchLabel(b.key)}</option>)}
       </select>
       <button type="button" className="ghost" disabled={busy || !sel} onClick={async () => {
-        const r = await useMissions.getState().call('missions.deliver', { mission: m.def.slug, request: rid(), objective: idx, key: sel!.key, qty: Math.min(need, sel!.qty) });
+        const r = await useMissions.getState().call('missions.deliver', { mission: m.def.slug, at, request: rid(), objective: idx, key: sel!.key, qty: Math.min(need, sel!.qty) });
         if (r?.delivered) { useGame.getState().toast(`Entregue: ${r.delivered.accepted}`, 'soft'); void useEcos.getState().refresh(); }
       }}>Entregar {Math.min(need, sel?.qty ?? 0)}</button>
     </div>
