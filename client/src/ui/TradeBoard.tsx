@@ -67,7 +67,7 @@ export function TradeBoard() {
               <li key={o.id} className="trade-row">
                 <span className={'trade-kind ' + tradeKind(o.offer, o.want)}>{KIND_LABEL[tradeKind(o.offer, o.want)]}</span>
                 <div className="trade-what">
-                  <b>{o.owner}</b> oferece <b>{offerText(o.offer)}</b>
+                  <span><b>{o.owner}</b> oferece <b>{offerText(o.offer)}</b></span>
                   <small>e quer {wantText(o.want)} · vence em {left(o.expiresAt)}</small>
                 </div>
                 <button type="button" className="primary" disabled={busy || !can} title={can ? 'Entregar o pedido e levar a oferta' : 'Você não tem o que foi pedido'} onClick={() => void fill(o)}>{can ? 'Aceitar' : 'Falta'}</button>
@@ -84,7 +84,7 @@ export function TradeBoard() {
             <li key={o.id} className={'trade-row ' + (o.status === 'aberta' ? '' : 'closed')}>
               <span className={'trade-kind ' + tradeKind(o.offer, o.want)}>{KIND_LABEL[tradeKind(o.offer, o.want)]}</span>
               <div className="trade-what">
-                <b>{offerText(o.offer)}</b> por <b>{wantText(o.want)}</b>
+                <span><b>{offerText(o.offer)}</b> por <b>{wantText(o.want)}</b></span>
                 <small>{STATUS[o.status ?? ''] ?? o.status}{o.status === 'aberta' ? ` · vence em ${left(o.expiresAt)}` : ''}</small>
               </div>
               {o.status === 'aberta' && <button type="button" className="ghost" disabled={busy} onClick={async () => { const r = await useTrade.getState().call('trade.cancel', { id: o.id }); if (r?.cancelled) after('Pedido cancelado: a oferta voltou.'); }}>Cancelar</button>}
