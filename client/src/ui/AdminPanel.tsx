@@ -3,7 +3,7 @@
  * Lista os pedidos de arte gerados no despertar, mostra o prompt de criação
  * montado a partir do contrato de identidade e recebe a arte final.
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { buildArtPrompt, animKind, ANIM_KINDS, type ArtPrompt, type IdentityContractV1 } from '@rules';
 import { supabase } from '../backend/online';
 import { BiomeStudio } from './BiomeStudio';
@@ -12,6 +12,7 @@ import { ForgeStudio } from './ForgeStudio';
 import { SummonerStudio } from './SummonerStudio';
 import { ArsenalStudio } from './ArsenalStudio';
 import { ServerStudio } from './ServerStudio';
+import { ShopStudio } from './ShopStudio';
 import { SkillAnimPicker } from './SkillAnimPicker';
 import { CompanionsAdmin } from './AdminCompanions';
 import { AdminVoid } from './AdminVoid';
@@ -19,16 +20,17 @@ import { AnimStudio } from './AnimStudio';
 import { AutoRig, glbHasRig } from './RigEditor';
 import { STANDARD_PREFIX } from '../m2m/slots';
 
-type View = 'companions' | 'animacoes' | 'biomas' | 'cidade' | 'forja' | 'invocador' | 'arsenal' | 'servidor';
-const VIEWS: { key: View; label: string; hash: string; title: string; hint: string }[] = [
-  { key: 'companions', label: 'Companions', hash: '#/admin', title: 'Companions', hint: 'Todos os Companions: ficha, progressão, coleta, build e os pedidos de arte da Fábrica. O jogador nunca vê este painel.' },
-  { key: 'animacoes', label: 'Animações', hash: '#/admin/animacoes', title: 'Animações', hint: 'Qual clipe faz cada papel (parado, andando, golpes, coleta…) para Companions e monstros, com campo de treino.' },
-  { key: 'biomas', label: 'Biomas', hash: '#/admin/biomas', title: 'Estúdio de Biomas', hint: 'Refúgios e regiões do Companion World: cores, modelos e a aparência de cada modelo, com prévia 3D.' },
-  { key: 'cidade', label: 'Cidade', hash: '#/admin/cidade', title: 'Estúdio da Cidade', hint: 'Áster, a Cidade-Farol: monte o interior com os seus modelos, marque lojas, forja, escolas e portões, e encaixe a cidade vista de fora.' },
-  { key: 'forja', label: 'Forja de Batalha', hash: '#/admin/forja', title: 'Forja de Batalha', hint: 'Habilidades genéricas que qualquer Companion daquela essência e corpo pode usar.' },
-  { key: 'invocador', label: 'Invocador de Monstros', hash: '#/admin/invocador', title: 'Invocador de Monstros', hint: 'O catálogo de criaturas: corpo, jeito de lutar, onde aparecem e o que soltam.' },
-  { key: 'arsenal', label: 'Arsenal', hash: '#/admin/arsenal', title: 'Arsenal', hint: 'Armas e equipamentos: modelo, atributos, raridade, pegada na mão e a receita da Forja (só Taurinas forjam).' },
-  { key: 'servidor', label: 'Servidor', hash: '#/admin/servidor', title: 'Servidor', hint: 'IA dos Companions, XP de vínculo e clima — vale na hora para todos os jogadores.' },
+type View = 'companions' | 'animacoes' | 'biomas' | 'cidade' | 'lojas' | 'forja' | 'invocador' | 'arsenal' | 'servidor';
+const VIEWS: { key: View; label: string; icon: string; hash: string; title: string; hint: string }[] = [
+  { key: 'companions', label: 'Companions', icon: '☺', hash: '#/admin', title: 'Companions', hint: 'Todos os Companions: ficha, progressão, coleta, build e os pedidos de arte da Fábrica. O jogador nunca vê este painel.' },
+  { key: 'animacoes', label: 'Animações', icon: '🎞', hash: '#/admin/animacoes', title: 'Animações', hint: 'Qual clipe faz cada papel (parado, andando, golpes, coleta…) para Companions e monstros, com campo de treino.' },
+  { key: 'biomas', label: 'Biomas', icon: '🌿', hash: '#/admin/biomas', title: 'Estúdio de Biomas', hint: 'Refúgios e regiões do Companion World: cores, modelos e a aparência de cada modelo, com prévia 3D.' },
+  { key: 'cidade', label: 'Cidade', icon: '🏰', hash: '#/admin/cidade', title: 'Estúdio da Cidade', hint: 'Áster, a Cidade-Farol: monte o interior com os seus modelos, marque lojas, escolas e portões, e encaixe a cidade vista de fora.' },
+  { key: 'lojas', label: 'Lojas', icon: '🛒', hash: '#/admin/lojas', title: 'Lojas', hint: 'O que cada loja de Áster vende, preços e limites, e o Mercadão rotativo (estoque diário e requisitos).' },
+  { key: 'forja', label: 'Forja de Batalha', icon: '⚔', hash: '#/admin/forja', title: 'Forja de Batalha', hint: 'Habilidades genéricas que qualquer Companion daquela essência e corpo pode usar.' },
+  { key: 'invocador', label: 'Invocador', icon: '🐾', hash: '#/admin/invocador', title: 'Invocador de Monstros', hint: 'O catálogo de criaturas: corpo, jeito de lutar, onde aparecem e o que soltam.' },
+  { key: 'arsenal', label: 'Arsenal', icon: '🗡', hash: '#/admin/arsenal', title: 'Arsenal', hint: 'Armas e equipamentos: modelo, atributos, raridade, pegada na mão e a receita da Forja (só Taurinas forjam).' },
+  { key: 'servidor', label: 'Servidor', icon: '⚙', hash: '#/admin/servidor', title: 'Servidor', hint: 'IA dos Companions, XP de vínculo e clima — vale na hora para todos os jogadores.' },
 ];
 
 export interface Job {
@@ -64,6 +66,15 @@ export function AdminPanel() {
   const [showLogin, setShowLogin] = useState(false);
   const [view, setView] = useState<View>(() => VIEWS.find((v) => v.key !== 'companions' && location.hash.includes(v.hash.split('/').pop()!))?.key ?? 'companions');
   const V = VIEWS.find((v) => v.key === view)!;
+  // altura do cabeçalho fixo → --admin-head (barras laterais e telas 3D se encaixam abaixo dele)
+  const shell = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = shell.current, head = el?.querySelector<HTMLElement>('.admin-head');
+    if (!el || !head) return;
+    const ro = new ResizeObserver(() => el.style.setProperty('--admin-head', head.offsetHeight + 'px'));
+    ro.observe(head);
+    return () => ro.disconnect();
+  });
 
   useEffect(() => {
     supabase().auth.getSession().then(({ data }) => setSession(!!data.session && !data.session.user.is_anonymous));
@@ -278,23 +289,20 @@ export function AdminPanel() {
   );
 
   return (
-    <div className="admin">
+    <div className="admin" ref={shell}>
       <header className="admin-head">
-        <div>
+        <div className="admin-bar">
           <h1>O Administrador</h1>
-          <p><b>{V.title}</b> · {V.hint}</p>
-          {(
-            <nav className="admin-tabs" aria-label="Seções">
-              {VIEWS.map((v) => <button key={v.key} className={view === v.key ? 'on' : ''} onClick={() => { setView(v.key); history.replaceState(null, '', v.hash); }}>{v.label}</button>)}
-            </nav>
-          )}
+          <nav className="admin-tabs" aria-label="Seções">
+            {VIEWS.map((v) => <button key={v.key} className={view === v.key ? 'on' : ''} aria-current={view === v.key ? 'page' : undefined} onClick={() => { setView(v.key); history.replaceState(null, '', v.hash); }}><span aria-hidden>{v.icon}</span> {v.label}</button>)}
+          </nav>
+          <div className="admin-actions">
+            {session && view === 'companions' && <button className="ghost" disabled={busy} onClick={() => void load()}>Atualizar</button>}
+            <a className="link" href="#/">← Voltar ao jogo</a>
+          </div>
         </div>
-        <div className="admin-actions">
-                    {session && view === 'companions' && <button className="ghost" disabled={busy} onClick={() => void load()}>Atualizar</button>}
-          <a className="link" href="#/">Voltar ao jogo</a>
-        </div>
+        <p className="admin-hint"><b>{V.title}</b> · {V.hint}</p>
       </header>
-
 
       {msg && <p className="msg err">{msg}</p>}
 
@@ -317,6 +325,7 @@ export function AdminPanel() {
       {session && view === 'invocador' && <SummonerStudio />}
       {session && view === 'arsenal' && <ArsenalStudio />}
       {session && view === 'servidor' && <ServerStudio />}
+      {session && view === 'lojas' && <ShopStudio />}
       {session && view === 'companions' && (
         <CompanionsAdmin jobs={jobs ?? []} renderJob={renderJob} reloadKey={jobs} />
       )}

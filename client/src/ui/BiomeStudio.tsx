@@ -241,7 +241,7 @@ export function BiomeStudio() {
             </fieldset>
 
             {msg && <p className={'msg' + (msg.ok ? ' ok' : ' err')}>{msg.text}</p>}
-            <div className="row">
+            <div className="row studio-actions">
               <button className="primary" disabled={busy || !dirty} onClick={() => void save()}>Salvar</button>
               {draft.status === 'draft'
                 ? <button className="secondary" disabled={busy} onClick={() => void save('published')}>Salvar e publicar</button>

@@ -283,12 +283,14 @@ button:disabled { cursor: default; opacity: 0.5; }
 @media (max-width: 760px) { .rail button { font-size: 0.62rem; padding: 6px 2px; } .rail button svg { width: 20px; height: 20px; } }
 
 /* ---------- Fábrica de Companions (ADM) ---------- */
-.admin { min-height: 100%; overflow: auto; padding: 24px clamp(16px, 4vw, 40px) 60px; background: radial-gradient(circle at 20% 0%, #1d2440 0, #0e0c17 60%); }
-html:has(.admin), body:has(.admin), #root:has(.admin) { height: auto; min-height: 100%; overflow: auto; }
-.admin-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; margin-bottom: 18px; }
-.admin-head h1 { margin: 0; font-family: var(--serif); color: var(--brass); font-size: 2rem; }
-.admin-head p { margin: 4px 0 0; color: var(--mist); }
-.admin-actions { display: flex; gap: 10px; align-items: center; }
+.admin { min-height: 100dvh; overflow-x: clip; padding: 0 clamp(16px, 3vw, 32px) 60px; background: #0e0c17 radial-gradient(circle at 20% 0%, #1d2440 0, #0e0c17 900px) no-repeat fixed; --admin-head: 120px; }
+html:has(.admin) { height: auto; min-height: 100%; overflow-y: auto; }
+body:has(.admin), #root:has(.admin) { height: auto; min-height: 100%; overflow: visible; }
+.admin-head { position: sticky; top: 0; z-index: 30; margin: 0 calc(-1 * clamp(16px, 3vw, 32px)) 16px; padding: 10px clamp(16px, 3vw, 32px) 8px; background: color-mix(in srgb, #0e0c17 88%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid #2c3b5c; }
+.admin-bar { display: flex; align-items: center; gap: 10px 16px; flex-wrap: wrap; }
+.admin-head h1 { margin: 0; font-family: var(--serif); color: var(--brass); font-size: 1.35rem; white-space: nowrap; }
+.admin-hint { margin: 6px 0 0; color: var(--mist); font-size: 0.85rem; line-height: 1.35; }
+.admin-actions { display: flex; gap: 10px; align-items: center; margin-left: auto; white-space: nowrap; }
 .admin select, .admin-login input, .job textarea { background: #0a1020; color: var(--parchment); border: 1px solid #2c3b5c; border-radius: 10px; padding: 8px 10px; font: inherit; }
 .admin-login { max-width: 360px; display: flex; flex-direction: column; gap: 10px; padding: 20px; border: 1px solid var(--brass-dim); border-radius: 14px; background: var(--panel); }
 .admin-login h2 { margin: 0; font-family: var(--serif); }
@@ -356,8 +358,9 @@ html:has(.admin), body:has(.admin), #root:has(.admin) { height: auto; min-height
 @media (max-width: 720px) { .key-hint { display: none; } }
 
 /* Estúdio de Biomas */
-.admin-tabs { display: flex; gap: 6px; margin-top: 10px; }
-.admin-tabs button { background: transparent; color: var(--mist); border: 1px solid #33425f; border-radius: 99px; padding: 6px 14px; }
+.admin-tabs { display: flex; flex-wrap: wrap; gap: 4px; flex: 1 1 520px; min-width: 0; }
+.admin-tabs button { background: transparent; color: var(--mist); border: 1px solid #33425f; border-radius: 99px; padding: 5px 12px; font-size: 0.88rem; white-space: nowrap; }
+.admin-tabs button:hover { border-color: var(--brass-dim); color: var(--parchment); }
 .admin-tabs button.on { color: #1d1408; background: linear-gradient(#e2bf78, #b58f4c); border-color: transparent; font-weight: 700; }
 .biome-studio { display: grid; grid-template-columns: minmax(220px, 260px) minmax(0, 1fr); gap: 18px; align-items: start; }
 .biome-list { display: grid; gap: 10px; }
@@ -438,7 +441,7 @@ html:has(.admin), body:has(.admin), #root:has(.admin) { height: auto; min-height
 
 /* ---------- Estúdio da Cidade ---------- */
 .city-studio { display: grid; grid-template-columns: minmax(220px, 270px) minmax(0, 1fr) minmax(240px, 300px); gap: 14px; align-items: start; }
-.city-studio .cs-left, .city-studio .cs-right { max-height: calc(100vh - 170px); overflow-y: auto; scrollbar-width: thin; padding-right: 2px; }
+.city-studio .cs-left, .city-studio .cs-right { position: sticky; top: calc(var(--admin-head) + 12px); max-height: calc(100dvh - var(--admin-head) - 24px); overflow-y: auto; scrollbar-width: thin; padding-right: 2px; }
 .cs-center { display: grid; gap: 8px; min-width: 0; }
 .cs-toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .cs-seg { display: inline-flex; border: 1px solid #2c3b5c; border-radius: 10px; overflow: hidden; }
@@ -448,7 +451,7 @@ html:has(.admin), body:has(.admin), #root:has(.admin) { height: auto; min-height
 .cs-seg button.on.dead { background: #4a2430; color: #ffd1c4; }
 .cs-seg button:disabled { opacity: 0.4; }
 .cs-check { display: flex; align-items: center; gap: 6px; font-size: 0.85rem; color: var(--mist); }
-.cs-canvas { position: relative; height: calc(100vh - 220px); min-height: 480px; border-radius: 14px; overflow: hidden; border: 1px solid #2c3b5c; background: #0a1020; }
+.cs-canvas { position: relative; height: calc(100dvh - var(--admin-head) - 72px); min-height: 420px; border-radius: 14px; overflow: hidden; border: 1px solid #2c3b5c; background: #0a1020; }
 .cs-help { position: absolute; left: 10px; bottom: 8px; margin: 0; padding: 4px 10px; border-radius: 8px; background: #0b1330cc; color: #c8d6e8; font-size: 0.75rem; pointer-events: none; }
 .cs-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .cs-grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
@@ -465,7 +468,7 @@ html:has(.admin), body:has(.admin), #root:has(.admin) { height: auto; min-height
 .city-studio .danger { color: #ffb3a0; border-color: #6a3a3a; }
 @media (max-width: 1100px) {
   .city-studio { grid-template-columns: 1fr; }
-  .city-studio .cs-left, .city-studio .cs-right { max-height: none; }
+  .city-studio .cs-left, .city-studio .cs-right { position: static; max-height: none; }
   .cs-canvas { height: 60vh; }
 }
 .stat-bars { display: grid; gap: 4px; font-size: 0.8rem; color: var(--mist); }
@@ -1362,5 +1365,48 @@ html:has(.admin), body:has(.admin), #root:has(.admin) { height: auto; min-height
 .shop-icon { font-size: 1.5rem; width: 32px; text-align: center; flex: none; }
 .shop-info { flex: 1; min-width: 140px; display: grid; gap: 2px; }
 .shop-info small { color: var(--mist); font-size: 0.8rem; line-height: 1.3; }
+.shop-info small.shop-req { color: #ffd98a; }
 .shop-qty { width: 58px; }
 .shop-row button { white-space: nowrap; }
+
+/* ---------- Administrador: layout comum dos estúdios ----------
+   Barra lateral (lista) fixa ao rolar, com rolagem própria; área principal livre; barra de salvar presa no rodapé.
+   .studio/.studio-side/.studio-main são os nomes novos; .biome-studio/.biome-list/.biome-editor seguem valendo. */
+.studio, .biome-studio { display: grid; grid-template-columns: minmax(230px, 280px) minmax(0, 1fr); gap: 18px; align-items: start; }
+.studio-side, .biome-studio > .biome-list { position: sticky; top: calc(var(--admin-head) + 12px); max-height: calc(100dvh - var(--admin-head) - 24px); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; padding: 2px 6px 12px 2px; display: grid; gap: 10px; align-content: start; min-width: 0; }
+.studio-side h2 { margin: 0; font-family: var(--serif); color: var(--brass); }
+.studio-side .hint { color: var(--mist); font-size: 0.78rem; line-height: 1.35; }
+.studio-main, .biome-editor { display: grid; gap: 14px; min-width: 0; align-content: start; }
+.studio-nav { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.studio-nav button { width: 100%; text-align: left; display: grid; gap: 2px; padding: 10px 12px; border-radius: 10px; background: var(--panel); border: 1px solid #2c3b5c; color: inherit; }
+.studio-nav button.on, .biome-list > button.on { border-color: var(--brass); box-shadow: 0 0 0 1px var(--brass) inset; }
+.studio-nav small { color: var(--mist); }
+.studio-main-head { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; justify-content: space-between; }
+.studio-main-head h3 { margin: 0; font-family: var(--serif); color: var(--brass); }
+.studio-actions { position: sticky; bottom: 10px; z-index: 6; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px 12px; margin-top: 4px; border-radius: 12px; border: 1px solid #3a4b70; background: color-mix(in srgb, #0b1226 92%, transparent); backdrop-filter: blur(6px); box-shadow: 0 8px 24px #0008; }
+.studio-actions .msg { margin: 0; flex: 1 1 100%; }
+.studio-main > .studio-actions { justify-content: flex-end; }
+.biome-preview { position: relative; }
+.preview-tools { flex-wrap: wrap; right: 10px; border-radius: 14px; }
+.forge-schools { display: grid; gap: 8px; padding: 14px; border: 1px solid #2c3b5c; border-radius: 14px; background: var(--panel); }
+.forge-schools table { border-collapse: collapse; font-size: 0.82rem; }
+.forge-schools th, .forge-schools td { border: 1px solid #2c3b5c; padding: 4px 8px; text-align: left; }
+.spell-grid { border: 1px solid #2c3b5c; border-radius: 10px; margin-bottom: 8px; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); grid-auto-rows: min-content; gap: 8px; max-height: 320px; overflow-y: auto; padding: 2px; scrollbar-width: thin; }
+.spell-grid button { min-height: 48px; }
+.rig-editor.auto { box-shadow: 0 0 0 100vmax #050814b8; }
+.shop-entry.off { opacity: 0.6; }
+.shop-entry .span-2 { grid-column: span 2; }
+.shop-mats { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.shop-mats .list-row input[type=number] { width: 64px; }
+.shop-today { margin: 0; padding-left: 18px; display: grid; gap: 2px; font-size: 0.88rem; }
+.hint.warn { color: #ffcf7a; }
+.link.danger, .ghost.danger { color: #ffb3a0; }
+@media (max-width: 900px) {
+  .studio, .biome-studio { grid-template-columns: 1fr; }
+  .studio-side, .biome-studio > .biome-list { position: static; max-height: none; overflow: visible; }
+  .admin-head { position: static; }
+  .admin { --admin-head: 0px; }
+  .shop-entry .span-2 { grid-column: auto; }
+}
+.biome-form label.cs-check { display: flex; align-items: center; gap: 6px; }
+.shop-entry { gap: 6px; }

@@ -5,7 +5,7 @@ import {
   resolveConfig, levelForXp, levelProgress, initialQuests, applyTurn, parseModelTurn, buildChatSystemPrompt,
   offlineTurn, assistDiscoveries, buildDreamPrompt, parseDream, checkAwakening, buildIdentityContract, gameTime, companionDay, clampText,
   QUESTS, QUEST_REWARDS, validateSetup, evaluateSecrets, isQuestionAboutCompanion, buildMusePrompt,
-  SECRET_BY_KEY, SECRET_XP, SECRET_BOOST_TURNS, buildArtPrompt, ANIM_KINDS, SPECIES, DEFAULT_CREATURES, sanitizeCreature, recordKill, rollDrops, rollLumes, QUEST_LUMES, DEFAULT_ITEMS, sanitizeItem, findItem, dropKey, categoryOf, isWearable, type ItemDef, combatMemoryLines, combatMemoryText,
+  SECRET_BY_KEY, SECRET_XP, SECRET_BOOST_TURNS, buildArtPrompt, ANIM_KINDS, SPECIES, DEFAULT_CREATURES, sanitizeCreature, recordKill, rollDrops, rollLumes, QUEST_LUMES, resolveShop, type ShopConfig, DEFAULT_ITEMS, sanitizeItem, findItem, dropKey, categoryOf, isWearable, type ItemDef, combatMemoryLines, combatMemoryText,
   masculinize, secretBonus, resolveBalance, type BalanceConfig, budget, deriveStats, progressionStage,
   BANK_EVENTS, MOMENT_EVENTS, withXpMultiplier, combatXp, resolveEcos, type EcosConfig, resolvePacto, type PactoConfig, buildBarkBankPrompt, parseBarkBank, buildMomentPrompt, parseMoment, dossier, type BarkEvent,
   type BestiaryEntry, type CreatureDef, type SecretKey, type GameConfig, type IdentityContractV1, type QuestState, type Discoveries, type MemoryLite, type ChatLine,
@@ -38,10 +38,10 @@ const json = (status: number, body: unknown) =>
 
 class HttpError extends Error { constructor(public status: number, msg: string) { super(msg); } }
 
-async function loadConfig(db: SupabaseClient): Promise<GameConfig & { dailyChatLimit: number; maxCompanions: number; ecos: EcosConfig; pacto: PactoConfig; constellation: BalanceConfig }> {
+async function loadConfig(db: SupabaseClient): Promise<GameConfig & { dailyChatLimit: number; maxCompanions: number; ecos: EcosConfig; pacto: PactoConfig; constellation: BalanceConfig; shop: ShopConfig }> {
   const { data } = await db.from('game_config').select('values').eq('id', 1).maybeSingle();
   const v = (data?.values ?? {}) as Record<string, number>;
-  return { ...withXpMultiplier(resolveConfig(v)), ecos: resolveEcos((data?.values as Record<string, unknown> | undefined)?.ecos), pacto: resolvePacto((data?.values as Record<string, unknown> | undefined)?.pacto), constellation: resolveBalance((data?.values as Record<string, unknown> | undefined)?.constellation), dailyChatLimit: Number(v.dailyChatLimit) > 0 ? Number(v.dailyChatLimit) : 300, maxCompanions: Number(v.maxCompanions) > 0 ? Number(v.maxCompanions) : 1 };
+  return { ...withXpMultiplier(resolveConfig(v)), shop: resolveShop((data?.values as Record<string, unknown> | undefined)?.shop), ecos: resolveEcos((data?.values as Record<string, unknown> | undefined)?.ecos), pacto: resolvePacto((data?.values as Record<string, unknown> | undefined)?.pacto), constellation: resolveBalance((data?.values as Record<string, unknown> | undefined)?.constellation), dailyChatLimit: Number(v.dailyChatLimit) > 0 ? Number(v.dailyChatLimit) : 300, maxCompanions: Number(v.maxCompanions) > 0 ? Number(v.maxCompanions) : 1 };
 }
 
 async function event(db: SupabaseClient, companionId: string, actor: 'player' | 'companion' | 'system', kind: string, payload: unknown): Promise<number> {
@@ -844,7 +844,7 @@ Deno.serve(async (req) => {
     }
     if (action.startsWith('pacto.shop.') || action.startsWith('pacto.school.')) {
       const cc = c, admin = await isAdmin(db, userId);
-      return json(200, await shopAction(action, body, { db, c: cc, admin, catalog: () => itemDefs(db), state: () => pactoState(db, cc, admin, cfg.pacto) }));
+      return json(200, await shopAction(action, body, { db, c: cc, admin, shop: cfg.shop, catalog: () => itemDefs(db), state: () => pactoState(db, cc, admin, cfg.pacto) }));
     }
     if (action.startsWith('pacto.')) {
       const cc = c;

@@ -21,6 +21,7 @@ const ESS = Object.keys(ELEMENTS) as Element[];
 export function ForgeStudio() {
   const cat = useCatalog<SkillDef>('skills', sanitizeSkill);
   const [sel, setSel] = useState<string | null>(null);
+  const [planner, setPlanner] = useState(false);
   const [draft, setDraft] = useState<SkillDef | null>(null);
   const [status, setStatus] = useState<'draft' | 'published'>('draft');
   const [dirty, setDirty] = useState(false);
@@ -50,6 +51,7 @@ export function ForgeStudio() {
   const pick = (slug: string) => {
     if (iconBusy) return;
     if (dirty && !window.confirm('Há mudanças não salvas. Trocar mesmo assim?')) return;
+    setPlanner(false);
     const r = cat.rows?.find((x) => x.slug === slug);
     setSel(slug); setDraft(r ? structuredClone(r.data) : null); setStatus(r?.status ?? 'draft'); setDirty(false); setMsg(null);
   };
@@ -85,7 +87,7 @@ export function ForgeStudio() {
     <div className="biome-studio forge-workspace">
       <aside className="biome-list">
         <h2>Forja de Batalha</h2>
-        <ForgeSchools catalogue={(cat.rows ?? []).map(row => row.data)} />
+        <button className={'ghost' + (planner ? ' on' : '')} onClick={() => setPlanner((v) => !v)}>🎓 Escolas e evolução (planejamento)</button>
         <small className="hint">Habilidades genéricas: cada uma serve a uma essência (ou todas) e a classes de Companion e corpos de monstro escolhidos (ou todos). Companions são humanoides: a animação é sempre um clipe de humanoide; o que muda é a forma e o efeito.</small>
         {cat.error && <p className="msg err">{cat.error}</p>}
         {cat.rows && !cat.rows.length && (
@@ -145,7 +147,9 @@ export function ForgeStudio() {
         </fieldset>
       </aside>
 
-      {!draft || !clean ? (
+      {planner ? (
+        <section className="biome-editor"><ForgeSchools catalogue={(cat.rows ?? []).map(row => row.data)} onClose={() => setPlanner(false)} /></section>
+      ) : !draft || !clean ? (
         <section className="biome-empty"><p>Escolha uma habilidade para editar e ver a prévia, ou crie uma nova.</p></section>
       ) : (
         <section className="biome-editor">
@@ -239,7 +243,7 @@ export function ForgeStudio() {
             </fieldset>
 
             {msg && <p className={'msg' + (msg.ok ? ' ok' : ' err')}>{msg.text}</p>}
-            <div className="row">
+            <div className="row studio-actions">
               <button className="primary" disabled={busy || iconBusy || !dirty} onClick={() => void run(async () => { await cat.save(draft, status); setDirty(false); }, 'Salva.')}>Salvar</button>
               {status === 'draft'
                 ? <button className="secondary" disabled={busy || iconBusy} onClick={() => void run(async () => { await cat.save(draft, 'published'); setStatus('published'); setDirty(false); }, 'Publicada.')}>Salvar e publicar</button>

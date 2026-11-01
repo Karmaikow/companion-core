@@ -313,7 +313,7 @@ export function SummonerStudio() {
             </fieldset>
 
             {msg && <p className={'msg' + (msg.ok ? ' ok' : ' err')}>{msg.text}</p>}
-            <div className="row">
+            <div className="row studio-actions">
               <button className="primary" disabled={busy || !dirty} onClick={() => void run(async () => { await cat.save(draft, status); setDirty(false); }, 'Salva.')}>Salvar</button>
               {status === 'draft'
                 ? <button className="secondary" disabled={busy} onClick={() => void run(async () => { await cat.save(draft, 'published'); setStatus('published'); setDirty(false); }, 'Publicada: já aparece no Companion World.')}>Salvar e publicar</button>

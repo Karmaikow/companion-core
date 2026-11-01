@@ -5,14 +5,16 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import { create } from 'zustand';
-import { SHOP_KINDS, goodsOf, bagSellPrice, valeSellPrice, bagEntries, MAX_BUY, type ShopKind, type ShopGood } from '@rules';
+import { SHOP_KINDS, CITY_SCHOOLS, MATERIALS, bagSellPrice, valeSellPrice, bagEntries, entryBuyCheck, entryInfo, shopListing, type ShopKind, type ShopEntry } from '@rules';
 import { useGame } from '../store';
 import { usePacto, uuid } from '../pacto/pactoStore';
+import { useShopConfig } from '../pacto/shopConfig';
 import { useEcos, bagBatches, batchLabel } from '../ecos/ecosStore';
 
 export const useShop = create<{ open: { name: string; kind: ShopKind } | null }>(() => ({ open: null }));
 export const openShop = (name: string, kind: ShopKind) => useShop.setState({ open: { name, kind } });
 const close = () => useShop.setState({ open: null });
+const NONE: string[] = [];
 
 export function ShopPanel() {
   const open = useShop((s) => s.open);
@@ -21,7 +23,7 @@ export function ShopPanel() {
   const busy = usePacto((s) => s.busy);
   const [tab, setTab] = useState<'comprar' | 'vender'>('comprar');
   const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
-  useEffect(() => { if (!open) return; setTab('comprar'); setMsg(null); void usePacto.getState().refresh(); void useEcos.getState().refresh(); }, [open]);
+  useEffect(() => { if (!open) return; setTab('comprar'); setMsg(null); void usePacto.getState().refresh(); void useEcos.getState().refresh(); void useShopConfig.getState().refresh(); }, [open]);
   useEffect(() => { if (!open) return; const k = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [open]);
   if (!open) return null;
   const info = SHOP_KINDS[open.kind];
@@ -30,7 +32,7 @@ export function ShopPanel() {
     setMsg(null);
     const r = await usePacto.getState().call(action, { request: uuid(), ...body });
     if (!r?.shop) { setMsg({ text: usePacto.getState().error ?? 'Não deu certo.', ok: false }); usePacto.getState().clear(); return; }
-    void useGame.getState().run((b) => b.state());
+    void useGame.getState().run((b) => b.state()); void useShopConfig.getState().refresh(); void useEcos.getState().refresh();
     const d = r.shop.delta;
     setMsg({ text: `${label}: ${d > 0 ? '+' : '−'}${Math.abs(d)} ✧`, ok: true });
     useGame.getState().toast(`${label} (${d > 0 ? '+' : '−'}${Math.abs(d)} Lumes)`, 'gold');
@@ -57,7 +59,7 @@ export function ShopPanel() {
         {msg && <p className={'msg' + (msg.ok ? ' ok' : ' err')} role="status">{msg.text}</p>}
         <div className="shop-list">
           {tab === 'comprar'
-            ? <Buy kind={open.kind} lumes={lumes ?? 0} busy={!!busy} onBuy={(g, qty) => trade('pacto.shop.buy', { good: g.id, qty }, `${qty > 1 ? qty + '× ' : ''}${g.name}`)} />
+            ? <Buy kind={open.kind} lumes={lumes ?? 0} busy={!!busy} onBuy={(e, name, qty) => trade('pacto.shop.buy', { entry: e.id, qty }, `${qty > 1 ? qty + '× ' : ''}${name}`)} />
             : <Sell busy={!!busy} onSell={(key, from, qty, label) => trade('pacto.shop.sell', { key, from, qty }, `Vendido ${qty > 1 ? qty + '× ' : ''}${label}`)} />}
         </div>
       </div>
@@ -69,20 +71,32 @@ function Qty({ max, value, set }: { max: number; value: number; set: (n: number)
   return <input type="number" className="shop-qty" min={1} max={max} value={value} onChange={(e) => set(Math.max(1, Math.min(max, Math.round(Number(e.target.value) || 1))))} aria-label="Quantidade" />;
 }
 
-function Buy({ kind, lumes, busy, onBuy }: { kind: ShopKind; lumes: number; busy: boolean; onBuy: (g: ShopGood, qty: number) => void }) {
-  const goods = goodsOf(kind);
+function Buy({ kind, lumes, busy, onBuy }: { kind: ShopKind; lumes: number; busy: boolean; onBuy: (e: ShopEntry, name: string, qty: number) => void }) {
+  const { cfg, sold, day } = useShopConfig();
+  const items = useGame((s) => s.items);
+  const schools = usePacto((s) => s.view?.schools) ?? NONE;
+  const vale = bagBatches(useEcos((s) => s.view));
   const [qty, setQty] = useState<Record<string, number>>({});
-  if (!goods.length) return <p className="hint">O estoque da rotação chega em breve: itens raros, trocados todo dia e com quantidade limitada para o servidor inteiro.</p>;
+  const list = shopListing(cfg, kind, day);
+  if (!list.length) return <p className="hint">{kind === 'rotacao' ? 'O Mercadão está vazio hoje. Volte amanhã: os itens mudam todo dia.' : 'Nada à venda agora.'}</p>;
   return (
     <>
-      {goods.map((g) => {
-        const q = g.kind === 'ferramenta' ? 1 : qty[g.id] ?? 1, total = g.price * q;
+      {kind === 'rotacao' && <p className="hint">Itens do dia: mudam à meia-noite e têm quantidade limitada para o servidor inteiro.</p>}
+      {list.map((e) => {
+        const info = entryInfo(e, items); if (!info) return null;
+        const q = Math.min(e.maxBuy, qty[e.id] ?? 1), left = e.stock > 0 ? Math.max(0, e.stock - (sold[e.id] ?? 0)) : null;
+        const why = entryBuyCheck(e, q, { lumes, sold: sold[e.id] ?? 0, schools, bag: vale });
+        const req = [e.school ? `estudar na ${CITY_SCHOOLS[e.school].label}` : '', ...e.materials.map((m) => `${m.qty * q}× ${MATERIALS[m.material].name}`)].filter(Boolean);
         return (
-          <div key={g.id} className="shop-row">
-            <span className="shop-icon" aria-hidden>{g.icon}</span>
-            <div className="shop-info"><b>{g.name}</b><small>{g.description}{g.kind === 'ferramenta' ? ' Ferramenta com durabilidade.' : ''}</small></div>
-            {g.kind === 'consumivel' && <Qty max={MAX_BUY} value={q} set={(n) => setQty({ ...qty, [g.id]: n })} />}
-            <button className="primary" disabled={busy || total > lumes} title={total > lumes ? 'Lumes insuficientes' : 'Comprar'} onClick={() => onBuy(g, q)}>✧ {total}</button>
+          <div key={e.id} className="shop-row">
+            <span className="shop-icon" aria-hidden>{info.icon}</span>
+            <div className="shop-info">
+              <b>{info.name}</b>
+              <small>{info.description}{info.kind === 'ferramenta' ? ' Ferramenta com durabilidade.' : ''}</small>
+              {(left != null || req.length > 0) && <small className="shop-req">{left != null ? `Restam ${left} hoje` : ''}{left != null && req.length ? ' · ' : ''}{req.length ? 'Pede: ' + req.join(', ') : ''}</small>}
+            </div>
+            {e.maxBuy > 1 && <Qty max={e.maxBuy} value={q} set={(n) => setQty({ ...qty, [e.id]: n })} />}
+            <button className="primary" disabled={busy || !!why} title={why ?? 'Comprar'} onClick={() => onBuy(e, info.name, q)}>{left === 0 ? 'Esgotado' : `✧ ${e.price * q}`}</button>
           </div>
         );
       })}
@@ -94,19 +108,20 @@ function Sell({ busy, onSell }: { busy: boolean; onSell: (key: string, from: 'bo
   const inv = useGame((s) => s.snap?.inventory);
   const items = useGame((s) => s.items);
   const ecos = useEcos((s) => s.view);
+  const cfg = useShopConfig((s) => s.cfg);
   const [qty, setQty] = useState<Record<string, number>>({});
   const rows = useMemo(() => {
     const out: { key: string; from: 'bolsa' | 'vale'; label: string; have: number; price: number }[] = [];
     const entries = bagEntries((inv ?? []).map((r) => ({ item_key: r.item_key, qty: r.qty, meta: r.meta })), items);
     for (const r of inv ?? []) {
       if (r.qty <= 0) continue;
-      const price = bagSellPrice(r.item_key, r.meta, items);
+      const price = bagSellPrice(r.item_key, r.meta, items, cfg);
       if (price != null) out.push({ key: r.item_key, from: 'bolsa', label: entries.find((e) => e.key === r.item_key)?.label ?? r.item_key, have: r.qty, price });
     }
     for (const b of bagBatches(ecos)) { const price = valeSellPrice(b.key); if (price != null) out.push({ key: b.key, from: 'vale', label: batchLabel(b.key), have: b.qty, price }); }
     return out;
-  }, [inv, items, ecos]);
-  if (!rows.length) return <p className="hint">Nada para vender agora. A loja compra materiais da coleta, drops dos monstros e os consumíveis que ela vende (por 40% do preço).</p>;
+  }, [inv, items, ecos, cfg]);
+  if (!rows.length) return <p className="hint">Nada para vender agora. A loja compra materiais da coleta, drops dos monstros e os consumíveis que ela vende (por {Math.round(cfg.sellRate * 100)}% do preço).</p>;
   return (
     <>
       {rows.map((r) => {

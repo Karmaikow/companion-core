@@ -3,7 +3,8 @@ import { buildSchoolTree } from '../../../shared/rules/combat/schoolTree';
 import { useState } from 'react';
 import { SCHOOL_IDS, SCHOOL_DEFINITIONS, SCHOOL_RANKS, schoolPower, scaleSchoolEffect, type SchoolId } from '../../../shared/rules/combat/schools';
 
-export function ForgeSchools({ catalogue = [] }: { catalogue?: SkillDef[] }) {
+/** Planejador das escolas de combate (só simulação; abre na área principal da Forja). */
+export function ForgeSchools({ catalogue = [], onClose }: { catalogue?: SkillDef[]; onClose?: () => void }) {
   const [priorities, setPriorities] = useState<SchoolId[]>(['arcane']);
   const [school, setSchool] = useState<SchoolId>('arcane');
   const [convergent, setConvergent] = useState(false);
@@ -13,8 +14,8 @@ export function ForgeSchools({ catalogue = [] }: { catalogue?: SkillDef[] }) {
   const example = scaleSchoolEffect({ damage: 100, heal: 100, shield: 100, controlSeconds: 2, dashDistance: 6, dashSpeed: 12 }, power);
   function toggle(id: SchoolId) { setPriorities(current => current.includes(id) ? current.filter(s => s !== id) : [...current, id]); }
   function promote(id: SchoolId) { setPriorities(current => [id, ...current.filter(s => s !== id)]); }
-  return <details className="kit-box">
-    <summary>Escolas e evolução · planejamento e simulação</summary>
+  return <section className="forge-schools">
+    <header className="studio-main-head"><h3>Escolas e evolução · planejamento e simulação</h3>{onClose && <button type="button" className="ghost" onClick={onClose}>Voltar às habilidades</button>}</header>
     <p>As cinco escolas estão planejadas. Este simulador não altera habilidades, inventário ou progresso do Companion.</p>
     <p>Estude todas; escolha a prioridade das escolas ativas. Essências e habilidades atuais permanecem independentes.</p>
     {SCHOOL_IDS.map(id => <div key={id}>
@@ -32,5 +33,5 @@ export function ForgeSchools({ catalogue = [] }: { catalogue?: SkillDef[] }) {
       {SCHOOL_RANKS.map(rank => <tr key={rank.label}><th scope="row">{rank.label} / {rank.level}</th><td>{rank.memories} / {rank.themes}</td><td>{rank.remarkable} / {rank.extraordinary}</td><td>{rank.label === 'Mestre' ? 'Conjunto especial da escola' : rank.items.join(' / ')}</td><td>{rank.bond} / {rank.quest}</td></tr>)}
     </tbody></table></div>
     <p>Memórias acumulam e não são consumidas. Eventos repetidos contam uma vez por conquista; somente eventos validados pelo jogo poderão qualificar. As entregas serão consumidas uma vez por promoção.</p>
-  </details>;
+  </section>;
 }

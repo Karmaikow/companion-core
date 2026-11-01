@@ -2,16 +2,18 @@
 // uma transação só (`shop_trade`), idempotente pelo request_id. O cliente nunca diz quanto custa.
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import {
-  goodById, buyCheck, shopKey, valeSellPrice, bagSellPrice, blueprintById, cleanRequestId, SHOP_KINDS, MAX_BUY,
+  goodById, shopKey, valeSellPrice, bagSellPrice, blueprintById, cleanRequestId, SHOP_KINDS, MAX_BUY, categoryOf,
+  entryBuyCheck, entryInfo, materialsTake, shopDay, shopListing,
   isCitySchool, schoolBlock, cleanSchools, studiesAt, brewById, brewCheck,
-  type ItemDef,
+  type ItemDef, type ShopConfig,
 } from './rules/index.ts';
 import { PactoError, classInfo } from './pacto.ts';
 
-interface Ctx { db: SupabaseClient; c: Record<string, unknown>; admin: boolean; catalog: () => Promise<ItemDef[]>; state: () => Promise<unknown> }
+interface Ctx { db: SupabaseClient; c: Record<string, unknown>; admin: boolean; shop: ShopConfig; catalog: () => Promise<ItemDef[]>; state: () => Promise<unknown> }
 
 const REASON: Record<string, string> = {
   'sem-lumes': 'Lumes insuficientes.',
+  'esgotado': 'Esgotado hoje.',
   'faltam-materiais': 'Esse material não está mais na mochila.',
   'sem-item': 'Esse item não está mais na bolsa.',
 };
@@ -23,8 +25,8 @@ export async function shopAction(action: string, body: Record<string, unknown>, 
   const request = cleanRequestId(body.request);
   if (!request) throw new PactoError(400, 'Pedido inválido.');
   const qty = Math.round(Number(body.qty) || 1);
-  const trade = async (delta: number, ref: string, inv: unknown[], bag: unknown[], equip: unknown, why: string | null = null) => {
-    const { data, error } = await db.rpc('shop_trade', { p_request: request, p_cid: cid, p_delta: delta, p_ref: ref, p_inv: inv, p_bag: bag, p_equip: equip, p_reason: why });
+  const trade = async (delta: number, ref: string, inv: unknown[], bag: unknown[], equip: unknown, why: string | null = null, stock: unknown = null) => {
+    const { data, error } = await db.rpc('shop_trade', { p_request: request, p_cid: cid, p_delta: delta, p_ref: ref, p_inv: inv, p_bag: bag, p_equip: equip, p_reason: why, p_stock: stock });
     if (error) throw new PactoError(500, 'Falha no servidor (loja).');
     const r = data as { ok: boolean; reason?: string; repeat?: boolean };
     if (!r.ok) throw new PactoError(409, REASON[r.reason ?? ''] ?? 'Não deu certo.');
@@ -40,19 +42,32 @@ export async function shopAction(action: string, body: Record<string, unknown>, 
     return { shop: { ok: true, delta: amount }, pacto: await ctx.state() };
   }
 
+  // compra pela configuração do ADM (aba Lojas): preço, limite, estoque do dia e requisitos vêm de lá
   if (action === 'pacto.shop.buy') {
-    const good = goodById(String(body.good ?? ''));
-    const { data: prof } = await db.from('pacto_profile').select('lumes').eq('companion_id', cid).maybeSingle();
-    const fail = buyCheck(good, qty, Number(prof?.lumes ?? 0));
+    const cfg = ctx.shop, day = shopDay();
+    const e = cfg.entries.find((x) => x.id === String(body.entry ?? '')) ?? null;
+    const [{ data: prof }, { data: bag }, { data: st }] = await Promise.all([
+      db.from('pacto_profile').select('*').eq('companion_id', cid).maybeSingle(),
+      db.from('ecos_bag').select('batch_key,qty').eq('companion_id', cid),
+      e ? db.from('shop_stock').select('sold').eq('day', day).eq('entry', e.id).maybeSingle() : Promise.resolve({ data: null }),
+    ]);
+    const vale = (bag ?? []).map((b) => ({ key: b.batch_key as string, qty: b.qty as number }));
+    const fail = entryBuyCheck(e, qty, { lumes: Number(prof?.lumes ?? 0), sold: Number(st?.sold ?? 0), schools: cleanSchools(prof?.schools), bag: vale, listed: !!e && shopListing(cfg, e.shop, day).some((x) => x.id === e.id) });
     if (fail) throw new PactoError(409, fail);
-    const g = good!;
-    const cost = -g.price * qty;
-    if (g.kind === 'ferramenta') {
+    const entry = e!, info = entryInfo(entry, await ctx.catalog());
+    if (!info) throw new PactoError(409, 'Esse item não existe mais.');
+    const cost = -entry.price * qty, take = materialsTake(entry, qty, vale) ?? [];
+    const stock = entry.stock > 0 ? { day, entry: entry.id, qty, max: entry.stock } : null;
+    if (entry.ref.kind === 'loja' && info.kind === 'ferramenta') {
+      const g = goodById(entry.ref.good)!;
       const durability = blueprintById(g.blueprint ?? '')?.durability ?? 50;
-      const data = { name: g.name, rarity: 'comum', history: [{ at: new Date().toISOString(), what: `comprado na ${SHOP_KINDS[g.shop].label}` }] };
-      return trade(cost, g.id, [], [], { id: crypto.randomUUID(), blueprint: g.blueprint, tool: g.tool, durability, data });
+      const data = { name: g.name, rarity: 'comum', history: [{ at: new Date().toISOString(), what: `comprado na ${SHOP_KINDS[entry.shop].label}` }] };
+      return trade(cost, entry.id, [], take, { id: crypto.randomUUID(), blueprint: g.blueprint, tool: g.tool, durability, data }, null, stock);
     }
-    return trade(cost, g.id, [{ key: shopKey(g.id), qty, meta: { label: g.name, description: g.description, category: 'diversos', shop: g.id } }], [], null);
+    const inv = entry.ref.kind === 'loja'
+      ? { key: shopKey(entry.ref.good), qty, meta: { label: info.name, description: info.description, category: 'diversos', shop: entry.ref.good } }
+      : { key: info.item!.slug, qty, meta: { label: info.name, category: categoryOf(info.item!.type) } };
+    return trade(cost, entry.id, [inv], take, null, null, stock);
   }
 
   if (action === 'pacto.shop.sell') {
@@ -65,7 +80,7 @@ export async function shopAction(action: string, body: Record<string, unknown>, 
     }
     const { data: row } = await db.from('companion_inventory').select('qty,meta').eq('companion_id', cid).eq('item_key', key).maybeSingle();
     if (!row || row.qty < qty) throw new PactoError(409, 'Esse item não está na bolsa.');
-    const price = bagSellPrice(key, (row.meta ?? {}) as Record<string, unknown>, await ctx.catalog());
+    const price = bagSellPrice(key, (row.meta ?? {}) as Record<string, unknown>, await ctx.catalog(), ctx.shop);
     if (price == null) throw new PactoError(409, 'A loja não compra isso.');
     return trade(price * qty, key, [{ key, qty: -qty }], [], null);
   }

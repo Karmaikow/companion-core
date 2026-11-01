@@ -806,6 +806,15 @@ Prompt com o mundo de fantasia, regra explícita de pronomes ("mim" = a pessoa; 
   - Cena: `scene/AsterScene.tsx` (sem luzes pontuais; placas numa camada própria). Testes no jogo: `?aster`,
     `?cidade`, `?destruida`, `?estrada` (Companion World ao lado do portal). Faltam: monstros e cerco (fases 3 e 5),
     os painéis das lojas/escolas (fase 4).
+- **v1.45 — Lojas pelo Administrador + layout do Administrador.** Aba **Lojas** (`ShopStudio`) grava
+  `game_config.values.shop` (`ShopConfig` em `shared/rules/shop.ts`: entradas com item da loja ou do Arsenal, preço,
+  máximo por compra, ativo; no Mercadão também estoque diário global, peso no sorteio, escola e materiais exigidos;
+  taxa de revenda e itens por dia). Sem nada salvo vale `DEFAULT_SHOP`. Compra por `entry` (`pacto.shop.buy`), o
+  servidor confere com `entryBuyCheck` + `shopListing` (sorteio do dia, Brasília) e grava em `shop_trade` v3 com
+  `p_stock` → tabela `shop_stock (day, entry, sold)` (migração `20261101120000_shop_admin.sql`). Cliente lê a
+  configuração em `pacto/shopConfig.ts`. Layout do Administrador: cabeçalho fixo (abas + `--admin-head`), estúdios
+  com `.studio`/`.studio-side` (lista fixa com rolagem própria) e `.studio-actions` (barra de salvar presa no rodapé);
+  o planejador de escolas da Forja abre na área principal.
 - **v1.44 — Escolas de Áster (Forja e Veneno).** Regras em `shared/rules/escolas.ts`. Marcador "escola" (Estúdio
   da Cidade) com `school: 'forja' | 'veneno'`; clicar no prédio leva à porta e abre `SchoolPanel` (matrícula grátis,
   guardada em `pacto_profile.schools`). **Escola da Forja**: só Taurinas; é o único lugar com a bancada da Forja

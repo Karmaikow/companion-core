@@ -6,12 +6,13 @@ import {
   SPECIES, OFFICES, canCompleteEquipment, transformationById, checkTransformation, blueprintById, forgePreview, DEFAULT_PACTO, coreCost,
   recycleReturn, REPAIR_KIT_AMOUNT, superiorBlockFor, lineageOf, officesOf, LINEAGE_LIMITS, COMPANION_ELEMENTS, companionElement,
   isCitySchool, schoolBlock, studiesAt, brewById, brewCheck, type CitySchool,
-  goodById, buyCheck, shopKey, valeSellPrice, bagSellPrice, SHOP_KINDS, type ForgePlan, type SpeciesKey, type Element, type ToolKey, type Conduct, type Temper,
+  goodById, shopKey, valeSellPrice, bagSellPrice, SHOP_KINDS, categoryOf, entryBuyCheck, entryInfo, materialsTake, shopDay, shopListing, type ForgePlan, type SpeciesKey, type Element, type ToolKey, type Conduct, type Temper,
 } from '@rules';
 import { useGame } from '../store';
 import { localBag, localHooks } from '../ecos/localEcos';
 import { localInventory } from '../backend/local';
 import type { EquipmentView, JobView, PactoReply, PactoView } from './types';
+import { useShopConfig, localSold } from './shopConfig';
 
 const KEY = 'companion-core:pacto-local:v1';
 const KIT = 'item:kit-de-reparo';
@@ -147,14 +148,21 @@ export async function localPacto(action: string, b: Record<string, unknown> = {}
       // lojas de Áster (mesmas regras do servidor; a bolsa é a do modo local)
       case 'pacto.shop.grant': { const n = Math.max(1, Math.min(100000, Math.round(Number(b.amount) || 0))); s.lumes += n; save(); return { shop: { ok: true, delta: n }, pacto: view(s) }; }
       case 'pacto.shop.buy': {
-        const g = goodById(String(b.good ?? '')), qty = Math.round(Number(b.qty) || 1);
-        const fail = buyCheck(g, qty, s.lumes); if (fail) throw new Fail(fail);
-        if (g!.kind === 'ferramenta') {
-          const dur = blueprintById(g!.blueprint ?? '')?.durability ?? 50;
-          s.equipment.unshift({ id: uuid(), blueprint: g!.blueprint!, kind: 'ferramenta', tool: g!.tool!, durability: dur, maxDurability: dur, createdAt: new Date().toISOString(), name: g!.name, rarity: 'comum', history: [{ at: new Date().toISOString(), what: `comprado na ${SHOP_KINDS[g!.shop].label}` }] });
-        } else localInventory.add(shopKey(g!.id), qty, { label: g!.name, description: g!.description, category: 'diversos', shop: g!.id });
-        s.lumes -= g!.price * qty; save();
-        return { shop: { ok: true, delta: -g!.price * qty }, pacto: view(s) };
+        const { cfg } = useShopConfig.getState(), day = shopDay(), qty = Math.round(Number(b.qty) || 1);
+        const e = cfg.entries.find((x) => x.id === String(b.entry ?? '')) ?? null;
+        const fail = entryBuyCheck(e, qty, { lumes: s.lumes, sold: e ? localSold.get(day)[e.id] ?? 0 : 0, schools: s.schools ?? [], bag: localBag.list(), listed: !!e && shopListing(cfg, e.shop, day).some((x) => x.id === e.id) });
+        if (fail) throw new Fail(fail);
+        const entry = e!, info = entryInfo(entry, useGame.getState().items); if (!info) throw new Fail('Esse item não existe mais.');
+        const take = materialsTake(entry, qty, localBag.list()) ?? [];
+        if (take.length && localBag.apply(take, []) !== 'ok') throw new Fail('Faltam materiais na mochila.');
+        if (entry.ref.kind === 'loja' && info.kind === 'ferramenta') {
+          const g = goodById(entry.ref.good)!, dur = blueprintById(g.blueprint ?? '')?.durability ?? 50;
+          s.equipment.unshift({ id: uuid(), blueprint: g.blueprint!, kind: 'ferramenta', tool: g.tool!, durability: dur, maxDurability: dur, createdAt: new Date().toISOString(), name: g.name, rarity: 'comum', history: [{ at: new Date().toISOString(), what: `comprado na ${SHOP_KINDS[entry.shop].label}` }] });
+        } else if (entry.ref.kind === 'loja') localInventory.add(shopKey(entry.ref.good), qty, { label: info.name, description: info.description, category: 'diversos', shop: entry.ref.good });
+        else localInventory.add(info.item!.slug, qty, { label: info.name, category: categoryOf(info.item!.type) });
+        if (entry.stock > 0) localSold.add(day, entry.id, qty);
+        s.lumes -= entry.price * qty; save();
+        return { shop: { ok: true, delta: -entry.price * qty }, pacto: view(s) };
       }
       case 'pacto.shop.sell': {
         const key = String(b.key ?? ''), qty = Math.round(Number(b.qty) || 1);
@@ -166,7 +174,7 @@ export async function localPacto(action: string, b: Record<string, unknown> = {}
         } else {
           const row = localInventory.rows().find((r) => r.item_key === key);
           if (!row || row.qty < qty) throw new Fail('Esse item não está na bolsa.');
-          price = bagSellPrice(key, row.meta, useGame.getState().items); if (price == null) throw new Fail('A loja não compra isso.');
+          price = bagSellPrice(key, row.meta, useGame.getState().items, useShopConfig.getState().cfg); if (price == null) throw new Fail('A loja não compra isso.');
           localInventory.add(key, -qty);
         }
         s.lumes += price * qty; save();
