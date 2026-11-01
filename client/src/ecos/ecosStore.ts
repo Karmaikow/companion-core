@@ -104,7 +104,7 @@ export const classSource = { get: (): SpeciesKey | SpeciesKey[] | null => null }
 export function suggestionsNow(v: EcosView | null, intent: GatheringIntent): Suggestion[] {
   const cls = classSource.get();
   return suggestGather(intent, {
-    known: knownNow(v), bagFree: (v?.config.bag ?? 60) - bagUsedOf(v), tools: v?.profile.tools ?? [], knownMaterials: v?.profile.knownMaterials ?? [],
+    known: knownNow(v).filter(({ node }) => node.kind !== 'salgueiro' || amountOf(v, node) >= 6), bagFree: (v?.config.bag ?? 60) - bagUsedOf(v), tools: v?.profile.tools ?? [], knownMaterials: v?.profile.knownMaterials ?? [],
     clueNode: clueNode(v), now: Date.now(),
   }).map((s) => { const b = superiorBlockFor(s.node.id, cls); return b && !s.blocked ? { ...s, blocked: b } : s; });
 }
@@ -178,6 +178,7 @@ export const useEcos = create<EcosStore>((set, get) => ({
   gather(node, approach, by = 'pessoa') {
     const n = nodeById(node), ap = n && approachOf(n, approach);
     if (!n || !ap) return;
+    if (n.kind === 'salgueiro' && amountOf(get().view, n) < 6) { toast('O salgueiro está se recuperando.', 'warn'); return; }
     if (get().run && !['concluido', 'interrompido', 'erro'].includes(get().run!.phase)) get().cancel('trocou de ação');
     if (by === 'pessoa' && get().auto.on) get().stopIntent('você assumiu o controle');
     // o painel do recurso fecha: a barra de ação mostra o andamento (e a coleta da Companion não abre nada sozinha)
