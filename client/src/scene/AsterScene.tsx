@@ -13,7 +13,7 @@ import { EffectComposer, Bloom, Vignette, ToneMapping, SMAA } from '@react-three
 import { ToneMappingMode } from 'postprocessing';
 import * as THREE from 'three';
 import {
-  gameTime, BRIDGE_DECKS, BRIDGE_HW, bridgeSpan, CITY_MARKERS, CITY_R, CRATERS, DEAD_CRYSTALS, GATES, GATE_IDS, GATE_GAP, LABYRINTH_R, LABYRINTH_WALLS, MOAT_DEPTH, MOAT_IN, MOAT_OUT,
+  gameTime, BRIDGE_DECKS, BRIDGE_HW, bridgeSpan, CITY_MARKERS, CITY_R, CITY_SCHOOLS, CRYSTAL_Y, CRATERS, DEAD_CRYSTALS, GATES, GATE_IDS, GATE_GAP, LABYRINTH_R, LABYRINTH_WALLS, MOAT_DEPTH, MOAT_IN, MOAT_OUT,
   OUT_ARRIVAL, OUT_GATE_ARRIVE, OUT_R, OUT_WALL_R, ROAD_W, TRENCH_R, TRENCH_RINGS, WATER_Y, gateAxisPoint, onBridge, outskirtsDirt, outskirtsGatePoint, outskirtsHeight,
   outskirtsPlaceName, roadDistance, visibleIn, SHOP_KINDS,
   type BiomePalette, type CityLayout, type CityMarker, type CityPiece, type CityState, type GateId, type WeatherKind,
@@ -554,10 +554,11 @@ const SHOP_PICK_R = 14;
 
 export function MarkerView({ m, dead, labels = true, onPick }: { m: CityMarker; dead: boolean; labels?: boolean; onPick?: () => void }) {
   const info = CITY_MARKERS[m.kind];
-  if (m.kind === 'cristal') return <group position={[m.x, 0, m.z]}><mesh position={[0, 9, 0]} castShadow><cylinderGeometry args={[2.6, 4.2, 18, 12]} /><meshLambertMaterial color={dead ? '#6d665d' : '#ddd3bd'} /></mesh><group position={[0, 0, 0]}><ApexCrystal y={27} size={0.8} dead={dead} /></group></group>;
+  // só o cristal: a torre é um modelo do ADM
+  if (m.kind === 'cristal') return <group position={[m.x, 0, m.z]}><ApexCrystal y={m.y ?? CRYSTAL_Y} size={0.8} dead={dead} /></group>;
   if (m.kind === 'portao') return <RunePortal x={m.x} z={m.z} color="#9fd8ff" arch rot={-Math.atan2(m.z, m.x) + Math.PI / 2} label={labels ? `${m.name} · sair para os arredores` : undefined} />;
   if (m.kind === 'chegada') return null;
-  const icon = m.kind === 'loja' && m.shop ? SHOP_KINDS[m.shop].icon : info.icon;
+  const icon = m.kind === 'loja' && m.shop ? SHOP_KINDS[m.shop].icon : m.kind === 'escola' && m.school ? CITY_SCHOOLS[m.school].icon : info.icon;
   return (
     <group position={[m.x, 0, m.z]} {...pickHandlers(onPick)}>
       <mesh position={[0, 1.4, 0]}><cylinderGeometry args={[0.07, 0.09, 2.8, 6]} /><meshLambertMaterial color="#5b4a36" /></mesh>

@@ -16,7 +16,7 @@ export type ShopKind = 'pocoes' | 'equipamentos' | 'rotacao';
 export const SHOP_KINDS: Record<ShopKind, { label: string; icon: string; merchant: string; greeting: string }> = {
   pocoes: { label: 'Loja de Poções', icon: '⚗️', merchant: 'Alquimista', greeting: 'Frascos fresquinhos e pão quente! Do que você precisa, viajante?' },
   equipamentos: { label: 'Loja de Equipamentos', icon: '⚒️', merchant: 'Ferramenteiro', greeting: 'Cabo firme, lâmina honesta. Vai trabalhar hoje?' },
-  rotacao: { label: 'Loja da Rotação', icon: '✧', merchant: 'Mercador Viajante', greeting: 'Hoje não tenho muita coisa… volte quando as estrelas girarem.' },
+  rotacao: { label: 'Mercadão', icon: '🧺', merchant: 'Mercador Viajante', greeting: 'Hoje não tenho muita coisa… volte quando as estrelas girarem.' },
 };
 export const SHOP_KIND_IDS = Object.keys(SHOP_KINDS) as ShopKind[];
 

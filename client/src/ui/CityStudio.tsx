@@ -17,8 +17,7 @@ import {
   CITY_MARKERS, CITY_R, CITY_SHOW, DEFAULT_CITY_LAYOUT, GATES, GATE_IDS, OUT_WALL_R, buildWall, sanitizeCityLayout, visibleIn,
   type BiomePalette, type CityLayout, type CityMarker, type CityMarkerKind, type CityPiece, type CityShow, type CityState, type CityWall, type GateId, type ModelBox,
 } from '@rules';
-import { SHOP_KINDS, SHOP_KIND_IDS, type ShopKind } from '@rules';
-import { SCHOOL_IDS, SCHOOL_DEFINITIONS } from '../../../shared/rules/combat/schools';
+import { SHOP_KINDS, SHOP_KIND_IDS, CITY_SCHOOLS, CITY_SCHOOL_IDS, CRYSTAL_Y, type ShopKind, type CitySchool } from '@rules';
 import { supabase } from '../backend/online';
 import { AssetBoundary, Sky } from '../scene/Biome';
 import { CityGround, InnerWall, MarkerView, OutskirtsView } from '../scene/AsterScene';
@@ -176,8 +175,8 @@ export function CityStudio() {
     const p: CityPiece = { id: newId(item.name), name: item.name, url: item.url, ...at(), y: 0, rot: 0, scale: 1, show: 'ambos', solid: 0 };
     commit((l) => ({ ...l, pieces: [...l.pieces, p] })); setSel({ kind: 'piece', id: p.id }); setView('cidade');
   };
-  const addMarker = (kind: CityMarkerKind) => {
-    const m: CityMarker = { id: newId(kind), kind, name: CITY_MARKERS[kind].label, ...at(), rot: 0, show: 'ambos', ...(kind === 'portao' ? { gate: 'sul' as GateId } : {}), ...(kind === 'escola' ? { school: SCHOOL_IDS[0] } : {}), ...(kind === 'loja' ? { shop: 'pocoes' as ShopKind, name: SHOP_KINDS.pocoes.label } : {}) };
+  const addMarker = (kind: CityMarkerKind, extra: Partial<CityMarker> = {}) => {
+    const m: CityMarker = { id: newId(kind), kind, name: CITY_MARKERS[kind].label, ...at(), rot: 0, show: 'ambos', ...(kind === 'portao' ? { gate: 'sul' as GateId } : {}), ...extra };
     commit((l) => ({ ...l, markers: [...l.markers, m] })); setSel({ kind: 'marker', id: m.id }); setView('cidade');
   };
   const remove = () => {
@@ -380,12 +379,23 @@ export function CityStudio() {
 
         <fieldset>
           <legend>Marcadores</legend>
+          <small className="cs-group">Lojas</small>
           <div className="cs-markers">
-            {(Object.keys(CITY_MARKERS) as CityMarkerKind[]).filter((k) => k !== 'cristal').map((k) => (
-              <button key={k} onClick={() => addMarker(k)} title={`Pôr ${CITY_MARKERS[k].label}`}><span aria-hidden>{CITY_MARKERS[k].icon}</span> {CITY_MARKERS[k].label}</button>
-            ))}
+            {SHOP_KIND_IDS.map((k) => <button key={k} onClick={() => addMarker('loja', { shop: k, name: SHOP_KINDS[k].label })}><span aria-hidden>{SHOP_KINDS[k].icon}</span> {SHOP_KINDS[k].label}</button>)}
           </div>
-          <small className="hint">Os marcadores dizem ao jogo onde ficam as lojas, a forja, as escolas, os NPCs e as saídas. Os painéis de cada um entram na fase 4.</small>
+          <small className="cs-group">Escolas</small>
+          <div className="cs-markers">
+            {CITY_SCHOOL_IDS.map((k) => <button key={k} onClick={() => addMarker('escola', { school: k, name: CITY_SCHOOLS[k].label })}><span aria-hidden>{CITY_SCHOOLS[k].icon}</span> {CITY_SCHOOLS[k].label}</button>)}
+          </div>
+          <small className="cs-group">Prédios</small>
+          <div className="cs-markers">
+            {(['guilda', 'hotel', 'bar'] as const).map((k) => <button key={k} onClick={() => addMarker(k)}><span aria-hidden>{CITY_MARKERS[k].icon}</span> {CITY_MARKERS[k].label}</button>)}
+          </div>
+          <small className="cs-group">Outros</small>
+          <div className="cs-markers">
+            {(['npc', 'portao', 'chegada'] as const).map((k) => <button key={k} onClick={() => addMarker(k)}><span aria-hidden>{CITY_MARKERS[k].icon}</span> {CITY_MARKERS[k].label}</button>)}
+          </div>
+          <small className="hint">Ponha cada marcador na porta do prédio. As lojas já abrem; escolas, guilda, hotel e bar ganham painel na fase 4.</small>
         </fieldset>
       </aside>
 
@@ -505,7 +515,13 @@ export function CityStudio() {
               <label>Leva ao<select value={marker.gate ?? 'sul'} onChange={(e) => patchMarker(marker.id, { gate: e.target.value as GateId })}>{GATE_IDS.map((g) => <option key={g} value={g}>{GATES[g].label} (dos arredores)</option>)}</select></label>
             )}
             {marker.kind === 'escola' && (
-              <label>Escola<select value={marker.school ?? SCHOOL_IDS[0]} onChange={(e) => patchMarker(marker.id, { school: e.target.value })}>{SCHOOL_IDS.map((s) => <option key={s} value={s}>{SCHOOL_DEFINITIONS[s].label}</option>)}</select></label>
+              <label>Escola<select value={marker.school ?? 'forja'} onChange={(e) => patchMarker(marker.id, { school: e.target.value as CitySchool, name: CITY_SCHOOL_IDS.some((k) => CITY_SCHOOLS[k].label === marker.name) || marker.name === CITY_MARKERS.escola.label ? CITY_SCHOOLS[e.target.value as CitySchool].label : marker.name })}>{CITY_SCHOOL_IDS.map((s) => <option key={s} value={s}>{CITY_SCHOOLS[s].icon} {CITY_SCHOOLS[s].label}</option>)}</select></label>
+            )}
+            {marker.kind === 'cristal' && (
+              <>
+                <label>Altura do cristal (m)<input type="number" step={0.5} min={0} value={marker.y ?? CRYSTAL_Y} onChange={(e) => patchMarker(marker.id, { y: Math.max(0, Number(e.target.value) || 0) })} /></label>
+                <small className="hint">Ponha o modelo da torre no lugar do marcador e ajuste a altura até o cristal ficar no topo dela.</small>
+              </>
             )}
             {marker.kind === 'loja' && (
               <label>Vende<select value={marker.shop ?? 'pocoes'} onChange={(e) => patchMarker(marker.id, { shop: e.target.value as ShopKind, name: marker.name === CITY_MARKERS.loja.label || SHOP_KIND_IDS.some((k) => SHOP_KINDS[k].label === marker.name) ? SHOP_KINDS[e.target.value as ShopKind].label : marker.name })}>{SHOP_KIND_IDS.map((k) => <option key={k} value={k}>{SHOP_KINDS[k].icon} {SHOP_KINDS[k].label}</option>)}</select></label>

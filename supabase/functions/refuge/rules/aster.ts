@@ -324,7 +324,8 @@ export function buildWall(w: CityWall, boxes: Partial<Record<'segment' | 'tower'
   return out;
 }
 
-export type CityMarkerKind = 'portao' | 'chegada' | 'cristal' | 'loja' | 'forja' | 'bar' | 'guilda' | 'escola' | 'npc';
+/** `forja` é antigo (virou a Escola da Forja): continua aceito nos layouts salvos, mas o Estúdio não oferece mais. */
+export type CityMarkerKind = 'portao' | 'chegada' | 'cristal' | 'loja' | 'forja' | 'bar' | 'guilda' | 'escola' | 'hotel' | 'npc';
 export const CITY_MARKERS: Record<CityMarkerKind, { label: string; icon: string; color: string }> = {
   portao: { label: 'Portão', icon: '⛩', color: '#9fd8ff' },
   chegada: { label: 'Chegada', icon: '✦', color: '#ffd98a' },
@@ -334,8 +335,19 @@ export const CITY_MARKERS: Record<CityMarkerKind, { label: string; icon: string;
   bar: { label: 'Bar', icon: '🍺', color: '#e8b46a' },
   guilda: { label: 'Guilda de Aventureiros', icon: '⚔', color: '#f0e0b0' },
   escola: { label: 'Escola', icon: '📜', color: '#8fe0c0' },
+  hotel: { label: 'Hotel', icon: '🏨', color: '#d9b8ff' },
   npc: { label: 'NPC', icon: '☺', color: '#c8d6e8' },
 };
+
+/** As escolas que têm prédio em Áster. */
+export type CitySchool = 'forja' | 'veneno';
+export const CITY_SCHOOLS: Record<CitySchool, { label: string; icon: string }> = {
+  forja: { label: 'Escola da Forja', icon: '🔨' },
+  veneno: { label: 'Escola do Veneno', icon: '☠️' },
+};
+export const CITY_SCHOOL_IDS = Object.keys(CITY_SCHOOLS) as CitySchool[];
+/** Altura padrão do cristal sobre o marcador (o ADM ajusta para ficar no topo da torre dele). */
+export const CRYSTAL_Y = 27;
 
 export interface CityMarker {
   id: string;
@@ -345,7 +357,8 @@ export interface CityMarker {
   rot: number;
   show: CityShow;
   gate?: GateId;    // portão: qual saída (leva ao portão de mesmo nome nos arredores)
-  school?: string;  // escola: qual (arcane, blood, forge, ink, chrono)
+  school?: CitySchool; // escola: qual
+  y?: number;       // cristal: altura (fica no topo da torre do ADM)
   shop?: ShopKind;  // loja: o que vende (o marcador fica na porta; o prédio perto dele abre a loja no clique)
 }
 
@@ -415,7 +428,8 @@ export function sanitizeCityLayout(input: unknown): CityLayout {
       show: SHOWS.includes(m.show as CityShow) ? (m.show as CityShow) : 'ambos',
     };
     if (m.kind === 'portao') out.gate = GATE_IDS.includes(m.gate as GateId) ? m.gate : 'sul';
-    if (m.kind === 'escola' && typeof m.school === 'string') out.school = m.school.slice(0, 20);
+    if (m.kind === 'escola') out.school = CITY_SCHOOL_IDS.includes(m.school as CitySchool) ? m.school : 'forja';
+    if (m.kind === 'cristal') out.y = num(m.y, 0, 300, CRYSTAL_Y);
     if (m.kind === 'loja') out.shop = SHOP_KIND_IDS.includes(m.shop as ShopKind) ? m.shop : 'pocoes';
     markers.push(out);
   }
