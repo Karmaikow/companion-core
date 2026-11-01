@@ -3,6 +3,7 @@
  * Portado do lab "Clareira do Refúgio". O centro é plano para o altar e as peças que surgem com o Companion.
  */
 import * as THREE from 'three';
+import { fieldFloor } from './meshField';
 
 export function mulberry32(a: number) {
   return () => { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
@@ -102,6 +103,8 @@ export const groundPointer = { down: null as null | { x: number; y: number; id: 
  */
 export const attackPick = { pick: null as null | ((clientX: number, clientY: number) => string | null), hover: null as string | null, focus: null as string | null };
 export const attackRequest = { id: 0, key: '' };
+/** Mouse sobre um prédio que abre um painel (cursor de "entrar"). */
+export const buildingHover = { on: false };
 export function requestAttackOn(key: string) { attackRequest.key = key; attackRequest.id++; attackPick.focus = key; }
 const DRAG_PX = 8, HOLD_MS = 300;
 export function requestMove(p: THREE.Vector3) { moveRequest.point.set(p.x, 0, p.z); moveRequest.id++; attackPick.focus = null; }
@@ -176,6 +179,9 @@ export function platformHeight(x: number, z: number, ground = 0): number {
   for (const pl of platforms) if (Math.hypot(x - pl.x, z - pl.z) < pl.r) h = Math.max(h, pl.top);
   const d = decks.at?.(x, z);
   if (d != null) h = Math.max(h, d - ground);
+  // piso dos prédios (calçada, degraus, tablado), medido na malha
+  const f = fieldFloor(x, z);
+  if (f != null) h = Math.max(h, f - ground);
   return h;
 }
 

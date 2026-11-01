@@ -11,7 +11,8 @@ import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.j
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { clipAnimKind, animKind, attackVariant, strideSpeed, gameTime, COMPANION_ANIM_SLOTS, parseAnimRef, gatherSlot, type AnimKind } from '@rules';
 import type { CompanionModelFiles } from '../backend/types';
-import { CLEAR_R, companionFocus, companionPose, socialHold, moveRequest, attackRequest, attackPick, teleport, resolveCollisions, platformHeight, type WorldShape } from './world';
+import { CLEAR_R, companionFocus, companionPose, socialHold, moveRequest, attackRequest, attackPick, teleport, resolveCollisions, platformHeight, BODY_R, type WorldShape } from './world';
+import { slideFields } from './meshField';
 import { work, useEcos } from '../ecos/ecosStore';
 import { SpeechBubble } from './SpeechBubble';
 import { Appendages, findAnchors, type AppendageSpec } from './Appendages';
@@ -572,7 +573,10 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
       const step = Math.min(d, (guard ? walkSpeed * combat.d.guard.move : s.running ? runSpeed : walkSpeed) * dt);
       const before = { x: r.position.x, z: r.position.z }, next = { x: r.position.x + to.x * step, z: r.position.z + to.z * step };
       // colisão: desliza em volta de pedras, troncos e da fogueira; se ficar travado contra algo, desiste do destino
-      if (resolveCollisions(next) && Math.hypot(next.x - before.x, next.z - before.z) < step * 0.25) { s.blocked += dt; if (s.blocked > 0.6 && !s.player) { s.target.set(next.x, 0, next.z); s.blocked = 0; s.stuck = true; s.click = false; } } else s.blocked = 0;
+      // prédios: paredes e degraus altos medidos na malha (o nível é o piso em que ele está agora)
+      const level = world.heightAt(before.x, before.z) + platformHeight(before.x, before.z, world.heightAt(before.x, before.z));
+      const touched = resolveCollisions(next), walled = slideFields(before, next, level, BODY_R);
+      if ((touched || walled) && Math.hypot(next.x - before.x, next.z - before.z) < step * 0.25) { s.blocked += dt; if (s.blocked > 0.6 && !s.player) { s.target.set(next.x, 0, next.z); s.blocked = 0; s.stuck = true; s.click = false; } } else s.blocked = 0;
       r.position.x = next.x; r.position.z = next.z;
       const want = Math.atan2(to.x, to.z); let dy = want - s.yaw; while (dy > Math.PI) dy -= 2 * Math.PI; while (dy < -Math.PI) dy += 2 * Math.PI;
       s.yaw += dy * Math.min(1, dt * (s.player ? 9 : 5));

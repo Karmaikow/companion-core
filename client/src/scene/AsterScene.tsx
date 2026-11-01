@@ -25,7 +25,8 @@ import { CombatFx } from './Combat';
 import { RemoteCompanions } from './RemoteCompanions';
 import { WeatherFx } from './Weather';
 import { AssetBoundary, CameraRig, ClickMarker, Sky, WindClock } from './Biome';
-import { colliders, companionFocus, decks, groundDown, groundMove, groundPointer, moveRequest, requestMove, smooth, type Circle, type WorldShape } from './world';
+import { buildingHover, colliders, companionFocus, decks, groundDown, groundMove, groundPointer, moveRequest, requestMove, smooth, type Circle, type WorldShape } from './world';
+import { bakeMeshField } from './meshField';
 import { openShop } from '../ui/ShopPanel';
 import { openSchool } from '../ui/SchoolPanel';
 import { openEcosHouse } from '../ui/EcosHouse';
@@ -533,11 +534,59 @@ const pickHandlers = (onPick?: () => void) => onPick ? {
   onPointerOut: () => { document.body.style.cursor = ''; },
 } : {};
 
-export function Piece({ p, onPick }: { p: CityPiece; onPick?: () => void }) {
+const nrm = new THREE.Vector3();
+/** O ponto clicado é piso do prédio (calçada, degrau, tablado): face virada para cima e baixa. */
+const isFloorHit = (e: ThreeEvent<PointerEvent>, base: number) => {
+  if (!e.face || e.point.y > base + 1.2) return false;
+  nrm.copy(e.face.normal).transformDirection(e.object.matrixWorld);
+  return nrm.y > 0.7;
+};
+const setEnterCursor = (on: boolean) => {
+  if (buildingHover.on === on) return;
+  buildingHover.on = on;
+  document.querySelectorAll('canvas').forEach((c) => c.classList.toggle('cursor-enter', on));
+};
+
+/**
+ * Prédio de loja/escola: o clique nas paredes, no telhado e na fachada leva até a porta e abre o painel; no piso
+ * (calçada, degraus) é um clique de andar comum. Com o mouse em cima, o cursor vira o de "entrar".
+ */
+const buildingHandlers = (base: number, onPick?: () => void) => {
+  const walk = walkHandlers();
+  if (!onPick) return walk;
+  return {
+    onPointerDown: (e: ThreeEvent<PointerEvent>) => {
+      if (isFloorHit(e, base)) { walk.onPointerDown(e); return; }
+      if (e.nativeEvent.button !== 0) return;
+      e.stopPropagation();
+      if (groundPointer.down) { clearTimeout(groundPointer.down.timer); groundPointer.down = null; }
+      onPick();
+    },
+    onPointerMove: (e: ThreeEvent<PointerEvent>) => {
+      setEnterCursor(!isFloorHit(e, base));
+      walk.onPointerMove(e);
+    },
+    onPointerOut: () => setEnterCursor(false),
+    onContextMenu: walk.onContextMenu,
+  };
+};
+
+/** Prédio (não é muralha e tem colisão): a colisão sai da malha dele em vez do círculo (ver meshField). */
+export const meshSolid = (p: CityPiece) => !p.wall && p.solid >= 1.5;
+
+export function Piece({ p, onPick, walkable = false }: { p: CityPiece; onPick?: () => void; walkable?: boolean }) {
   const { scene } = useGLTF(p.url);
+  const box = useRef<THREE.Object3D | null>(null);
   // pontes e portões: o piso por onde se anda sai do próprio modelo (ver useBridgeDecks)
-  const reg = (o: THREE.Object3D | null) => { if (p.wall !== 'ponte' && p.wall !== 'portao') return; if (o) bridgeObjs.set(p.id, o); else bridgeObjs.delete(p.id); };
-  return <group ref={reg} {...pickHandlers(onPick)}><Clone object={scene} position={[p.x, p.y, p.z]} rotation={[0, p.rot, 0]} scale={p.scale} castShadow receiveShadow /></group>;
+  const reg = (o: THREE.Object3D | null) => { box.current = o; if (p.wall !== 'ponte' && p.wall !== 'portao') return; if (o) bridgeObjs.set(p.id, o); else bridgeObjs.delete(p.id); };
+  const mesh = walkable && meshSolid(p);
+  useEffect(() => {
+    if (!mesh || !box.current) return;
+    return bakeMeshField(p.id, [p.url, p.x, p.y, p.z, p.rot, p.scale].join('|'), box.current, p.y);
+  }, [mesh, scene, p.id, p.url, p.x, p.y, p.z, p.rot, p.scale]);
+  // prédio: o piso dele recebe o clique de andar; o resto abre a loja
+  const handlers = mesh ? buildingHandlers(p.y, onPick) : pickHandlers(onPick);
+  return <group ref={reg} {...handlers}><Clone object={scene} position={[p.x, p.y, p.z]} rotation={[0, p.rot, 0]} scale={p.scale} castShadow receiveShadow /></group>;
 }
 
 /** Loja pedida pelo clique (prédio ou placa): o Companion anda até a porta (o marcador) e o modal abre na chegada. */
@@ -548,7 +597,7 @@ const SHOP_PICK_R = 14;
 /** Marcadores que abrem um painel na chegada (lojas, escolas, a Casa dos Ecos e a Torre Central). */
 const opens = (m: CityMarker) => m.kind === 'loja' || m.kind === 'escola' || m.kind === 'ecos' || m.kind === 'cristal';
 
-export function MarkerView({ m, dead, labels = true, onPick }: { m: CityMarker; dead: boolean; labels?: boolean; onPick?: () => void }) {
+export function MarkerView({ m, dead, labels = true, sign = true, onPick }: { m: CityMarker; dead: boolean; labels?: boolean; sign?: boolean; onPick?: () => void }) {
   const info = CITY_MARKERS[m.kind];
   // só o cristal: a torre é um modelo do ADM
   if (m.kind === 'cristal') return <group position={[m.x, 0, m.z]} {...pickHandlers(onPick)}><ApexCrystal y={m.y ?? CRYSTAL_Y} size={0.8} dead={dead} />{labels && <Label y={3.4} distanceFactor={8}><div className="aster-label"><span aria-hidden>◆</span> Torre Central{dead ? ' · reconstruir' : ''}</div></Label>}</group>;
@@ -557,8 +606,10 @@ export function MarkerView({ m, dead, labels = true, onPick }: { m: CityMarker; 
   const icon = m.kind === 'loja' && m.shop ? SHOP_KINDS[m.shop].icon : m.kind === 'escola' && m.school ? CITY_SCHOOLS[m.school].icon : info.icon;
   return (
     <group position={[m.x, 0, m.z]} {...pickHandlers(onPick)}>
-      <mesh position={[0, 1.4, 0]}><cylinderGeometry args={[0.07, 0.09, 2.8, 6]} /><meshLambertMaterial color="#5b4a36" /></mesh>
-      <mesh position={[0.45, 2.3, 0]}><planeGeometry args={[0.85, 0.6]} /><meshBasicMaterial color={info.color} side={THREE.DoubleSide} /></mesh>
+      {sign && <>
+        <mesh position={[0, 1.4, 0]}><cylinderGeometry args={[0.07, 0.09, 2.8, 6]} /><meshLambertMaterial color="#5b4a36" /></mesh>
+        <mesh position={[0.45, 2.3, 0]}><planeGeometry args={[0.85, 0.6]} /><meshBasicMaterial color={info.color} side={THREE.DoubleSide} /></mesh>
+      </>}
       {labels && <Label y={3.4} distanceFactor={8}><div className="aster-label"><span aria-hidden>{icon}</span> {m.name}</div></Label>}
     </group>
   );
@@ -568,7 +619,8 @@ function CityInside({ layout, state }: { layout: CityLayout; state: CityState })
   const dead = state === 'destruida';
   const pieces = useMemo(() => layout.pieces.filter((p) => visibleIn(p.show, state)), [layout, state]);
   const markers = useMemo(() => layout.markers.filter((m) => visibleIn(m.show, state)), [layout, state]);
-  const solid = useMemo(() => pieces.filter((p) => p.solid > 0).map((p) => ({ x: p.x, z: p.z, r: p.solid })), [pieces]);
+  // prédios colidem pela malha (Piece); o círculo fica para o resto (árvores, estátuas)
+  const solid = useMemo(() => pieces.filter((p) => p.solid > 0 && !meshSolid(p)).map((p) => ({ x: p.x, z: p.z, r: p.solid })), [pieces]);
   useColliders('aster-pieces', solid);
   // fosso de dentro: o Companion vai até o começo da ponte (o portal de dentro fica ali)
   useColliders('aster-moat-in', useMemo(() => moatColliders(MOAT_IN[0] - 0.7, 'dentro', CITY_R + 1), []));
@@ -580,13 +632,15 @@ function CityInside({ layout, state }: { layout: CityLayout; state: CityState })
     const near = shops.map((m) => ({ m, d: Math.hypot(m.x - p.x, m.z - p.z) })).sort((a, b) => a.d - b.d)[0];
     return near.d <= SHOP_PICK_R ? () => goShop(near.m) : undefined;
   };
+  // marcador com prédio perto: a loja abre pelo clique no prédio, e o marcador vira só o nome (sem a placa)
+  const hasBuilding = (m: CityMarker) => m.kind !== 'cristal' && opens(m) && pieces.some((p) => !p.wall && Math.hypot(m.x - p.x, m.z - p.z) <= SHOP_PICK_R);
   return (
     <group>
       <CityGround layout={layout} />
       {!pieces.some((p) => p.wall === 'ponte') && <PlaceholderBridges deck={layout.wall.bridgeDeck} side="dentro" />}
       {!pieces.some((p) => p.wall) && <InnerWall layout={layout} dead={dead} />}
-      {pieces.map((p) => <AssetBoundary key={p.id}><Suspense fallback={null}><Piece p={p} onPick={shopOf(p)} /></Suspense></AssetBoundary>)}
-      {markers.map((m) => <MarkerView key={m.id} m={m} dead={dead} onPick={opens(m) ? () => goShop(m) : undefined} />)}
+      {pieces.map((p) => <AssetBoundary key={p.id}><Suspense fallback={null}><Piece p={p} onPick={shopOf(p)} walkable /></Suspense></AssetBoundary>)}
+      {markers.map((m) => { const b = hasBuilding(m); return <MarkerView key={m.id} m={m} dead={dead} sign={!b} onPick={opens(m) && !b ? () => goShop(m) : undefined} />; })}
     </group>
   );
 }
