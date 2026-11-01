@@ -32,7 +32,8 @@ export class OnlineBackend implements Backend {
   dream() { return this.call('dream'); }
   awaken() { return this.call('awaken'); }
   muse() { return this.call('muse'); }
-  combatKill(slug: string, level: number) { return this.call('combat.kill', { slug, level }); }
+  combatKill(slug: string, level: number, pos?: { x: number; z: number }) { return this.call('combat.kill', { slug, level, ...(pos ?? {}) }); }
+  chests(action: string, body: Record<string, unknown> = {}) { return this.call(action, body) as unknown as Promise<import('../chests/chestStore').ChestsReply>; }
   inventory(action: 'inventory.discard' | 'inventory.grant', body: Record<string, unknown>) { return this.call(action, body); }
   ecos(action: string, body: Record<string, unknown> = {}) { return this.call(action, body) as unknown as Promise<import('../ecos/types').EcosReply>; }
   pacto(action: string, body: Record<string, unknown> = {}) { return this.call(action, body) as unknown as Promise<import('../pacto/types').PactoReply>; }

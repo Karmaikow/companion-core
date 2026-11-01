@@ -3,12 +3,14 @@
  * a cada mensagem — muda na hora, sem publicar nada.
  * - XP: multiplicador e valores base do ganho de vínculo, limite diário e curva de níveis (com prévia).
  * - Clima: automático (janelas sorteadas pelo bioma) ou fixo, intensidade, duração das janelas e pesos globais.
+ * - Áster: derrubar ou reerguer a cidade, a meta da reconstrução e a chance de cristal nos baús.
  */
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { DEFAULT_CONFIG, DEFAULT_WEATHER, REFUGE_BIOME, WEATHERS, WEATHER_KINDS, resolveConfig, sanitizeWeather, xpForLevel, weatherAt, type GameConfig, type WeatherConfig } from '@rules';
 import { supabase } from '../backend/online';
 import { WeatherOverlay } from './WeatherOverlay';
 import { AiSettings } from './AiSettings';
+import { AsterSettings } from './AsterSettings';
 import { LiveActions, useAdminDirty } from './adminKit';
 
 const BiomePreview = lazy(() => import('../scene/BiomePreview').then((m) => ({ default: m.BiomePreview })));
@@ -90,6 +92,7 @@ export function ServerStudio() {
     <div className="server-studio">
       <section className="biome-form">
         <AiSettings />
+        <AsterSettings />
         <fieldset>
           <legend>XP de vínculo</legend>
           <label>Multiplicador de XP <input type="range" min={0.5} max={10} step={0.25} value={mult} onChange={(e) => setMult(Number(e.target.value))} /> <b>{mult}×</b></label>

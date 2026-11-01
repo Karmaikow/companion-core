@@ -7,12 +7,13 @@ import {
   QUESTS, QUEST_REWARDS, validateSetup, evaluateSecrets, isQuestionAboutCompanion, buildMusePrompt,
   SECRET_BY_KEY, SECRET_XP, SECRET_BOOST_TURNS, buildArtPrompt, ANIM_KINDS, SPECIES, DEFAULT_CREATURES, sanitizeCreature, recordKill, rollDrops, rollLumes, QUEST_LUMES, resolveShop, type ShopConfig, DEFAULT_ITEMS, sanitizeItem, findItem, dropKey, categoryOf, isWearable, type ItemDef, combatMemoryLines, combatMemoryText,
   masculinize, secretBonus, resolveBalance, type BalanceConfig, budget, deriveStats, progressionStage,
-  BANK_EVENTS, MOMENT_EVENTS, withXpMultiplier, combatXp, resolveEcos, type EcosConfig, resolvePacto, type PactoConfig, buildBarkBankPrompt, parseBarkBank, buildMomentPrompt, parseMoment, dossier, type BarkEvent,
+  BANK_EVENTS, MOMENT_EVENTS, withXpMultiplier, combatXp, resolveEcos, type EcosConfig, resolveAster, chestTierFor, rollCrystals, type AsterConfig, CRYSTAL_KEY, CRYSTAL_LABEL, resolvePacto, type PactoConfig, buildBarkBankPrompt, parseBarkBank, buildMomentPrompt, parseMoment, dossier, type BarkEvent,
   type BestiaryEntry, type CreatureDef, type SecretKey, type GameConfig, type IdentityContractV1, type QuestState, type Discoveries, type MemoryLite, type ChatLine,
 } from './rules/index.ts';
 import { complete, providerName, refreshAi, loadAiRow, targetFromRow, callTarget, listModels, describeImage, envProviderName, envTarget, AI_PROVIDERS, AI_DEFAULTS, type AiProvider, type AiRow } from './llm.ts';
 import { ecosAction, EcosError } from './ecos.ts';
 import { missionAction, MissionError } from './missions.ts';
+import { chestAction, adminCity, createChest, ChestError } from './chests.ts';
 import { pactoAction, pactoState, PactoError, lumes } from './pacto.ts';
 import { shopAction } from './shop.ts';
 import { schoolView } from './schools.ts';
@@ -39,10 +40,10 @@ const json = (status: number, body: unknown) =>
 
 class HttpError extends Error { constructor(public status: number, msg: string) { super(msg); } }
 
-async function loadConfig(db: SupabaseClient): Promise<GameConfig & { dailyChatLimit: number; maxCompanions: number; ecos: EcosConfig; pacto: PactoConfig; constellation: BalanceConfig; shop: ShopConfig }> {
+async function loadConfig(db: SupabaseClient): Promise<GameConfig & { dailyChatLimit: number; maxCompanions: number; ecos: EcosConfig; aster: AsterConfig; pacto: PactoConfig; constellation: BalanceConfig; shop: ShopConfig }> {
   const { data } = await db.from('game_config').select('values').eq('id', 1).maybeSingle();
   const v = (data?.values ?? {}) as Record<string, number>;
-  return { ...withXpMultiplier(resolveConfig(v)), shop: resolveShop((data?.values as Record<string, unknown> | undefined)?.shop), ecos: resolveEcos((data?.values as Record<string, unknown> | undefined)?.ecos), pacto: resolvePacto((data?.values as Record<string, unknown> | undefined)?.pacto), constellation: resolveBalance((data?.values as Record<string, unknown> | undefined)?.constellation), dailyChatLimit: Number(v.dailyChatLimit) > 0 ? Number(v.dailyChatLimit) : 300, maxCompanions: Number(v.maxCompanions) > 0 ? Number(v.maxCompanions) : 1 };
+  return { ...withXpMultiplier(resolveConfig(v)), shop: resolveShop((data?.values as Record<string, unknown> | undefined)?.shop), ecos: resolveEcos((data?.values as Record<string, unknown> | undefined)?.ecos), aster: resolveAster((data?.values as Record<string, unknown> | undefined)?.aster), pacto: resolvePacto((data?.values as Record<string, unknown> | undefined)?.pacto), constellation: resolveBalance((data?.values as Record<string, unknown> | undefined)?.constellation), dailyChatLimit: Number(v.dailyChatLimit) > 0 ? Number(v.dailyChatLimit) : 300, maxCompanions: Number(v.maxCompanions) > 0 ? Number(v.maxCompanions) : 1 };
 }
 
 async function event(db: SupabaseClient, companionId: string, actor: 'player' | 'companion' | 'system', kind: string, payload: unknown): Promise<number> {
@@ -390,7 +391,7 @@ async function bodyAndCombat(db: SupabaseClient, c: Record<string, unknown>) {
 }
 
 /** Derrota de uma criatura no mundo: bestiário, partículas e as Memórias de Combate. */
-async function actCombatKill(db: SupabaseClient, c: Record<string, unknown>, body: Record<string, unknown>, cfg: GameConfig) {
+async function actCombatKill(db: SupabaseClient, c: Record<string, unknown>, body: Record<string, unknown>, cfg: GameConfig & { aster: AsterConfig }) {
   const cid = c.id as string;
   if (c.stage !== 'awakened') throw new HttpError(409, 'Só depois do despertar.');
   const slug = typeof body.slug === 'string' && /^[a-z0-9][a-z0-9-]{1,40}$/.test(body.slug) ? body.slug : null;
@@ -407,14 +408,25 @@ async function actCombatKill(db: SupabaseClient, c: Record<string, unknown>, bod
   const now = new Date().toISOString();
   const r = recordKill(prev, all, { slug, name, level }, now);
   await db.from('companion_bestiary').upsert({ companion_id: cid, creature_slug: slug, name, kills: r.entry.kills, particles: r.entry.particles, first_at: r.entry.firstAt, last_at: now });
-  // drops sorteados aqui (no servidor) e guardados na bolsa: o nome do drop vira o item do catálogo (Arsenal)
+  // drops sorteados aqui (no servidor) e guardados num baú no chão, onde o monstro caiu (abrir põe tudo na bolsa);
+  // o nome do drop vira o item do catálogo (Arsenal). Sem posição (cliente antigo), vai direto para a bolsa.
+  const rnd = () => crypto.getRandomValues(new Uint32Array(1))[0] / 2 ** 32;
   const catalog = def ? await itemDefs(db) : [];
-  const rolled = def ? rollDrops(def, () => crypto.getRandomValues(new Uint32Array(1))[0] / 2 ** 32) : [];
+  const rolled = def ? rollDrops(def, rnd) : [];
   const drops = rolled.map((d) => { const it = findItem(d.item, catalog); return { key: dropKey(d.item, catalog), label: it?.name ?? d.item, qty: d.qty, category: it ? categoryOf(it.type) : 'material' }; });
-  if (drops.length) await addToBag(db, cid, drops);
-  const gotLumes = def ? rollLumes(def.lumes, level, () => crypto.getRandomValues(new Uint32Array(1))[0] / 2 ** 32) : 0;
-  const ev = await event(db, cid, 'system', 'combat.kill', { slug, level, first: r.first, analyzed: r.analyzedNow, drops: drops.map((d) => ({ key: d.key, qty: d.qty })), lumes: gotLumes });
-  if (gotLumes) await lumes(db, `kill:${ev}`, cid, gotLumes, 'monstro', slug);
+  const gotLumes = def ? rollLumes(def.lumes, level, rnd) : 0;
+  const tier = chestTierFor(def);
+  const crystals = def ? rollCrystals(tier, cfg.aster, rnd) : 0;
+  const x = Number(body.x), z = Number(body.z);
+  const placed = Number.isFinite(x) && Number.isFinite(z) && Math.abs(x) < 1000 && Math.abs(z) < 1000;
+  const ev = await event(db, cid, 'system', 'combat.kill', { slug, level, first: r.first, analyzed: r.analyzedNow, drops: drops.map((d) => ({ key: d.key, qty: d.qty })), lumes: gotLumes, crystals });
+  let chest = null;
+  if (placed && (drops.length || gotLumes || crystals)) chest = await createChest(db, cid, slug, tier, { x, z }, { drops, lumes: gotLumes, crystals });
+  else {
+    if (drops.length) await addToBag(db, cid, drops);
+    if (crystals) await addToBag(db, cid, [{ key: CRYSTAL_KEY, qty: crystals, label: CRYSTAL_LABEL, category: 'material' }]);
+    if (gotLumes) await lumes(db, `kill:${ev}`, cid, gotLumes, 'monstro', slug);
+  }
   const me = (c.discoveries as Discoveries).name ?? 'O Companion';
   const mems: { subject: string; content: string; importance: number; source_event_ids: number[]; origin: string; companion_id: string }[] = [];
   if (r.first) mems.push({ companion_id: cid, subject: 'companion', content: combatMemoryText('first', me, def, name, level), importance: 3, source_event_ids: [ev], origin: 'combat' });
@@ -433,7 +445,7 @@ async function actCombatKill(db: SupabaseClient, c: Record<string, unknown>, bod
       if (la > lb) levelUp = la;
     }
   }
-  return { entry: r.entry, first: r.first, analyzed: r.analyzedNow, analyzedCount: r.analyzedCount, milestone: r.milestone, xp, levelUp, drops: drops.map((d) => ({ key: d.key, label: d.label, qty: d.qty })), lumes: gotLumes };
+  return { entry: r.entry, first: r.first, analyzed: r.analyzedNow, analyzedCount: r.analyzedCount, milestone: r.milestone, xp, levelUp, drops: chest ? [] : drops.map((d) => ({ key: d.key, label: d.label, qty: d.qty })), lumes: chest ? 0 : gotLumes, chest };
 }
 
 /** Falas geradas pela IA: estoque por evento ("bank") ou uma fala de momento com contexto ("moment"). Não grava nada além do registro de uso. */
@@ -782,6 +794,7 @@ Deno.serve(async (req) => {
       if (action === 'admin.ai.models') return json(200, await adminAiModels(db, body));
       if (action === 'admin.ai.describe') return json(200, await adminAiDescribe(db, body));
       if (action === 'admin.companions') return json(200, await adminCompanions(db, cfg));
+      if (action === 'admin.city') return json(200, await adminCity(db, body));
       if (action === 'admin.companion') return json(200, await adminCompanion(db, cfg, String(body.companionId ?? '')));
       return json(404, { error: 'Ação desconhecida.' });
     }
@@ -843,6 +856,13 @@ Deno.serve(async (req) => {
       const cc = c;
       return json(200, await ecosAction(action, body, { db, c: cc, cfg, ecfg: cfg.ecos, pcfg: cfg.pacto, admin: await isAdmin(db, userId), event: (kind, payload) => event(db, cc.id as string, 'system', kind, payload) }));
     }
+    if (action.startsWith('chest.') || action === 'city.give') {
+      const cc = c;
+      return json(200, await chestAction(action, body, {
+        db, c: cc, cfg, aster: cfg.aster, addToBag: (cid, adds) => addToBag(db, cid, adds),
+        event: (cid, kind, payload) => event(db, cid, 'system', kind, payload),
+      }));
+    }
     if (action.startsWith('missions.')) {
       const cc = c;
       return json(200, await missionAction(action, body, {
@@ -872,7 +892,7 @@ Deno.serve(async (req) => {
     }
     return json(404, { error: 'Ação desconhecida.' });
   } catch (e) {
-    if (e instanceof HttpError || e instanceof EcosError || e instanceof MissionError || e instanceof PactoError || e instanceof BuildError || e instanceof SocialError) return json(e.status, { error: e.message });
+    if (e instanceof HttpError || e instanceof EcosError || e instanceof MissionError || e instanceof ChestError || e instanceof PactoError || e instanceof BuildError || e instanceof SocialError) return json(e.status, { error: e.message });
     console.error('refuge', (e as Error).message);
     return json(500, { error: 'O Refúgio está instável agora. Tente de novo.' });
   }

@@ -11,6 +11,7 @@ import * as THREE from 'three';
 import { gameTime, CHUNK, WORLD_WALK_R, WORLD_ROLE, layerRole, type CompanionWorld, type WorldSite, type BiomePalette, type CreatureDef } from '@rules';
 import { WorldCreatures } from './WorldCreatures';
 import { WorldResources } from './WorldResources';
+import { WorldChests } from './WorldChests';
 import type { AppendageSpec } from './Appendages';
 import type { Gear } from './CompanionModel';
 import { WeatherFx } from './Weather';
@@ -358,6 +359,7 @@ export function WorldScene(props: WorldSceneProps) {
       <Portal color={props.color} />
       <Waystones cw={cw} discovered={props.discovered} center={center} />
       <WorldResources cw={cw} center={center} weather={props.weatherCfg} />
+      <WorldChests cw={cw} />
       <RemoteCompanions world={shape} />
       <WorldCreatures cw={cw} creatures={props.creatures} center={center} night={daylight < 0.35} high={high} />
       <Suspense fallback={null}>

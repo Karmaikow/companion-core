@@ -38,6 +38,8 @@ import { GodMode, GodButton } from './ui/GodPanel';
 import { ShopPanel } from './ui/ShopPanel';
 import { SchoolPanel } from './ui/SchoolPanel';
 import { EcosHouse } from './ui/EcosHouse';
+import { TowerPanel } from './ui/TowerPanel';
+import { useChests } from './chests/chestStore';
 import { useGod } from './ui/godMode';
 import { SafeStage, glLostBefore } from './scene/SafeStage';
 import { useHud } from './ui/hudLayout';
@@ -257,7 +259,11 @@ export function App() {
   const [travelKey, setTravelKey] = useState(0);
   const [asterPlace, setAsterPlace] = useState<string | null>(null);
   const [cityLayout, setCityLayout] = useState<CityLayout>(DEFAULT_CITY_LAYOUT);
-  const cityState: CityState = useMemo(() => (new URLSearchParams(location.search).has('destruida') ? 'destruida' : 'normal'), []);
+  // Áster: normal ou destruída (lido do banco; ?destruida força a cidade caída para teste)
+  const forcedDown = useMemo(() => new URLSearchParams(location.search).has('destruida'), []);
+  const realCity = useChests((s) => s.city?.state);
+  useEffect(() => { void useChests.getState().loadCity(); const t = setInterval(() => void useChests.getState().loadCity(), 60_000); return () => clearInterval(t); }, []);
+  const cityState: CityState = forcedDown ? 'destruida' : realCity ?? 'normal';
   const godAdmin = useGod((g) => g.admin);
   useEffect(() => {
     if (!inAster && !godAdmin) return; // o Administrador precisa dos lugares da cidade para o teleporte
@@ -488,6 +494,7 @@ export function App() {
           {place === 'cidade' && <ShopPanel />}
           {place === 'cidade' && <SchoolPanel />}
           {place === 'cidade' && <EcosHouse />}
+          {place === 'cidade' && <TowerPanel />}
           {model && !hudEditing && <GodMode inWorld={place === 'world'} place={place} world={companionWorld} city={cityLayout} />}
           {model && <AttackCursor />}
           {model && <FaintCounter onReturn={place !== 'refuge' ? goHome : undefined} />}

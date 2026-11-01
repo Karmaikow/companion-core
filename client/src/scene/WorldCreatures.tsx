@@ -14,6 +14,7 @@ import { companionFocus, resolveCollisions } from './world';
 import { CreatureBody, type CreatureAct } from './Creature';
 import { AssetBoundary } from './Biome';
 import { castCreatureSkill, numQueue, skillInput, targets } from './Combat';
+import { useChests } from '../chests/chestStore';
 import { useSkills } from '../ui/skillState';
 import { gameVfx } from './vfx/engine';
 import { burst } from './vfx/recipes';
@@ -105,8 +106,9 @@ function WorldCreature({ cw, def, spawn }: { cw: CompanionWorld; def: CreatureDe
           L.dead = def.respawn; setDead(true);
           // bestiário (Análise de Partículas), caçada e fala
           onKill(def.slug, def.name);
-          void useGame.getState().recordKill(def.slug, spawn.level).then((r) => {
-            // o que caiu foi sorteado no servidor e já está na bolsa
+          void useGame.getState().recordKill(def.slug, spawn.level, { x: st2.x, z: st2.z }).then((r) => {
+            // o que caiu foi sorteado no servidor: num baú no chão (online) ou direto na bolsa (offline)
+            if (r?.chest) { useChests.getState().add(r.chest); numQueue.push({ pos: at.clone().setY(at.y + 0.6), text: r.chest.crystals ? 'Baú com cristal!' : 'Baú!', kind: 'drop' }); }
             (r?.drops ?? []).forEach((d, i) => numQueue.push({ pos: at.clone().setY(at.y + 0.6 + i * 0.32), text: `+${d.qty} ${d.label}`, kind: 'drop' }));
             if (r?.xp) numQueue.push({ pos: at.clone().setY(at.y + 0.6 + (r.drops?.length ?? 0) * 0.32 + 0.2), text: `+${r.xp} vínculo`, kind: 'drop' });
             if (r?.analyzed) sayMoment('analyzed', { m: def.name }, def.slug);
