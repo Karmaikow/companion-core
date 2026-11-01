@@ -318,6 +318,11 @@ html:has(.admin) { scrollbar-color: var(--a-line-2, #3a4b70) #0c0b15; scroll-pad
 @keyframes admin-out { to { opacity: 0; } }
 @keyframes admin-in { from { opacity: 0; translate: 0 6px; filter: blur(2px); } }
 
+/* lista + editor viram uma coluna antes de o editor ficar espremido (o .admin acima ganha do 860px de styles.css) */
+@media (max-width: 860px) {
+  .admin .biome-studio, .admin .studio { grid-template-columns: minmax(0, 1fr); }
+}
+
 /* ---------- celular ---------- */
 @media (max-width: 760px) {
   .admin { --a-tap: 44px; padding-left: 14px; padding-right: 14px; }
