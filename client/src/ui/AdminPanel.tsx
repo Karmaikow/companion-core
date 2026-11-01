@@ -3,10 +3,10 @@
  * Lista os pedidos de arte gerados no despertar, mostra o prompt de criação
  * montado a partir do contrato de identidade e recebe a arte final.
  */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { flushSync } from 'react-dom';
 import { buildArtPrompt, animKind, ANIM_KINDS, type ArtPrompt, type IdentityContractV1 } from '@rules';
-import { AdminDirty, Icon, useAdminDirty } from './adminKit';
+import { AdminDialogHost, AdminDirty, Icon, Tabs, ask, useAdminDirty } from './adminKit';
 import './admin.css';
 import { supabase } from '../backend/online';
 import { BiomeStudio } from './BiomeStudio';
@@ -42,7 +42,7 @@ const GROUPS: { label: string; views: View[] }[] = [
   { label: 'Catálogo', views: ['forja', 'invocador', 'arsenal', 'animacoes'] },
   { label: 'Ao vivo', views: ['servidor'] },
 ];
-const DIRTY_ASK = 'Há alterações não salvas nesta aba. Sair mesmo assim? (elas se perdem)';
+const DIRTY_ASK = 'Há alterações não salvas nesta aba. Se sair agora, elas se perdem.';
 
 export interface Job {
   id: string; companionId: string; status: string; createdAt: string; updatedAt: string; contractVersion: number;
@@ -50,7 +50,7 @@ export interface Job {
   model?: { url: string; anims?: { url: string; kind: string; name: string }[] }; modelPath: string | null; animPaths: { path: string; kind: string; name: string }[];
 }
 
-const STATUS: Record<string, string> = { queued: 'Na fila', generating: 'Gerando', review: 'Em revisão', approved: 'Aprovada (no jogo)', failed: 'Falhou' };
+const STATUS: Record<string, string> = { queued: 'Na fila', generating: 'Gerando', review: 'Em revisão', approved: 'No jogo', failed: 'Falhou' };
 
 async function call(action: string, extra: Record<string, unknown> = {}): Promise<{ jobs: Job[] }> {
   const { data, error } = await supabase().functions.invoke('refuge', { body: { action, ...extra } });
@@ -85,9 +85,9 @@ export function AdminPanel() {
     window.addEventListener('beforeunload', warn);
     return () => window.removeEventListener('beforeunload', warn);
   }, []);
-  function go(next: View) {
+  async function go(next: View) {
     if (next === view) return;
-    if (dirtyIds.current.size && !window.confirm(DIRTY_ASK)) return;
+    if (dirtyIds.current.size && !(await ask({ title: 'Sair sem salvar?', body: DIRTY_ASK, confirm: 'Sair e descartar', cancel: 'Continuar editando', danger: true }))) return;
     dirtyIds.current.clear();
     const swap = () => { flushSync(() => setView(next)); window.scrollTo({ top: 0 }); };
     history.replaceState(null, '', VIEWS.find((v) => v.key === next)!.hash);
@@ -223,85 +223,95 @@ export function AdminPanel() {
   const renderJob = (j: Job) => {
     // o caminho de um pedido, na ordem em que acontece: referência → modelo → animações → no jogo
     const steps = [
-      { label: 'Referência', done: !!j.artPath },
-      { label: 'Modelo 3D', done: !!j.modelPath },
-      { label: 'Animações', done: j.animPaths.length > 0 },
-      { label: 'No jogo', done: j.status === 'approved' },
+      { key: 'ref', label: 'Referência', done: !!j.artPath },
+      { key: 'model', label: 'Modelo 3D', done: !!j.modelPath },
+      { key: 'anims', label: 'Animações', done: j.animPaths.length > 0 },
+      { key: 'jogo', label: 'Refúgio e jogo', done: j.status === 'approved' },
     ];
-    return (
-          <article key={j.id} className={'job ' + j.status}>
-            <header>
-              <div>
-                <strong>{j.name}</strong>
-                <small>{new Date(j.createdAt).toLocaleString('pt-BR')} · contrato v{j.contractVersion}</small>
-              </div>
-              <span className={'pill ' + j.status}>{STATUS[j.status] ?? j.status}</span>
-            </header>
-            <ol className="job-steps" aria-label="Andamento do pedido">
-              {steps.map((s) => <li key={s.label} className={s.done ? 'done' : ''}>{s.done && <Icon name="check" size={14} />}{s.label}</li>)}
-            </ol>
+    const panes: Record<string, ReactNode> = {
+      ref: (
+        <div className="job-body">
+          <div className="prompt">
             <p className="summary-line">{j.prompt.summaryPt}</p>
             <div className="palette" aria-label="Paleta">
               {Object.entries(j.contract.palette).map(([k, v]) => <span key={k} title={`${k} ${v}`} style={{ background: v }} />)}
             </div>
-            <div className="job-body">
-              <div className="prompt">
-                <div className="class-line">
-                  <b>{j.prompt.sheet.species.label}</b> · humanoide · {j.prompt.sheet.species.features}
-                  <small>{j.prompt.sheet.appendages.note}</small>
-                </div>
-                <details className="job-prompts" open={!j.artPath}>
-                  <summary>Prompts para gerar a arte e o modelo</summary>
-                  <label>1. Referência para o modelo 3D (Tripo, rig humanoide) <button className="link" onClick={() => copy(j.prompt.modelPrompt)}>copiar</button></label>
-                  <textarea readOnly value={j.prompt.modelPrompt} rows={6} />
-                  <small>Evitar: {j.prompt.modelNegative}</small>
-                  <label>Folha de vistas da referência (frente, esquerda, direita, verso → multivista do Tripo) <button className="link" onClick={() => copy(j.prompt.views)}>copiar</button></label>
-                  <textarea readOnly value={j.prompt.views} rows={4} />
-                  <label>2. Arte do retrato (com {j.prompt.sheet.appendages.tail || j.prompt.sheet.appendages.wings ? 'cauda/asas' : 'todos os traços'}; não vai para o Tripo) <button className="link" onClick={() => copy(j.prompt.prompt)}>copiar</button></label>
-                  <textarea readOnly value={j.prompt.prompt} rows={5} />
-                  <label>Evitar no retrato <button className="link" onClick={() => copy(j.prompt.negative)}>copiar</button></label>
-                  <textarea readOnly value={j.prompt.negative} rows={2} />
-                  <small>Formato: {j.prompt.size} · Rig no Tripo: <b>humanoide</b> (o mesmo para todos; animações prontas de humanoide servem)</small>
-                </details>
-                <details><summary>Ficha do personagem (JSON)</summary><pre>{JSON.stringify(j.prompt.sheet, null, 2)}</pre><button className="link" onClick={() => copy(JSON.stringify(j.prompt.sheet, null, 2))}>copiar ficha</button></details>
-                <details><summary>Contrato de identidade (JSON)</summary><pre>{JSON.stringify(j.contract, null, 2)}</pre></details>
-              </div>
-              <div className="art">
-                {j.artUrl ? <img src={j.artUrl} alt={`Arte de ${j.name}`} /> : <div className="art-empty">Sem arte ainda</div>}
-                <label className="upload">
-                  <input type="file" accept="image/png,image/webp,image/jpeg" disabled={busy} onChange={(e) => { const f = e.target.files?.[0]; if (f) void upload(j, f); e.target.value = ''; }} />
-                  {j.artUrl ? 'Trocar imagem de referência' : 'Enviar imagem de referência'}
-                </label>
-                <div className="model-box">
-                  <strong>Modelo 3D</strong>
-                  {j.modelPath ? <small className="ok">Modelo enviado: {j.modelPath.split('/').pop()}</small> : <small>Sem modelo ainda (.GLB do Tripo, com ou sem rig)</small>}
-                  <label className="upload">
-                    <input type="file" accept=".glb,model/gltf-binary" disabled={busy} onChange={(e) => { const f = e.target.files?.[0]; if (f) void uploadModel(j, f); e.target.value = ''; }} />
-                    {j.modelPath ? 'Trocar modelo .GLB' : 'Enviar modelo .GLB'}
-                  </label>
-                  {j.model?.url && <button className="link" disabled={busy} onClick={() => setRigJob({ id: j.id, name: j.name, url: j.model!.url, path: null })} title="Encaixa o esqueleto humano de novo, sozinho (se o rig do modelo saiu torto)">refazer o rig automático</button>}
-                  {j.model?.url && <button className="link" disabled={busy} onClick={() => void repairAnimations(j)}>Gerar animações deste rig</button>}
-                  <small className="hint">Envie o .GLB sem rig: o esqueleto é encaixado aqui e recebe o pacote de animações automaticamente.</small>
-                  <strong>Animações</strong>
-                  {j.animPaths.length ? (
-                    <AnimKinds key={j.id + j.updatedAt} job={j} busy={busy} onSave={(changes) => saveAnimKinds(j, changes)} onRemove={(a) => { if (window.confirm(`Tirar a animação "${a.name || a.path.split('/').pop()}" de ${j.name}?`)) void update(j, j.status, { removeAnim: a.path }); }} />
-                  ) : <small>Nenhuma. Exporte cada animação do mesmo rig num .GLB e ponha o tipo no nome: parado, andando, correndo, ataque, desmaiado, feliz, dormindo, pulo, comendo.</small>}
-                  <label className="upload">
-                    <input type="file" accept=".glb,model/gltf-binary" multiple disabled={busy || !j.modelPath} onChange={(e) => { const fs = [...(e.target.files ?? [])]; if (fs.length) void uploadAnims(j, fs); e.target.value = ''; }} />
-                    + Animações .GLB (pode escolher várias)
-                  </label>
-                </div>
-                <SkillAnimPicker companionId={j.companionId} contract={j.contract} modelUrl={j.model?.url} anims={j.animPaths} />
-                <RefugeBiomePicker companionId={j.companionId} />
-                <div className="row">
-                  {j.status === 'queued' && <button className="ghost" disabled={busy} onClick={() => void update(j, 'generating')}>Marcar "gerando"</button>}
-                  {(j.artPath || j.modelPath) && j.status !== 'approved' && <button className="primary" disabled={busy} onClick={() => { if (window.confirm(`Publicar a arte de ${j.name}?\n\nA pessoa passa a ver ${j.modelPath ? 'o modelo 3D' : 'a imagem'} no jogo.`)) void update(j, 'approved'); }}>Publicar no jogo</button>}
-                  {j.status === 'approved' && <button className="ghost" disabled={busy} onClick={() => { if (window.confirm(`Despublicar a arte de ${j.name}?\n\nSome do jogo agora e volta para revisão.`)) void update(j, 'review'); }}>Despublicar</button>}
-                </div>
-              </div>
+            <div className="class-line">
+              <b>{j.prompt.sheet.species.label}</b> · humanoide · {j.prompt.sheet.species.features}
+              <small>{j.prompt.sheet.appendages.note}</small>
             </div>
-          </article>
+            <details className="job-prompts" open={!j.artPath}>
+              <summary>Prompts para gerar a arte e o modelo</summary>
+              <label>1. Referência para o modelo 3D (Tripo, rig humanoide) <button className="link" onClick={() => copy(j.prompt.modelPrompt)}>copiar</button></label>
+              <textarea readOnly value={j.prompt.modelPrompt} rows={6} />
+              <small>Evitar: {j.prompt.modelNegative}</small>
+              <label>Folha de vistas da referência (frente, esquerda, direita, verso → multivista do Tripo) <button className="link" onClick={() => copy(j.prompt.views)}>copiar</button></label>
+              <textarea readOnly value={j.prompt.views} rows={4} />
+              <label>2. Arte do retrato (com {j.prompt.sheet.appendages.tail || j.prompt.sheet.appendages.wings ? 'cauda/asas' : 'todos os traços'}; não vai para o Tripo) <button className="link" onClick={() => copy(j.prompt.prompt)}>copiar</button></label>
+              <textarea readOnly value={j.prompt.prompt} rows={5} />
+              <label>Evitar no retrato <button className="link" onClick={() => copy(j.prompt.negative)}>copiar</button></label>
+              <textarea readOnly value={j.prompt.negative} rows={2} />
+              <small>Formato: {j.prompt.size} · Rig no Tripo: <b>humanoide</b> (o mesmo para todos; animações prontas de humanoide servem)</small>
+            </details>
+            <details><summary>Ficha do personagem (JSON)</summary><pre>{JSON.stringify(j.prompt.sheet, null, 2)}</pre><button className="link" onClick={() => copy(JSON.stringify(j.prompt.sheet, null, 2))}>copiar ficha</button></details>
+            <details><summary>Contrato de identidade (JSON)</summary><pre>{JSON.stringify(j.contract, null, 2)}</pre></details>
+          </div>
+          <div className="art">
+            {j.artUrl ? <img src={j.artUrl} alt={`Arte de ${j.name}`} /> : <div className="art-empty">Sem arte ainda</div>}
+            <label className="upload">
+              <input type="file" accept="image/png,image/webp,image/jpeg" disabled={busy} onChange={(e) => { const f = e.target.files?.[0]; if (f) void upload(j, f); e.target.value = ''; }} />
+              {j.artUrl ? 'Trocar imagem de referência' : 'Enviar imagem de referência'}
+            </label>
+          </div>
+        </div>
+      ),
+      model: (
+        <div className="model-box">
+          {j.modelPath ? <small className="ok">Modelo enviado: {j.modelPath.split('/').pop()}</small> : <small>Sem modelo ainda (.GLB do Tripo, com ou sem rig).</small>}
+          <label className="upload">
+            <input type="file" accept=".glb,model/gltf-binary" disabled={busy} onChange={(e) => { const f = e.target.files?.[0]; if (f) void uploadModel(j, f); e.target.value = ''; }} />
+            {j.modelPath ? 'Trocar modelo .GLB' : 'Enviar modelo .GLB'}
+          </label>
+          <small className="hint">Envie o .GLB sem rig: o esqueleto é encaixado aqui e recebe o pacote de animações automaticamente.</small>
+          {j.model?.url && (
+            <details className="job-tools">
+              <summary>Ferramentas do rig</summary>
+              <button className="ghost" disabled={busy} onClick={() => setRigJob({ id: j.id, name: j.name, url: j.model!.url, path: null })} title="Encaixa o esqueleto humano de novo, sozinho (se o rig do modelo saiu torto)">Refazer o rig automático</button>
+              <button className="ghost" disabled={busy} onClick={() => void repairAnimations(j)}>Gerar animações deste rig</button>
+            </details>
+          )}
+        </div>
+      ),
+      anims: (
+        <div className="model-box">
+          {j.animPaths.length ? (
+            <AnimKinds key={j.id + j.updatedAt} job={j} busy={busy} onSave={(changes) => saveAnimKinds(j, changes)} onRemove={(a) => void ask({ title: `Tirar a animação "${a.name || a.path.split('/').pop()}"?`, body: `Sai da lista de ${j.name}. O arquivo continua guardado.`, confirm: 'Tirar', danger: true }).then((ok) => { if (ok) void update(j, j.status, { removeAnim: a.path }); })} />
+          ) : <small>Nenhuma. Exporte cada animação do mesmo rig num .GLB e ponha o tipo no nome: parado, andando, correndo, ataque, desmaiado, feliz, dormindo, pulo, comendo.</small>}
+          <label className="upload">
+            <input type="file" accept=".glb,model/gltf-binary" multiple disabled={busy || !j.modelPath} onChange={(e) => { const fs = [...(e.target.files ?? [])]; if (fs.length) void uploadAnims(j, fs); e.target.value = ''; }} />
+            {j.modelPath ? '+ Animações .GLB (pode escolher várias)' : 'Envie o modelo 3D antes das animações'}
+          </label>
+          <SkillAnimPicker companionId={j.companionId} contract={j.contract} modelUrl={j.model?.url} anims={j.animPaths} />
+        </div>
+      ),
+      jogo: <RefugeBiomePicker companionId={j.companionId} />,
+    };
+    const live = j.status === 'approved';
+    const foot = (
+      <div className="studio-foot section">
+        <div className="studio-foot-state">
+          <span className={'pill ' + (live ? 'published' : 'draft')}>{STATUS[j.status] ?? j.status}</span>
+          {!live && !(j.artPath || j.modelPath) && <small className="hint">Publicar libera depois da imagem ou do modelo.</small>}
+        </div>
+        <div className="studio-foot-act">
+          {j.status === 'queued' && <button className="ghost" disabled={busy} onClick={() => void update(j, 'generating')}>Marcar "gerando"</button>}
+          {live
+            ? <button className="ghost" disabled={busy} onClick={() => void ask({ title: `Despublicar a arte de ${j.name}?`, body: 'Some do jogo agora e volta para revisão.', confirm: 'Despublicar' }).then((ok) => { if (ok) void update(j, 'review'); })}>Despublicar</button>
+            : <button className="primary" disabled={busy || !(j.artPath || j.modelPath)} onClick={() => void ask({ title: `Publicar a arte de ${j.name}?`, body: `A pessoa passa a ver ${j.modelPath ? 'o modelo 3D' : 'a imagem'} no jogo.`, confirm: 'Publicar' }).then((ok) => { if (ok) void update(j, 'approved'); })}>Publicar</button>}
+        </div>
+      </div>
     );
+    return <JobCard key={j.id} job={j} steps={steps} panes={panes} foot={foot} />;
   };
 
   // tipos de animação: escolhe na lista e grava tudo de uma vez (antes, cada troca no menu gravava na hora)
@@ -330,6 +340,7 @@ export function AdminPanel() {
   return (
     <AdminDirty.Provider value={reportDirty}>
     <div className="admin" ref={shell}>
+      <AdminDialogHost />
       <header className="admin-head">
         <div className="admin-bar">
           <h1>O Administrador</h1>
@@ -337,11 +348,11 @@ export function AdminPanel() {
             {GROUPS.map((g) => (
               <div key={g.label} className="admin-group" role="group" aria-label={g.label}>
                 <span className="admin-group-label" aria-hidden>{g.label}</span>
-                {g.views.map((k) => { const v = VIEWS.find((x) => x.key === k)!; return <button key={k} className={view === k ? 'on' : ''} aria-current={view === k ? 'page' : undefined} onClick={() => go(k)}><Icon name={k} />{v.label}</button>; })}
+                {g.views.map((k) => { const v = VIEWS.find((x) => x.key === k)!; return <button key={k} className={view === k ? 'on' : ''} aria-current={view === k ? 'page' : undefined} title={v.label} onClick={() => void go(k)}><Icon name={k} />{v.label}</button>; })}
               </div>
             ))}
           </nav>
-          <a className="admin-back" href="#/"><Icon name="back" size={16} />Voltar ao jogo</a>
+          <a className="admin-back" href="#/" title="Voltar ao jogo"><Icon name="back" size={16} />Voltar ao jogo</a>
         </div>
       </header>
       <div className="admin-title">
@@ -383,6 +394,24 @@ export function AdminPanel() {
  * Refúgio do Companion: todos usam o bioma padrão "refugio"; um Companion evoluído pode ganhar um Refúgio próprio
  * (qualquer bioma publicado no Estúdio — de preferência um com "Aparece no mundo" desligado).
  */
+/** um pedido da Fábrica: abre na primeira etapa que falta; o rodapé de publicar fica sempre à vista */
+function JobCard({ job, steps, panes, foot }: { job: Job; steps: { key: string; label: string; done: boolean }[]; panes: Record<string, ReactNode>; foot: ReactNode }) {
+  const [tab, setTab] = useState(() => steps.find((s) => !s.done)?.key ?? 'ref');
+  return (
+    <article className={'job ' + job.status}>
+      <header>
+        <div>
+          <strong>{job.name}</strong>
+          <small>{new Date(job.createdAt).toLocaleString('pt-BR')} · contrato v{job.contractVersion}</small>
+        </div>
+      </header>
+      <Tabs label={'Etapas do pedido de ' + job.name} idPrefix={job.id} items={steps} value={tab} onChange={setTab} />
+      <div className="job-pane" role="tabpanel" aria-labelledby={'tab-' + job.id + tab}>{panes[tab]}</div>
+      {foot}
+    </article>
+  );
+}
+
 function AnimKinds({ job, busy, onSave, onRemove }: { job: Job; busy: boolean; onSave: (changes: { path: string; kind: string }[]) => Promise<boolean>; onRemove: (a: Job['animPaths'][number]) => void }) {
   const [kinds, setKinds] = useState<Record<string, string>>({});
   const changes = job.animPaths.filter((a) => kinds[a.path] && kinds[a.path] !== a.kind).map((a) => ({ path: a.path, kind: kinds[a.path] }));

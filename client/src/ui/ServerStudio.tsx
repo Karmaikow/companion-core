@@ -9,7 +9,7 @@ import { DEFAULT_CONFIG, DEFAULT_WEATHER, REFUGE_BIOME, WEATHERS, WEATHER_KINDS,
 import { supabase } from '../backend/online';
 import { WeatherOverlay } from './WeatherOverlay';
 import { AiSettings } from './AiSettings';
-import { useAdminDirty } from './adminKit';
+import { LiveActions, useAdminDirty } from './adminKit';
 
 const BiomePreview = lazy(() => import('../scene/BiomePreview').then((m) => ({ default: m.BiomePreview })));
 
@@ -66,12 +66,19 @@ export function ServerStudio() {
   const weatherDirty = !!values && JSON.stringify(weather) !== JSON.stringify(sanitizeWeather(values.weather));
   useAdminDirty(xpDiff.length > 0 || weatherDirty);
   function saveXp() {
-    if (!xpDiff.length || !window.confirm(`Mudar o XP de todos os jogadores agora?\n\n${xpDiff.join('\n')}`)) return;
     const out: Record<string, unknown> = { xpMultiplier: mult };
     for (const [k] of XP_FIELDS) out[k] = cfg[k];
     void save(out, 'XP salvo: já vale na próxima mensagem de todos os jogadores.', 'xp');
   }
-  const note = (at: 'xp' | 'clima') => msg?.at === at && <p className={'msg' + (msg.ok ? ' ok' : ' err')} role="status">{msg.text}</p>;
+  const savedWeather = sanitizeWeather(values?.weather);
+  const weatherLines = [
+    ...(weather.mode !== savedWeather.mode ? [`Modo: ${savedWeather.mode === 'fixo' ? 'fixo' : 'automático'} → ${weather.mode === 'fixo' ? 'fixo' : 'automático'}`] : []),
+    ...(weather.mode === 'fixo' && (weather.fixed !== savedWeather.fixed || savedWeather.mode !== 'fixo') ? [`Clima fixo: ${WEATHERS[weather.fixed].label}`] : []),
+    ...(weather.mode === 'fixo' && weather.intensity !== savedWeather.intensity ? [`Intensidade: ${Math.round(savedWeather.intensity * 100)}% → ${Math.round(weather.intensity * 100)}%`] : []),
+    ...(weather.mode === 'auto' && weather.windowMinutes !== savedWeather.windowMinutes ? [`Duração de cada clima: ${savedWeather.windowMinutes} → ${weather.windowMinutes} min`] : []),
+    ...(weather.mode === 'auto' ? WEATHER_KINDS.filter((k) => weather.weights[k] !== savedWeather.weights[k]).map((k) => `Chance de ${WEATHERS[k].label}: ${savedWeather.weights[k]} → ${weather.weights[k]}`) : []),
+  ];
+  const msgAt = (at: 'xp' | 'clima') => (msg?.at === at ? msg : null);
 
   // multiplicador: o servidor multiplica os valores base abaixo na hora de dar o XP
   const scaled = (k: keyof GameConfig) => Math.round(Number(cfg[k]) * mult * 10) / 10;
@@ -96,15 +103,28 @@ export function ServerStudio() {
             {levels.map(({ l, xp }) => <span key={l}>nível {l}: <b>{xp}</b> XP</span>)}
             <small className="hint">≈ {msgsTo5} mensagens significativas até o vínculo 5 (o despertar), sem contar descobertas.</small>
           </div>
-          <div className="section-foot" data-dirty={xpDiff.length > 0 || undefined}>
-            {xpDiff.length > 0 && <small className="dirty-note">{xpDiff.length} mudança{xpDiff.length > 1 ? 's' : ''} não salva{xpDiff.length > 1 ? 's' : ''}</small>}
-            {note('xp')}
-            <button className="link" disabled={busy} onClick={() => { setCfg(DEFAULT_CONFIG); setMult(1); }} title="Preenche os valores padrão; só vale depois de salvar">usar valores padrão</button>
-            <button className="ghost" disabled={busy || !xpDiff.length} onClick={() => { setCfg(savedCfg); setMult(savedMult); }}>Desfazer</button>
-            <button className="primary" disabled={busy || !xpDiff.length} onClick={saveXp}>Salvar XP</button>
-          </div>
+          <LiveActions section dirty={xpDiff.length > 0} busy={busy} msg={msgAt('xp')} saveLabel="Salvar XP"
+            dirtyText={`${xpDiff.length} mudança${xpDiff.length > 1 ? 's' : ''} não salva${xpDiff.length > 1 ? 's' : ''}`}
+            onUndo={() => { setCfg(savedCfg); setMult(savedMult); }} onSave={saveXp}
+            confirm={() => ({ title: 'Mudar o XP de todos os jogadores?', body: 'Vale na próxima mensagem de todo mundo.', lines: xpDiff, confirm: 'Salvar XP' })}
+            extra={<button className="link" disabled={busy} onClick={() => { setCfg(DEFAULT_CONFIG); setMult(1); }} title="Preenche os valores padrão; só vale depois de salvar">usar valores padrão</button>} />
         </fieldset>
 
+        {msg?.at === 'geral' && <p className="msg err" role="alert">{msg.text}</p>}
+      </section>
+
+      <section className="biome-editor">
+        <div className="biome-preview">
+          <Suspense fallback={<div className="art-empty">Carregando prévia…</div>}>
+            <BiomePreview biome={REFUGE_BIOME} daylight={1} seed={7} open={false} weather={{ kind: preview as never, intensity: weather.mode === 'fixo' ? weather.intensity : 0.85 }} />
+          </Suspense>
+          <WeatherOverlay />
+          <div className="preview-tools">
+            {WEATHER_KINDS.map((k) => <button key={k} className={'chip' + (preview === k ? ' on' : '')} onClick={() => setPreview(k)} title={WEATHERS[k].label}>{WEATHERS[k].icon}</button>)}
+          </div>
+        </div>
+        <small className="hint">Prévia de cada clima na clareira. O jogo faz a transição suave quando o clima muda.</small>
+        <div className="biome-form">
         <fieldset>
           <legend>Clima</legend>
           <div className="chips">
@@ -128,27 +148,12 @@ export function ServerStudio() {
               </div>
             </>
           )}
-          <div className="section-foot" data-dirty={weatherDirty || undefined}>
-            {weatherDirty && <small className="dirty-note">Clima não salvo</small>}
-            {note('clima')}
-            <button className="ghost" disabled={busy || !weatherDirty} onClick={() => setWeather(sanitizeWeather(values?.weather))}>Desfazer</button>
-            <button className="primary" disabled={busy || !weatherDirty} onClick={() => { if (window.confirm(weather.mode === 'fixo' ? `Fixar o clima em ${WEATHERS[weather.fixed].label} para todos os jogadores agora?` : 'Voltar o clima para automático para todos os jogadores agora?')) void save({ weather }, weather.mode === 'fixo' ? `Clima fixo em ${WEATHERS[weather.fixed].label} para todos.` : 'Clima automático salvo.', 'clima'); }}>Salvar clima</button>
-          </div>
+          <LiveActions section dirty={weatherDirty} busy={busy} msg={msgAt('clima')} saveLabel="Salvar clima" dirtyText="Clima não salvo"
+            onUndo={() => setWeather(savedWeather)}
+            onSave={() => void save({ weather }, weather.mode === 'fixo' ? `Clima fixo em ${WEATHERS[weather.fixed].label} para todos.` : 'Clima automático salvo.', 'clima')}
+            confirm={() => ({ title: weather.mode === 'fixo' ? `Fixar o clima em ${WEATHERS[weather.fixed].label}?` : 'Salvar o clima automático?', body: 'Vale na hora para todos os jogadores.', lines: weatherLines, confirm: 'Salvar clima' })} />
         </fieldset>
-        {msg?.at === 'geral' && <p className="msg err" role="alert">{msg.text}</p>}
-      </section>
-
-      <section className="biome-editor">
-        <div className="biome-preview">
-          <Suspense fallback={<div className="art-empty">Carregando prévia…</div>}>
-            <BiomePreview biome={REFUGE_BIOME} daylight={1} seed={7} open={false} weather={{ kind: preview as never, intensity: weather.mode === 'fixo' ? weather.intensity : 0.85 }} />
-          </Suspense>
-          <WeatherOverlay />
-          <div className="preview-tools">
-            {WEATHER_KINDS.map((k) => <button key={k} className={'chip' + (preview === k ? ' on' : '')} onClick={() => setPreview(k)} title={WEATHERS[k].label}>{WEATHERS[k].icon}</button>)}
-          </div>
         </div>
-        <small className="hint">Prévia de cada clima na clareira. O jogo faz a transição suave quando o clima muda.</small>
       </section>
     </div>
   );

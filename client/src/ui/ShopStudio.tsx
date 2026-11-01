@@ -11,7 +11,7 @@ import {
   type ShopConfig, type ShopEntry, type ShopKind, type ItemDef, type CitySchool,
 } from '@rules';
 import { supabase } from '../backend/online';
-import { useAdminDirty } from './adminKit';
+import { LiveActions, ask, useAdminDirty } from './adminKit';
 
 type Tab = ShopKind | 'geral';
 
@@ -39,7 +39,8 @@ export function ShopStudio() {
     void supabase().from('shop_stock').select('entry,sold').eq('day', day).then(({ data }) => setSold(Object.fromEntries((data ?? []).map((r) => [r.entry as string, Number(r.sold)]))));
   }, [day]);
 
-  const dirty = JSON.stringify(cfg) !== saved;
+  // só conta como alteração depois de carregar o que está salvo (antes, o padrão na tela não é edição)
+  const dirty = saved !== '' && JSON.stringify(cfg) !== saved;
   useAdminDirty(dirty);
   const patch = (id: string, p: Partial<ShopEntry>) => setCfg((c) => ({ ...c, entries: c.entries.map((e) => (e.id === id ? { ...e, ...p } : e)) }));
   const remove = (id: string) => setCfg((c) => ({ ...c, entries: c.entries.filter((e) => e.id !== id) }));
@@ -73,9 +74,9 @@ export function ShopStudio() {
         <small className="hint">Preços em Lumes. O que muda aqui vale na hora para todos (o jogo lê a cada compra).</small>
         <ul className="studio-nav">
           {SHOP_KIND_IDS.map((k) => (
-            <li key={k}><button className={tab === k ? 'on' : ''} onClick={() => setTab(k)}><strong>{SHOP_KINDS[k].icon} {SHOP_KINDS[k].label}</strong><small>{count(k)} {count(k) === 1 ? 'item' : 'itens'}{k === 'rotacao' ? ` · ${cfg.rotationPerDay} por dia` : ''}</small>{k === 'rotacao' && !count(k) && cfg.rotationPerDay > 0 && <em className="warn-badge" title="O Mercadão está configurado para vender itens, mas não tem nenhum no pool">vazio</em>}</button></li>
+            <li key={k}><button className={tab === k ? 'on' : ''} onClick={() => setTab(k)}><strong>{SHOP_KINDS[k].label}</strong><small>{count(k)} {count(k) === 1 ? 'item' : 'itens'}{k === 'rotacao' ? ` · ${cfg.rotationPerDay} por dia` : ''}</small>{k === 'rotacao' && !count(k) && cfg.rotationPerDay > 0 && <em className="warn-badge" title="O Mercadão está configurado para vender itens, mas não tem nenhum no pool">vazio</em>}</button></li>
           ))}
-          <li><button className={tab === 'geral' ? 'on' : ''} onClick={() => setTab('geral')}><strong>⚙ Geral</strong><small>revenda {Math.round(cfg.sellRate * 100)}% · Mercadão</small></button></li>
+          <li><button className={tab === 'geral' ? 'on' : ''} onClick={() => setTab('geral')}><strong>Geral</strong><small>revenda {Math.round(cfg.sellRate * 100)}% · Mercadão</small></button></li>
         </ul>
       </aside>
 
@@ -88,7 +89,7 @@ export function ShopStudio() {
               <small className="hint">Materiais do Vale e drops de monstro têm preço próprio (pela raridade e qualidade).</small>
             </fieldset>
             <fieldset>
-              <legend>🧺 Mercadão</legend>
+              <legend>Mercadão</legend>
               <label>Itens à venda por dia (sorteados pelo peso)<input type="number" min={0} max={30} value={cfg.rotationPerDay} onChange={(e) => setCfg({ ...cfg, rotationPerDay: Math.max(0, Math.min(30, Math.round(Number(e.target.value) || 0))) })} /></label>
               <small className="hint">A rotação e o estoque global viram à meia-noite (horário de Brasília). Hoje ({day}):</small>
               <ul className="shop-today">
@@ -98,14 +99,14 @@ export function ShopStudio() {
             </fieldset>
             <fieldset>
               <legend>Recomeçar</legend>
-              <button className="ghost danger" onClick={() => { if (window.confirm('Voltar todas as lojas ao estoque padrão? (só vale depois de salvar)')) setCfg(DEFAULT_SHOP); }}>Voltar ao estoque padrão</button>
+              <button className="ghost danger" onClick={() => void ask({ title: 'Voltar ao estoque padrão?', body: 'Todas as lojas voltam ao estoque inicial nesta tela. Só vale no jogo depois de salvar.', confirm: 'Voltar ao padrão', danger: true }).then((ok) => { if (ok) setCfg(DEFAULT_SHOP); })}>Voltar ao estoque padrão</button>
             </fieldset>
           </div>
         ) : (
           <div className="biome-form">
             <header className="studio-main-head">
               <div>
-                <h3>{SHOP_KINDS[tab].icon} {SHOP_KINDS[tab].label}</h3>
+                <h3>{SHOP_KINDS[tab].label}</h3>
                 <small className="hint">{tab === 'rotacao' ? 'Pool do Mercadão: a cada dia saem alguns destes (pelo peso), com estoque para o servidor inteiro.' : 'Estoque fixo: tudo o que estiver ativo aparece sempre.'}</small>
               </div>
               <button className="primary" disabled={cfg.entries.length >= MAX_SHOP_ENTRIES} onClick={() => add(tab)}>+ Adicionar item</button>
@@ -123,20 +124,36 @@ export function ShopStudio() {
           </div>
         )}
 
-        <div className="studio-foot" data-dirty={dirty || undefined}>
-          <div className="studio-foot-state">
-            <span className="pill published">Ao vivo</span>
-            {dirty ? <small className="dirty-note">Alterações não salvas</small> : <small className="hint">Salvar vale na próxima compra de todos.</small>}
-            {msg && <p className={'msg' + (msg.ok ? ' ok' : ' err')} role="status">{msg.text}</p>}
-          </div>
-          <div className="studio-foot-act">
-            <button className="ghost" disabled={!dirty || busy} onClick={() => setCfg(JSON.parse(saved || JSON.stringify(DEFAULT_SHOP)))}>Desfazer</button>
-            <button className="primary" disabled={!dirty || busy || !values} onClick={() => void save()}>Salvar lojas</button>
-          </div>
-        </div>
+        <LiveActions dirty={dirty} busy={busy || !values} msg={msg} saveLabel="Salvar lojas"
+          note={<small className="hint">Salvar vale na próxima compra de todos.</small>}
+          onUndo={() => setCfg(JSON.parse(saved || JSON.stringify(DEFAULT_SHOP)))}
+          onSave={() => void save()}
+          confirm={() => ({ title: 'Salvar as lojas?', body: 'Vale na próxima compra de todos os jogadores.', lines: shopDiff(JSON.parse(saved || JSON.stringify(DEFAULT_SHOP)) as ShopConfig, cfg, items), confirm: 'Salvar lojas' })} />
       </section>
     </div>
   );
+}
+
+/** o que muda nas lojas, em linhas curtas (para a confirmação antes de salvar) */
+function shopDiff(was: ShopConfig, now: ShopConfig, items: ItemDef[]): string[] {
+  const out: string[] = [];
+  const name = (e: ShopEntry) => `${entryInfo(e, items)?.name ?? e.id} (${SHOP_KINDS[e.shop].label})`;
+  if (was.sellRate !== now.sellRate) out.push(`Revenda: ${Math.round(was.sellRate * 100)}% → ${Math.round(now.sellRate * 100)}%`);
+  if (was.rotationPerDay !== now.rotationPerDay) out.push(`Mercadão por dia: ${was.rotationPerDay} → ${now.rotationPerDay}`);
+  for (const e of now.entries) {
+    const o = was.entries.find((x) => x.id === e.id);
+    if (!o) { out.push(`+ ${name(e)} por ✧ ${e.price}`); continue; }
+    const ch: string[] = [];
+    if (o.price !== e.price) ch.push(`preço ${o.price} → ${e.price}`);
+    if (o.maxBuy !== e.maxBuy) ch.push(`máx. ${o.maxBuy} → ${e.maxBuy}`);
+    if (o.stock !== e.stock) ch.push(`estoque ${o.stock} → ${e.stock}`);
+    if (o.weight !== e.weight) ch.push(`peso ${o.weight} → ${e.weight}`);
+    if (o.enabled !== e.enabled) ch.push(e.enabled ? 'volta à venda' : 'pausado');
+    if (JSON.stringify([o.ref, o.school, o.materials]) !== JSON.stringify([e.ref, e.school, e.materials])) ch.push('item, escola ou materiais');
+    if (ch.length) out.push(`${name(e)}: ${ch.join(', ')}`);
+  }
+  for (const o of was.entries) if (!now.entries.some((x) => x.id === o.id)) out.push(`− ${name(o)} sai da loja`);
+  return out.length > 12 ? [...out.slice(0, 12), `… e mais ${out.length - 12}`] : out;
 }
 
 function EntryRow({ e, items, sold, today, onPatch, onRemove }: { e: ShopEntry; items: ItemDef[]; sold: number; today: boolean; onPatch: (p: Partial<ShopEntry>) => void; onRemove: () => void }) {

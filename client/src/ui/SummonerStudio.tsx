@@ -15,7 +15,7 @@ import { LookEditor } from './BiomeStudio';
 import { AutoRig, glbHasRig } from './RigEditor';
 import { CreaturePromptGen, RigSelect } from './CreaturePromptGen';
 import { CreatureStatsEditor } from './CreatureStatsEditor';
-import { ListSearch, StudioActions, matches, useAdminDirty } from './adminKit';
+import { EditorHead, ListSearch, StudioActions, Tabs, ask, matches, useAdminDirty } from './adminKit';
 
 const CreaturePreview = lazy(() => import('../scene/CreaturePreview').then((m) => ({ default: m.CreaturePreview })));
 const ESS = Object.keys(ELEMENTS) as Element[];
@@ -47,14 +47,15 @@ export function SummonerStudio() {
   const [act, setAct] = useState('idle');
   const [lookOpen, setLookOpen] = useState(false);
   const [q, setQ] = useState('');
+  const [pane, setPane] = useState('dados');
   useAdminDirty(dirty);
 
   const run = async (f: () => Promise<unknown>, ok: string) => {
     setBusy(true); setMsg(null);
     try { await f(); setMsg({ ok: true, text: ok }); } catch (e) { setMsg({ text: (e as Error).message }); } finally { setBusy(false); }
   };
-  const pick = (slug: string) => {
-    if (dirty && !window.confirm('Há mudanças não salvas. Trocar mesmo assim?')) return;
+  const pick = async (slug: string) => {
+    if (dirty && !(await ask({ title: 'Trocar sem salvar?', body: 'Há mudanças não salvas neste item. Se trocar agora, elas se perdem.', confirm: 'Trocar e descartar', cancel: 'Continuar editando', danger: true }))) return;
     const r = cat.rows?.find((x) => x.slug === slug);
     setSel(slug); setDraft(r ? structuredClone(r.data) : null); setStatus(r?.status ?? 'draft'); setDirty(false); setMsg(null);
     if (r) setRig(rigForBody(r.data.body));
@@ -139,6 +140,7 @@ export function SummonerStudio() {
         <section className="biome-empty"><p>Escolha uma criatura ou invoque uma nova. Sem modelo nem imagem, ela aparece como um slime de gelatina na cor escolhida (o rosto muda com o temperamento e o enfeite no topo com a essência).</p></section>
       ) : (
         <section className="biome-editor">
+          <EditorHead name={draft.name} sub={`${ARCHETYPES[draft.archetype].label} · ${TEMPERAMENTS[draft.temperament].label} · nv ${draft.level[0]}–${draft.level[1]}`} color={draft.color} status={status} dirty={dirty} />
           <div className="biome-preview">
             <Suspense fallback={<div className="art-empty">Carregando prévia…</div>}>
               <CreaturePreview def={clean} act={act} />
@@ -150,13 +152,90 @@ export function SummonerStudio() {
           </div>
 
           <div className="biome-form">
+            <Tabs label="Partes da criatura" idPrefix="invoc-" value={pane} onChange={setPane} items={[
+              { key: 'dados', label: 'Dados e batalha' },
+              { key: 'corpo', label: 'Corpo 3D', done: !!(draft.model || draft.art) },
+              { key: 'mundo', label: 'Onde aparece e drops' },
+            ]} />
+            {pane === 'dados' && <>
             <div className="row-3">
               <label>Nome<input value={draft.name} onChange={(e) => edit({ name: e.target.value })} maxLength={50} /></label>
               <label>Cor<input type="color" value={draft.color} onChange={(e) => edit({ color: e.target.value })} /></label>
-              <label>Status<span className={'pill ' + status}>{status === 'published' ? 'Publicada' : 'Rascunho'}</span></label>
             </div>
             <label>Descrição (bestiário)<textarea rows={2} value={draft.description} onChange={(e) => edit({ description: e.target.value })} maxLength={300} /></label>
 
+            <fieldset>
+              <legend>Batalha</legend>
+              <div className="grid-form">
+                <label>Essência<select value={draft.essence ?? ''} onChange={(e) => edit({ essence: (e.target.value || null) as Element | null })}><option value="">Nenhuma</option>{ESS.map((e) => <option key={e} value={e}>{ELEMENTS[e].label}</option>)}</select></label>
+                <label>Arquétipo<select value={draft.archetype} onChange={(e) => edit({ archetype: e.target.value as Archetype })}>{Object.entries(ARCHETYPES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}</select></label>
+                <label>Temperamento<select value={draft.temperament} onChange={(e) => edit({ temperament: e.target.value as Temperament })}>{Object.entries(TEMPERAMENTS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}</select></label>
+                <label>Estilo<select value={draft.style} onChange={(e) => edit({ style: e.target.value as BattleStyle })}>{Object.entries(BATTLE_STYLES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>
+                <label>Nível mín.<input type="number" min={1} max={60} value={draft.level[0]} onChange={(e) => edit({ level: [Number(e.target.value), draft.level[1]] })} /></label>
+                <label>Nível máx.<input type="number" min={1} max={60} value={draft.level[1]} onChange={(e) => edit({ level: [draft.level[0], Number(e.target.value)] })} /></label>
+                <label>Percebe a (m)<input type="number" step={0.5} min={1} max={30} value={draft.aggroRange} onChange={(e) => edit({ aggroRange: Number(e.target.value) })} /></label>
+              </div>
+              <small className="hint">{ARCHETYPES[draft.archetype].hint} · {TEMPERAMENTS[draft.temperament].hint}</small>
+            </fieldset>
+            <fieldset>
+              <legend>Atributos por nível</legend>
+              <CreatureStatsEditor draft={draft} clean={clean} edit={edit} />
+              <div className="grid-form">
+                <label>Velocidade de movimento (m/s)<input type="number" step={0.1} min={0.2} max={6} value={draft.speed} onChange={(e) => edit({ speed: Number(e.target.value) })} /><small className="hint">correndo atrás: ×1,6</small></label>
+              </div>
+              {lv && <small className="hint">No nível {clean!.level[1]}: vida {lv.vida} · ataque {lv.poder} · defesa {lv.defesa} · um golpe tira ~{mitigate(lv.poder, 0)} de HP do Companion</small>}
+            </fieldset>
+            <fieldset>
+              <legend>Árvore de habilidades (da Forja)</legend>
+              <small className="hint">Cada habilidade abre num nível do monstro e pode depender de outra (a de antes precisa estar aberta). O peso é a frequência entre as abertas.</small>
+              {draft.skills.map((s, i) => {
+                const def = skillList.find((x) => x.slug === s.slug);
+                const set = (patch: Partial<CreatureDef['skills'][number]>) => edit({ skills: draft.skills.map((x, j) => (j === i ? { ...x, ...patch } : x)) });
+                return (
+                  <div key={i} className="list-row tree-row">
+                    <select className="grow" value={s.slug} onChange={(e) => set({ slug: e.target.value })} aria-label="Habilidade">
+                      {!def && <option value={s.slug}>{s.slug} (não existe na Forja)</option>}
+                      {skillList.map((k) => <option key={k.slug} value={k.slug}>{k.name}{k.essence ? ` · ${ELEMENTS[k.essence].label}` : ''}</option>)}
+                    </select>
+                    <label>abre no nv <input type="number" min={1} max={60} value={s.level ?? 1} onChange={(e) => set({ level: Number(e.target.value) })} style={{ width: 56 }} /></label>
+                    <label>depois de <select value={s.after ?? ''} onChange={(e) => set({ after: e.target.value || undefined })}>
+                      <option value="">— (raiz)</option>
+                      {draft.skills.filter((x, j) => j !== i && x.slug !== s.slug).map((x) => <option key={x.slug} value={x.slug}>{skillList.find((k) => k.slug === x.slug)?.name ?? x.slug}</option>)}
+                    </select></label>
+                    <label>peso <input type="range" min={0} max={5} step={0.5} value={s.weight} onChange={(e) => set({ weight: Number(e.target.value) })} /></label>
+                    <small>{Math.round((s.weight / totalW) * 100)}%</small>
+                    <button className="link" onClick={() => edit({ skills: draft.skills.filter((_, j) => j !== i).map((x) => (x.after === s.slug ? { ...x, after: undefined } : x)) })}>tirar</button>
+                  </div>
+                );
+              })}
+              {clean && clean.skills.length > 0 && (
+                <div className="mtree" aria-label="Árvore">
+                  {[...new Set(clean.skills.map((x) => x.level))].sort((a, b) => a - b).map((lvl) => (
+                    <div key={lvl} className="mtree-tier">
+                      <b>nv {lvl}</b>
+                      {clean.skills.filter((x) => x.level === lvl).map((x) => (
+                        <span key={x.slug} className="mtree-node">{x.after && <i>↳ {skillList.find((k) => k.slug === x.after)?.name ?? x.after}</i>}{skillList.find((k) => k.slug === x.slug)?.name ?? x.slug}</span>
+                      ))}
+                    </div>
+                  ))}
+                  <small className="hint">No nível {clean.level[0]}: {creatureSkillsAt(clean, clean.level[0]).map((x) => skillList.find((k) => k.slug === x.slug)?.name ?? x.slug).join(', ') || 'nenhuma'} · no nível {clean.level[1]}: {creatureSkillsAt(clean, clean.level[1]).map((x) => skillList.find((k) => k.slug === x.slug)?.name ?? x.slug).join(', ') || 'nenhuma'}</small>
+                </div>
+              )}
+              <div className="row">
+                <button className="link" disabled={draft.skills.length >= 12} onClick={() => edit({ skills: [...draft.skills, { slug: skillList[0]?.slug ?? 'golpe', weight: 1, level: 1 }] })}>+ habilidade</button>
+                <button className="link" onClick={() => {
+                  const k = kitFor(skillList, { essence: draft.essence, body: draft.body, bond: 20 });
+                  const lo = draft.level[0], hi = draft.level[1], mid = Math.round((lo + hi) / 2);
+                  const list: CreatureDef['skills'] = [];
+                  if (k.basic) list.push({ slug: k.basic.slug, weight: 3, level: lo });
+                  k.essence.forEach((s, i) => list.push({ slug: s.slug, weight: 1.5, level: i === 0 ? lo : mid, ...(list.length ? { after: list[list.length - 1].slug } : {}) }));
+                  if (k.form) list.push({ slug: k.form.slug, weight: 1, level: hi, ...(list.length ? { after: list[list.length - 1].slug } : {}) });
+                  edit({ skills: list });
+                }}>sugerir pela essência e corpo</button>
+              </div>
+            </fieldset>
+            </>}
+            {pane === 'corpo' && <>
             <fieldset>
               <legend>Corpo</legend>
               <div className="grid-form">
@@ -208,80 +287,8 @@ export function SummonerStudio() {
                 <CreaturePromptGen name={draft.name} color={draft.color} element={draft.essence ? ELEMENTS[draft.essence].label : undefined} rig={rig} onRig={setRig} />
               </details>
             </fieldset>
-
-            <fieldset>
-              <legend>Batalha</legend>
-              <div className="grid-form">
-                <label>Essência<select value={draft.essence ?? ''} onChange={(e) => edit({ essence: (e.target.value || null) as Element | null })}><option value="">Nenhuma</option>{ESS.map((e) => <option key={e} value={e}>{ELEMENTS[e].label}</option>)}</select></label>
-                <label>Arquétipo<select value={draft.archetype} onChange={(e) => edit({ archetype: e.target.value as Archetype })}>{Object.entries(ARCHETYPES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}</select></label>
-                <label>Temperamento<select value={draft.temperament} onChange={(e) => edit({ temperament: e.target.value as Temperament })}>{Object.entries(TEMPERAMENTS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}</select></label>
-                <label>Estilo<select value={draft.style} onChange={(e) => edit({ style: e.target.value as BattleStyle })}>{Object.entries(BATTLE_STYLES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>
-                <label>Nível mín.<input type="number" min={1} max={60} value={draft.level[0]} onChange={(e) => edit({ level: [Number(e.target.value), draft.level[1]] })} /></label>
-                <label>Nível máx.<input type="number" min={1} max={60} value={draft.level[1]} onChange={(e) => edit({ level: [draft.level[0], Number(e.target.value)] })} /></label>
-                <label>Percebe a (m)<input type="number" step={0.5} min={1} max={30} value={draft.aggroRange} onChange={(e) => edit({ aggroRange: Number(e.target.value) })} /></label>
-              </div>
-              <small className="hint">{ARCHETYPES[draft.archetype].hint} · {TEMPERAMENTS[draft.temperament].hint}</small>
-            </fieldset>
-
-            <fieldset>
-              <legend>Atributos por nível</legend>
-              <CreatureStatsEditor draft={draft} clean={clean} edit={edit} />
-              <div className="grid-form">
-                <label>Velocidade de movimento (m/s)<input type="number" step={0.1} min={0.2} max={6} value={draft.speed} onChange={(e) => edit({ speed: Number(e.target.value) })} /><small className="hint">correndo atrás: ×1,6</small></label>
-              </div>
-              {lv && <small className="hint">No nível {clean!.level[1]}: vida {lv.vida} · ataque {lv.poder} · defesa {lv.defesa} · um golpe tira ~{mitigate(lv.poder, 0)} de HP do Companion</small>}
-            </fieldset>
-
-            <fieldset>
-              <legend>Árvore de habilidades (da Forja)</legend>
-              <small className="hint">Cada habilidade abre num nível do monstro e pode depender de outra (a de antes precisa estar aberta). O peso é a frequência entre as abertas.</small>
-              {draft.skills.map((s, i) => {
-                const def = skillList.find((x) => x.slug === s.slug);
-                const set = (patch: Partial<CreatureDef['skills'][number]>) => edit({ skills: draft.skills.map((x, j) => (j === i ? { ...x, ...patch } : x)) });
-                return (
-                  <div key={i} className="list-row tree-row">
-                    <select className="grow" value={s.slug} onChange={(e) => set({ slug: e.target.value })} aria-label="Habilidade">
-                      {!def && <option value={s.slug}>{s.slug} (não existe na Forja)</option>}
-                      {skillList.map((k) => <option key={k.slug} value={k.slug}>{k.name}{k.essence ? ` · ${ELEMENTS[k.essence].label}` : ''}</option>)}
-                    </select>
-                    <label>abre no nv <input type="number" min={1} max={60} value={s.level ?? 1} onChange={(e) => set({ level: Number(e.target.value) })} style={{ width: 56 }} /></label>
-                    <label>depois de <select value={s.after ?? ''} onChange={(e) => set({ after: e.target.value || undefined })}>
-                      <option value="">— (raiz)</option>
-                      {draft.skills.filter((x, j) => j !== i && x.slug !== s.slug).map((x) => <option key={x.slug} value={x.slug}>{skillList.find((k) => k.slug === x.slug)?.name ?? x.slug}</option>)}
-                    </select></label>
-                    <label>peso <input type="range" min={0} max={5} step={0.5} value={s.weight} onChange={(e) => set({ weight: Number(e.target.value) })} /></label>
-                    <small>{Math.round((s.weight / totalW) * 100)}%</small>
-                    <button className="link" onClick={() => edit({ skills: draft.skills.filter((_, j) => j !== i).map((x) => (x.after === s.slug ? { ...x, after: undefined } : x)) })}>tirar</button>
-                  </div>
-                );
-              })}
-              {clean && clean.skills.length > 0 && (
-                <div className="mtree" aria-label="Árvore">
-                  {[...new Set(clean.skills.map((x) => x.level))].sort((a, b) => a - b).map((lvl) => (
-                    <div key={lvl} className="mtree-tier">
-                      <b>nv {lvl}</b>
-                      {clean.skills.filter((x) => x.level === lvl).map((x) => (
-                        <span key={x.slug} className="mtree-node">{x.after && <i>↳ {skillList.find((k) => k.slug === x.after)?.name ?? x.after}</i>}{skillList.find((k) => k.slug === x.slug)?.name ?? x.slug}</span>
-                      ))}
-                    </div>
-                  ))}
-                  <small className="hint">No nível {clean.level[0]}: {creatureSkillsAt(clean, clean.level[0]).map((x) => skillList.find((k) => k.slug === x.slug)?.name ?? x.slug).join(', ') || 'nenhuma'} · no nível {clean.level[1]}: {creatureSkillsAt(clean, clean.level[1]).map((x) => skillList.find((k) => k.slug === x.slug)?.name ?? x.slug).join(', ') || 'nenhuma'}</small>
-                </div>
-              )}
-              <div className="row">
-                <button className="link" disabled={draft.skills.length >= 12} onClick={() => edit({ skills: [...draft.skills, { slug: skillList[0]?.slug ?? 'golpe', weight: 1, level: 1 }] })}>+ habilidade</button>
-                <button className="link" onClick={() => {
-                  const k = kitFor(skillList, { essence: draft.essence, body: draft.body, bond: 20 });
-                  const lo = draft.level[0], hi = draft.level[1], mid = Math.round((lo + hi) / 2);
-                  const list: CreatureDef['skills'] = [];
-                  if (k.basic) list.push({ slug: k.basic.slug, weight: 3, level: lo });
-                  k.essence.forEach((s, i) => list.push({ slug: s.slug, weight: 1.5, level: i === 0 ? lo : mid, ...(list.length ? { after: list[list.length - 1].slug } : {}) }));
-                  if (k.form) list.push({ slug: k.form.slug, weight: 1, level: hi, ...(list.length ? { after: list[list.length - 1].slug } : {}) });
-                  edit({ skills: list });
-                }}>sugerir pela essência e corpo</button>
-              </div>
-            </fieldset>
-
+            </>}
+            {pane === 'mundo' && <>
             <fieldset>
               <legend>Onde e quando aparece</legend>
               <div className="chips" role="group" aria-label="Regiões">
@@ -302,7 +309,6 @@ export function SummonerStudio() {
                 </select></label>
               </div>
             </fieldset>
-
             <fieldset>
               <legend>O que solta ao ser acalmada</legend>
               <div className="list-row">
@@ -322,7 +328,7 @@ export function SummonerStudio() {
               <button className="link" disabled={draft.drops.length >= 10} onClick={() => edit({ drops: [...draft.drops, { item: '', chance: 0.5, min: 1, max: 1 }] })}>+ item</button>
               <small className="hint">Ingredientes das receitas e materiais. Itens vazios são ignorados ao salvar.</small>
             </fieldset>
-
+            </>}
             <StudioActions name={draft.name} status={status} dirty={dirty} busy={busy} msg={msg}
               note={<small className="hint">A prévia já mostra o que não foi salvo.</small>}
               onSave={() => void run(async () => { await cat.save(draft, status); setDirty(false); }, status === 'published' ? 'Salva: já vale no mundo.' : 'Rascunho salvo.')}

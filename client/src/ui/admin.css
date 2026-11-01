@@ -24,7 +24,7 @@
   --a-shadow: 0 10px 30px -12px rgba(0, 0, 0, 0.65), 0 2px 6px -2px rgba(0, 0, 0, 0.5);
   --a-ease: cubic-bezier(0.16, 1, 0.3, 1);
   --a-tap: 36px;
-  background: var(--a-bg) radial-gradient(1200px 600px at 12% -10%, #1b2440 0, transparent 70%) no-repeat fixed;
+  background: var(--a-bg);
   color: var(--a-ink);
   caret-color: var(--a-brass);
   accent-color: var(--a-brass);
@@ -307,7 +307,82 @@ html:has(.admin) { scrollbar-color: var(--a-line-2, #3a4b70) #0c0b15; scroll-pad
 
 /* ---------- Cidade ---------- */
 .admin .city-studio { gap: 16px; }
-.admin .city-studio .cs-left, .admin .city-studio .cs-right { padding: 12px; border-radius: 14px; background: var(--a-raise); border: 1px solid var(--a-line); }
+.admin .city-studio .cs-left, .admin .city-studio .cs-right { padding: 0 2px 12px 0; }
+.admin .cs-seg kbd { font: 600 0.7rem var(--sans); padding: 0 5px; margin-left: 4px; border-radius: 4px; border: 1px solid var(--a-line-2); color: var(--a-ink-3); }
+.admin .cs-seg button.on kbd { color: #ffe7b8; border-color: color-mix(in srgb, var(--brass) 50%, transparent); }
+.admin .cs-center > .studio-foot { bottom: 12px; }
+
+/* ---------- sem cartão dentro de cartão: dentro de um bloco, os grupos são linhas, não caixas ---------- */
+.admin .biome-form fieldset .model-box, .admin .biome-form fieldset .stats-table-wrap, .admin .biome-form fieldset .xp-curve { border: 0; background: none; padding: 0; border-radius: 0; }
+.admin .biome-form fieldset .list-row { border: 0; border-bottom: 1px solid var(--a-line); border-radius: 0; background: none; padding: 6px 0; }
+.admin .biome-form fieldset .list-row:last-of-type { border-bottom: 0; }
+.admin .xp-curve { border: 0; background: none; padding: 0; }
+
+/* ---------- abas internas de um editor ---------- */
+.studio-tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--a-line); overflow-x: auto; scrollbar-width: none; }
+.studio-tabs button { display: inline-flex; align-items: center; gap: 6px; flex: none; min-height: 40px; padding: 8px 14px; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; background: none; color: var(--a-ink-2); font-weight: 600; font-size: 0.92rem; transition: color 0.15s, border-color 0.2s var(--a-ease); }
+.studio-tabs button:hover { color: var(--a-ink); }
+.studio-tabs button.on { color: var(--a-ink); border-bottom-color: var(--brass); }
+.studio-tabs button.done .ico { color: var(--a-ok); }
+
+/* topo do editor: sempre à vista enquanto rola */
+.editor-head {
+  position: sticky; top: calc(var(--admin-head, 56px) + 8px); z-index: 7;
+  display: flex; align-items: center; gap: 10px 12px;
+  padding: 10px 14px; border-radius: 12px;
+  background: color-mix(in srgb, #121a2b 90%, transparent); backdrop-filter: blur(10px);
+  border: 1px solid var(--a-line); box-shadow: 0 10px 24px -16px rgba(0, 0, 0, 0.9);
+}
+.editor-dot { width: 12px; height: 12px; border-radius: 50%; flex: none; box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 0%, var(--a-line)); }
+.editor-head-name { display: grid; min-width: 0; flex: 1; }
+.editor-head-name b { font-family: var(--serif); font-size: 1.12rem; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.editor-head-name small { color: var(--a-ink-3); font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* rodapé de seção (várias por página): não fixa embaixo */
+.studio-foot.section { position: static; margin-top: 4px; box-shadow: none; background: color-mix(in srgb, var(--a-field) 70%, transparent); backdrop-filter: none; }
+.foot-live:empty { display: none; }
+
+/* Fábrica: um pedido por vez, em etapas */
+.job-pane { padding: 14px 0 6px; }
+.admin .job-tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.admin .job-tools > summary { flex: 1 1 100%; }
+
+/* ---------- diálogo da Oficina ---------- */
+.admin-dialog {
+  width: min(480px, calc(100vw - 32px)); max-height: min(80vh, 640px);
+  padding: 0; border: 1px solid var(--a-line-2, #3a4b70); border-radius: 16px;
+  background: #121a2b; color: var(--parchment);
+  box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(214, 176, 106, 0.08);
+  opacity: 1; translate: 0 0; scale: 1;
+  transition: opacity 0.18s var(--a-ease), translate 0.22s var(--a-ease), scale 0.22s var(--a-ease), overlay 0.2s allow-discrete, display 0.2s allow-discrete;
+  @starting-style { opacity: 0; translate: 0 8px; scale: 0.98; }
+}
+.admin-dialog::backdrop { background: rgba(6, 8, 16, 0.62); backdrop-filter: blur(3px); transition: opacity 0.2s; @starting-style { opacity: 0; } }
+.admin-dialog form { display: grid; gap: 12px; padding: 20px 20px 16px; }
+.admin-dialog h2 { margin: 0; font-family: var(--serif); font-size: 1.25rem; line-height: 1.25; text-wrap: balance; }
+.admin-dialog p { margin: 0; color: var(--a-ink-2); line-height: 1.5; }
+.dialog-diff { list-style: none; margin: 0; padding: 10px 12px; display: grid; gap: 4px; max-height: 240px; overflow-y: auto; border-radius: 10px; background: var(--a-field); border: 1px solid var(--a-line); font-size: 0.88rem; font-variant-numeric: tabular-nums; }
+.dialog-diff li { overflow-wrap: anywhere; }
+.dialog-act { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; flex-wrap: wrap; }
+.admin-dialog.danger { border-color: #6a3a3a; }
+.admin .danger-fill { background: linear-gradient(180deg, #e7856f, #c4573f); border-color: #f2a08d; color: #2a0d06; box-shadow: 0 6px 16px -8px rgba(196, 87, 63, 0.7); }
+.admin .danger-fill:hover:not(:disabled) { background: linear-gradient(180deg, #f0957f, #cf644b); }
+
+/* ---------- menu compacto em telas médias: nenhuma aba some ---------- */
+@media (max-width: 1500px) {
+  .admin-group-label { display: none; }
+  .admin-group + .admin-group { padding-left: 10px; }
+  .admin .admin-tabs { gap: 2px 10px; }
+}
+@media (max-width: 1280px) {
+  .admin .admin-tabs button { padding: 6px 9px; gap: 6px; }
+  .admin-back { font-size: 0; gap: 0; padding: 8px; }
+  .admin-back .ico { width: 18px; height: 18px; }
+}
+@media (max-width: 1100px) and (min-width: 761px) {
+  .admin .admin-tabs button:not(.on) { font-size: 0; gap: 0; padding: 8px; }
+  .admin .admin-tabs button:not(.on) .ico { width: 20px; height: 20px; }
+}
 .admin .cs-canvas { border-color: var(--a-line-2); box-shadow: var(--a-shadow); }
 .admin .cs-seg { border-color: var(--a-line-2); }
 .admin .cs-seg button { background: var(--a-field); min-height: 32px; }
@@ -347,6 +422,10 @@ html:has(.admin) { scrollbar-color: var(--a-line-2, #3a4b70) #0c0b15; scroll-pad
   .admin .link { padding: 10px 4px; }
   .studio-foot { bottom: 8px; padding: 8px 10px; }
   .studio-foot-act { width: 100%; justify-content: flex-end; }
+  .studio-tabs { flex-wrap: wrap; }
+  .studio-tabs button { flex: 1 1 auto; justify-content: center; }
+  .editor-head { top: calc(var(--admin-head, 107px) + 6px); padding: 8px 12px; }
+  .admin-dialog .dialog-act button { flex: 1 1 auto; }
   .shop-table, .shop-table.rot { --cols: minmax(0, 1fr) minmax(0, 1fr); }
   .shop-row.shop-th { display: none; }
   .shop-row { padding: 10px; }

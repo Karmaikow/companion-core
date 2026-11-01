@@ -19,7 +19,7 @@ import {
 } from '@rules';
 import { SHOP_KINDS, SHOP_KIND_IDS, CITY_SCHOOLS, CITY_SCHOOL_IDS, CRYSTAL_Y, type ShopKind, type CitySchool } from '@rules';
 import { supabase } from '../backend/online';
-import { useAdminDirty } from './adminKit';
+import { StudioActions, useAdminDirty } from './adminKit';
 import { AssetBoundary, Sky } from '../scene/Biome';
 import { CityGround, InnerWall, MarkerView, OutskirtsView } from '../scene/AsterScene';
 
@@ -325,15 +325,6 @@ export function CityStudio() {
         <fieldset>
           <legend>Cidade</legend>
           <label>Nome<input value={layout.name} onChange={(e) => commit((l) => ({ ...l, name: e.target.value }))} /></label>
-          <div className="cs-row">
-            <span className={'pill ' + (status === 'published' ? 'published' : 'draft')}>{status === 'published' ? 'No jogo' : status === 'draft' ? 'Rascunho' : 'Nova'}</span>
-            {dirty && <small className="dirty-note">Alterações não salvas</small>}
-          </div>
-          <div className="cs-row">
-            <button className="ghost" disabled={busy || !dirty} onClick={() => void save()}>Salvar rascunho</button>
-            <button className="primary" disabled={busy || (status === 'published' && !dirty)} onClick={() => { if (window.confirm(status === 'published' ? 'Publicar as mudanças da cidade?\n\nTodos os jogadores passam a ver Áster assim.' : 'Publicar a cidade?\n\nÁster passa a existir no jogo para todos.')) void save(true); }}>{status === 'published' ? 'Publicar mudanças' : 'Publicar'}</button>
-          </div>
-          {status === 'published' && <button className="ghost" disabled={busy} onClick={() => { if (window.confirm('Despublicar a cidade?\n\nÁster some do jogo para todos agora. O desenho continua salvo como rascunho.')) void unpublish(); }}>Despublicar</button>}
         </fieldset>
 
         <fieldset>
@@ -374,7 +365,7 @@ export function CityStudio() {
             <label title="Altura do piso da ponte provisória (com modelo, o piso sai do próprio modelo)">Piso (m)<input type="number" step={0.05} value={layout.wall.bridgeDeck} onChange={(e) => patchWall({ bridgeDeck: Number(e.target.value) || 0 })} /></label>
           </div>
           <div className="cs-row">
-            <button className="primary" disabled={!layout.wall.segment} onClick={buildWallNow}>{wallCount ? 'Remontar muralha' : 'Montar muralha'}</button>
+            <button className="ghost" disabled={!layout.wall.segment} onClick={buildWallNow}>{wallCount ? 'Remontar muralha' : 'Montar muralha'}</button>
             {!!wallCount && <button className="ghost danger" onClick={() => commit((l) => ({ ...l, pieces: l.pieces.filter((p) => !p.wall) }))}>Tirar</button>}
           </div>
           {!!wallCount && <small className="hint">Dá para ajustar peça por peça clicando nela; remontar (ou mudar as opções acima) refaz a muralha inteira e desfaz esses ajustes.</small>}
@@ -405,23 +396,23 @@ export function CityStudio() {
       <section className="cs-center">
         <div className="cs-toolbar">
           <div className="cs-seg" role="group" aria-label="Vista">
-            <button className={view === 'cidade' ? 'on' : ''} onClick={() => setView('cidade')}>Por dentro</button>
-            <button className={view === 'fora' ? 'on' : ''} onClick={() => { setView('fora'); setSel(null); }}>Vista de fora (Arredores)</button>
+            <button className={view === 'cidade' ? 'on' : ''} aria-pressed={view === 'cidade'} onClick={() => setView('cidade')}>Por dentro</button>
+            <button className={view === 'fora' ? 'on' : ''} aria-pressed={view === 'fora'} onClick={() => { setView('fora'); setSel(null); }}>Vista de fora (Arredores)</button>
           </div>
           <div className="cs-seg" role="group" aria-label="Estado da cidade">
-            <button className={state === 'normal' ? 'on' : ''} onClick={() => setState('normal')}>Normal</button>
-            <button className={state === 'destruida' ? 'on dead' : ''} onClick={() => setState('destruida')}>Destruída</button>
+            <button className={state === 'normal' ? 'on' : ''} aria-pressed={state === 'normal'} onClick={() => setState('normal')}>Normal</button>
+            <button className={state === 'destruida' ? 'on dead' : ''} aria-pressed={state === 'destruida'} onClick={() => setState('destruida')}>Destruída</button>
           </div>
           {view === 'cidade' && (
             <div className="cs-seg" role="group" aria-label="Ferramenta">
-              <button className={mode === 'translate' ? 'on' : ''} onClick={() => setMode('translate')} title="Mover (W)">✥ Mover</button>
-              <button className={mode === 'rotate' ? 'on' : ''} onClick={() => setMode('rotate')} title="Girar (E)">⟳ Girar</button>
-              <button className={mode === 'scale' ? 'on' : ''} onClick={() => setMode('scale')} disabled={sel?.kind === 'marker'} title="Escalar (R) — a alça do meio escala por igual">⤢ Escalar</button>
+              <button className={mode === 'translate' ? 'on' : ''} aria-pressed={mode === 'translate'} onClick={() => setMode('translate')} title="Mover (W)">Mover <kbd>W</kbd></button>
+              <button className={mode === 'rotate' ? 'on' : ''} aria-pressed={mode === 'rotate'} onClick={() => setMode('rotate')} title="Girar (E)">Girar <kbd>E</kbd></button>
+              <button className={mode === 'scale' ? 'on' : ''} aria-pressed={mode === 'scale'} onClick={() => setMode('scale')} disabled={sel?.kind === 'marker'} title="Escalar (R) — a alça do meio escala por igual">Escalar <kbd>R</kbd></button>
             </div>
           )}
           <label className="cs-check"><input type="checkbox" checked={snap} onChange={(e) => setSnap(e.target.checked)} /> Encaixe (0,5 m · 15°)</label>
-          <button className="ghost" onClick={undo} disabled={!history.current.length} title="Desfazer (Ctrl+Z)">↶</button>
-          <button className="ghost" onClick={redo} disabled={!future.current.length} title="Refazer (Ctrl+Shift+Z)">↷</button>
+          <button className="ghost" onClick={undo} disabled={!history.current.length} title="Desfazer (Ctrl+Z)" aria-label="Desfazer">↶</button>
+          <button className="ghost" onClick={redo} disabled={!future.current.length} title="Refazer (Ctrl+Shift+Z)" aria-label="Refazer">↷</button>
         </div>
         <div className="cs-canvas">
           {/* cada vista com a sua câmera (a de fora vê os arredores inteiros) */}
@@ -459,10 +450,12 @@ export function CityStudio() {
           </Canvas>
           <p className="cs-help">Arraste para girar · botão direito move · roda aproxima · clique numa peça para selecionar · W/E/R mover/girar/escalar · Ctrl+D duplica · Delete apaga · Ctrl+Z desfaz</p>
         </div>
+        <StudioActions name={layout.name || 'Áster'} status={status === 'published' ? 'published' : 'draft'} dirty={dirty} busy={busy} msg={msg} what="de Áster"
+          note={status === 'novo' ? <small className="hint">Cidade nova: salve um rascunho ou publique.</small> : undefined}
+          onSave={() => void save()} onPublish={() => void save(true)} onUnpublish={() => void unpublish()} />
       </section>
 
       <aside className="cs-right biome-form">
-        {msg && <p className={'msg ' + (msg.ok ? 'ok' : 'err')} role="status">{msg.text}</p>}
         {view === 'fora' ? (
           <fieldset key="fora">
             <legend>Cidade vista de fora</legend>

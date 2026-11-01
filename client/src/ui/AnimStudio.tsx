@@ -16,7 +16,7 @@ import { supabase } from '../backend/online';
 import { facingYaw, inPlace, restBox, sanitizeSkins } from '../scene/CompanionModel';
 import { CreatureBody, type CreatureAct } from '../scene/Creature';
 import { useCatalog } from './catalog';
-import { useAdminDirty } from './adminKit';
+import { LiveActions, useAdminDirty } from './adminKit';
 import type { Job } from './AdminPanel';
 import { STANDARD_EXTRAS, STANDARD_PREFIX, STANDARD_SLOTS, STANDARD_VIRTUAL } from '../m2m/slots';
 import type { Retargeter } from '../m2m/standard';
@@ -192,7 +192,7 @@ function CompanionAnims({ jobs, onUploadAnims, busy }: { jobs: Job[]; onUploadAn
           <strong>Animações padrão (Mesh2Motion)</strong>
           <small>As mesmas animações para todos os Companions, convertidas para o esqueleto deste modelo. As animações que vieram no .GLB continuam na lista, mas não são usadas nos papéis trocados.</small>
           <div className="row">
-            <button className="primary" disabled={!gltf || rtBusy} onClick={() => void openStandard(true)}>{rtBusy ? 'Convertendo…' : 'Aplicar o pacote padrão'}</button>
+            <button className="ghost" disabled={!gltf || rtBusy} onClick={() => void openStandard(true)} title="Converte as animações padrão para o rig deste modelo e preenche os papéis. Só vale depois de salvar.">{rtBusy ? 'Convertendo…' : 'Aplicar o pacote padrão'}</button>
             {!rt && <button className="link" disabled={!gltf || rtBusy} onClick={() => void openStandard(false)}>só abrir a biblioteca</button>}
           </div>
           {rtNote && <small role="status">{rtNote}</small>}
@@ -215,11 +215,9 @@ function CompanionAnims({ jobs, onUploadAnims, busy }: { jobs: Job[]; onUploadAn
             );
           })}
         </ul>
-        <div className="row">
-          <button className="primary" disabled={!dirty || busy || rtBusy} onClick={() => void save()}>Salvar animações</button>
-          {dirty && <button className="link" onClick={() => setMap(saved)}>desfazer</button>}
-        </div>
-        {note && <small>{note}</small>}
+        <LiveActions section dirty={dirty} busy={busy || rtBusy} msg={note ? { text: note, ok: !/^Não/.test(note) } : null} saveLabel="Salvar animações"
+          onUndo={() => setMap(saved)} onSave={() => void save()}
+          confirm={() => ({ title: 'Salvar as animações deste Companion?', body: 'Vale na próxima vez que o jogo dele abrir.', confirm: 'Salvar animações' })} />
         <div className="model-box">
           <strong>Adicionar animação</strong>
           <small>Outros .GLB do mesmo rig (o tipo vem do nome do arquivo; depois é só escolher o papel aqui).</small>
@@ -384,11 +382,9 @@ function CreatureAnims() {
             </li>
           ))}
         </ul>
-        <div className="row">
-          <button className="primary" disabled={!dirty} onClick={() => void save()}>Salvar animações</button>
-          {dirty && <button className="link" onClick={() => setMap(saved)}>desfazer</button>}
-        </div>
-        {note && <small>{note}</small>}
+        <LiveActions section dirty={dirty} msg={note ? { text: note, ok: !/^Não/.test(note) } : null} saveLabel="Salvar animações"
+          onUndo={() => setMap(saved)} onSave={() => void save()}
+          confirm={() => ({ title: 'Salvar as animações deste monstro?', body: 'Vale para todas as criaturas dessa espécie no mundo.', confirm: 'Salvar animações' })} />
         <small className="hint">Para enviar mais animações deste monstro, use o Invocador (seção do modelo).</small>
       </aside>
       <section className="anim-stage">

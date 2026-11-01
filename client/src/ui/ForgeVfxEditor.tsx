@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ForgeSpellCatalogue } from './ForgeSpellCatalogue';
+import { ask } from './adminKit';
 import { VFX_LAYER_KINDS, newVfxLayer, vfxPreset, type SkillDef, type VfxLayerDef } from '@rules';
 import './forge-vfx.css';
 
@@ -14,7 +15,7 @@ export function ForgeVfxEditor({ skill, onChange }: { skill: SkillDef; onChange:
     <ForgeSpellCatalogue skill={skill} onChange={onChange} />
     <p className="hint">Camadas sobre o efeito principal. Os ajustes são salvos com a habilidade; dano e área de acerto continuam na folha de batalha.</p>
     <div className="vfx-presets"><span>Composições</span>{([['ice', 'Cristais glaciais'], ['storm', 'Tempestade arcana'], ['ember', 'Brasas vivas']] as const).map(([id, label]) =>
-      <button type="button" key={id} onClick={() => { if (!layers.length || window.confirm('Substituir as camadas atuais por esta composição?')) update(vfxPreset(id)); }}>{label}</button>)}
+      <button type="button" key={id} onClick={() => { if (!layers.length) { update(vfxPreset(id)); return; } void ask({ title: 'Substituir as camadas?', body: 'As camadas atuais dão lugar a esta composição (só vale ao salvar a habilidade).', confirm: 'Substituir' }).then((ok) => { if (ok) update(vfxPreset(id)); }); }}>{label}</button>)}
     </div>
     <div className="vfx-score" aria-label="Linha do tempo das camadas">
       <small>Preparação → lançamento em {skill.windup.toFixed(2)} s · fim visual em até {end.toFixed(2)} s</small>
@@ -22,7 +23,7 @@ export function ForgeVfxEditor({ skill, onChange }: { skill: SkillDef; onChange:
         <span>{i + 1}. {VFX_LAYER_KINDS[l.kind]}</span><div><i style={{ left: `${((l.phase === 'prepare' ? 0 : skill.windup) + l.delay) / end * 100}%`, width: `${(l.duration + (l.anchor === 'path' ? 0.45 : 0)) / end * 100}%`, background: l.color === 'skill' ? '#9bceee' : l.color }} /></div>
       </div>)}
     </div>
-    {layers.map((l, i) => <details key={i} className="vfx-layer" open>
+    {layers.map((l, i) => <details key={i} className="vfx-layer" open={layers.length <= 2}>
       <summary>{i + 1}. {VFX_LAYER_KINDS[l.kind]} · {l.enabled ? 'ativa' : 'desativada'}</summary>
       <div className="vfx-layer-actions"><label><input type="checkbox" checked={l.enabled} onChange={(e) => edit(i, { enabled: e.target.checked })} /> Ativa</label><button type="button" onClick={() => update(layers.filter((_, j) => j !== i))}>Remover camada {i + 1}</button></div>
       <div className="grid-form">

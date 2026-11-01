@@ -38,45 +38,148 @@ export function ListSearch({ value, onChange, label, count }: { value: string; o
 
 export type Msg = { text: string; ok?: boolean } | null;
 
+/* ---------- diálogo da Oficina: substitui o confirm cinza do navegador ---------- */
+
+export type AskOpts = { title: string; body?: string; lines?: string[]; confirm: string; cancel?: string; danger?: boolean };
+let opener: ((o: AskOpts) => Promise<boolean>) | null = null;
+
+/** pergunta antes de algo que muda o jogo ou perde trabalho; sem o painel montado, cai no confirm do navegador */
+export function ask(o: AskOpts): Promise<boolean> {
+  if (opener) return opener(o);
+  return Promise.resolve(window.confirm([o.title, o.body, ...(o.lines ?? [])].filter(Boolean).join('\n\n')));
+}
+
+export function AdminDialogHost() {
+  const [cur, setCur] = useState<AskOpts | null>(null);
+  const box = useRef<HTMLDialogElement>(null);
+  const resolve = useRef<((v: boolean) => void) | null>(null);
+  useEffect(() => {
+    opener = (o) => new Promise<boolean>((done) => { resolve.current?.(false); resolve.current = done; setCur(o); });
+    return () => { opener = null; };
+  }, []);
+  useEffect(() => { const d = box.current; if (cur && d && !d.open) d.showModal(); }, [cur]);
+  const close = (v: boolean) => {
+    const done = resolve.current; resolve.current = null;
+    box.current?.close(); setCur(null); done?.(v);
+  };
+  return (
+    <dialog ref={box} className={'admin-dialog' + (cur?.danger ? ' danger' : '')} aria-labelledby="admin-dialog-title"
+      onCancel={(e) => { e.preventDefault(); close(false); }} onClose={() => { if (resolve.current) close(false); }}
+      onClick={(e) => { if (e.target === e.currentTarget) close(false); }}>
+      {cur && (
+        <form onSubmit={(e) => { e.preventDefault(); close(true); }}>
+          <h2 id="admin-dialog-title">{cur.title}</h2>
+          {cur.body && <p>{cur.body}</p>}
+          {!!cur.lines?.length && <ul className="dialog-diff" aria-label="O que muda">{cur.lines.map((l, i) => <li key={i}>{l}</li>)}</ul>}
+          <div className="dialog-act">
+            <button type="button" className="ghost" onClick={() => close(false)} autoFocus>{cur.cancel ?? 'Cancelar'}</button>
+            <button type="submit" className={'primary' + (cur.danger ? ' danger-fill' : '')}>{cur.confirm}</button>
+          </div>
+        </form>
+      )}
+    </dialog>
+  );
+}
+
+/** Ctrl+S (⌘S) salva enquanto houver alteração; publicar continua só pelo botão, com confirmação */
+function useCtrlS(on: boolean, save: () => void) {
+  const ref = useRef(save); ref.current = save;
+  useEffect(() => {
+    if (!on) return;
+    const key = (e: KeyboardEvent) => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); ref.current(); } };
+    window.addEventListener('keydown', key);
+    return () => window.removeEventListener('keydown', key);
+  }, [on]);
+}
+
+function FootState({ pill, pillClass, dirty, dirtyText, note, msg }: { pill: string; pillClass: string; dirty: boolean; dirtyText?: string; note?: ReactNode; msg?: Msg }) {
+  return (
+    <div className="studio-foot-state">
+      <span className={'pill ' + pillClass}>{pill}</span>
+      <span role="status" className="foot-live">{dirty ? <small className="dirty-note">{dirtyText ?? 'Alterações não salvas'}</small> : note}</span>
+      {msg && <p className={'msg' + (msg.ok ? ' ok' : ' err')} role={msg.ok ? 'status' : 'alert'}>{msg.text}</p>}
+    </div>
+  );
+}
+
 /**
  * Rascunho: [Salvar rascunho] [Publicar]. Publicado: [Salvar] [Despublicar].
  * Publicar, Despublicar e Apagar pedem confirmação dizendo o que muda no jogo. "Apagar" e extras ficam no menu ⋯.
  */
-export function StudioActions({ name, status, dirty, busy, msg, onSave, onPublish, onUnpublish, onDelete, menu, note }: {
+export function StudioActions({ name, status, dirty, busy, msg, onSave, onPublish, onUnpublish, onDelete, menu, note, what = 'no jogo' }: {
   name: string; status: 'draft' | 'published'; dirty: boolean; busy?: boolean; msg?: Msg;
   onSave: () => void; onPublish?: () => void; onUnpublish?: () => void; onDelete?: () => void;
-  menu?: { label: string; onClick: () => void; title?: string }[]; note?: ReactNode;
+  menu?: { label: string; onClick: () => void; title?: string; danger?: boolean }[]; note?: ReactNode; what?: string;
 }) {
   const live = status === 'published';
-  const ask = (text: string, go?: () => void) => { if (go && window.confirm(text)) go(); };
-  // Ctrl+S (⌘S) salva como o botão Salvar; publicar continua só pelo botão, com confirmação
-  const saveRef = useRef(onSave); saveRef.current = onSave;
-  useEffect(() => {
-    if (!dirty || busy) return;
-    const key = (e: KeyboardEvent) => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); saveRef.current(); } };
-    window.addEventListener('keydown', key);
-    return () => window.removeEventListener('keydown', key);
-  }, [dirty, busy]);
+  const go = (o: AskOpts, f?: () => void) => { if (f) void ask(o).then((ok) => { if (ok) f(); }); };
+  useCtrlS(dirty && !busy, onSave);
   return (
     <div className="studio-foot" data-dirty={dirty || undefined}>
-      <div className="studio-foot-state">
-        <span className={'pill ' + status}>{live ? 'No jogo' : 'Rascunho'}</span>
-        {dirty ? <small className="dirty-note">Alterações não salvas</small> : note}
-        {msg && <p className={'msg' + (msg.ok ? ' ok' : ' err')} role="status">{msg.text}</p>}
-      </div>
+      <FootState pill={live ? 'No jogo' : 'Rascunho'} pillClass={status} dirty={dirty} note={note} msg={msg} />
       <div className="studio-foot-act">
         {live ? <>
-          {onUnpublish && <button className="ghost" disabled={busy} onClick={() => ask(`Despublicar "${name}"?\n\nSome do jogo para todos agora. Continua salvo aqui como rascunho.`, onUnpublish)}>Despublicar</button>}
-          <button className="primary" disabled={busy || !dirty} onClick={onSave} title="Vale na hora no jogo (Ctrl+S)">Salvar</button>
+          {onUnpublish && <button className="ghost" disabled={busy} onClick={() => go({ title: `Despublicar "${name}"?`, body: `Some ${what} para todos agora. Continua salvo aqui como rascunho.`, confirm: 'Despublicar' }, onUnpublish)}>Despublicar</button>}
+          <button className="primary" disabled={busy || !dirty} onClick={onSave} title="Vale na hora (Ctrl+S)">Salvar</button>
         </> : <>
           <button className="ghost" disabled={busy || !dirty} onClick={onSave} title="Ctrl+S">Salvar rascunho</button>
-          {onPublish && <button className="primary" disabled={busy} onClick={() => ask(`Publicar "${name}"?\n\nPassa a valer no jogo para todos os jogadores.`, onPublish)}>Publicar</button>}
+          {onPublish && <button className="primary" disabled={busy} onClick={() => go({ title: `Publicar "${name}"?`, body: `Passa a valer ${what} para todos os jogadores${dirty ? ', já com as alterações desta tela' : ''}.`, confirm: 'Publicar' }, onPublish)}>Publicar</button>}
         </>}
         {(onDelete || menu?.length) && <MoreMenu busy={busy} items={[
           ...(menu ?? []),
-          ...(onDelete ? [{ label: 'Apagar…', danger: true, onClick: () => ask(`Apagar "${name}" de vez?\n\nNão dá para desfazer.`, onDelete) }] : []),
+          ...(onDelete ? [{ label: 'Apagar…', danger: true, onClick: () => go({ title: `Apagar "${name}" de vez?`, body: 'Não dá para desfazer.', confirm: 'Apagar', danger: true }, onDelete) }] : []),
         ]} />}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Configuração que vale na hora (Lojas, Servidor, IA, Animações): [Desfazer] [Salvar…].
+ * `confirm` monta a pergunta (com o antes/depois); `section` é a versão sem fixar embaixo, para várias numa página.
+ */
+export function LiveActions({ dirty, busy, msg, onUndo, onSave, saveLabel = 'Salvar', note, confirm, section, extra, dirtyText }: {
+  dirty: boolean; busy?: boolean; msg?: Msg; onUndo?: () => void; onSave: () => void; saveLabel?: string; note?: ReactNode;
+  confirm?: () => AskOpts | null; section?: boolean; extra?: ReactNode; dirtyText?: string;
+}) {
+  const save = () => { const o = confirm?.(); if (!o) { onSave(); return; } void ask(o).then((ok) => { if (ok) onSave(); }); };
+  useCtrlS(!section && dirty && !busy, save);
+  return (
+    <div className={section ? 'studio-foot section' : 'studio-foot'} data-dirty={dirty || undefined}>
+      <FootState pill="Ao vivo" pillClass="published" dirty={dirty} dirtyText={dirtyText} note={note} msg={msg} />
+      <div className="studio-foot-act">
+        {extra}
+        {onUndo && <button className="ghost" disabled={busy || !dirty} onClick={onUndo}>Desfazer</button>}
+        <button className="primary" disabled={busy || !dirty} onClick={save} title={section ? undefined : 'Ctrl+S'}>{saveLabel}</button>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- abas internas de um editor (setas ←/→ trocam) ---------- */
+
+export function Tabs({ label, items, value, onChange, idPrefix = '' }: { label: string; items: { key: string; label: ReactNode; done?: boolean; hidden?: boolean }[]; value: string; onChange: (k: string) => void; idPrefix?: string }) {
+  const shown = items.filter((i) => !i.hidden);
+  const move = (d: number) => { const i = shown.findIndex((x) => x.key === value); const n = shown[(i + d + shown.length) % shown.length]; onChange(n.key); document.getElementById('tab-' + idPrefix + n.key)?.focus(); };
+  return (
+    <div className="studio-tabs" role="tablist" aria-label={label} onKeyDown={(e) => { if (e.key === 'ArrowRight') { e.preventDefault(); move(1); } if (e.key === 'ArrowLeft') { e.preventDefault(); move(-1); } }}>
+      {shown.map((i) => (
+        <button key={i.key} id={'tab-' + idPrefix + i.key} role="tab" type="button" aria-selected={value === i.key} tabIndex={value === i.key ? 0 : -1} className={(value === i.key ? 'on' : '') + (i.done ? ' done' : '')} onClick={() => onChange(i.key)}>
+          {i.done && <Icon name="check" size={14} />}{i.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** topo do editor: o que está aberto, sempre visível ao rolar */
+export function EditorHead({ name, sub, color, status, dirty }: { name: string; sub?: ReactNode; color?: string; status: 'draft' | 'published'; dirty?: boolean }) {
+  return (
+    <div className="editor-head">
+      {color && <i className="editor-dot" style={{ background: color }} aria-hidden />}
+      <div className="editor-head-name"><b>{name || 'Sem nome'}</b>{sub && <small>{sub}</small>}</div>
+      {dirty && <small className="dirty-note">não salvo</small>}
+      <span className={'pill ' + status}>{status === 'published' ? 'No jogo' : 'Rascunho'}</span>
     </div>
   );
 }

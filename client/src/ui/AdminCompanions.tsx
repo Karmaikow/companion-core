@@ -3,7 +3,7 @@
  * identidade, progressão (nível, XP), coleta (materiais na mochila do Ecos), Pacto, Constelação e os pedidos de
  * arte da Fábrica (prompts, envio de imagem/modelo/animações, habilidades e animações, Refúgio, aprovação).
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ELEMENTS, SPECIES, STATS, STAT_KEYS, RESONANCES, QUESTS, type Discoveries, type IdentityContractV1, type SpeciesKey, type StatKey } from '@rules';
 import { supabase } from '../backend/online';
 import { keyLabel } from './PactoPanel';
@@ -94,6 +94,8 @@ function CompanionDetail({ id, jobs, renderJob, onClose }: { id: string; jobs: J
   const [d, setD] = useState<Detail | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [tab, setTab] = useState<'ficha' | 'fabrica'>('ficha');
+  const box = useRef<HTMLElement>(null);
+  useEffect(() => { if (!d) return; const f = requestAnimationFrame(() => box.current?.scrollIntoView({ block: 'start' })); return () => cancelAnimationFrame(f); }, [id, !!d]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { setD(null); setErr(null); call<Detail>('admin.companion', { companionId: id }).then(setD, (e) => setErr((e as Error).message)); }, [id]);
   if (err) return <section className="adm-detail"><p className="msg err">{err}</p></section>;
   if (!d) return <section className="adm-detail"><p className="empty">Abrindo a ficha…</p></section>;
@@ -102,7 +104,7 @@ function CompanionDetail({ id, jobs, renderJob, onClose }: { id: string; jobs: J
   const pct = Math.round(((p.xp - p.from) / Math.max(1, p.to - p.from)) * 100);
   const art = jobs.find((j) => j.artUrl)?.artUrl;
   return (
-    <section className="adm-detail" aria-label={`Ficha de ${ds.name ?? 'Companion'}`}>
+    <section ref={box} className="adm-detail" aria-label={`Ficha de ${ds.name ?? 'Companion'}`}>
       <header className="adm-detail-head">
         <span className="adm-face big" style={art ? { backgroundImage: `url("${art}")` } : { background: `radial-gradient(circle at 50% 42%, #fff 0 10%, ${ds.color ?? '#9fb4ff'} 42%, #101828 74%)` }} />
         <div>
@@ -111,10 +113,10 @@ function CompanionDetail({ id, jobs, renderJob, onClose }: { id: string; jobs: J
         </div>
         <button className="close" onClick={onClose} aria-label="Fechar a ficha (Esc)" title="Fechar (Esc)">×</button>
       </header>
-      <nav className="st-tabs" aria-label="Ficha">
-        <button className={tab === 'ficha' ? 'on' : ''} onClick={() => setTab('ficha')}>Ficha</button>
-        <button className={tab === 'fabrica' ? 'on' : ''} onClick={() => setTab('fabrica')}>Fábrica (arte, modelo, animações){jobs.length ? <em>{jobs.length}</em> : null}</button>
-      </nav>
+      <div className="st-tabs" role="tablist" aria-label="Ficha">
+        <button role="tab" aria-selected={tab === 'ficha'} className={tab === 'ficha' ? 'on' : ''} onClick={() => setTab('ficha')}>Ficha</button>
+        <button role="tab" aria-selected={tab === 'fabrica'} className={tab === 'fabrica' ? 'on' : ''} onClick={() => setTab('fabrica')}>Fábrica{jobs.length ? <em>{jobs.length}</em> : null}</button>
+      </div>
 
       {tab === 'ficha' ? (
         <div className="adm-cards">

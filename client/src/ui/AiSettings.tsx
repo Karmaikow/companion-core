@@ -4,6 +4,7 @@
  */
 import { useEffect, useState } from 'react';
 import { supabase } from '../backend/online';
+import { LiveActions, ask, useAdminDirty } from './adminKit';
 
 type Provider = 'auto' | 'anthropic' | 'groq' | 'openai' | 'gemini' | 'openrouter' | 'nvidia' | 'custom';
 interface Defaults { label: string; baseUrl: string; model: string; modelHq: string }
@@ -49,6 +50,9 @@ export function AiSettings() {
 
   const absorb = (r: AiState) => { setS(r); setProvider(r.provider); setModel(r.model); setModelHq(r.modelHq); setBaseUrl(r.baseUrl); setApiKey(''); };
   useEffect(() => { call<AiState>('admin.ai.get').then(absorb, (e) => setMsg({ text: (e as Error).message })); }, []);
+  // antes do return de carregamento: hooks sempre na mesma ordem
+  const dirty = !!s && (provider !== s.provider || model !== s.model || modelHq !== s.modelHq || baseUrl !== s.baseUrl || !!apiKey);
+  useAdminDirty(dirty);
 
   if (!s) return <fieldset><legend>IA dos Companions</legend>{msg ? <p className="msg err">{msg.text}</p> : <small className="hint">Carregando…</small>}</fieldset>;
 
@@ -121,18 +125,30 @@ export function AiSettings() {
         </div>
       )}
 
-      <div className="row">
-        <button className="primary" disabled={busy} onClick={() => void save()}>Salvar IA</button>
-        <button disabled={busy} onClick={() => void runTest()}>{busy ? 'Aguarde…' : 'Testar'}</button>
-        {provider !== 'auto' && provider !== 'anthropic' && <button disabled={busy} onClick={() => void loadModels()}>Ver modelos</button>}
-        {s.provider !== 'auto' && keepsKey && <button className="link" disabled={busy} onClick={() => { if (confirm('Apagar a chave guardada e voltar ao padrão do servidor?')) { setBusy(true); call<AiState>('admin.ai.set', { provider: 'auto', clearKey: true }).then((r) => { absorb(r); setMsg({ ok: true, text: 'Voltou ao padrão do servidor.' }); }, (e) => setMsg({ text: (e as Error).message })).finally(() => setBusy(false)); } }}>apagar chave</button>}
-      </div>
+      <LiveActions section dirty={dirty} busy={busy} msg={msg} saveLabel="Salvar IA" dirtyText="IA não salva"
+        onUndo={() => absorb(s)} onSave={() => void save()}
+        confirm={() => ({
+          title: 'Trocar a IA de todos os Companions?',
+          body: 'Vale para todas as conversas em até 30 s. Teste antes, se puder.',
+          lines: [
+            ...(provider !== s.provider ? [`Provedor: ${NAMES[s.provider] ?? s.provider} → ${NAMES[provider] ?? provider}`] : []),
+            ...(model !== s.model ? [`Modelo: ${s.model || 'padrão'} → ${model || 'padrão'}`] : []),
+            ...(modelHq !== s.modelHq ? [`Falas curtas: ${s.modelHq || 'igual'} → ${modelHq || 'igual'}`] : []),
+            ...(baseUrl !== s.baseUrl ? ['Endereço da API mudou'] : []),
+            ...(apiKey ? ['Chave nova'] : []),
+          ],
+          confirm: 'Salvar IA',
+        })}
+        extra={<>
+          <button className="ghost" disabled={busy} onClick={() => void runTest()}>{busy ? 'Aguarde…' : 'Testar'}</button>
+          {provider !== 'auto' && provider !== 'anthropic' && <button className="ghost" disabled={busy} onClick={() => void loadModels()}>Ver modelos</button>}
+          {s.provider !== 'auto' && keepsKey && <button className="ghost danger" disabled={busy} onClick={() => void ask({ title: 'Apagar a chave guardada?', body: 'A IA volta ao padrão do servidor (os segredos da função) na hora, para todos.', confirm: 'Apagar chave', danger: true }).then((ok) => { if (!ok) return; setBusy(true); call<AiState>('admin.ai.set', { provider: 'auto', clearKey: true }).then((r) => { absorb(r); setMsg({ ok: true, text: 'Voltou ao padrão do servidor.' }); }, (e) => setMsg({ text: (e as Error).message })).finally(() => setBusy(false)); })}>Apagar chave</button>}
+        </>} />
       {test && (
         <p className={'msg' + (test.ok ? ' ok' : ' err')} role="status">
           {test.ok ? <>Funcionou em {((test.ms ?? 0) / 1000).toFixed(1)} s ({NAMES[test.provider ?? ''] ?? test.provider}{test.model ? ` · ${test.model}` : ''}): “{test.sample}”{!sameAsSaved || apiKey ? ' — falta salvar.' : ''}</> : test.error}
         </p>
       )}
-      {msg && <p className={'msg' + (msg.ok ? ' ok' : ' err')}>{msg.text}</p>}
     </fieldset>
   );
 }

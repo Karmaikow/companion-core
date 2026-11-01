@@ -8,7 +8,7 @@ import {
   type BiomeAmbient, type BiomeKind, type ModelLook, type BiomeAsset, type BiomeAssetRole, type BiomeConfig, type BiomePalette, type BiomeZone,
 } from '@rules';
 import { supabase } from '../backend/online';
-import { ListSearch, StudioActions, matches, useAdminDirty } from './adminKit';
+import { EditorHead, ListSearch, StudioActions, ask, matches, useAdminDirty } from './adminKit';
 
 const BiomePreview = lazy(() => import('../scene/BiomePreview').then((m) => ({ default: m.BiomePreview })));
 
@@ -57,8 +57,8 @@ export function BiomeStudio() {
   }, []);
   useEffect(() => { void load(); }, [load]);
 
-  function pick(slug: string) {
-    if (dirty && !window.confirm('Há mudanças não salvas neste bioma. Trocar mesmo assim?')) return;
+  async function pick(slug: string) {
+    if (dirty && !(await ask({ title: 'Trocar sem salvar?', body: 'Há mudanças não salvas neste item. Se trocar agora, elas se perdem.', confirm: 'Trocar e descartar', cancel: 'Continuar editando', danger: true }))) return;
     const r = rows?.find((x) => x.slug === slug) ?? null;
     setSel(slug); setDraft(r ? structuredClone(r) : null); setDirty(false); setMsg(null);
   }
@@ -163,6 +163,7 @@ export function BiomeStudio() {
         <section className="biome-empty"><p>Escolha um bioma ou crie um novo. O bioma <b>refugio</b>, quando publicado, vira o cenário do Refúgio no jogo.</p></section>
       ) : (
         <section className="biome-editor">
+          <EditorHead name={draft.name} sub={(draft.settings.kind === 'refuge' ? 'Refúgio' : 'Região do mundo') + ' · ' + draft.slug + ' · ' + draft.assets.length + ' modelo(s)'} status={draft.status === 'published' ? 'published' : 'draft'} dirty={dirty} />
           <div className="biome-preview">
             <Suspense fallback={<div className="art-empty">Carregando prévia…</div>}>
               {preview && <BiomePreview biome={preview} daylight={daylight} seed={7} open={open || preview.settings.kind === 'world'} />}
@@ -227,8 +228,8 @@ export function BiomeStudio() {
                     <select value={a.zone} onChange={(e) => editAsset(a.id, { zone: e.target.value as BiomeZone })} aria-label="Zona">
                       {Object.entries(BIOME_ZONES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                     </select>
-                    <label title="Altura em metros (mín–máx)">Altura <input type="number" step={0.1} min={0.05} max={30} value={a.height[0]} onChange={(e) => editAsset(a.id, { height: [Number(e.target.value), a.height[1]] })} />–<input type="number" step={0.1} min={0.05} max={30} value={a.height[1]} onChange={(e) => editAsset(a.id, { height: [a.height[0], Number(e.target.value)] })} /> m</label>
-                    <label title="Quantas cópias (no celular cai pela metade)">Qtd <input type="number" min={0} max={600} value={a.count} onChange={(e) => editAsset(a.id, { count: Number(e.target.value) })} /></label>
+                    <label title="Altura em metros (mín–máx)">Altura <input type="number" step={0.1} min={0.05} max={30} aria-label={"Altura mínima de " + a.name} value={a.height[0]} onChange={(e) => editAsset(a.id, { height: [Number(e.target.value), a.height[1]] })} />–<input type="number" step={0.1} min={0.05} max={30} aria-label={"Altura máxima de " + a.name} value={a.height[1]} onChange={(e) => editAsset(a.id, { height: [a.height[0], Number(e.target.value)] })} /> m</label>
+                    <label title="Quantas cópias (no celular cai pela metade)">Qtd <input type="number" min={0} max={600} aria-label={"Quantidade de " + a.name} value={a.count} onChange={(e) => editAsset(a.id, { count: Number(e.target.value) })} /></label>
                     <label title="0 = parado, 0,35 = árvore, 1 = grama">Vento <input type="range" min={0} max={1.5} step={0.05} value={a.wind} onChange={(e) => editAsset(a.id, { wind: Number(e.target.value) })} /></label>
                     <button className={'link' + (a.look ? ' tinted' : '')} onClick={() => setLookOpen(lookOpen === a.id ? null : a.id)} aria-expanded={lookOpen === a.id}>
                       <i className="look-dot" style={{ background: a.look ? a.look.tint : 'transparent' }} />aparência

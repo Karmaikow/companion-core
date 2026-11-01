@@ -10,7 +10,7 @@ import { supabase } from '../backend/online';
 import { boneFor } from '../scene/Equipment';
 import { useCatalog, uploadWorldAsset, safeName } from './catalog';
 import { LookEditor } from './BiomeStudio';
-import { ListSearch, StudioActions, matches, useAdminDirty } from './adminKit';
+import { EditorHead, ListSearch, StudioActions, ask, matches, useAdminDirty } from './adminKit';
 
 import { useCompanionModels } from './companionModels';
 const ItemPreview = lazy(() => import('../scene/ItemPreview').then((m) => ({ default: m.ItemPreview })));
@@ -41,8 +41,8 @@ export function ArsenalStudio() {
   useAdminDirty(dirty);
 
   const run = async (f: () => Promise<unknown>, ok: string) => { setBusy(true); setMsg(null); try { await f(); setMsg({ ok: true, text: ok }); } catch (e) { setMsg({ text: (e as Error).message }); } finally { setBusy(false); } };
-  const pick = (slug: string) => {
-    if (dirty && !window.confirm('Há mudanças não salvas. Trocar mesmo assim?')) return;
+  const pick = async (slug: string) => {
+    if (dirty && !(await ask({ title: 'Trocar sem salvar?', body: 'Há mudanças não salvas neste item. Se trocar agora, elas se perdem.', confirm: 'Trocar e descartar', cancel: 'Continuar editando', danger: true }))) return;
     const r = cat.rows?.find((x) => x.slug === slug);
     setSel(slug); setDraft(r ? structuredClone(r.data) : null); setStatus(r?.status ?? 'draft'); setDirty(false); setMsg(null);
   };
@@ -103,7 +103,7 @@ export function ArsenalStudio() {
         {q.trim() && !found.length && <p className="empty">Nenhum item com “{q.trim()}”.</p>}
         {CATS.map((c) => byCat(c).length > 0 && (
           <div key={c} className="biome-group">
-            <h3>{ITEM_CATEGORIES[c].icon} {ITEM_CATEGORIES[c].label}</h3>
+            <h3>{ITEM_CATEGORIES[c].label}</h3>
             <ul>
               {byCat(c).map((r) => (
                 <li key={r.slug}><button className={sel === r.slug ? 'on' : ''} onClick={() => pick(r.slug)}>
@@ -117,12 +117,13 @@ export function ArsenalStudio() {
         <details className="list-extra">
           <summary>Sobre o Arsenal</summary>
           <small className="hint">Materiais e diversos caem dos monstros (o nome do drop no Invocador é o nome do item) e vêm da coleta; equipamentos e armas nascem na Forja (só Taurinas) — ou caem de monstro, se você puser no drop.</small>
-          {cat.rows && cat.rows.length > 0 && missing.length > 0 && <button className="ghost" disabled={busy} onClick={() => { if (window.confirm(`Adicionar e publicar ${missing.length} itens de exemplo (armadura, botas, capa, anel e materiais)?`)) void run(() => cat.saveMany(missing, 'published'), `${missing.length} itens de exemplo adicionados.`); }}>+ {missing.length} itens de exemplo novos</button>}
+          {cat.rows && cat.rows.length > 0 && missing.length > 0 && <button className="ghost" disabled={busy} onClick={() => void ask({ title: `Adicionar ${missing.length} itens de exemplo?`, body: 'Armadura, botas, capa, anel e materiais entram no catálogo já publicados.', confirm: 'Adicionar e publicar' }).then((ok) => { if (ok) void run(() => cat.saveMany(missing, 'published'), `${missing.length} itens de exemplo adicionados.`); })}>+ {missing.length} itens de exemplo novos</button>}
         </details>
       </aside>
 
       {!draft || !clean ? <section className="biome-empty"><p>Escolha um item ou crie um novo.</p></section> : (
         <section className="biome-editor">
+          <EditorHead name={draft.name} sub={`${ITEM_TYPES[draft.type].label} · ${RARITIES[draft.rarity].label}${draft.essence ? ' · ' + ELEMENTS[draft.essence].label : ''}`} color={RARITIES[draft.rarity].color} status={status} dirty={dirty} />
           <div className="biome-preview">
             <Suspense fallback={<div className="art-empty">Carregando prévia…</div>}><ItemPreview item={clean} charge={charge} body={trainerModel ? { url: trainerModel.url, companionId: trainerModel.companionId, swing, socket } : null} /></Suspense>
             <div className="preview-tools">
@@ -157,7 +158,6 @@ export function ArsenalStudio() {
               <label>Tipo<select value={draft.type} onChange={(e) => { const t = e.target.value as ItemType; edit({ type: t, grip: DEFAULT_GRIP, ...(draft.weight === ITEM_TYPES[draft.type].weight ? { weight: ITEM_TYPES[t].weight } : {}) }); }}>
                 {CATS.map((c) => <optgroup key={c} label={ITEM_CATEGORIES[c].label}>{typesOf(c).map((k) => <option key={k} value={k}>{ITEM_TYPES[k].label}{slotsFor(k).length ? ` (${slotsFor(k).map((x) => SLOTS_EQ[x].short).join(' ou ')})` : ''}</option>)}</optgroup>)}
               </select></label>
-              <label>Status<span className={'pill ' + status}>{status === 'published' ? 'Publicado' : 'Rascunho'}</span></label>
             </div>
             <label>Descrição<textarea rows={2} value={draft.description} onChange={(e) => edit({ description: e.target.value })} maxLength={200} /></label>
             <div className="row-3">
