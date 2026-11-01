@@ -153,12 +153,12 @@ export function handleCommand(text: string): Command | null {
     case 'stop': brain.order = null; say('order-stop', {}, { force: true }); break;
     case 'calm': brain.order = null; useSettingsPosture('pacifica'); say('order-calm', {}, { force: true }); break;
     case 'gather': {
-      // Ecos da Terra: no mundo, com corpo, ela coleta por intenção (abastecer) no Vale dos Ecos
+      // Ecos da Terra: no mundo, com corpo, ela coleta por intenção (abastecer) com o que estiver por perto
       const g = useGame.getState();
       if (g.backend?.ecos && g.snap?.companion?.stage === 'awakened' && brain.places.length) {
         const intent = intentFromCommand(cmd.what, cmd.count);
         useEcos.getState().startIntent(intent);
-        emitNow(`Deixa comigo! ${intent.target?.label ?? 'Coletar'}: ${cmd.count}. Vou pelo Vale dos Ecos.`);
+        emitNow(`Deixa comigo! ${intent.target?.label ?? 'Coletar'}: ${cmd.count}. Vou procurar por aqui.`);
       } else say('order-gather', { n: cmd.count }, { force: true });
       break;
     }

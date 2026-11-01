@@ -1,5 +1,5 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { canCompleteEquipment, masculinize, ELEMENTS, derivePalette, refugeFeatures, animKind, sanitizeBiome, sanitizeCreature, makeCompanionWorld, characterSheet, sanitizeItem, DEFAULT_ITEMS, isWearable, validateEquipped, equipmentBonus, equippedItems, ITEM_TYPES, sanitizeWeather, weatherAt, WEATHERS, DEFAULT_WEATHER, DEFAULT_BIOME_WEATHER, type ItemDef, type WeatherConfig, WORLD_SEED, REFUGE_BIOME, WORLD_FALLBACK_BIOMES, DEFAULT_CREATURES, type BiomeConfig, type CreatureDef, type WorldSite,
+import { canCompleteEquipment, masculinize, ELEMENTS, derivePalette, refugeFeatures, animKind, sanitizeBiome, sanitizeCreature, makeCompanionWorld, worldBiomeList, characterSheet, sanitizeItem, DEFAULT_ITEMS, isWearable, validateEquipped, equipmentBonus, equippedItems, ITEM_TYPES, sanitizeWeather, weatherAt, WEATHERS, DEFAULT_WEATHER, DEFAULT_BIOME_WEATHER, type ItemDef, type WeatherConfig, WORLD_SEED, DEFAULT_CREATURES, type BiomeConfig, type CreatureDef, type WorldSite,
   ASTER_GATE, DEFAULT_CITY_LAYOUT, OUT_ARRIVAL, OUT_GATE_ARRIVE, cityArrival, outskirtsGatePoint, sanitizeCityLayout, type CityLayout, type CityState } from '@rules';
 import { Refuge } from './scene/Refuge';
 import { WorldScene } from './scene/WorldScene';
@@ -50,7 +50,7 @@ import { supabase } from './backend/online';
 /** Menu lateral em grupos: o Companion, a jornada, a bolsa, os ofícios e os ajustes. A Forja só aparece para Taurinas. */
 const TAB_GROUPS: { label: string; tabs: { key: Tab; label: string }[] }[] = [
   { label: 'Companion', tabs: [{ key: 'chat', label: 'Conversa' }, { key: 'bond', label: 'Vínculo' }, { key: 'skills', label: 'Habilidades' }] },
-  { label: 'Jornada', tabs: [{ key: 'quests', label: 'Quests' }, { key: 'ecos', label: 'Vale dos Ecos' }, { key: 'diary', label: 'Diário' }, { key: 'memories', label: 'Memórias' }] },
+  { label: 'Jornada', tabs: [{ key: 'quests', label: 'Quests' }, { key: 'ecos', label: 'Coleta' }, { key: 'diary', label: 'Diário' }, { key: 'memories', label: 'Memórias' }] },
   { label: 'Bolsa', tabs: [{ key: 'inventory', label: 'Inventário' }, { key: 'recipes', label: 'Receitas' }] },
   { label: 'Ofícios', tabs: [{ key: 'pacto', label: 'Oficina' }, { key: 'forja', label: 'Forja Primordial' }] },
   { label: 'Mundo', tabs: [{ key: 'social', label: 'Amigos e grupo' }] },
@@ -189,12 +189,7 @@ export function App() {
   const toast = useGame((s) => s.toast);
   const companionWorld = useMemo(() => {
     // regiões: os biomas publicados com "aparece no mundo"; com poucos, entram as regiões de reserva
-    const list: BiomeConfig[] = [];
-    const add = (b: BiomeConfig) => { if (!list.some((x) => x.slug === b.slug)) list.push(b); };
-    add(worldBiomes.find((b) => b.slug === 'refugio') ?? REFUGE_BIOME);
-    worldBiomes.forEach(add);
-    if (list.length < 3) WORLD_FALLBACK_BIOMES.slice(1).forEach(add);
-    return makeCompanionWorld(WORLD_SEED, list);
+    return makeCompanionWorld(WORLD_SEED, worldBiomeList(worldBiomes));
   }, [worldBiomes]);
   // criaturas do Invocador (publicadas); sem nenhuma, as de reserva
   const [creatures, setCreatures] = useState<CreatureDef[]>(DEFAULT_CREATURES);
@@ -405,7 +400,7 @@ export function App() {
           {inAster && model ? (
             <AsterScene key={place + travelKey} map={place as 'arredores' | 'cidade'} layout={cityLayout} state={cityState} arrive={arrive} model={model} appendages={appendages} speed={built.moveSpeed} gear={gear} weather={weather} speech={bubble} burstKey={burst} quality={quality()} onTravel={asterTravel} onPlace={setAsterPlace} />
           ) : place === 'world' && model ? (
-            <WorldScene key={'w' + travelKey} start={worldStart} onAster={goAster} world={companionWorld} creatures={creatures} model={model} appendages={appendages} speed={built.moveSpeed} gear={gear} weather={weather} speech={bubble} burstKey={burst} color={visual.color} quality={quality()} discovered={discovered} explore={explore || groupExplore} onRegion={enterRegion} onDiscover={discover} onHome={goHome} />
+            <WorldScene key={'w' + travelKey} start={worldStart} onAster={goAster} world={companionWorld} creatures={creatures} model={model} appendages={appendages} speed={built.moveSpeed} gear={gear} weather={weather} weatherCfg={weatherCfg} speech={bubble} burstKey={burst} color={visual.color} quality={quality()} discovered={discovered} explore={explore || groupExplore} onRegion={enterRegion} onDiscover={discover} onHome={goHome} />
           ) : <Refuge color={visual.color} glow={visual.glow} element={d.element} energy={energy} pulseKey={pulse} burstKey={burst} features={passage && !features.window ? { ...features, window: true } : features} contract={c?.stage === 'awakened' ? c.identityContract : null} speech={bubble} model={model} seed={seed} biome={biome} quality={quality()} appendages={appendages} speed={built.moveSpeed} gear={gear} weather={weather} />}
         </Suspense>
         </SafeStage>

@@ -1,5 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+// um salgueiro do mundo aberto (os recursos nascem por chunk pelos biomas) posto no módulo do cliente
+async function willow() {
+  const R = await import('../rules/index');
+  const w = R.makeCompanionWorld(R.WORLD_SEED, R.worldBiomeList([]));
+  (await import('../../client/src/ecos/worldNodes')).setEcosWorld(w);
+  let n = null;
+  for (let r = 20; !n && r < 300; r += 20) n = R.nodesNear(w, 0, 0, r).find((x) => x.kind === 'salgueiro') ?? null;
+  return n!;
+}
+
 describe('Salgueiro: coleta local pelo fluxo existente do Core', () => {
   beforeEach(() => {
     vi.resetModules();
@@ -12,7 +22,8 @@ describe('Salgueiro: coleta local pelo fluxo existente do Core', () => {
 
   it('exige machado, respeita duração, entrega madeira uma vez e persiste a recuperação', async () => {
     let { localEcos, localHooks } = await import('../../client/src/ecos/localEcos');
-    const body = { node: 'salgueiro-baixo', approach: 'cortar', request: 'willow-cut', x: -6.4, z: 19 };
+    const n = await willow();
+    const body = { node: n.id, approach: 'cortar', request: 'willow-cut', x: n.x, z: n.z };
     await expect(localEcos('ecos.start', body)).rejects.toThrow('machado');
     localHooks.tools = () => ['machado'];
     const wear = vi.fn(); localHooks.wear = wear;
@@ -34,11 +45,12 @@ describe('Salgueiro: coleta local pelo fluxo existente do Core', () => {
     expect(wear).toHaveBeenCalledTimes(1);
     vi.resetModules();
     ({ localEcos, localHooks } = await import('../../client/src/ecos/localEcos'));
+    await willow();
     const restored = (await localEcos('ecos.state')).ecos!;
     expect(restored.bag.reduce((n, b) => n + b.qty, 0)).toBe(qty);
     expect(restored.nodes[body.node].amount).toBe(2);
-    const { abundanceNow, nodeById } = await import('../rules/index');
-    expect(abundanceNow(nodeById(body.node)!, restored.nodes[body.node], Date.now() + 2 * 3600000)).toBe(8);
+    const { abundanceNow } = await import('../rules/index');
+    expect(abundanceNow(n, restored.nodes[body.node], Date.now() + 2 * 3600000)).toBe(8);
   });
 
   it('recusa mochila cheia sem gastar o salgueiro nem o machado', async () => {
@@ -47,7 +59,8 @@ describe('Salgueiro: coleta local pelo fluxo existente do Core', () => {
     const wear = vi.fn(); localHooks.wear = wear;
     const { batchKey, DEFAULT_ECOS } = await import('../rules/index');
     localBag.apply([], [{ key: batchKey('madeira-salgueiro', {}), qty: DEFAULT_ECOS.bag }]);
-    const body = { node: 'salgueiro-baixo', approach: 'cortar', request: 'full-bag', x: -6.4, z: 19 };
+    const n = await willow();
+    const body = { node: n.id, approach: 'cortar', request: 'full-bag', x: n.x, z: n.z };
     const start = await localEcos('ecos.start', body);
     vi.advanceTimersByTime(start.started!.seconds * 1000 + 1);
     const result = await localEcos('ecos.finish', body);

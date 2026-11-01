@@ -86,7 +86,7 @@ export function ShopStudio() {
             <fieldset>
               <legend>Revenda</legend>
               <label>Quanto a loja paga pelo que ela mesma vende (% do preço)<input type="number" min={0} max={100} value={Math.round(cfg.sellRate * 100)} onChange={(e) => setCfg({ ...cfg, sellRate: Math.max(0, Math.min(100, Number(e.target.value) || 0)) / 100 })} /></label>
-              <small className="hint">Materiais do Vale e drops de monstro têm preço próprio (pela raridade e qualidade).</small>
+              <small className="hint">Materiais de coleta e drops de monstro têm preço próprio (pela raridade e qualidade).</small>
             </fieldset>
             <fieldset>
               <legend>Mercadão</legend>

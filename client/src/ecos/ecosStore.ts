@@ -7,15 +7,16 @@
 import { create } from 'zustand';
 import * as THREE from 'three';
 import {
-  MATERIALS, NODE_KINDS, VALE, NASCENTE, nodeById, approachOf, nodeName, parseBatchKey, abundanceNow, atLeast, perceivedNodes, suggestGather, SEIVA_AZUL,
-  cluesFor, nextStep, CATEGORIES, BAND_LABEL, PROP_LABEL, superiorBlockFor, type SpeciesKey,
-  type GatheringIntent, type ResourceNode, type MaterialBatch, type Suggestion, type EnvironmentalClue, type GatherKind, type ResCategory, type PropKey, type Band,
+  MATERIALS, NODE_KINDS, approachOf, nodeName, parseBatchKey, abundanceNow, atLeast, suggestGather, SEIVA_AZUL, PERCEPTION_R,
+  CATEGORIES, BAND_LABEL, PROP_LABEL, superiorBlockFor, type SpeciesKey,
+  type GatheringIntent, type ResourceNode, type MaterialBatch, type Suggestion, type GatherKind, type ResCategory, type PropKey, type Band,
   pulseTimes, gradeOf, COMPANION_TUNE, TUNE_PULSES, type TuneGrade, type TuneResult,
 } from '@rules';
 import { useGame } from '../store';
 import { companionFocus, moveRequest } from '../scene/world';
 import type { EcosReply, EcosView } from './types';
 import { playMaterialSound } from './sounds';
+import { findNode, availableNear, isAvailable } from './worldNodes';
 
 export type RunPhase = 'andando' | 'coletando' | 'confirmando' | 'concluido' | 'interrompido' | 'erro';
 export interface Run { node: string; approach: string; request: string; phase: RunPhase; seconds: number; started: number; by: 'pessoa' | 'companion'; message?: string; inspect?: boolean;
@@ -40,7 +41,8 @@ interface EcosStore {
   intent: GatheringIntent | null;
   auto: { on: boolean; got: number; actions: number; last: string | null } ;
   choiceOpen: boolean;
-  inVale: boolean;
+  /** no Companion World (onde os recursos nascem) */
+  inWorld: boolean;
   /** afinação automática (sem o desafio de ritmo): conta como três "bom" */
   autoTune: boolean;
   setAutoTune(v: boolean): void;
@@ -57,16 +59,15 @@ interface EcosStore {
   setObjective(o: Objective | null): void;
   startIntent(i: GatheringIntent): void;
   stopIntent(why?: string): void;
-  setInVale(v: boolean): void;
+  setInWorld(v: boolean): void;
 }
 
 const NET_ERR = /não respondeu|failed to fetch|network|conex/i;
 const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-8xxx-xxxxxxxxxxxx'.replace(/x/g, () => ((Math.random() * 16) | 0).toString(16)));
-let nextAttempt = 0, lastReach = 0, lastSuggest = '', myMove = -1, walkCheck = { at: 0, d: Infinity, tries: 0 };
+let nextAttempt = 0, lastSuggest = '', myMove = -1, walkCheck = { at: 0, d: Infinity, tries: 0 };
 
 export const bagBatches = (v: EcosView | null): MaterialBatch[] => (v?.bag ?? []).map((b) => { const p = parseBatchKey(b.key); return p && b.qty > 0 ? { key: b.key, qty: b.qty, ...p } : null; }).filter((x): x is MaterialBatch => !!x);
 export const bagUsedOf = (v: EcosView | null) => (v?.bag ?? []).reduce((a, b) => a + Math.max(0, b.qty), 0);
-export const bridgeDone = (v: EcosView | null) => (v?.project.stage ?? 0) >= 2;
 export const matchesObjective = (o: Objective['match'], b: { material: string; bands: Partial<Record<PropKey, Band>> }) => {
   const m = MATERIALS[b.material];
   if (!m) return false;
@@ -81,23 +82,10 @@ export const batchLabel = (key: string) => {
   return `${CATEGORIES[m.category].icon} ${m.name}${props ? ` (${props})` : ''}`;
 };
 
-/** O que a Companion sabe agora (nós por perto ou já vistos — nunca o que está escondido). */
+/** O que a Companion enxerga agora: os recursos à vista por perto (nunca o que está escondido pelo horário ou clima). */
 export function knownNow(v: EcosView | null) {
   const me = { x: companionFocus.x, z: companionFocus.z };
-  return perceivedNodes([me], v?.profile.seen ?? [], bridgeDone(v)).map((node) => ({ node, st: v?.nodes[node.id] ?? null, dist: Math.hypot(node.x - me.x, node.z - me.z) }));
-}
-/** Nó que vale investigar (indício visível da descoberta). */
-export function clueNode(v: EcosView | null): string | null {
-  const st = v?.profile.chain[SEIVA_AZUL.id] ?? null;
-  if (st?.completedAt) return null;
-  const s = nextStep(SEIVA_AZUL, st);
-  if (!s) return null;
-  const visible = cluesFor(SEIVA_AZUL, st, (id, r) => { const n = nodeById(id); return !!n && Math.hypot(n.x - companionFocus.x, n.z - companionFocus.z) <= r; });
-  return visible.length && s.trigger.node ? s.trigger.node : null;
-}
-export function visibleClues(v: EcosView | null): EnvironmentalClue[] {
-  const st = v?.profile.chain[SEIVA_AZUL.id] ?? null;
-  return cluesFor(SEIVA_AZUL, st, (id, r) => { const n = nodeById(id); return !!n && (v?.profile.seen.includes(id) || Math.hypot(n.x - companionFocus.x, n.z - companionFocus.z) <= r); });
+  return availableNear(me.x, me.z, PERCEPTION_R).map((node) => ({ node, st: v?.nodes[node.id] ?? null, dist: Math.hypot(node.x - me.x, node.z - me.z) }));
 }
 /** Classe efetiva (do Pacto) para saber quais fontes superiores o Companion pode extrair. */
 export const classSource = { get: (): SpeciesKey | SpeciesKey[] | null => null };
@@ -105,7 +93,7 @@ export function suggestionsNow(v: EcosView | null, intent: GatheringIntent): Sug
   const cls = classSource.get();
   return suggestGather(intent, {
     known: knownNow(v).filter(({ node }) => node.kind !== 'salgueiro' || amountOf(v, node) >= 6), bagFree: (v?.config.bag ?? 60) - bagUsedOf(v), tools: v?.profile.tools ?? [], knownMaterials: v?.profile.knownMaterials ?? [],
-    clueNode: clueNode(v), now: Date.now(),
+    clueNode: null, now: Date.now(),
   }).map((s) => { const b = superiorBlockFor(s.node.id, cls); return b && !s.blocked ? { ...s, blocked: b } : s; });
 }
 
@@ -131,7 +119,7 @@ const toast = (text: string, tone: 'soft' | 'gold' | 'warn' = 'soft') => useGame
 
 export const useEcos = create<EcosStore>((set, get) => ({
   view: null, conn: 'ok', error: null, selected: null, run: null, recent: [], journal: [], objective: null, intent: null,
-  auto: { on: false, got: 0, actions: 0, last: null }, choiceOpen: false, inVale: false,
+  auto: { on: false, got: 0, actions: 0, last: null }, choiceOpen: false, inWorld: false,
   autoTune: (() => { try { return localStorage.getItem('ecos.autoTune') === '1'; } catch { return false; } })(),
 
   async call(action, body = {}) {
@@ -173,11 +161,12 @@ export const useEcos = create<EcosStore>((set, get) => ({
     return gradeOf(tune[best]);
   },
   setObjective(o) { set({ objective: o }); },
-  setInVale(v) { if (v !== get().inVale) { set({ inVale: v }); if (v && !get().view) void get().refresh(); } },
+  setInWorld(v) { if (v !== get().inWorld) { set({ inWorld: v }); if (v && !get().view) void get().refresh(); } },
 
   gather(node, approach, by = 'pessoa') {
-    const n = nodeById(node), ap = n && approachOf(n, approach);
+    const n = findNode(node), ap = n && approachOf(n, approach);
     if (!n || !ap) return;
+    if (!isAvailable(n)) { toast(n.time === 'noite' ? 'Esse recurso só aparece de noite.' : 'Esse recurso sumiu por agora.', 'warn'); return; }
     if (n.kind === 'salgueiro' && amountOf(get().view, n) < 6) { toast('O salgueiro está se recuperando.', 'warn'); return; }
     if (get().run && !['concluido', 'interrompido', 'erro'].includes(get().run!.phase)) get().cancel('trocou de ação');
     if (by === 'pessoa' && get().auto.on) get().stopIntent('você assumiu o controle');
@@ -186,7 +175,7 @@ export const useEcos = create<EcosStore>((set, get) => ({
     walkCheck.tries = 0; walkTo(n);
   },
   inspect(node) {
-    const n = nodeById(node); if (!n) return;
+    const n = findNode(node); if (!n) return;
     if (get().run && !['concluido', 'interrompido', 'erro'].includes(get().run!.phase)) get().cancel('trocou de ação');
     set({ run: { node, approach: 'observar', request: uuid(), phase: 'andando', seconds: 2, started: 0, by: 'pessoa', inspect: true }, selected: null });
     walkCheck.tries = 0; walkTo(n);
@@ -202,14 +191,9 @@ export const useEcos = create<EcosStore>((set, get) => ({
   tick() {
     const s = get(), r = s.run, v = s.view;
     const now = performance.now();
-    // descoberta: chegar perto da nascente (etapa 3)
-    if (v && !v.profile.chain[SEIVA_AZUL.id]?.completedAt && (v.profile.chain[SEIVA_AZUL.id]?.step ?? 0) === 2 && now - lastReach > 2000 && Math.hypot(companionFocus.x - NASCENTE.x, companionFocus.z - NASCENTE.z) < 3.6) {
-      lastReach = now; void s.call('ecos.reach', { x: companionFocus.x, z: companionFocus.z }).catch(() => null);
-    }
-    if (v && (v.profile.chain[SEIVA_AZUL.id]?.step ?? 0) >= 3 && !v.profile.chain[SEIVA_AZUL.id]?.completedAt && !s.choiceOpen && Math.hypot(companionFocus.x - NASCENTE.x, companionFocus.z - NASCENTE.z) < 4) set({ choiceOpen: true });
-
     if (r) {
-      const n = nodeById(r.node)!;
+      const n = findNode(r.node);
+      if (!n) { get().cancel('o recurso ficou para trás'); return; }
       const dist = Math.hypot(companionFocus.x - n.x, companionFocus.z - n.z);
       const reach = (v?.config.reach ?? 4.5) - 0.6;
       if (r.phase === 'andando') {
@@ -281,7 +265,7 @@ async function start(r: Run) {
     const cur = S.getState().run;
     if (!cur || cur.request !== r.request || cur.phase === 'interrompido') return;
     if (!res?.started) { nextAttempt = performance.now() + 3000; S.setState({ run: { ...cur, phase: 'andando' } }); return; }
-    const k = NODE_KINDS[nodeById(r.node)!.kind];
+    const k = NODE_KINDS[findNode(r.node)?.kind ?? 'erva'];
     playMaterialSound(k.category);
     S.setState({ run: { ...cur, phase: 'coletando', started: Date.now(), seconds: res.started.seconds } });
   } catch (e) {
@@ -305,8 +289,8 @@ async function finish(r: Run) {
     work.on = false;
     if (cur?.request === r.request) S.setState({ run: { ...cur, phase: g.ok ? 'concluido' : 'erro', message: g.ok ? undefined : g.message ?? undefined, result: g.tune } });
     if (g.ok) {
-      const n = nodeById(r.node)!;
-      playMaterialSound(NODE_KINDS[n.kind].category, true);
+      const n = findNode(r.node);
+      if (n) playMaterialSound(NODE_KINDS[n.kind].category, true);
       const at = Date.now();
       S.setState({ recent: [...g.items.map((i) => ({ ...i, at })), ...S.getState().recent].slice(0, 12) });
       const st = S.getState();
@@ -330,7 +314,8 @@ async function doInspect(r: Run) {
     work.on = false;
     const cur = S.getState().run;
     if (cur?.request === r.request) S.setState({ run: { ...cur, phase: 'concluido' } });
-    if (res && !res.clue) say(`${nodeName(nodeById(r.node)!)}: ${NODE_KINDS[nodeById(r.node)!.kind].sign}`);
+    const n = findNode(r.node);
+    if (res && n) say(`${nodeName(n)}: ${NODE_KINDS[n.kind].sign}`);
   } catch (e) {
     work.on = false;
     const cur = S.getState().run;
@@ -349,11 +334,10 @@ function autoStep() {
   const list = suggestionsNow(v, i);
   const best = list.find((x) => !x.blocked);
   if (!best) {
-    // nada conhecido serve: anda um pouco pelo vale para enxergar mais (sem saber o que tem lá)
-    const seen = knownNow(v).length, all = 14;
-    if (seen < all && st.auto.actions < 30 && Math.hypot(companionFocus.x - VALE.x, companionFocus.z - VALE.z) < VALE.r + 10) {
-      const a = Math.random() * Math.PI * 2, r = 4 + Math.random() * 8;
-      moveRequest.point.set(VALE.x + Math.cos(a) * r, 0, VALE.z + Math.sin(a) * r); moveRequest.id++; myMove = moveRequest.id;
+    // nada conhecido serve: anda um pouco para enxergar mais (sem saber o que tem lá)
+    if (st.auto.actions < 30) {
+      const a = Math.random() * Math.PI * 2, r = 8 + Math.random() * 10;
+      moveRequest.point.set(companionFocus.x + Math.cos(a) * r, 0, companionFocus.z + Math.sin(a) * r); moveRequest.id++; myMove = moveRequest.id;
       if (lastSuggest !== 'procurando') { lastSuggest = 'procurando'; say('Não vejo nada disso por aqui… vou procurar um pouco.'); }
       nextAttempt = performance.now() + 4000;
       S.setState({ auto: { ...st.auto, actions: st.auto.actions + 1 } });

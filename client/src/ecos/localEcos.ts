@@ -4,11 +4,12 @@
  * itens negociáveis localmente). Serve para jogar sem conta e para testar a interface.
  */
 import { scoreTune, cleanTune, COMPANION_TUNE,
-  NODE_KINDS, NASCENTE, nodeById, approachOf, rollGather, parseBatchKey, abundanceNow, DEFAULT_ECOS, SEIVA_AZUL, CHAINS, stepSatisfied,
+  NODE_KINDS, NASCENTE, approachOf, rollGather, parseBatchKey, abundanceNow, DEFAULT_ECOS, SEIVA_AZUL, CHAINS, stepSatisfied,
   chainReward, JARDIM, siteStoredNow, recipeById, checkCraft, PONTE, needFits, scaledNeed, acceptContribution, stageComplete, STARTER_TOOLS,
   type MaterialBatch, type ToolKey,
 } from '@rules';
 import type { ChainView, EcosReply, EcosView } from './types';
+import { findNode, isAvailable } from './worldNodes';
 
 const KEY = 'companion-core:ecos-local:v1';
 interface Save {
@@ -65,9 +66,9 @@ export async function localEcos(action: string, b: Record<string, unknown> = {})
     switch (action) {
       case 'ecos.state': return { ecos: view(s) };
       case 'ecos.start': {
-        const node = nodeById(String(b.node)), ap = node && approachOf(node, String(b.approach));
+        const node = findNode(String(b.node)), ap = node && approachOf(node, String(b.approach));
         if (!node || !ap) throw new Fail('Recurso inexistente.');
-        if (node.needs === 'ponte' && s.project.stage < 2) throw new Fail('Do outro lado do riacho — precisa da ponte.');
+        if (!isAvailable(node)) throw new Fail('Esse recurso sumiu por agora.');
         if (Math.hypot(Number(b.x) - node.x, Number(b.z) - node.z) > cfg.reach) throw new Fail('Longe demais: chegue mais perto do recurso.');
         const block = localHooks.superior(node.id); if (block) throw new Fail(block);
         if (ap.tool && !localHooks.tools().includes(ap.tool)) throw new Fail(`Precisa de uma ferramenta (${ap.tool}) — só Taurinas forjam ferramentas: peça uma no quadro de encomendas.`);
@@ -78,7 +79,7 @@ export async function localEcos(action: string, b: Record<string, unknown> = {})
       }
       case 'ecos.finish': {
         const req = String(b.request), a = s.actions[req];
-        const node = nodeById(String(b.node)), ap = node && approachOf(node, String(b.approach));
+        const node = findNode(String(b.node)), ap = node && approachOf(node, String(b.approach));
         if (!a || !node || !ap) return { gather: { ok: false, reason: 'nao-iniciada', message: 'Essa coleta não foi começada. Tente de novo.', wait: null, items: [], repeat: false }, ecos: view(s) };
         if (a.status !== 'running') return { gather: { ...(a.result as EcosReply['gather'])!, repeat: true }, ecos: view(s) };
         if ((now - a.startedAt) / 1000 < ap.seconds * cfg.timeSlack) return { gather: { ok: false, reason: 'cedo', message: 'Ainda está coletando…', wait: ap.seconds * cfg.timeSlack - (now - a.startedAt) / 1000, items: [], repeat: false } };
@@ -91,21 +92,17 @@ export async function localEcos(action: string, b: Record<string, unknown> = {})
         else {
           s.nodes[node.id] = { amount: Math.min(k.capacity, cur) - ap.cost, at: now };
           add(s, items, 1);
-          if (!s.seen.includes(node.id)) s.seen.push(node.id);
           for (const it of items) { const m = it.key.split('|')[0]; if (!s.known.includes(m)) s.known.push(m); }
           res = { ok: true, reason: null, message: null, wait: null, items, repeat: false, tune };
         }
         if (res.ok && ap.tool) localHooks.wear(ap.tool);
         a.status = res.ok ? 'done' : 'rejected'; a.result = res as unknown as Record<string, unknown>;
-        const clue = res.ok ? advance(s, { node: node.id, approach: ap.id }) : null;
         save();
-        return { gather: res, clue, ecos: view(s) };
+        return { gather: res, clue: null, ecos: view(s) };
       }
       case 'ecos.inspect': {
-        const node = nodeById(String(b.node)); if (!node) throw new Fail('Recurso inexistente.');
-        if (!s.seen.includes(node.id)) s.seen.push(node.id);
-        const clue = advance(s, { node: node.id, inspect: true }); save();
-        return { clue, ecos: view(s) };
+        if (!findNode(String(b.node))) throw new Fail('Recurso inexistente.');
+        return { clue: null, ecos: view(s) };
       }
       case 'ecos.reach': {
         const clue = advance(s, { x: Number(b.x), z: Number(b.z) }); if (clue) save();

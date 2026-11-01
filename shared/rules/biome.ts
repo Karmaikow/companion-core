@@ -5,7 +5,8 @@
  */
 
 import { sanitizeLook, type ModelLook } from './look.ts';
-import { DEFAULT_BIOME_WEATHER, sanitizeWeights, type WeatherKind } from './weather.ts';
+import { DEFAULT_BIOME_WEATHER, sanitizeWeights, WEATHERS, type WeatherKind } from './weather.ts';
+import { NODE_KINDS } from './ecos.ts';
 
 export type BiomeAssetRole = 'tree' | 'rock' | 'grass' | 'plant' | 'landmark' | 'prop';
 export type BiomeZone = 'inside' | 'edge' | 'outside' | 'anywhere';
@@ -37,6 +38,55 @@ export interface BiomePalette {
   sky: string; fog: string; skyNight: string; fogNight: string;
 }
 
+/**
+ * Recursos de coleta (Ecos da Terra) de uma região do mundo: o que nasce, quanto, quando e onde. Os recursos nascem
+ * por chunk (shared/rules/ecosWorld.ts), como as criaturas.
+ */
+export type ResourceTime = 'sempre' | 'dia' | 'noite';
+export type ResourceTerrain = 'qualquer' | 'mata' | 'aberto';
+export const RESOURCE_TIMES: Record<ResourceTime, string> = { sempre: 'Sempre', dia: 'Só de dia', noite: 'Só de noite' };
+export const RESOURCE_TERRAINS: Record<ResourceTerrain, string> = { qualquer: 'Qualquer lugar', mata: 'Mata fechada', aberto: 'Campo aberto' };
+export interface BiomeResource {
+  kind: string;               // tipo de recurso (NODE_KINDS)
+  density: number;            // quantos por chunk de 16 m, em média (0,25 = um a cada 4 chunks)
+  time: ResourceTime;
+  weather: WeatherKind[];     // vazio = qualquer clima
+  terrain: ResourceTerrain;
+}
+export const RESOURCE_MAX_DENSITY = 3;
+/** Tabela padrão (bioma sem tabela própria): o básico em toda parte, as fontes superiores raras. */
+export const DEFAULT_BIOME_RESOURCES: BiomeResource[] = [
+  { kind: 'erva', density: 0.45, time: 'sempre', weather: [], terrain: 'qualquer' },
+  { kind: 'carvalho', density: 0.3, time: 'sempre', weather: [], terrain: 'mata' },
+  { kind: 'salgueiro', density: 0.22, time: 'sempre', weather: [], terrain: 'aberto' },
+  { kind: 'granito', density: 0.22, time: 'sempre', weather: [], terrain: 'qualquer' },
+  { kind: 'cascalho', density: 0.16, time: 'sempre', weather: [], terrain: 'aberto' },
+  { kind: 'cobre', density: 0.08, time: 'sempre', weather: [], terrain: 'qualquer' },
+  { kind: 'geodo', density: 0.04, time: 'sempre', weather: [], terrain: 'qualquer' },
+  { kind: 'salgueiro-antigo', density: 0.02, time: 'sempre', weather: [], terrain: 'mata' },
+  { kind: 'liquen-dos-ventos', density: 0.02, time: 'sempre', weather: [], terrain: 'aberto' },
+  { kind: 'remanso-profundo', density: 0.03, time: 'sempre', weather: ['chuva', 'tempestade'], terrain: 'qualquer' },
+  { kind: 'pedra-inscrita', density: 0.025, time: 'noite', weather: [], terrain: 'qualquer' },
+];
+/** Tabela de um bioma: a dele (até 24 linhas, um tipo por linha) ou null para usar a padrão. */
+export function sanitizeBiomeResources(v: unknown): BiomeResource[] | undefined {
+  if (!Array.isArray(v)) return undefined;
+  const out: BiomeResource[] = [];
+  for (const raw of v.slice(0, 24)) {
+    const r = (raw ?? {}) as Partial<BiomeResource>;
+    if (typeof r.kind !== 'string' || !(r.kind in NODE_KINDS) || out.some((o) => o.kind === r.kind)) continue;
+    out.push({
+      kind: r.kind,
+      density: Math.round(clampN(r.density, 0, RESOURCE_MAX_DENSITY, 0.2) * 1000) / 1000,
+      time: r.time === 'dia' || r.time === 'noite' ? r.time : 'sempre',
+      weather: Array.isArray(r.weather) ? [...new Set(r.weather.filter((w): w is WeatherKind => typeof w === 'string' && w in WEATHERS))] : [],
+      terrain: r.terrain === 'mata' || r.terrain === 'aberto' ? r.terrain : 'qualquer',
+    });
+  }
+  return out;
+}
+export const biomeResources = (b: BiomeConfig): BiomeResource[] => b.settings.resources ?? DEFAULT_BIOME_RESOURCES;
+
 export interface BiomeConfig {
   slug: string;
   name: string;
@@ -55,6 +105,8 @@ export interface BiomeConfig {
     weather: Record<WeatherKind, number>;
     /** relevo da região no mundo aberto: 0 = plano, 1 = colinas, 2 = morros */
     hills: number;
+    /** recursos de coleta desta região (ausente = tabela padrão) */
+    resources?: BiomeResource[];
   };
   assets: BiomeAsset[];
 }
@@ -146,6 +198,7 @@ export function sanitizeBiome(input: unknown): BiomeConfig {
         ambient: (st.ambient && st.ambient in BIOME_AMBIENTS ? st.ambient : kind === 'refuge' ? 'fireflies' : 'none') as BiomeAmbient,
         fog: clampN(st.fog, 1, 2, 1), hills: clampN(st.hills, 0, 2, 1),
         weather: sanitizeWeights(st.weather, DEFAULT_BIOME_WEATHER),
+        ...(Array.isArray(st.resources) ? { resources: sanitizeBiomeResources(st.resources) } : {}),
       };
     })(),
     assets,

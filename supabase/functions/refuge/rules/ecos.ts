@@ -324,6 +324,12 @@ export const VALE_NODES: ResourceNode[] = [
   { id: 'erva-leste-2', kind: 'erva', x: 9.5, z: 29.5, needs: 'ponte', name: 'Erva da Margem Leste' },
 ];
 export const nodeById = (id: string) => VALE_NODES.find((n) => n.id === id) ?? null;
+/** Tipo de um recurso pelo id: do mundo aberto ("erva@3,-2#1", ecosWorld.ts) ou do vale antigo. */
+export function nodeKindOf(id: string): string | null {
+  const m = /^([a-z][a-z-]{1,40})@-?\d/.exec(id);
+  if (m) return m[1] in NODE_KINDS ? m[1] : null;
+  return nodeById(id)?.kind ?? null;
+}
 export const nodeName = (n: ResourceNode) => n.name ?? NODE_KINDS[n.kind].name;
 export function approachOf(node: ResourceNode, approachId: string): Approach | null {
   return NODE_KINDS[node.kind]?.approaches.find((a) => a.id === approachId) ?? null;

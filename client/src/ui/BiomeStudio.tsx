@@ -1,11 +1,14 @@
 /**
  * Estúdio de Biomas (painel do ADM): cores do chão, pedras e céu + modelos .GLB com papel, zona, tamanho,
- * quantidade e vento. A prévia 3D usa o mesmo código do jogo. O bioma "refugio", publicado, é o que o Refúgio usa.
+ * quantidade e vento, e (nas regiões do mundo) a tabela de recursos de coleta. A prévia 3D usa o mesmo código do jogo.
+ * O bioma "refugio", publicado, é o que o Refúgio usa (e a região do portal no mundo).
  */
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   BIOME_ROLES, BIOME_ZONES, BIOME_AMBIENTS, DEFAULT_PALETTE, REFUGE_BIOME, LOOK_PRESETS, LOOK_ORIGINAL, biomeSlug, sanitizeBiome,
+  DEFAULT_BIOME_RESOURCES, RESOURCE_TIMES, RESOURCE_TERRAINS, RESOURCE_MAX_DENSITY, NODE_KINDS, CATEGORIES, WEATHERS, WEATHER_KINDS, CHUNK,
   type BiomeAmbient, type BiomeKind, type ModelLook, type BiomeAsset, type BiomeAssetRole, type BiomeConfig, type BiomePalette, type BiomeZone,
+  type BiomeResource, type ResourceTime, type ResourceTerrain,
 } from '@rules';
 import { supabase } from '../backend/online';
 import { EditorHead, ListSearch, StudioActions, ask, matches, useAdminDirty } from './adminKit';
@@ -215,6 +218,10 @@ export function BiomeStudio() {
               </label>
             </fieldset>
 
+            {(draft.settings.kind === 'world' || draft.slug === 'refugio') && (
+              <ResourceTable value={draft.settings.resources} onChange={(resources) => edit({ settings: { ...draft.settings, resources } })} />
+            )}
+
             <fieldset>
               <legend>Modelos ({draft.assets.length})</legend>
               {!draft.assets.length && <p className="empty">Nenhum modelo. Envie os .GLB do bioma: árvores, pedras, gramas, plantas e um marco do lugar.</p>}
@@ -252,6 +259,60 @@ export function BiomeStudio() {
         </section>
       )}
     </div>
+  );
+}
+
+/** em média, quantos recursos numa área de 100 m × 100 m (a densidade é por chunk de 16 m) */
+const perHectare = (d: number) => d * (10_000 / (CHUNK * CHUNK));
+
+/**
+ * Recursos de coleta da região (Ecos da Terra): o que nasce, quanto, quando e onde. Sem tabela própria a região usa a
+ * padrão (o básico em toda parte, as fontes superiores raras).
+ */
+function ResourceTable({ value, onChange }: { value: BiomeResource[] | undefined; onChange: (v: BiomeResource[] | undefined) => void }) {
+  const rows = value ?? DEFAULT_BIOME_RESOURCES;
+  const custom = !!value;
+  const set = (i: number, patch: Partial<BiomeResource>) => onChange(rows.map((r, k) => (k === i ? { ...r, ...patch } : r)));
+  const free = Object.keys(NODE_KINDS).filter((k) => !rows.some((r) => r.kind === k));
+  return (
+    <fieldset>
+      <legend>Recursos de coleta ({rows.length})</legend>
+      <p className="hint">
+        {custom ? 'Tabela própria desta região.' : 'Usando a tabela padrão (o básico em toda parte, as fontes superiores raras). Mexer em qualquer linha cria uma tabela própria.'}
+        {' '}Os recursos nascem espalhados pela região, longe das trilhas e dos marcos. Densidade = quantos por chunk de {CHUNK} m.
+      </p>
+      <div className="asset-table">
+        {rows.map((r, i) => {
+          const k = NODE_KINDS[r.kind];
+          return (
+            <div key={r.kind} className="asset-row">
+              <select className="asset-name" value={r.kind} onChange={(e) => set(i, { kind: e.target.value })} aria-label="Recurso">
+                {[r.kind, ...free].map((id) => <option key={id} value={id}>{CATEGORIES[NODE_KINDS[id].category].icon} {NODE_KINDS[id].name}{NODE_KINDS[id].source ? ' (superior)' : ''}</option>)}
+              </select>
+              <label title={`Por chunk de ${CHUNK} m. Hoje: ~${perHectare(r.density).toFixed(1)} em 100 × 100 m`}>Densidade <input type="number" step={0.01} min={0} max={RESOURCE_MAX_DENSITY} aria-label={'Densidade de ' + k.name} value={r.density} onChange={(e) => set(i, { density: Math.max(0, Math.min(RESOURCE_MAX_DENSITY, Number(e.target.value) || 0)) })} /> <small>~{perHectare(r.density).toFixed(1)}/ha</small></label>
+              <select value={r.time} onChange={(e) => set(i, { time: e.target.value as ResourceTime })} aria-label={'Horário de ' + k.name}>
+                {Object.entries(RESOURCE_TIMES).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              </select>
+              <select value={r.terrain} onChange={(e) => set(i, { terrain: e.target.value as ResourceTerrain })} aria-label={'Terreno de ' + k.name}>
+                {Object.entries(RESOURCE_TERRAINS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              </select>
+              <span className="res-weather" role="group" aria-label={'Clima em que ' + k.name + ' aparece'}>
+                {WEATHER_KINDS.map((w) => {
+                  const on = r.weather.includes(w);
+                  return <button key={w} type="button" className={'chip' + (on ? ' on' : '')} aria-pressed={on} title={WEATHERS[w].label} onClick={() => set(i, { weather: on ? r.weather.filter((x) => x !== w) : [...r.weather, w] })}>{WEATHERS[w].icon}</button>;
+                })}
+                <small>{r.weather.length ? '' : 'qualquer clima'}</small>
+              </span>
+              <button className="link" onClick={() => onChange(rows.filter((_, k2) => k2 !== i))}>tirar</button>
+            </div>
+          );
+        })}
+      </div>
+      <div className="row">
+        {free.length > 0 && <button className="ghost" onClick={() => onChange([...rows, { kind: free[0], density: 0.1, time: 'sempre', weather: [], terrain: 'qualquer' }])}>+ Recurso</button>}
+        {custom && <button className="link" onClick={() => onChange(undefined)}>voltar à tabela padrão</button>}
+      </div>
+    </fieldset>
   );
 }
 

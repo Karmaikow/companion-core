@@ -2,7 +2,9 @@
 // e grava tudo por funções SQL atômicas e idempotentes (request_id). A IA não participa: só as regras de shared/rules.
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import {
-  NODE_KINDS, VALE_NODES, NASCENTE, nodeById, approachOf, rollGather, cleanRequestId, parseBatchKey, resolveEcos, abundanceNow, scoreTune, cleanTune, COMPANION_TUNE,
+  NODE_KINDS, NASCENTE, approachOf, rollGather, cleanRequestId, parseBatchKey, scoreTune, cleanTune, COMPANION_TUNE,
+  makeCompanionWorld, worldBiomeList, WORLD_SEED, sanitizeBiome, sanitizeWeather, DEFAULT_WEATHER, worldNodeById, nodeAvailable, nodeEnvAt,
+  type CompanionWorld, type WeatherConfig, type WorldNode,
   SEIVA_AZUL, CHAINS, stepSatisfied, chainReward, JARDIM, siteStoredNow, recipeById, checkCraft, PONTE, needFits, scaledNeed, levelForXp,
   type EcosConfig, type MaterialBatch, type ChainChoice, type GameConfig, type Discoveries, type ToolKey,
   type PactoConfig,
@@ -31,6 +33,35 @@ const REASON: Record<string, string> = {
 export const reasonText = (r: string | undefined) => (r && REASON[r]) || 'Não deu certo.';
 
 
+// ---------------------------------------------------------------------------
+// Mundo: os recursos nascem pelos biomas publicados (shared/rules/ecosWorld.ts); o servidor monta o mesmo mundo do
+// cliente para reencontrar o recurso pelo id (posição, horário e clima). Guardado por 1 min.
+// ---------------------------------------------------------------------------
+
+let worldCache: { at: number; w: CompanionWorld; weather: WeatherConfig } | null = null;
+async function worldNow(db: SupabaseClient) {
+  if (worldCache && Date.now() - worldCache.at < 60_000) return worldCache;
+  const [bs, gc] = await Promise.all([
+    db.from('biomes').select('slug,name,description,palette,settings,assets,status').eq('status', 'published'),
+    db.from('game_config').select('values').eq('id', 1).maybeSingle(),
+  ]);
+  const w = makeCompanionWorld(WORLD_SEED, worldBiomeList((bs.data ?? []).map(sanitizeBiome)));
+  const wv = (gc.data?.values as { weather?: unknown } | null)?.weather;
+  worldCache = { at: Date.now(), w, weather: wv ? sanitizeWeather(wv) : DEFAULT_WEATHER };
+  return worldCache;
+}
+async function findNode(db: SupabaseClient, id: unknown): Promise<WorldNode> {
+  const n = typeof id === 'string' ? worldNodeById((await worldNow(db)).w, id) : null;
+  if (!n) throw new EcosError(400, 'Recurso inexistente.');
+  return n;
+}
+/** some fora do horário ou do clima dele (só confere ao começar: quem já começou termina) */
+async function assertAvailable(db: SupabaseClient, n: WorldNode) {
+  const { w, weather } = await worldNow(db);
+  if (nodeAvailable(n, nodeEnvAt(w, Date.now(), weather))) return;
+  throw new EcosError(409, n.time === 'noite' ? 'Esse recurso só aparece de noite.' : n.time === 'dia' ? 'Esse recurso só aparece de dia.' : 'Esse recurso só aparece com outro clima.');
+}
+
 async function rpc<T = Record<string, unknown>>(db: SupabaseClient, fn: string, args: Record<string, unknown>): Promise<T> {
   const { data, error } = await db.rpc(fn, args);
   if (error) throw new EcosError(500, 'Falha no servidor (' + fn + ').');
@@ -47,7 +78,7 @@ export async function ecosState(db: SupabaseClient, cid: string, ecfg: EcosConfi
   const [prof, bag, nodes, sites, proj, mine] = await Promise.all([
     db.from('ecos_profile').select('tools,seen,known_materials,techniques,chain').eq('companion_id', cid).maybeSingle(),
     db.from('ecos_bag').select('batch_key,qty').eq('companion_id', cid),
-    db.from('ecos_nodes').select('node_id,amount,at').eq('companion_id', cid),
+    db.from('ecos_nodes').select('node_id,amount,at').eq('companion_id', cid).gt('at', new Date(Date.now() - 2 * 86_400_000).toISOString()),
     db.from('ecos_sites').select('site_id,stored,at,cared_at,created_at').eq('companion_id', cid),
     db.from('ecos_projects').select('project_id,stage,progress,started_at,completed_at').eq('project_id', PONTE.id).maybeSingle(),
     db.from('ecos_contributions').select('stage,need,qty').eq('companion_id', cid).eq('project_id', PONTE.id),
@@ -88,11 +119,6 @@ const pos = (b: Record<string, unknown>) => {
   return { x, z };
 };
 
-async function bridgeDone(db: SupabaseClient) {
-  const { data } = await db.from('ecos_projects').select('stage').eq('project_id', PONTE.id).maybeSingle();
-  return ((data?.stage as number) ?? 0) >= 2; // o tabuado (etapa 2) já permite atravessar
-}
-
 async function advanceChain(ctx: Ctx, act: { node?: string; approach?: string; inspect?: boolean; x?: number; z?: number }) {
   const { data } = await ctx.db.from('ecos_profile').select('chain').eq('companion_id', ctx.c.id).maybeSingle();
   const st = ((data?.chain as Record<string, unknown>)?.[SEIVA_AZUL.id] ?? null) as { step: number; completedAt?: string } | null;
@@ -131,9 +157,9 @@ export async function ecosAction(action: string, body: Record<string, unknown>, 
 
   if (action === 'ecos.start') {
     const request = cleanRequestId(body.request); if (!request) throw new EcosError(400, 'Pedido inválido.');
-    const node = nodeById(String(body.node)); if (!node) throw new EcosError(400, 'Recurso inexistente.');
+    const node = await findNode(db, body.node);
     const ap = approachOf(node, String(body.approach)); if (!ap) throw new EcosError(400, 'Abordagem inexistente.');
-    if (node.needs === 'ponte' && !(await bridgeDone(db))) throw new EcosError(409, 'Do outro lado do riacho — precisa da ponte.');
+    await assertAvailable(db, node);
     const p = pos(body);
     if (Math.hypot(p.x - node.x, p.z - node.z) > ecfg.reach) throw new EcosError(409, 'Longe demais: chegue mais perto do recurso.');
     const block = superiorBlock(node.id, (await classInfo(db, c, ctx.admin)).forms);
@@ -146,7 +172,7 @@ export async function ecosAction(action: string, body: Record<string, unknown>, 
 
   if (action === 'ecos.finish') {
     const request = cleanRequestId(body.request); if (!request) throw new EcosError(400, 'Pedido inválido.');
-    const node = nodeById(String(body.node)); if (!node) throw new EcosError(400, 'Recurso inexistente.');
+    const node = await findNode(db, body.node);
     const ap = approachOf(node, String(body.approach)); if (!ap) throw new EcosError(400, 'Abordagem inexistente.');
     const kind = NODE_KINDS[node.kind];
     const block = superiorBlock(node.id, (await classInfo(db, c, ctx.admin)).forms);
@@ -161,21 +187,15 @@ export async function ecosAction(action: string, body: Record<string, unknown>, 
     let clue = null;
     if (r.ok && !r.repeat) {
       if (ap.tool) await wearTool(db, cid, ap.tool);
-      clue = await advanceChain(ctx, { node: node.id, approach: ap.id });
     }
     return { gather: { ok: r.ok, reason: r.reason ?? null, message: r.ok ? null : reasonText(r.reason), wait: r.wait ?? null, items: r.ok ? r.items : [], repeat: !!r.repeat, tune }, clue, ecos: await ecosState(db, cid, ecfg) };
   }
 
   if (action === 'ecos.inspect') {
-    const node = nodeById(String(body.node)); if (!node) throw new EcosError(400, 'Recurso inexistente.');
+    const node = await findNode(db, body.node);
     const p = pos(body);
     if (Math.hypot(p.x - node.x, p.z - node.z) > ecfg.reach + 2) throw new EcosError(409, 'Chegue mais perto para observar.');
-    await db.from('ecos_profile').upsert({ companion_id: cid }, { onConflict: 'companion_id', ignoreDuplicates: true });
-    const { data } = await db.from('ecos_profile').select('seen').eq('companion_id', cid).maybeSingle();
-    const seen = new Set((data?.seen as string[] | undefined) ?? []); seen.add(node.id);
-    await db.from('ecos_profile').update({ seen: [...seen] }).eq('companion_id', cid);
-    const clue = await advanceChain(ctx, { node: node.id, inspect: true });
-    return { clue, ecos: await ecosState(db, cid, ecfg) };
+    return { clue: null, ecos: await ecosState(db, cid, ecfg) };
   }
 
   if (action === 'ecos.reach') {
@@ -288,7 +308,3 @@ export async function ecosAction(action: string, body: Record<string, unknown>, 
 
   throw new EcosError(404, 'Ação desconhecida.');
 }
-
-/** Para testes e para a interface: o nó existe e a abundância agora. */
-export const nodeAbundance = (nodeId: string, st: { amount: number; at: number } | null) => { const n = nodeById(nodeId); return n ? abundanceNow(n, st, Date.now()) : 0; };
-export { VALE_NODES };

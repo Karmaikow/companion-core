@@ -2,7 +2,7 @@
  * Escolas de Áster: o modal que abre quando o Companion chega à porta de uma escola (marcador "escola" do Estúdio
  * da Cidade). Matrícula, e a bancada de cada uma:
  *  - Escola da Forja (Taurinas): a Forja Primordial, encomendas e reforja — o único lugar onde se forja;
- *  - Escola do Veneno (Natureza ou Água): poções e comidas com as plantas do Vale, e as técnicas de veneno.
+ *  - Escola do Veneno (Natureza ou Água): poções e comidas com as plantas coletadas, e as técnicas de veneno.
  * As regras ficam em shared/rules/escolas.ts; o servidor confere tudo.
  */
 import { SkillIcon } from './SkillIcon';
@@ -63,7 +63,7 @@ export function SchoolPanel() {
             <div className="school-join">
               <p className="hint">{open.school === 'forja'
                 ? 'A Escola da Forja é o único lugar onde equipamentos são forjados, reforjados e encomendas são aceitas.'
-                : 'A Escola do Veneno ensina a preparar poções e comidas com as plantas do Vale, e as técnicas Cuspe Tóxico e Névoa Venenosa.'}</p>
+                : 'A Escola do Veneno ensina a preparar poções e comidas com as plantas coletadas, e as técnicas Cuspe Tóxico e Névoa Venenosa.'}</p>
               <button className="primary" disabled={!!busy} onClick={join}>Matricular-se</button>
             </div>
           )
@@ -120,7 +120,7 @@ function PoisonSchool({ view, busy, setMsg }: { view: PactoView; busy: boolean; 
       <div className="shop-list">
         {tab === 'bancada' ? (
           <>
-            <p className="hint">Usa as plantas da mochila do Vale (as de maior potência primeiro). Se todas tiverem potência alta, sai uma a mais por preparo. O que você prepara vai para a bolsa.</p>
+            <p className="hint">Usa as plantas da mochila de coleta (as de maior potência primeiro). Se todas tiverem potência alta, sai uma a mais por preparo. O que você prepara vai para a bolsa.</p>
             {BREWS.map((r) => {
               const g = goodById(r.good)!, n = times[r.id] ?? 1;
               const chk = brewCheck(r, n, bag);

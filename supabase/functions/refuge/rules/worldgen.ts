@@ -10,8 +10,7 @@
  * - Marcos: cada região tem uma pedra-guia com nome, para descobrir.
  * - Vegetação: por chunk de CHUNK metros, densidade tirada do próprio bioma (a quantidade da clareira ÷ a área da zona).
  */
-import { type BiomeAsset, type BiomeConfig, type BiomeZone } from './biome.ts';
-import { valeWeight, valeHeight, insideVale } from './ecos.ts';
+import { REFUGE_BIOME, WORLD_FALLBACK_BIOMES, type BiomeAsset, type BiomeConfig, type BiomeZone } from './biome.ts';
 
 export const REGION = 90;      // tamanho da célula de cada região (m)
 export const CHUNK = 16;       // chunk de vegetação (m)
@@ -157,9 +156,6 @@ export function makeCompanionWorld(seed: number, biomesIn: BiomeConfig[]): Compa
     // morros que fecham o mundo
     const r = Math.max(Math.abs(x), Math.abs(z));
     y += smooth(WORLD_R - 25, WORLD_R + 5, r) * (14 + fbm(x * 0.05, z * 0.05, 82) * 8);
-    // Vale dos Ecos (bosque, riacho e afloramento): relevo próprio, misturado na borda
-    const wv = valeWeight(x, z);
-    if (wv > 0) y = y * (1 - wv) + valeHeight(x, z) * wv;
     return y;
   };
 
@@ -177,7 +173,7 @@ export function makeCompanionWorld(seed: number, biomesIn: BiomeConfig[]): Compa
     const present = new Set<number>();
     for (const [u, v] of [[0.5, 0.5], [0, 0], [1, 0], [0, 1], [1, 1]]) present.add(regionAt(x0 + u * CHUNK, z0 + v * CHUNK).site.biome);
     const blocked = (x: number, z: number, h: RegionHit) =>
-      dirtAt(x, z) > 0.35 || Math.hypot(x - h.site.x, z - h.site.z) < (h.site.home || h.site.gate ? PORTAL_R - 1 : 3.2) || Math.max(Math.abs(x), Math.abs(z)) > WORLD_R - 12 || insideVale(x, z, 1);
+      dirtAt(x, z) > 0.35 || Math.hypot(x - h.site.x, z - h.site.z) < (h.site.home || h.site.gate ? PORTAL_R - 1 : 3.2) || Math.max(Math.abs(x), Math.abs(z)) > WORLD_R - 12;
     for (const bi of present) {
       const b = biomes[bi];
       const layers: { id: string; role: string; zone: BiomeZone; count: number }[] = b.assets.map((a: BiomeAsset) => ({ id: a.id, role: a.role, zone: a.zone, count: a.count }));
@@ -204,6 +200,19 @@ export function makeCompanionWorld(seed: number, biomesIn: BiomeConfig[]): Compa
   };
 
   return { seed: S, biomes, sites, roads, siteAt, regionAt, heightAt, dirtAt, forestAt, noise: (x, z) => fbm(x, z, 0), chunkSpots };
+}
+
+/**
+ * Regiões do mundo a partir dos biomas publicados (já saneados): o refugio é a região do portal; os outros entram em
+ * ordem de slug (cliente e servidor montam o mesmo mundo); com poucos, entram as regiões de reserva.
+ */
+export function worldBiomeList(published: BiomeConfig[]): BiomeConfig[] {
+  const list: BiomeConfig[] = [];
+  const add = (b: BiomeConfig) => { if (!list.some((x) => x.slug === b.slug)) list.push(b); };
+  add(published.find((b) => b.slug === 'refugio') ?? REFUGE_BIOME);
+  [...published].filter((b) => b.settings.world).sort((a, b) => (a.slug < b.slug ? -1 : a.slug > b.slug ? 1 : 0)).forEach(add);
+  if (list.length < 3) WORLD_FALLBACK_BIOMES.slice(1).forEach(add);
+  return list;
 }
 
 /** Seed do mundo compartilhado (todo mundo anda no mesmo Companion World). */

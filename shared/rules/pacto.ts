@@ -19,7 +19,7 @@
 import { companionElement, type Element } from './identity.ts';
 import type { SpeciesKey, AttrKey } from './species.ts';
 import type { ItemType, Rarity } from './equipment.ts';
-import { MATERIALS, parseBatchKey, bandRank, atLeast, nodeById, NODE_KINDS, type Band, type PropKey, type ResCategory, type MaterialBatch, type ToolKey } from './ecos.ts';
+import { MATERIALS, parseBatchKey, bandRank, atLeast, nodeKindOf, NODE_KINDS, type Band, type PropKey, type ResCategory, type MaterialBatch, type ToolKey } from './ecos.ts';
 
 // ---------------------------------------------------------------------------
 // Ofícios de Origem
@@ -97,7 +97,7 @@ export function canExtractSuperior(cls: Forms, source: SourceKind): boolean {
 }
 /** Mensagem de bloqueio de uma fonte superior para esta classe (null = pode extrair ou é fonte básica). */
 export function superiorBlockFor(nodeId: string, cls: Forms): string | null {
-  const n = nodeById(nodeId); const src = n ? (NODE_KINDS[n.kind].source as SourceKind | undefined) : undefined;
+  const k = nodeKindOf(nodeId); const src = k ? (NODE_KINDS[k].source as SourceKind | undefined) : undefined;
   if (!src || canExtractSuperior(cls, src)) return null;
   const who = SOURCE_CLASS[src];
   return `Fonte superior (${SOURCE_LABEL[src]}): só ${CLASS_LABEL[who]} extrai daqui.${canCompleteEquipment(cls) ? ' Você pode localizar e anunciar a oportunidade no quadro do Pacto.' : ''}`;

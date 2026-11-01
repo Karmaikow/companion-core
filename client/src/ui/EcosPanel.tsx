@@ -1,25 +1,25 @@
 /**
- * Painel "Vale dos Ecos" (Jornada; Ecos da Terra): o vale (objetivo, mapa, indícios e recursos por perto), a mochila, receitas, a obra comunitária, o diário de descobertas e o jardim, e o
- * que pedir à Companion (intenção, objetivo, risco, espaço reservado, ferramentas e preferência de ambiente).
+ * Painel "Coleta" (Jornada; Ecos da Terra): objetivo e recursos por perto, a mochila, receitas e o que pedir à
+ * Companion (intenção, objetivo, risco, espaço reservado, ferramentas e preferência de ambiente). Os recursos nascem
+ * por todo o Companion World, pela tabela de cada bioma.
  */
 import { useEffect, useMemo, useState } from 'react';
 import {
-  MATERIALS, CATEGORIES, RECIPES, PONTE, JARDIM, SEIVA_AZUL, TOOLS, PROP_LABEL, BAND_LABEL, slotFit, autoPick, needFits, scaledNeed, batchQuality, siteStoredNow,
+  MATERIALS, CATEGORIES, RECIPES, TOOLS, PROP_LABEL, BAND_LABEL, slotFit, autoPick, batchQuality,
   type ResCategory, type GatheringIntent, type IntentMode, type Zone, type ToolKey,
 } from '@rules';
 import { useEcos, bagBatches, bagUsedOf, batchLabel, suggestionsNow } from '../ecos/ecosStore';
-import { NearbyList, MiniMap, CluesList, ObjectiveSummary } from './EcosHud';
-import { companionFocus } from '../scene/world';
+import { NearbyList, ObjectiveSummary } from './EcosHud';
 import { useGame } from '../store';
 
-type Sub = 'vale' | 'mochila' | 'receitas' | 'obra' | 'diario' | 'mayuna';
-const SUBS: [Sub, string][] = [['vale', 'Vale'], ['mochila', 'Mochila'], ['receitas', 'Receitas'], ['obra', 'Obra'], ['diario', 'Diário'], ['mayuna', 'Pedir']];
+type Sub = 'perto' | 'mochila' | 'receitas' | 'mayuna';
+const SUBS: [Sub, string][] = [['perto', 'Por perto'], ['mochila', 'Mochila'], ['receitas', 'Receitas'], ['mayuna', 'Pedir']];
 const rid = () => crypto.randomUUID();
 
 export function EcosPanel() {
   const view = useEcos((s) => s.view), error = useEcos((s) => s.error);
   const stage = useGame((s) => s.snap?.companion?.stage);
-  const [sub, setSub] = useState<Sub>('vale');
+  const [sub, setSub] = useState<Sub>('perto');
   useEffect(() => { if (stage === 'awakened') void useEcos.getState().refresh(); }, [stage]);
   if (stage !== 'awakened') return <p className="empty">As expedições começam depois do despertar, quando ela ganha um corpo.</p>;
   return (
@@ -31,18 +31,15 @@ export function EcosPanel() {
       {error && <p className="ecos-error" role="alert">{error}</p>}
       {!view ? <p className="hint">Carregando a expedição…</p> : (
         <>
-          {sub === 'vale' && (
+          {sub === 'perto' && (
             <div className="ecos-vale">
               <ObjectiveSummary />
-              <div className="ecos-vale-map"><MiniMap /><div><b>Indícios</b><CluesList /></div></div>
               <b>Recursos por perto</b>
               <NearbyList />
             </div>
           )}
           {sub === 'mochila' && <Bag />}
           {sub === 'receitas' && <Recipes />}
-          {sub === 'obra' && <Project />}
-          {sub === 'diario' && <Journal />}
           {sub === 'mayuna' && <Ask />}
         </>
       )}
@@ -118,88 +115,12 @@ function Recipes() {
   );
 }
 
-function Project() {
-  const view = useEcos((s) => s.view)!;
-  const p = view.project, bag = bagBatches(view);
-  const stage = PONTE.stages[p.stage];
-  const capOpen = Date.now() - p.startedAt >= view.config.capHours * 3_600_000;
-  const [qty, setQty] = useState<Record<string, number>>({});
-  const [msg, setMsg] = useState<string | null>(null);
-  return (
-    <div className="ecos-project">
-      <h4>🌉 {PONTE.name}</h4>
-      <p className="hint">{PONTE.description} Obra compartilhada por todas as pessoas do servidor{view.simulated ? ' (offline: só neste aparelho)' : ''}.</p>
-      <ol className="stages">
-        {PONTE.stages.map((s, i) => <li key={s.id} className={i < p.stage ? 'done' : i === p.stage ? 'now' : ''}><b>{s.title}</b> {i < p.stage ? '✓ ' + s.done : i === p.stage ? '— em andamento' : ''}</li>)}
-      </ol>
-      {p.completedAt || !stage ? <p className="ecos-ok">Ponte pronta! {PONTE.completion}</p> : (
-        <>
-          {msg && <p className="ecos-ok" role="status">{msg}</p>}
-          {stage.needs.map((n, i) => {
-            const goal = p.goals[i] ?? scaledNeed(n, view.config.projectScale), have = p.progress[i] ?? 0;
-            const mine = bag.filter((b) => needFits(PONTE, p.stage, i, b));
-            return (
-              <section key={i} className="need">
-                <b>{n.label}: {have}/{goal}</b>
-                <div className="bar"><i style={{ width: `${Math.min(100, (have / goal) * 100)}%` }} /></div>
-                {mine.length ? mine.map((b) => (
-                  <div key={b.key} className="bag-row">
-                    <span>{b.qty}× {batchLabel(b.key)}</span>
-                    <input type="number" min={1} max={b.qty} value={qty[b.key] ?? Math.min(b.qty, goal - have)} onChange={(e) => setQty({ ...qty, [b.key]: Math.max(1, Math.min(b.qty, Number(e.target.value) || 1)) })} aria-label={`Quantidade de ${batchLabel(b.key)}`} />
-                    <button type="button" className="primary" disabled={have >= goal} onClick={async () => {
-                      const q = qty[b.key] ?? Math.min(b.qty, goal - have);
-                      try { const r = await useEcos.getState().call('ecos.contribute', { request: rid(), stage: p.stage, need: i, key: b.key, qty: q }); if (r?.contributed) { setMsg(`Entregue: ${r.contributed.accepted}${r.contributed.accepted < r.contributed.requested ? ` de ${r.contributed.requested} (o resto ficou na mochila)` : ''}.${r.contributed.stageDone ? ' Etapa concluída!' : ''}`); if (r.contributed.stageDone) useGame.getState().celebrate({ kind: 'quest', eyebrow: 'Obra comunitária', title: stage.title + ' pronta', subtitle: stage.done }); } } catch (e) { setMsg(e instanceof Error ? e.message : 'Não deu.'); }
-                    }}>Entregar</button>
-                  </div>
-                )) : <p className="hint">Nada na mochila serve aqui. <button type="button" className="link" onClick={() => useEcos.getState().setObjective({ label: n.label, qty: Math.max(1, goal - have), match: { category: n.category, materials: n.materials, prop: n.prop, min: n.min }, source: 'obra' })}>buscar</button></p>}
-              </section>
-            );
-          })}
-          <p className="hint">Sua parte nesta etapa: {p.mine}{capOpen ? ' (sem limite: a etapa está aberta há tempo)' : ` de no máximo ${p.capTotal} — para todo mundo poder ajudar; o limite some depois de ${view.config.capHours} h`}. No total você já entregou {p.mineTotal}.</p>
-          <p className="hint">Ao terminar: {PONTE.completion}</p>
-        </>
-      )}
-    </div>
-  );
-}
-
-function Journal() {
-  const view = useEcos((s) => s.view)!, journal = useEcos((s) => s.journal);
-  const chain = view.profile.chain[SEIVA_AZUL.id];
-  const site = view.sites.find((s) => s.id === JARDIM.id);
-  const near = Math.hypot(companionFocus.x + 6, companionFocus.z - 50.5) < 9;
-  return (
-    <div className="ecos-journal">
-      <h4>{SEIVA_AZUL.title}</h4>
-      <ol className="stages">
-        {SEIVA_AZUL.steps.map((s, i) => <li key={s.id} className={(chain?.step ?? 0) > i ? 'done' : (chain?.step ?? 0) === i ? 'now' : ''}><b>{s.title}</b> {(chain?.step ?? 0) > i ? '✓ ' + s.evidence.text : (chain?.step ?? 0) === i && i > 0 ? '— ' + s.lead.text : ''}</li>)}
-      </ol>
-      {chain?.completedAt && <p className="ecos-ok">Concluída: você escolheu {chain.choice === 'preservar' ? 'preservar a nascente' : 'extrair os cristais'}.</p>}
-      {!chain && <p className="hint">Opcional: nada muda na coleta comum se você ignorar.</p>}
-      {site && (
-        <section className="ecos-site">
-          <h4>🌱 {JARDIM.name}</h4>
-          <p>Pronto para colher: <b>{Math.floor(siteStoredNow(JARDIM, site, Date.now()))}</b>/{JARDIM.capacity} raízes excelentes{site.caredAt && Date.now() < site.caredAt + JARDIM.careHours * 3_600_000 ? ' · cuidado hoje (cresce mais rápido)' : ''}.</p>
-          <p className="hint">{JARDIM.access}</p>
-          <div className="row">
-            <button type="button" className="primary" disabled={!near} onClick={() => void useEcos.getState().call('ecos.site.harvest', { request: rid(), x: companionFocus.x, z: companionFocus.z }).catch(() => null)}>Colher</button>
-            <button type="button" className="ghost" disabled={!near} onClick={() => void useEcos.getState().call('ecos.site.care', { x: companionFocus.x, z: companionFocus.z }).catch(() => null)}>Cuidar (opcional)</button>
-          </div>
-          {!near && <small className="hint">Vá até a nascente para colher ou cuidar.</small>}
-        </section>
-      )}
-      <h4>Diário</h4>
-      {journal.length ? <ul>{journal.map((j, i) => <li key={i}>{j.text}</li>)}</ul> : <p className="hint">As descobertas desta expedição aparecem aqui.</p>}
-    </div>
-  );
-}
-
 const PRESETS: { label: string; intent: GatheringIntent }[] = [
   { label: 'Madeira flexível para o arco (3)', intent: { mode: 'selecionar', target: { category: 'madeira', prop: 'flexibilidade', min: 'media', qty: 3, label: 'Madeira flexível para o arco' }, risk: 0, reserve: 5, tools: [], prefer: 'bosque', gentle: true } },
-  { label: 'Pedra resistente para a ponte (10)', intent: { mode: 'abastecer', target: { category: 'pedra', prop: 'resistencia', min: 'media', qty: 10, label: 'Pedra resistente para a ponte' }, risk: 1, reserve: 5, tools: [], prefer: 'afloramento', gentle: false } },
+  { label: 'Pedra resistente (10)', intent: { mode: 'abastecer', target: { category: 'pedra', prop: 'resistencia', min: 'media', qty: 10, label: 'Pedra resistente' }, risk: 1, reserve: 5, tools: [], prefer: 'afloramento', gentle: false } },
   { label: 'Cobre puro para o cinzel (2)', intent: { mode: 'selecionar', target: { category: 'minerio', material: 'minerio-cobre', prop: 'pureza', min: 'media', qty: 2, label: 'Cobre puro' }, risk: 1, reserve: 5, tools: [], prefer: 'afloramento', gentle: false } },
   { label: 'Ervas estáveis (6)', intent: { mode: 'abastecer', target: { category: 'planta', prop: 'estabilidade', min: 'media', qty: 6, label: 'Ervas estáveis' }, risk: 0, reserve: 5, tools: [], prefer: 'riacho', gentle: true } },
-  { label: 'Explorar e investigar pistas', intent: { mode: 'explorar', target: null, risk: 1, reserve: 5, tools: [], prefer: null, gentle: true } },
+  { label: 'Explorar e conhecer materiais', intent: { mode: 'explorar', target: null, risk: 1, reserve: 5, tools: [], prefer: null, gentle: true } },
 ];
 
 function Ask() {
@@ -227,11 +148,11 @@ function Ask() {
         <div className="chips">{view.profile.tools.map((t) => { const on = !i.tools.length || i.tools.includes(t); return <button key={t} type="button" className={'chip' + (on ? ' on' : '')} aria-pressed={on} onClick={() => { const all = i.tools.length ? i.tools : view.profile.tools; set({ tools: on ? all.filter((x) => x !== t) : [...all, t] }); }}>{TOOLS[t].icon} {TOOLS[t].label}</button>; })}</div>
       </fieldset>
       <fieldset className="set-row"><legend>Ambiente preferido</legend>
-        <div className="chips">{([[null, 'Tanto faz'], ['bosque', 'Bosque'], ['riacho', 'Riacho'], ['afloramento', 'Afloramento']] as [Zone | null, string][]).map(([z, l]) => <button key={l} type="button" className={'chip' + (i.prefer === z ? ' on' : '')} aria-pressed={i.prefer === z} onClick={() => set({ prefer: z })}>{l}</button>)}</div>
+        <div className="chips">{([[null, 'Tanto faz'], ['bosque', 'Árvores'], ['riacho', 'Ervas e seixos'], ['afloramento', 'Pedras e minérios']] as [Zone | null, string][]).map(([z, l]) => <button key={l} type="button" className={'chip' + (i.prefer === z ? ' on' : '')} aria-pressed={i.prefer === z} onClick={() => set({ prefer: z })}>{l}</button>)}</div>
         <label className="row"><input type="checkbox" checked={i.gentle} onChange={(e) => set({ gentle: e.target.checked })} /> Evitar o que esgota o lugar (cortar árvores, arrancar raízes)</label>
       </fieldset>
       <h4>O que ela faria agora</h4>
-      {sugg.length ? <ol className="ecos-sugglist">{sugg.map((s) => <li key={s.node.id + s.approach.id} className={s.blocked ? 'blocked' : ''}>{s.blocked ? `${s.approach.label} no ${s.node.name ?? s.node.kind}: ${s.blocked}` : s.reason}</li>)}</ol> : <p className="hint">Ela ainda não vê nada útil por perto — vai procurar pelo vale.</p>}
+      {sugg.length ? <ol className="ecos-sugglist">{sugg.map((s) => <li key={s.node.id + s.approach.id} className={s.blocked ? 'blocked' : ''}>{s.blocked ? `${s.approach.label} no ${s.node.name ?? s.node.kind}: ${s.blocked}` : s.reason}</li>)}</ol> : <p className="hint">Ela ainda não vê nada útil por perto — vai andar um pouco procurando.</p>}
       <div className="row">
         {auto.on ? <button type="button" className="primary" onClick={() => useEcos.getState().stopIntent('você pediu')}>Parar</button>
           : <button type="button" className="primary" onClick={() => useEcos.getState().startIntent(i)}>Pode ir!</button>}

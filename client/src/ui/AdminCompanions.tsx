@@ -139,7 +139,7 @@ function CompanionDetail({ id, jobs, renderJob, onClose }: { id: string; jobs: J
             <div className="adm-big"><span><small>Materiais</small><b>{d.gathering.totalItems}</b></span><span><small>Pilhas</small><b>{d.gathering.stacks}</b></span><span><small>Lumes</small><b>{d.pacto.lumes}</b></span></div>
             {d.gathering.bag.length ? (
               <ul className="adm-bag">{d.gathering.bag.slice(0, 30).map((b) => <li key={b.batch_key}><span>{keyLabel(b.batch_key)}</span><b>{b.qty}</b></li>)}</ul>
-            ) : <p className="empty">Mochila vazia (a coleta acontece no Vale dos Ecos).</p>}
+            ) : <p className="empty">Mochila vazia (a coleta acontece pelo Companion World).</p>}
             <small>Ferramentas: {d.gathering.tools.join(', ') || 'nenhuma'} · materiais conhecidos: {d.gathering.knownMaterials} · técnicas: {d.gathering.techniques.join(', ') || '—'}</small>
             <small>Peças forjadas: {d.pacto.equipment.length ? d.pacto.equipment.map((e) => `${e.blueprint} (${e.durability}/${e.max_durability})`).join(', ') : 'nenhuma'}{d.pacto.testClass ? ` · classe de teste: ${d.pacto.testClass}` : ''}</small>
           </article>

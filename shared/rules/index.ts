@@ -31,6 +31,7 @@ export * from './barks.ts';
 export * from './ecos.ts';
 export * from './ecosPlay.ts';
 export * from './ecosTune.ts';
+export * from './ecosWorld.ts';
 export * from './pacto.ts';
 export * from './shop.ts';
 export * from './escolas.ts';

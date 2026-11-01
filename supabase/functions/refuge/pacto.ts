@@ -3,7 +3,7 @@
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import {
   SPECIES, OFFICES, CLASS_LABEL, canCompleteEquipment, transformationById, checkTransformation, blueprintById, forgePreview, resolvePacto, coreCost,
-  meetsRequirements, cancelSettlement, payout, recycleReturn, REPAIR_KIT_AMOUNT, parseComponentKey, COMPONENTS, cleanRequestId, nodeById, NODE_KINDS,
+  meetsRequirements, cancelSettlement, payout, recycleReturn, REPAIR_KIT_AMOUNT, parseComponentKey, COMPONENTS, cleanRequestId, nodeKindOf, NODE_KINDS,
   superiorBlockFor, lineageOf, officesOf, LINEAGE_LIMITS, COMPANION_ELEMENTS, cleanSchools, studiesAt, companionElement, type PactoConfig, type ForgePlan, type SpeciesKey, type Element, type IdentityContractV1, type Discoveries,
   type OrderRequirements, type EcosConfig, type Conduct, type Temper,
 } from './rules/index.ts';
@@ -382,7 +382,7 @@ export async function pactoAction(action: string, body: Record<string, unknown>,
     const text = typeof body.text === 'string' ? body.text.trim().slice(0, 200) : '';
     const kind = body.kind === 'servico' ? 'servico' : 'oportunidade';
     if (!text) throw new PactoError(400, 'Escreva o anúncio.');
-    const node = typeof body.node === 'string' && nodeById(body.node) ? body.node : null;
+    const node = typeof body.node === 'string' && nodeKindOf(body.node) ? body.node : null;
     const { count } = await db.from('pacto_board').select('id', { count: 'exact', head: true }).eq('companion_id', cid).gt('expires_at', new Date().toISOString());
     if ((count ?? 0) >= 5) throw new PactoError(429, 'Você já tem 5 anúncios ativos.');
     await db.from('pacto_board').insert({ id: crypto.randomUUID(), companion_id: cid, kind, text, node_id: node, expires_at: new Date(Date.now() + 72 * 3_600_000).toISOString() });

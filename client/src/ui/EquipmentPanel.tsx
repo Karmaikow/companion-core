@@ -76,7 +76,7 @@ export function EquipmentPanel() {
     for (const f of carry.forged) out.push({ key: f.slug, label: f.name, icon: TYPE_ICON[f.type], qty: 1, unitWeight: itemWeight(f), category: categoryOf(f.type), item: f, entry: null, rarity: f.rarity, essence: f.essence, description: f.description });
     // peças de evento ou do modo de teste que não estão na bolsa
     for (const it of items) if (isWearable(it.type) && !out.some((r) => r.key === it.slug) && ownsItem(it.slug)) out.push({ key: it.slug, label: it.name, icon: TYPE_ICON[it.type], qty: 1, unitWeight: itemWeight(it), category: categoryOf(it.type), item: it, entry: null, rarity: it.rarity, essence: it.essence, description: it.description });
-    for (const v of carry.vale) out.push({ key: 'vale:' + v.key, label: v.label, icon: v.icon, qty: v.qty, unitWeight: v.unitWeight, category: 'material', item: null, entry: null, vale: true, description: 'Da mochila do Vale dos Ecos (vai para receitas e para a Oficina).' });
+    for (const v of carry.vale) out.push({ key: 'vale:' + v.key, label: v.label, icon: v.icon, qty: v.qty, unitWeight: v.unitWeight, category: 'material', item: null, entry: null, vale: true, description: 'Da mochila de coleta (vai para receitas e para a Oficina).' });
     return out;
   }, [carry, items]);
   const shown = rows.filter((r) => r.category === tab && (!slotFilter || (r.item && slotsFor(r.item.type).includes(slotFilter))));
@@ -175,7 +175,7 @@ export function EquipmentPanel() {
                 </li>
               );
             })}
-            {!shown.length && <li className="empty">{tab === 'material' ? 'Nada ainda. Monstros soltam materiais e o Vale dos Ecos dá madeira, pedra e minério.' : tab === 'diversos' ? 'Nada ainda. Comida, chaves e lembranças aparecem aqui.' : slotFilter ? 'Nenhuma peça sua entra neste espaço.' : 'Nenhuma peça ainda. Peças nascem na Forja (Taurinas) ou caem de monstros.'}</li>}
+            {!shown.length && <li className="empty">{tab === 'material' ? 'Nada ainda. Monstros soltam materiais e a coleta pelo mundo dá madeira, pedra e minério.' : tab === 'diversos' ? 'Nada ainda. Comida, chaves e lembranças aparecem aqui.' : slotFilter ? 'Nenhuma peça sua entra neste espaço.' : 'Nenhuma peça ainda. Peças nascem na Forja (Taurinas) ou caem de monstros.'}</li>}
           </ul>
 
           {sel && (
@@ -210,7 +210,7 @@ export function EquipmentPanel() {
                     {sel.qty > 1 && !(sel.item && slotOf(sel.item.slug)) && <button className="ghost" onClick={() => void discard(sel, sel.qty)}>Jogar fora todos</button>}
                   </>
                 )}
-                {sel.vale && <button className="ghost" onClick={() => useGame.getState().setTab('ecos')}>Abrir o Vale dos Ecos</button>}
+                {sel.vale && <button className="ghost" onClick={() => useGame.getState().setTab('ecos')}>Abrir a Coleta</button>}
               </div>
             </article>
           )}

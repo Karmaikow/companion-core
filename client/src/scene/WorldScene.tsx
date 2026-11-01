@@ -10,11 +10,11 @@ import { ToneMappingMode } from 'postprocessing';
 import * as THREE from 'three';
 import { gameTime, CHUNK, WORLD_WALK_R, WORLD_ROLE, layerRole, type CompanionWorld, type WorldSite, type BiomePalette, type CreatureDef } from '@rules';
 import { WorldCreatures } from './WorldCreatures';
-import { Vale } from './Vale';
+import { WorldResources } from './WorldResources';
 import type { AppendageSpec } from './Appendages';
 import type { Gear } from './CompanionModel';
 import { WeatherFx } from './Weather';
-import type { WeatherKind } from '@rules';
+import type { WeatherKind, WeatherConfig } from '@rules';
 import { CombatFx } from './Combat';
 import type { CompanionModelFiles } from '../backend/types';
 import { CompanionModel, type Roam } from './CompanionModel';
@@ -35,6 +35,8 @@ export interface WorldSceneProps {
   speed?: number;
   gear?: Gear | null;
   weather?: { kind: WeatherKind; intensity: number };
+  /** clima do ADM (para os recursos que só aparecem com certo clima) */
+  weatherCfg?: WeatherConfig;
   speech: string | null;
   burstKey: number;
   color: string;
@@ -355,7 +357,7 @@ export function WorldScene(props: WorldSceneProps) {
       <Vegetation cw={cw} shape={shape} center={center} high={high} />
       <Portal color={props.color} />
       <Waystones cw={cw} discovered={props.discovered} center={center} />
-      <Vale height={cw.heightAt} />
+      <WorldResources cw={cw} center={center} weather={props.weatherCfg} />
       <RemoteCompanions world={shape} />
       <WorldCreatures cw={cw} creatures={props.creatures} center={center} night={daylight < 0.35} high={high} />
       <Suspense fallback={null}>
