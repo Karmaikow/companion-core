@@ -1,7 +1,8 @@
 /**
  * Casa dos Ecos (Áster): o modal que abre quando o Companion chega à porta (marcador "Casa dos Ecos" do Estúdio da
  * Cidade). Missões de coleta (pegar, entregar e receber), o refino (muitos materiais comuns → um refinado, com a
- * qualidade da média do que entrou), a mochila de coleta e as receitas. O servidor confere tudo.
+ * qualidade da média do que entrou), o mural de trocas entre Companions, a mochila de coleta e as receitas. O
+ * servidor confere tudo.
  */
 import { useEffect, useState } from 'react';
 import { create } from 'zustand';
@@ -11,13 +12,14 @@ import { useEcos, bagBatches, batchLabel } from '../ecos/ecosStore';
 import { useMissions } from '../missions/missionsStore';
 import { MissionList } from './MissionsPanel';
 import { Bag, Recipes } from './EcosPanel';
+import { TradeBoard } from './TradeBoard';
 
 export const useEcosHouse = create<{ open: string | null }>(() => ({ open: null }));
 export const openEcosHouse = (name: string) => useEcosHouse.setState({ open: name });
 const close = () => useEcosHouse.setState({ open: null });
 const rid = () => crypto.randomUUID();
 
-type Tab = 'missoes' | 'refinar' | 'mochila' | 'receitas';
+type Tab = 'missoes' | 'refinar' | 'mural' | 'mochila' | 'receitas';
 
 export function EcosHouse() {
   const open = useEcosHouse((s) => s.open);
@@ -41,13 +43,14 @@ export function EcosHouse() {
         {view?.simulated && <p className="shop-note">Offline: tudo simulado neste aparelho, sem valor online.</p>}
         {error && <p className="msg err" role="alert">{error}</p>}
         <nav className="st-tabs pacto-tabs" aria-label="Casa dos Ecos">
-          {([['missoes', 'Missões'], ['refinar', 'Refinar'], ['mochila', 'Mochila'], ['receitas', 'Receitas']] as [Tab, string][]).map(([k, l]) => (
+          {([['missoes', 'Missões'], ['refinar', 'Refinar'], ['mural', 'Mural de trocas'], ['mochila', 'Mochila'], ['receitas', 'Receitas']] as [Tab, string][]).map(([k, l]) => (
             <button key={k} className={tab === k ? 'on' : ''} aria-pressed={tab === k} onClick={() => setTab(k)}>{l}</button>
           ))}
         </nav>
         <div className="ecos-tab ecos-house">
           {tab === 'missoes' && <MissionList giver="casa-dos-ecos" />}
           {tab === 'refinar' && (view ? <Refine /> : <p className="hint">Abrindo a mochila…</p>)}
+          {tab === 'mural' && <TradeBoard />}
           {tab === 'mochila' && (view ? <Bag /> : <p className="hint">Abrindo a mochila…</p>)}
           {tab === 'receitas' && (view ? <Recipes /> : <p className="hint">Abrindo a mochila…</p>)}
         </div>

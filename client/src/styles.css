@@ -1495,3 +1495,15 @@ body:has(.admin), #root:has(.admin) { height: auto; min-height: 100%; overflow: 
 .tower-row .shop-info { flex: 1 1 auto; min-width: 0; }
 .tower-row .bar { height: 6px; border-radius: 99px; background: rgba(255, 255, 255, 0.12); overflow: hidden; margin-top: 4px; }
 .tower-row .bar i { display: block; height: 100%; background: linear-gradient(90deg, #8f7bd8, #c9b8ff); }
+
+/* ---- Mural de trocas (Casa dos Ecos) */
+.trade-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
+.trade-row { display: flex; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 10px; background: rgba(255, 255, 255, 0.04); }
+.trade-row.closed { opacity: 0.6; }
+.trade-what { flex: 1 1 auto; min-width: 0; display: grid; gap: 2px; }
+.trade-what small { color: var(--muted, #9aa3ad); }
+.trade-kind { flex: none; font-size: 0.78em; padding: 2px 8px; border-radius: 99px; background: rgba(255, 255, 255, 0.08); }
+.trade-kind.venda { color: #ffd98a; } .trade-kind.compra { color: #9fe08a; } .trade-kind.troca { color: #a8c8ff; }
+.trade-new .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 6px; }
+.trade-new select { min-width: 0; max-width: 100%; }
+@media (max-width: 560px) { .trade-row { flex-wrap: wrap; } .trade-row button { width: 100%; } }

@@ -14,6 +14,7 @@ import { complete, providerName, refreshAi, loadAiRow, targetFromRow, callTarget
 import { ecosAction, EcosError } from './ecos.ts';
 import { missionAction, MissionError } from './missions.ts';
 import { chestAction, adminCity, createChest, ChestError } from './chests.ts';
+import { tradeAction, TradeError } from './trade.ts';
 import { pactoAction, pactoState, PactoError, lumes } from './pacto.ts';
 import { shopAction } from './shop.ts';
 import { schoolView } from './schools.ts';
@@ -856,6 +857,10 @@ Deno.serve(async (req) => {
       const cc = c;
       return json(200, await ecosAction(action, body, { db, c: cc, cfg, ecfg: cfg.ecos, pcfg: cfg.pacto, admin: await isAdmin(db, userId), event: (kind, payload) => event(db, cc.id as string, 'system', kind, payload) }));
     }
+    if (action.startsWith('trade.')) {
+      const cc = c;
+      return json(200, await tradeAction(action, body, { db, c: cc, event: (cid, kind, payload) => event(db, cid, 'system', kind, payload) }));
+    }
     if (action.startsWith('chest.') || action === 'city.give') {
       const cc = c;
       return json(200, await chestAction(action, body, {
@@ -892,7 +897,7 @@ Deno.serve(async (req) => {
     }
     return json(404, { error: 'Ação desconhecida.' });
   } catch (e) {
-    if (e instanceof HttpError || e instanceof EcosError || e instanceof MissionError || e instanceof ChestError || e instanceof PactoError || e instanceof BuildError || e instanceof SocialError) return json(e.status, { error: e.message });
+    if (e instanceof HttpError || e instanceof EcosError || e instanceof MissionError || e instanceof ChestError || e instanceof TradeError || e instanceof PactoError || e instanceof BuildError || e instanceof SocialError) return json(e.status, { error: e.message });
     console.error('refuge', (e as Error).message);
     return json(500, { error: 'O Refúgio está instável agora. Tente de novo.' });
   }
