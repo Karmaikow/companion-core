@@ -203,7 +203,7 @@ export function CombatFx({ world }: { world: WorldShape }) {
       <mesh ref={ring} rotation={[-Math.PI / 2, 0, 0]} visible={false}><ringGeometry args={[0.85, 1, 40]} /><meshBasicMaterial transparent opacity={0.7} depthWrite={false} toneMapped={false} /></mesh>
       <mesh ref={tip} rotation={[-Math.PI / 2, 0, 0]} visible={false}><ringGeometry args={[0.6, 1, 24]} /><meshBasicMaterial transparent opacity={0.8} depthWrite={false} toneMapped={false} /></mesh>
       <AttackReticle world={world} />
-      <VfxLayer store={gameVfx} warm={warm} lights={false} />
+      <VfxLayer store={gameVfx} warm={warm} lights={false} volumeQuality={0.6} />
       {live.current.map((L) => <FxView key={L.id} L={L} />)}
       {nums.map((n) => (
         <Html key={n.id} position={n.pos} center style={{ pointerEvents: 'none' }}>

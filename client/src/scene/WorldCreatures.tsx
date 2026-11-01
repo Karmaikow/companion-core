@@ -70,6 +70,11 @@ function WorldCreature({ cw, def, spawn }: { cw: CompanionWorld; def: CreatureDe
   const life = useRef({ hp: stats.vida, dead: 0, provoked: false, atk: 0.8, swing: -1, engaged: false, returning: false, faint: vitals.faintId, dots: [] as { key: string; left: number; dps: number; stacks: number; tick: number }[], casting: 0, cds: {} as Record<string, number> });
   // alcance da melhor habilidade de distância aberta no nível (as atiradoras ficam longe e usam ela)
   const ranged = useMemo(() => Math.max(0, ...creatureSkillsAt(def, spawn.level).map((x) => skillDef(x.slug)).filter((k): k is SkillDef => !!k && k.shape !== 'melee' && k.shape !== 'aura' && k.power > 0).map((k) => k.range)), [def, spawn.level]);
+  // os efeitos do catálogo das habilidades dela começam a compilar quando ela aparece, não no primeiro ataque
+  useEffect(() => {
+    const ids = creatureSkillsAt(def, spawn.level).map((x) => skillDef(x.slug)?.vfx.catalogue).filter((k): k is string => !!k);
+    if (ids.length) gameVfx.warm(ids);
+  }, [def, spawn.level]);
   const [hpPct, setHpPct] = useState(1);
   const [dead, setDead] = useState(false);
   const hurt = useRef(0);

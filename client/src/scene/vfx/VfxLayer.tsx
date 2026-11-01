@@ -201,7 +201,7 @@ function fill(g: THREE.InstancedBufferGeometry, ps: Particle[], add: boolean) {
 }
 
 /** fixedDt: passo fixo por quadro (lab/testes), em vez do tempo real. */
-export function VfxLayer({ store, fixedDt, timeScale = 1, warm, lights }: { store: VfxStore; fixedDt?: number; timeScale?: number; warm?: string[]; lights?: boolean }) {
+export function VfxLayer({ store, fixedDt, timeScale = 1, warm, lights, volumeQuality }: { store: VfxStore; fixedDt?: number; timeScale?: number; warm?: string[]; lights?: boolean; volumeQuality?: number }) {
   const crystalMesh = useRef<THREE.InstancedMesh>(null);
   const transform = useMemo(() => new THREE.Object3D(), []);
   const uniforms = useMemo(() => ({ uTime: { value: 0 } }), []);
@@ -279,7 +279,7 @@ export function VfxLayer({ store, fixedDt, timeScale = 1, warm, lights }: { stor
 
   return (
     <group>
-      <CatalogueRenderer store={store} timeScale={timeScale} warm={warm} lights={lights} />
+      <CatalogueRenderer store={store} timeScale={timeScale} warm={warm} lights={lights} volumeQuality={volumeQuality} />
       <instancedMesh ref={crystalMesh} args={[undefined, undefined, 192]} frustumCulled={false}>
         <coneGeometry args={[1, 1, 5]} />
         <meshStandardMaterial color="#ffffff" metalness={0.25} roughness={0.2} flatShading />

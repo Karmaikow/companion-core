@@ -65,5 +65,8 @@ export const globals = {
   opacity: 1.0,
   animationSpeed: 1.0, // character animation playback rate
   cameraShake: 1.0,
-  explosionIntensity: 1.0
+  explosionIntensity: 1.0,
+  // Companion Core: fraction of the authored ray-march steps (VolumeHull, volumetric fire, light shafts). The game
+  // runtime lowers it; the per-pixel dither turns the coarser slices into grain instead of banding.
+  volumeQuality: 1.0
 };

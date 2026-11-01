@@ -80,6 +80,12 @@ export class VfxStore {
     if(this.catalogueQueue.length>4)this.catalogueQueue.shift();
     this.loadCatalogue?.();
   }
+  /** ids a preparar (compilar) antes de serem lançados; o CatalogueRenderer consome */
+  warmQueue = new Set<string>();
+  warm(ids: string[]) {
+    for (const id of ids) this.warmQueue.add(id);
+    this.loadCatalogue?.();
+  }
   crystals: Crystal[] = [];
   crystal(at: THREE.Vector3, color: Col, size: number, life: number, yaw: number) {
     if (this.crystals.length >= 192) this.crystals.shift();

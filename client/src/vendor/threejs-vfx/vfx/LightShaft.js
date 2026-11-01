@@ -14,6 +14,7 @@ import { noiseGLSL } from '../shaders/lib/noise.glsl.js';
 import { commonGLSL } from '../shaders/lib/common.glsl.js';
 import { sharedUniforms } from '../core/FrameUniforms.js';
 import { LAYER } from '../core/Layers.js';
+import { globals } from '../config/globals.js';
 import { getColor } from '../utils/color.js';
 
 /* ---------------------------------------------------------------------- */
@@ -871,7 +872,7 @@ export class LightShaft {
     u.uSweepWidth.value = Math.max(0.01, p.sweepWidth ?? 1);
 
     /* ---- the medium ---- */
-    u.uSteps.value = Math.max(4, Math.min(this.maxSteps, Math.round(p.steps ?? 28)));
+    u.uSteps.value = Math.max(4, Math.min(this.maxSteps, Math.round((p.steps ?? 28) * (globals.volumeQuality ?? 1))));
     u.uJitter.value = Math.max(0, p.jitter ?? 0.9);
     u.uDensity.value = Math.max(0, p.density ?? 0.5);
     u.uExtinct.value = Math.max(0, p.extinct ?? 0.06);

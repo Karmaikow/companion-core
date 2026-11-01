@@ -7,6 +7,7 @@ import { FissureSystem } from '../../vendor/threejs-vfx/effects/GroundFissures.j
 import { BurstSystem } from '../../vendor/threejs-vfx/effects/BurstSphere.js';
 import { frame } from '../../vendor/threejs-vfx/core/FrameUniforms.js';
 import { patchOnBeforeCompile } from '../../vendor/threejs-vfx/utils/shaderPatch.js';
+import { globals } from '../../vendor/threejs-vfx/config/globals.js';
 
 const MAX_ACTIVE = 4;
 /** Depois de tantos tipos carregados (a galeria da Forja), o que ficou parado é liberado. */
@@ -33,12 +34,14 @@ function makeContext(root, camera, systems) {
  * the effects ahead of time, off-screen and in parallel (`compileAsync`), so the first cast does not freeze either.
  */
 export class CatalogueRuntime {
-  constructor(scene, camera, gl, { lights = true } = {}) {
+  constructor(scene, camera, gl, { lights = true, volumeQuality = 1 } = {}) {
+    // menos passos nos volumes (fogo, fumaça, fachos): é o que mais pesa na GPU por quadro
+    globals.volumeQuality = volumeQuality;
     this.root = new THREE.Group(); scene.add(this.root); this.scene = scene; this.camera = camera; this.gl = gl;
     this.previousMask = camera.layers.mask; camera.layers.enable(1);
     this.alive = true; this.pending = []; this.active = []; this.time = 0; this.idle = 0;
     /** id → instâncias livres; id → classe; id → import em andamento */
-    this.pools = new Map(); this.classes = new Map(); this.loading = new Map(); this.warming = new Set();
+    this.pools = new Map(); this.classes = new Map(); this.loading = new Map(); this.warming = new Map(); this.ready = new Set();
     this.depth = new THREE.DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1); this.depth.needsUpdate = true;
     this.particles = new ParticleEngine(this.root); this.lights = lights ? new LightPool(this.root) : NO_LIGHTS;
     this.decals = new DecalSystem(this.root); this.fissures = new FissureSystem(this.root); this.bursts = new BurstSystem(this.root);
@@ -82,12 +85,23 @@ export class CatalogueRuntime {
 
   /** Constrói e compila os efeitos destes ids sem mostrar nada (fora da câmera, em paralelo quando o navegador deixa). */
   async warm(ids) {
-    for (const id of ids) {
-      if (!this.alive || this.warming.has(id) || this.pools.get(id)?.length) continue;
-      this.warming.add(id);
+    for (const id of ids) await this.prepare(id);
+  }
+
+  /** Prepara um id (uma vez só; quem chega durante o preparo espera o mesmo). */
+  prepare(id) {
+    if (!this.alive || this.ready.has(id)) return Promise.resolve();
+    if (this.warming.has(id)) return this.warming.get(id);
+    const p = this.warmOne(id).finally(() => this.warming.delete(id));
+    this.warming.set(id, p);
+    return p;
+  }
+
+  async warmOne(id) {
+    {
       try {
         const Type = await this.load(id);
-        if (!Type || !this.alive) continue;
+        if (!Type || !this.alive) return;
         // Uma cópia numa cena separada, que nunca é desenhada: vive o efeito inteiro de uma vez (as peças do
         // impacto e do fim também nascem) e é compilada em paralelo. Desenhar uma cena com shader ainda compilando
         // obriga o navegador a esperar — era isso que travava a tela por segundos.
@@ -104,15 +118,20 @@ export class CatalogueRuntime {
         this.warmed.push(copy);
         // e já deixa uma instância de verdade pronta (os programas agora vêm do cache, sem compilar)
         if (!this.pools.get(id)?.length) this.release(this.instance(id, Type));
+        this.ready.add(id);
       } catch (e) {
         console.error('Falha ao preparar o efeito VFX', id, e);
-      } finally {
-        this.warming.delete(id);
+        this.ready.add(id); // não tenta de novo a cada lançamento
       }
     }
   }
 
   async cast(request) {
+    if (!this.alive) return;
+    // Nunca lança um efeito "frio": compilar no meio do desenho congelava a tela por segundos (monstros e outros
+    // Companions usam efeitos que a barra não aqueceu). Prepara em paralelo e só então mostra — chega um pouco
+    // depois na primeira vez, sem travar.
+    if (!this.ready.has(request.id)) await this.prepare(request.id);
     if (!this.alive) return;
     const Type = await this.load(request.id);
     if (!Type || !this.alive) return;
@@ -143,7 +162,7 @@ export class CatalogueRuntime {
   /** Galeria da Forja: muitos tipos diferentes parados ocupam memória — libera tudo o que não está em uso. */
   trim() {
     for (const list of this.pools.values()) for (const e of list) { e.dispose(); this.root.remove(e.group); }
-    this.pools.clear(); this.classes.clear();
+    this.pools.clear(); this.classes.clear(); this.ready.clear();
     this.particles.dispose();
     this.disposeWarm();
   }

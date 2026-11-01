@@ -423,6 +423,30 @@ const PARTICLE_VERTEX = /* glsl */ `
    * ember riding a field that is still flowing crawls sideways for as long as
    * you hold it.
    */
+  /**
+   * Companion Core: the path without curl advection, for the time-region probe. The probe loop is unrolled by
+   * ANGLE/D3D (MAX_TIME_REGIONS copies), and inlining curlNoise (12 snoise) into every copy made the USE_CURL variants
+   * take 4–8 s to compile — a full freeze on the first cast. The probe only decides *whether* a particle sits in a
+   * region; the cheap wobble is close enough for that, and the drawn path below still uses the real curl.
+   */
+  vec3 particlePathProbe(float age, float t) {
+    vec3 vel = aVelocity * uSpeedScale;
+    float k = max(uDrag, 1e-3);
+    float travel = (1.0 - exp(-k * age)) / k;
+    vec3 pos = aStart + vel * travel + 0.5 * uGravity * age * age;
+    #ifdef USE_SWIRL
+      vec3 anchor = aOrigin + vel * travel;
+      vec3 rel = aStart - aOrigin;
+      float ang = uSwirl * age + aSeed * 6.2831;
+      float c = cos(ang), s = sin(ang);
+      vec3 rotated = vec3(rel.x * c - rel.z * s, rel.y, rel.x * s + rel.z * c);
+      rotated *= 1.0 + uSwirlExpand * t;
+      pos = anchor + rotated + vec3(0.0, 0.5 * uGravity.y * age * age, 0.0);
+    #endif
+    pos += vec3(sin(age * 3.1 + aSeed * 41.0), cos(age * 2.3 + aSeed * 17.0), sin(age * 2.7 + aSeed * 73.0)) * uTurbulence * age * 0.55;
+    return pos;
+  }
+
   vec3 particlePath(float age, float t, float clock) {
     vec3 vel = aVelocity * uSpeedScale;
 
@@ -498,7 +522,7 @@ const PARTICLE_VERTEX = /* glsl */ `
         vec4 region = uTimeRegion[i];
         vec4 warp = uTimeRegionWarp[i];
         float probeAge = clamp(warp.z - aSpawn, 0.0, min(rawAge, life));
-        vec3 probe = particlePath(probeAge, probeAge / max(life, 1e-4), warp.z);
+        vec3 probe = particlePathProbe(probeAge, probeAge / max(life, 1e-4));
         clock = timeRegionClock(clock, warp, timeRegionFalloff(probe, region, warp));
       }
     }

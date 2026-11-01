@@ -8,7 +8,7 @@ import type { CatalogueRuntime } from './catalogueRuntime.js';
  * `warm`: ids do catálogo que esta cena vai usar (as habilidades na barra). Com eles, o motor nasce junto com a
  * cena e compila os efeitos antes — sem isso, o primeiro uso de cada efeito trava a tela por segundos.
  */
-export function CatalogueRenderer({ store, timeScale = 1, warm, lights = true }: { store: VfxStore; timeScale?: number; warm?: string[]; lights?: boolean }) {
+export function CatalogueRenderer({ store, timeScale = 1, warm, lights = true, volumeQuality = 1 }: { store: VfxStore; timeScale?: number; warm?: string[]; lights?: boolean; volumeQuality?: number }) {
   const { scene, camera, gl } = useThree();
   const [error, setError] = useState('');
   const runtime = useRef<CatalogueRuntime | null>(null), loading = useRef<Promise<CatalogueRuntime | null> | null>(null);
@@ -19,13 +19,13 @@ export function CatalogueRenderer({ store, timeScale = 1, warm, lights = true }:
       if (loading.current || runtime.current) return loading.current;
       loading.current = import('./catalogueRuntime.js').then(({ CatalogueRuntime }) => {
         if (!alive) return null;
-        runtime.current = new CatalogueRuntime(scene, camera, gl, { lights });
+        runtime.current = new CatalogueRuntime(scene, camera, gl, { lights, volumeQuality });
         return runtime.current;
       }).catch((e) => { console.error('Falha ao carregar catálogo VFX', e); if (alive) setError('Não foi possível carregar o efeito. Selecione novamente para tentar.'); loading.current = null; return null; });
       return loading.current;
     };
     return () => { alive = false; loading.current = null; store.loadCatalogue = undefined; };
-  }, [store, scene, camera, gl, lights]);
+  }, [store, scene, camera, gl, lights, volumeQuality]);
 
   const warmKey = (warm ?? []).join(',');
   useEffect(() => {
@@ -35,8 +35,9 @@ export function CatalogueRenderer({ store, timeScale = 1, warm, lights = true }:
   }, [warmKey, store]);
 
   useFrame((_, dt) => {
-    if (store.catalogueQueue.length) store.loadCatalogue?.();
+    if (store.catalogueQueue.length || store.warmQueue.size) store.loadCatalogue?.();
     if (!runtime.current) return;
+    if (store.warmQueue.size) { const ids = [...store.warmQueue]; store.warmQueue.clear(); void runtime.current.warm(ids); }
     if (timeScale > 0) for (const request of store.catalogueQueue.splice(0)) void runtime.current.cast(request).catch((e) => { console.error('Falha no efeito VFX', request.id, e); setError('Falha ao preparar o efeito ' + request.id); });
     runtime.current.update(Math.min(dt, 0.05) * timeScale, gl.domElement.width, gl.domElement.height);
   });

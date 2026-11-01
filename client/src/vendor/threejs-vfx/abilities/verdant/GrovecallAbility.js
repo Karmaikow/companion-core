@@ -14,6 +14,7 @@ import { RateEmitter } from '../../particles/ParticleEngine.js';
 import { DecalType } from '../../effects/GroundDecals.js';
 import { BurstMode } from '../../effects/BurstSphere.js';
 import { frame } from '../../core/FrameUniforms.js';
+import { noiseGLSL } from '../../shaders/lib/noise.glsl.js';
 import { settings } from '../../config/settings.js';
 import { getColor } from '../../utils/color.js';
 import { saturate, lerp, hash11, Easing, randRange } from '../../utils/math.js';
@@ -311,7 +312,10 @@ function createGroveMaterial(environment) {
   patchGrowthMaterial(material, {
     environment,
     uniforms,
+    // Companion Core: the bark and canopy call fbm3, which the growth patch does not bring in — without it the
+    // shader failed to compile and the trees came out unshaded.
     common: /* glsl */ `
+      ${noiseGLSL}
       uniform float uTime;
       uniform vec3  uLightDir;
       uniform vec3  uColorBark;

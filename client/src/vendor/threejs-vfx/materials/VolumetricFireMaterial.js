@@ -820,7 +820,7 @@ export class VolumetricFireMaterial extends ShaderMaterial {
     u.uCoreClarity.value = c.trailCoreClarity;
     u.uEmission.value = c.trailGlow * 2.4;
     u.uOpacity.value = c.trailOpacity * g.opacity;
-    u.uSteps.value = c.trailSteps;
+    u.uSteps.value = Math.max(6, Math.round(c.trailSteps * (g.volumeQuality ?? 1)));
     u.uTailFade.value = c.trailTailFade;
 
     // The palette is shared with the rock's seams and the detonation, so the
