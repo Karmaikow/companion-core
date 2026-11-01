@@ -13,6 +13,7 @@ import { SCHOOL_IDS, SCHOOL_DEFINITIONS } from '../../../shared/rules/combat/sch
 import { ForgeSchools } from './ForgeSchools';
 import { ForgeVfxEditor } from './ForgeVfxEditor';
 import { useCatalog } from './catalog';
+import { ListSearch, StudioActions, matches, useAdminDirty } from './adminKit';
 
 import { animKey, useAnimMap, useCompanionModels } from './companionModels';
 const SkillPreview = lazy(() => import('../scene/SkillFx').then((m) => ({ default: m.SkillPreview })));
@@ -43,6 +44,8 @@ export function ForgeStudio() {
   const [speed, setSpeed] = useState(1);
   const [restart, setRestart] = useState(0);
   const [dark, setDark] = useState(true);
+  const [q, setQ] = useState('');
+  useAdminDirty(dirty);
 
   const run = async (f: () => Promise<unknown>, ok: string) => {
     setBusy(true); setMsg(null);
@@ -78,7 +81,7 @@ export function ForgeStudio() {
     }
   }
 
-  const rows = (cat.rows ?? []).filter((r) => filter === 'todas' || (filter === 'neutras' ? !r.data.essence : r.data.essence === filter));
+  const rows = (cat.rows ?? []).filter((r) => (filter === 'todas' || (filter === 'neutras' ? !r.data.essence : r.data.essence === filter)) && matches(q, r.name, r.slug, SHAPES[r.data.shape], ...r.data.classes.map((k) => CLASS_LABELS[k])));
   const published = useMemo(() => (cat.rows ?? []).filter((r) => r.status === 'published').map((r) => (r.slug === draft?.slug ? draft : r.data)), [cat.rows, draft]);
   const kit = useMemo(() => kitFor(published.length ? published : DEFAULT_SKILLS, { essence: kitEss, body: 'biped', bond: kitBond, species: kitClass }), [published, kitEss, kitClass, kitBond]);
   const clean = useMemo(() => (draft ? sanitizeSkill(draft) : null), [draft]);
@@ -86,25 +89,29 @@ export function ForgeStudio() {
   return (
     <div className="biome-studio forge-workspace">
       <aside className="biome-list">
-        <h2>Forja de Batalha</h2>
-        <button className={'ghost' + (planner ? ' on' : '')} onClick={() => setPlanner((v) => !v)}>🎓 Escolas e evolução (planejamento)</button>
-        <small className="hint">Habilidades genéricas: cada uma serve a uma essência (ou todas) e a classes de Companion e corpos de monstro escolhidos (ou todos). Companions são humanoides: a animação é sempre um clipe de humanoide; o que muda é a forma e o efeito.</small>
+        <div className="list-head">
+          <h2>Habilidades <small>{cat.rows?.length ?? 0}</small></h2>
+          <button className={'ghost' + (planner ? ' on' : '')} aria-pressed={planner} onClick={() => setPlanner((v) => !v)} title="Escolas e evolução (planejamento)">Escolas</button>
+        </div>
+        <form className="biome-new" onSubmit={(e) => { e.preventDefault(); create(); }}>
+          <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Nome da nova habilidade" maxLength={40} aria-label="Nome da nova habilidade" />
+          <button className="primary" disabled={!newName.trim()}>+ Criar</button>
+        </form>
+        <div className="list-filters">
+          <ListSearch value={q} onChange={setQ} label="Buscar habilidade" count={rows.length} />
+          <select value={filter} onChange={(e) => setFilter(e.target.value as typeof filter)} aria-label="Filtrar por essência">
+            <option value="todas">Todas as essências</option>
+            <option value="neutras">Neutras (qualquer Companion)</option>
+            {ESS.map((e) => <option key={e} value={e}>{ELEMENTS[e].label}</option>)}
+          </select>
+        </div>
         {cat.error && <p className="msg err">{cat.error}</p>}
         {cat.rows && !cat.rows.length && (
           <button className="primary" disabled={busy || iconBusy} onClick={() => void run(() => cat.saveMany(DEFAULT_SKILLS, 'published'), `${DEFAULT_SKILLS.length} habilidades carregadas e publicadas.`)}>
             Carregar o catálogo inicial ({DEFAULT_SKILLS.length} habilidades)
           </button>
         )}
-        {cat.rows && cat.rows.length > 0 && missingDefaults > 0 && (
-          <button className="ghost" disabled={busy || iconBusy} onClick={() => void run(syncDefaults, 'Catálogo atualizado: classes de Companion e habilidades novas.')}>
-            Atualizar com o catálogo novo ({missingDefaults} mudança{missingDefaults > 1 ? 's' : ''}: classes humanoides)
-          </button>
-        )}
-        <select value={filter} onChange={(e) => setFilter(e.target.value as typeof filter)} aria-label="Filtrar por essência">
-          <option value="todas">Todas as essências</option>
-          <option value="neutras">Neutras (qualquer Companion)</option>
-          {ESS.map((e) => <option key={e} value={e}>{ELEMENTS[e].label}</option>)}
-        </select>
+        {cat.rows && cat.rows.length > 0 && !rows.length && <p className="empty">Nenhuma habilidade com esse filtro.</p>}
         {(Object.keys(SLOTS) as SkillSlot[]).map((slot) => {
           const list = rows.filter((r) => r.data.slot === slot);
           if (!list.length) return null;
@@ -124,10 +131,16 @@ export function ForgeStudio() {
             </div>
           );
         })}
-        <form className="biome-new" onSubmit={(e) => { e.preventDefault(); create(); }}>
-          <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Nova habilidade" maxLength={40} aria-label="Nome da nova habilidade" />
-          <button className="primary" disabled={!newName.trim()}>Criar</button>
-        </form>
+
+        <details className="list-extra">
+          <summary>Sobre a Forja e o catálogo</summary>
+          <small className="hint">Habilidades genéricas: cada uma serve a uma essência (ou todas) e a classes de Companion e corpos de monstro escolhidos (ou todos). Companions são humanoides: a animação é sempre um clipe de humanoide; o que muda é a forma e o efeito.</small>
+          {cat.rows && cat.rows.length > 0 && missingDefaults > 0 && (
+            <button className="ghost" disabled={busy || iconBusy} onClick={() => { if (window.confirm(`Atualizar ${missingDefaults} habilidade${missingDefaults > 1 ? 's' : ''} com o catálogo novo (classes humanoides)?`)) void run(syncDefaults, 'Catálogo atualizado: classes de Companion e habilidades novas.'); }}>
+              Atualizar com o catálogo novo ({missingDefaults})
+            </button>
+          )}
+        </details>
 
         <fieldset className="kit-box">
           <legend>Kit de exemplo</legend>
@@ -242,15 +255,12 @@ export function ForgeStudio() {
               {draft.status && <small className="hint">{STATUSES[draft.status.key].effect}</small>}
             </fieldset>
 
-            {msg && <p className={'msg' + (msg.ok ? ' ok' : ' err')}>{msg.text}</p>}
-            <div className="row studio-actions">
-              <button className="primary" disabled={busy || iconBusy || !dirty} onClick={() => void run(async () => { await cat.save(draft, status); setDirty(false); }, 'Salva.')}>Salvar</button>
-              {status === 'draft'
-                ? <button className="secondary" disabled={busy || iconBusy} onClick={() => void run(async () => { await cat.save(draft, 'published'); setStatus('published'); setDirty(false); }, 'Publicada.')}>Salvar e publicar</button>
-                : <button className="ghost" disabled={busy || iconBusy} onClick={() => void run(async () => { await cat.save(draft, 'draft'); setStatus('draft'); setDirty(false); }, 'Voltou para rascunho.')}>Tirar do jogo</button>}
-              <button className="link" disabled={busy || iconBusy} onClick={() => { if (window.confirm(`Apagar "${draft.name}"?`)) void run(async () => { await cat.remove(draft.slug); setSel(null); setDraft(null); setDirty(false); }, 'Apagada.'); }}>apagar</button>
-              {dirty && <small className="msg">Não salva: a prévia já mostra.</small>}
-            </div>
+            <StudioActions name={draft.name} status={status} dirty={dirty} busy={busy || iconBusy} msg={msg}
+              note={<small className="hint">A prévia já mostra o que não foi salvo.</small>}
+              onSave={() => void run(async () => { await cat.save(draft, status); setDirty(false); }, status === 'published' ? 'Salva: já vale no jogo.' : 'Rascunho salvo.')}
+              onPublish={() => void run(async () => { await cat.save(draft, 'published'); setStatus('published'); setDirty(false); }, 'Publicada: já está no jogo.')}
+              onUnpublish={() => void run(async () => { await cat.save(draft, 'draft'); setStatus('draft'); setDirty(false); }, 'Despublicada: saiu do jogo e ficou como rascunho.')}
+              onDelete={() => void run(async () => { await cat.remove(draft.slug); setSel(null); setDraft(null); setDirty(false); }, 'Apagada.')} />
           </div>
         </section>
       )}

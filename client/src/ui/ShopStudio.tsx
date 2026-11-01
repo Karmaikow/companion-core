@@ -11,6 +11,7 @@ import {
   type ShopConfig, type ShopEntry, type ShopKind, type ItemDef, type CitySchool,
 } from '@rules';
 import { supabase } from '../backend/online';
+import { useAdminDirty } from './adminKit';
 
 type Tab = ShopKind | 'geral';
 
@@ -39,6 +40,7 @@ export function ShopStudio() {
   }, [day]);
 
   const dirty = JSON.stringify(cfg) !== saved;
+  useAdminDirty(dirty);
   const patch = (id: string, p: Partial<ShopEntry>) => setCfg((c) => ({ ...c, entries: c.entries.map((e) => (e.id === id ? { ...e, ...p } : e)) }));
   const remove = (id: string) => setCfg((c) => ({ ...c, entries: c.entries.filter((e) => e.id !== id) }));
   const add = (shop: ShopKind) => setCfg((c) => {
@@ -71,7 +73,7 @@ export function ShopStudio() {
         <small className="hint">Preços em Lumes. O que muda aqui vale na hora para todos (o jogo lê a cada compra).</small>
         <ul className="studio-nav">
           {SHOP_KIND_IDS.map((k) => (
-            <li key={k}><button className={tab === k ? 'on' : ''} onClick={() => setTab(k)}><strong>{SHOP_KINDS[k].icon} {SHOP_KINDS[k].label}</strong><small>{count(k)} {count(k) === 1 ? 'item' : 'itens'}{k === 'rotacao' ? ` · ${cfg.rotationPerDay} por dia` : ''}</small></button></li>
+            <li key={k}><button className={tab === k ? 'on' : ''} onClick={() => setTab(k)}><strong>{SHOP_KINDS[k].icon} {SHOP_KINDS[k].label}</strong><small>{count(k)} {count(k) === 1 ? 'item' : 'itens'}{k === 'rotacao' ? ` · ${cfg.rotationPerDay} por dia` : ''}</small>{k === 'rotacao' && !count(k) && cfg.rotationPerDay > 0 && <em className="warn-badge" title="O Mercadão está configurado para vender itens, mas não tem nenhum no pool">vazio</em>}</button></li>
           ))}
           <li><button className={tab === 'geral' ? 'on' : ''} onClick={() => setTab('geral')}><strong>⚙ Geral</strong><small>revenda {Math.round(cfg.sellRate * 100)}% · Mercadão</small></button></li>
         </ul>
@@ -108,16 +110,29 @@ export function ShopStudio() {
               </div>
               <button className="primary" disabled={cfg.entries.length >= MAX_SHOP_ENTRIES} onClick={() => add(tab)}>+ Adicionar item</button>
             </header>
-            {!entries.length && <p className="empty">Nenhum item nesta loja.</p>}
-            {entries.map((e) => <EntryRow key={e.id} e={e} items={items} sold={sold[e.id] ?? 0} today={today.some((x) => x.id === e.id)} onPatch={(p) => patch(e.id, p)} onRemove={() => remove(e.id)} />)}
+            {!entries.length ? <p className="empty">Nenhum item nesta loja. Use “+ Adicionar item”.</p> : (
+              <div className={'shop-table' + (tab === 'rotacao' ? ' rot' : '')} role="table" aria-label={'Itens de ' + SHOP_KINDS[tab].label}>
+                <div className="shop-row shop-th" role="row">
+                  <span role="columnheader">Item</span><span role="columnheader">Preço ✧</span><span role="columnheader">Máx./compra</span>
+                  {tab === 'rotacao' && <><span role="columnheader">Estoque/dia</span><span role="columnheader">Peso</span></>}
+                  <span role="columnheader">Escola</span><span role="columnheader">À venda</span><span role="columnheader"><span className="sr-only">Ações</span></span>
+                </div>
+                {entries.map((e) => <EntryRow key={e.id} e={e} items={items} sold={sold[e.id] ?? 0} today={today.some((x) => x.id === e.id)} onPatch={(p) => patch(e.id, p)} onRemove={() => remove(e.id)} />)}
+              </div>
+            )}
           </div>
         )}
 
-        <div className="studio-actions">
-          {msg && <p className={'msg' + (msg.ok ? ' ok' : ' err')} role="status">{msg.text}</p>}
-          {dirty && <small className="hint">Alterações não salvas.</small>}
-          <button className="ghost" disabled={!dirty || busy} onClick={() => setCfg(JSON.parse(saved || JSON.stringify(DEFAULT_SHOP)))}>Desfazer</button>
-          <button className="primary" disabled={!dirty || busy || !values} onClick={() => void save()}>Salvar lojas</button>
+        <div className="studio-foot" data-dirty={dirty || undefined}>
+          <div className="studio-foot-state">
+            <span className="pill published">Ao vivo</span>
+            {dirty ? <small className="dirty-note">Alterações não salvas</small> : <small className="hint">Salvar vale na próxima compra de todos.</small>}
+            {msg && <p className={'msg' + (msg.ok ? ' ok' : ' err')} role="status">{msg.text}</p>}
+          </div>
+          <div className="studio-foot-act">
+            <button className="ghost" disabled={!dirty || busy} onClick={() => setCfg(JSON.parse(saved || JSON.stringify(DEFAULT_SHOP)))}>Desfazer</button>
+            <button className="primary" disabled={!dirty || busy || !values} onClick={() => void save()}>Salvar lojas</button>
+          </div>
         </div>
       </section>
     </div>
@@ -133,39 +148,37 @@ function EntryRow({ e, items, sold, today, onPatch, onRemove }: { e: ShopEntry; 
     else onPatch({ ref: { kind: 'item', slug: v.slice(5) } });
   };
   const tool = info?.kind === 'ferramenta';
+  const name = info?.name ?? 'item que não existe mais';
   return (
-    <fieldset className={'shop-entry' + (e.enabled ? '' : ' off')}>
-      <legend>{info?.icon} {info?.name ?? 'item que não existe mais'}{rot && today ? ' · à venda hoje' : ''}</legend>
-      <div className="grid-form">
-        <label className="span-2">Item
-          <select value={refValue} onChange={(ev) => setRef(ev.target.value)}>
-            <optgroup label="Da loja (poções, comidas, ferramentas)">{SHOP_GOODS.map((g) => <option key={g.id} value={'loja:' + g.id}>{g.icon} {g.name}</option>)}</optgroup>
-            <optgroup label="Do Arsenal">{items.map((it) => <option key={it.slug} value={'item:' + it.slug}>{it.name}</option>)}</optgroup>
-            {e.ref.kind === 'item' && !items.some((it) => it.slug === (e.ref as { slug: string }).slug) && <option value={refValue}>{e.ref.slug} (não publicado)</option>}
-          </select>
-        </label>
-        <label>Preço (✧)<input type="number" min={0} value={e.price} onChange={(ev) => onPatch({ price: Math.max(0, Math.round(Number(ev.target.value) || 0)) })} /></label>
-        <label>Máx. por compra<input type="number" min={1} max={999} disabled={tool} value={e.maxBuy} onChange={(ev) => onPatch({ maxBuy: Math.max(1, Math.round(Number(ev.target.value) || 1)) })} /></label>
-        {rot && <label>Estoque por dia<input type="number" min={0} value={e.stock} onChange={(ev) => onPatch({ stock: Math.max(0, Math.round(Number(ev.target.value) || 0)) })} /><small className="hint">{e.stock ? `vendidos hoje: ${sold}` : '0 = sem limite'}</small></label>}
-        {rot && <label>Peso no sorteio<input type="number" min={0} step={0.5} value={e.weight} onChange={(ev) => onPatch({ weight: Math.max(0, Number(ev.target.value) || 0) })} /><small className="hint">0 = nunca sai</small></label>}
-        <label>Exige escola<select value={e.school ?? ''} onChange={(ev) => onPatch({ school: (ev.target.value || null) as CitySchool | null })}><option value="">nenhuma</option>{CITY_SCHOOL_IDS.map((k) => <option key={k} value={k}>{CITY_SCHOOLS[k].label}</option>)}</select></label>
-      </div>
-      <div className="shop-mats">
-        <span className="hint">Materiais exigidos (saem da mochila junto com os Lumes):</span>
+    <div className={'shop-row' + (e.enabled ? '' : ' off')} role="row">
+      <span role="cell" className="shop-item">
+        <select value={refValue} onChange={(ev) => setRef(ev.target.value)} aria-label="Item">
+          <optgroup label="Da loja (poções, comidas, ferramentas)">{SHOP_GOODS.map((g) => <option key={g.id} value={'loja:' + g.id}>{g.icon} {g.name}</option>)}</optgroup>
+          <optgroup label="Do Arsenal">{items.map((it) => <option key={it.slug} value={'item:' + it.slug}>{it.name}</option>)}</optgroup>
+          {e.ref.kind === 'item' && !items.some((it) => it.slug === (e.ref as { slug: string }).slug) && <option value={refValue}>{e.ref.slug} (não publicado)</option>}
+        </select>
+        {rot && today && <em className="today-badge">à venda hoje</em>}
+      </span>
+      <span role="cell" data-label="Preço ✧"><input type="number" min={0} value={e.price} onChange={(ev) => onPatch({ price: Math.max(0, Math.round(Number(ev.target.value) || 0)) })} aria-label={'Preço de ' + name} /></span>
+      <span role="cell" data-label="Máx./compra"><input type="number" min={1} max={999} disabled={tool} value={e.maxBuy} onChange={(ev) => onPatch({ maxBuy: Math.max(1, Math.round(Number(ev.target.value) || 1)) })} aria-label={'Máximo por compra de ' + name} title={tool ? 'Ferramenta: uma por compra' : undefined} /></span>
+      {rot && <span role="cell" data-label="Estoque/dia"><input type="number" min={0} value={e.stock} onChange={(ev) => onPatch({ stock: Math.max(0, Math.round(Number(ev.target.value) || 0)) })} aria-label={'Estoque por dia de ' + name} title="0 = sem limite" /><small className="cell-note">{e.stock ? `vendidos hoje ${sold}` : 'sem limite'}</small></span>}
+      {rot && <span role="cell" data-label="Peso"><input type="number" min={0} step={0.5} value={e.weight} onChange={(ev) => onPatch({ weight: Math.max(0, Number(ev.target.value) || 0) })} aria-label={'Peso no sorteio de ' + name} title="0 = nunca sai" /></span>}
+      <span role="cell" data-label="Escola"><select value={e.school ?? ''} onChange={(ev) => onPatch({ school: (ev.target.value || null) as CitySchool | null })} aria-label={'Escola exigida para ' + name}><option value="">nenhuma</option>{CITY_SCHOOL_IDS.map((k) => <option key={k} value={k}>{CITY_SCHOOLS[k].label}</option>)}</select></span>
+      <span role="cell" className="shop-toggle" data-label="À venda"><label className="switch"><input type="checkbox" checked={e.enabled} onChange={(ev) => onPatch({ enabled: ev.target.checked })} aria-label={(e.enabled ? 'À venda: ' : 'Pausado: ') + name} /><i aria-hidden /></label></span>
+      <span role="cell"><button className="ghost icon-btn danger" onClick={onRemove} aria-label={'Remover ' + name} title="Remover da loja (vale ao salvar)">×</button></span>
+      <details className="shop-mats">
+        <summary>Materiais exigidos{e.materials.length ? ` (${e.materials.length})` : ''}</summary>
+        <span className="hint">Saem da mochila junto com os Lumes.</span>
         {e.materials.map((m, i) => (
           <span key={i} className="list-row">
-            <select value={m.material} onChange={(ev) => onPatch({ materials: e.materials.map((x, j) => (j === i ? { ...x, material: ev.target.value } : x)) })}>{Object.values(MATERIALS).map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</select>
-            <input type="number" min={1} value={m.qty} onChange={(ev) => onPatch({ materials: e.materials.map((x, j) => (j === i ? { ...x, qty: Math.max(1, Math.round(Number(ev.target.value) || 1)) } : x)) })} />
+            <select value={m.material} onChange={(ev) => onPatch({ materials: e.materials.map((x, j) => (j === i ? { ...x, material: ev.target.value } : x)) })} aria-label="Material">{Object.values(MATERIALS).map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</select>
+            <input type="number" min={1} value={m.qty} onChange={(ev) => onPatch({ materials: e.materials.map((x, j) => (j === i ? { ...x, qty: Math.max(1, Math.round(Number(ev.target.value) || 1)) } : x)) })} aria-label="Quantidade" />
             <button className="link" onClick={() => onPatch({ materials: e.materials.filter((_, j) => j !== i) })}>tirar</button>
           </span>
         ))}
         {e.materials.length < 6 && <button className="link" onClick={() => onPatch({ materials: [...e.materials, { material: Object.keys(MATERIALS)[0], qty: 1 }] })}>+ material</button>}
-      </div>
-      {info?.kind === 'item' && info.item && isWearable(info.item.type) && <small className="hint warn">Equipamento do Arsenal: pela regra do Pacto, equipamentos só nascem na forja. Venda só se for de propósito.</small>}
-      <div className="cs-row">
-        <label className="cs-check"><input type="checkbox" checked={e.enabled} onChange={(ev) => onPatch({ enabled: ev.target.checked })} /> à venda</label>
-        <button className="link danger" onClick={onRemove}>remover</button>
-      </div>
-    </fieldset>
+      </details>
+      {info?.kind === 'item' && info.item && isWearable(info.item.type) && <small className="hint warn shop-warn">Equipamento do Arsenal: pela regra do Pacto, equipamentos só nascem na forja. Venda só se for de propósito.</small>}
+    </div>
   );
 }

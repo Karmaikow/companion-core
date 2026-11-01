@@ -9,6 +9,7 @@ import { DEFAULT_CONFIG, DEFAULT_WEATHER, REFUGE_BIOME, WEATHERS, WEATHER_KINDS,
 import { supabase } from '../backend/online';
 import { WeatherOverlay } from './WeatherOverlay';
 import { AiSettings } from './AiSettings';
+import { useAdminDirty } from './adminKit';
 
 const BiomePreview = lazy(() => import('../scene/BiomePreview').then((m) => ({ default: m.BiomePreview })));
 
@@ -31,28 +32,46 @@ export function ServerStudio() {
   const [cfg, setCfg] = useState<GameConfig>(DEFAULT_CONFIG);
   const [weather, setWeather] = useState<WeatherConfig>(DEFAULT_WEATHER);
   const [mult, setMult] = useState(1);
-  const [msg, setMsg] = useState<{ text: string; ok?: boolean } | null>(null);
+  // cada seção mostra a própria mensagem, perto do botão que a gerou
+  const [msg, setMsg] = useState<{ text: string; ok?: boolean; at: 'xp' | 'clima' | 'geral' } | null>(null);
   const [busy, setBusy] = useState(false);
   const [preview, setPreview] = useState<string>('chuva');
 
   useEffect(() => {
     void supabase().from('game_config').select('values').eq('id', 1).maybeSingle().then(({ data, error }) => {
-      if (error) { setMsg({ text: 'Não consegui ler a configuração: ' + error.message }); return; }
+      if (error) { setMsg({ text: 'Não consegui ler a configuração: ' + error.message, at: 'geral' }); return; }
       const v = (data?.values ?? {}) as Record<string, unknown>;
       setValues(v); setCfg(resolveConfig(v as Partial<GameConfig>)); setWeather(sanitizeWeather(v.weather));
       setMult(typeof v.xpMultiplier === 'number' ? v.xpMultiplier : 1);
     });
   }, []);
 
-  async function save(patch: Record<string, unknown>, ok: string) {
+  async function save(patch: Record<string, unknown>, ok: string, at: 'xp' | 'clima') {
     setBusy(true); setMsg(null);
     const uid = (await supabase().auth.getUser()).data.user?.id;
     const next = { ...(values ?? {}), ...patch };
     const { error } = await supabase().from('game_config').update({ values: next, updated_at: new Date().toISOString(), updated_by: uid }).eq('id', 1);
     setBusy(false);
-    if (error) { setMsg({ text: 'Não consegui salvar: ' + error.message }); return; }
-    setValues(next); setMsg({ ok: true, text: ok });
+    if (error) { setMsg({ text: 'Não consegui salvar: ' + error.message, at }); return; }
+    setValues(next); setMsg({ ok: true, text: ok, at });
   }
+
+  // o que está salvo hoje × o que está na tela: mostra a diferença antes de mudar o jogo de todo mundo
+  const savedCfg = useMemo(() => resolveConfig((values ?? {}) as Partial<GameConfig>), [values]);
+  const savedMult = typeof values?.xpMultiplier === 'number' ? values.xpMultiplier : 1;
+  const xpDiff = values ? [
+    ...(mult !== savedMult ? [`Multiplicador: ${savedMult}× → ${mult}×`] : []),
+    ...XP_FIELDS.filter(([k]) => cfg[k] !== savedCfg[k]).map(([k, label]) => `${label}: ${savedCfg[k]} → ${cfg[k]}`),
+  ] : [];
+  const weatherDirty = !!values && JSON.stringify(weather) !== JSON.stringify(sanitizeWeather(values.weather));
+  useAdminDirty(xpDiff.length > 0 || weatherDirty);
+  function saveXp() {
+    if (!xpDiff.length || !window.confirm(`Mudar o XP de todos os jogadores agora?\n\n${xpDiff.join('\n')}`)) return;
+    const out: Record<string, unknown> = { xpMultiplier: mult };
+    for (const [k] of XP_FIELDS) out[k] = cfg[k];
+    void save(out, 'XP salvo: já vale na próxima mensagem de todos os jogadores.', 'xp');
+  }
+  const note = (at: 'xp' | 'clima') => msg?.at === at && <p className={'msg' + (msg.ok ? ' ok' : ' err')} role="status">{msg.text}</p>;
 
   // multiplicador: o servidor multiplica os valores base abaixo na hora de dar o XP
   const scaled = (k: keyof GameConfig) => Math.round(Number(cfg[k]) * mult * 10) / 10;
@@ -70,16 +89,19 @@ export function ServerStudio() {
           <small className="hint">Vale para tudo (conversa, descobertas, memórias e combate). Com {mult}×, cada um dá: mensagem {scaled('messageXp')} · descoberta {scaled('discoveryXp')} · memória {scaled('memoryXp')} · criatura {scaled('killXp')} · 1ª vez {scaled('firstKillXp')} · análise {scaled('analysisXp')}.</small>
           <div className="grid-form">
             {XP_FIELDS.map(([k, label, hint]) => (
-              <label key={k}>{label}<input type="number" step={k === 'levelExp' ? 0.05 : 1} min={0} value={cfg[k]} onChange={(e) => setCfg({ ...cfg, [k]: Number(e.target.value) })} /><small className="hint">{hint}</small></label>
+              <label key={k} className={values && cfg[k] !== savedCfg[k] ? 'changed' : ''}>{label}<input type="number" step={k === 'levelExp' ? 0.05 : 1} min={0} value={cfg[k]} onChange={(e) => setCfg({ ...cfg, [k]: Number(e.target.value) })} /><small className="hint">{hint}{values && cfg[k] !== savedCfg[k] ? ` · salvo: ${savedCfg[k]}` : ''}</small></label>
             ))}
           </div>
           <div className="xp-curve">
             {levels.map(({ l, xp }) => <span key={l}>nível {l}: <b>{xp}</b> XP</span>)}
             <small className="hint">≈ {msgsTo5} mensagens significativas até o vínculo 5 (o despertar), sem contar descobertas.</small>
           </div>
-          <div className="row">
-            <button className="primary" disabled={busy} onClick={() => { const out: Record<string, unknown> = { xpMultiplier: mult }; for (const [k] of XP_FIELDS) out[k] = cfg[k]; void save(out, 'XP salvo: já vale na próxima mensagem de todos os jogadores.'); }}>Salvar XP</button>
-            <button className="link" disabled={busy} onClick={() => { setCfg(DEFAULT_CONFIG); setMult(1); }}>voltar ao padrão</button>
+          <div className="section-foot" data-dirty={xpDiff.length > 0 || undefined}>
+            {xpDiff.length > 0 && <small className="dirty-note">{xpDiff.length} mudança{xpDiff.length > 1 ? 's' : ''} não salva{xpDiff.length > 1 ? 's' : ''}</small>}
+            {note('xp')}
+            <button className="link" disabled={busy} onClick={() => { setCfg(DEFAULT_CONFIG); setMult(1); }} title="Preenche os valores padrão; só vale depois de salvar">usar valores padrão</button>
+            <button className="ghost" disabled={busy || !xpDiff.length} onClick={() => { setCfg(savedCfg); setMult(savedMult); }}>Desfazer</button>
+            <button className="primary" disabled={busy || !xpDiff.length} onClick={saveXp}>Salvar XP</button>
           </div>
         </fieldset>
 
@@ -106,11 +128,14 @@ export function ServerStudio() {
               </div>
             </>
           )}
-          <div className="row">
-            <button className="primary" disabled={busy} onClick={() => void save({ weather }, weather.mode === 'fixo' ? `Clima fixo em ${WEATHERS[weather.fixed].label} para todos.` : 'Clima automático salvo.')}>Salvar clima</button>
+          <div className="section-foot" data-dirty={weatherDirty || undefined}>
+            {weatherDirty && <small className="dirty-note">Clima não salvo</small>}
+            {note('clima')}
+            <button className="ghost" disabled={busy || !weatherDirty} onClick={() => setWeather(sanitizeWeather(values?.weather))}>Desfazer</button>
+            <button className="primary" disabled={busy || !weatherDirty} onClick={() => { if (window.confirm(weather.mode === 'fixo' ? `Fixar o clima em ${WEATHERS[weather.fixed].label} para todos os jogadores agora?` : 'Voltar o clima para automático para todos os jogadores agora?')) void save({ weather }, weather.mode === 'fixo' ? `Clima fixo em ${WEATHERS[weather.fixed].label} para todos.` : 'Clima automático salvo.', 'clima'); }}>Salvar clima</button>
           </div>
         </fieldset>
-        {msg && <p className={'msg' + (msg.ok ? ' ok' : ' err')}>{msg.text}</p>}
+        {msg?.at === 'geral' && <p className="msg err" role="alert">{msg.text}</p>}
       </section>
 
       <section className="biome-editor">

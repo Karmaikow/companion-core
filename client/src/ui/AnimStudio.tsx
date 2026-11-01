@@ -16,6 +16,7 @@ import { supabase } from '../backend/online';
 import { facingYaw, inPlace, restBox, sanitizeSkins } from '../scene/CompanionModel';
 import { CreatureBody, type CreatureAct } from '../scene/Creature';
 import { useCatalog } from './catalog';
+import { useAdminDirty } from './adminKit';
 import type { Job } from './AdminPanel';
 import { STANDARD_EXTRAS, STANDARD_PREFIX, STANDARD_SLOTS, STANDARD_VIRTUAL } from '../m2m/slots';
 import type { Retargeter } from '../m2m/standard';
@@ -137,6 +138,7 @@ function CompanionAnims({ jobs, onUploadAnims, busy }: { jobs: Job[]; onUploadAn
   };
   const saved = Object.fromEntries(Object.entries(all).filter(([k]) => k.startsWith('slot:')).map(([k, v]) => [k.slice(5), v]));
   const dirty = JSON.stringify(map) !== JSON.stringify(saved);
+  useAdminDirty(dirty);
 
   async function save() {
     if (!job) return;
@@ -181,7 +183,7 @@ function CompanionAnims({ jobs, onUploadAnims, busy }: { jobs: Job[]; onUploadAn
     <div className="anim-grid">
       <aside className="anim-side">
         <label>Companion
-          <select disabled={rtBusy || busy} value={job?.companionId ?? ''} onChange={(e) => setCid(e.target.value)}>
+          <select disabled={rtBusy || busy} value={job?.companionId ?? ''} onChange={(e) => setCid(e.target.value)} aria-label='Companion'>
             {withModel.map((j) => <option key={j.companionId} value={j.companionId}>{j.name}</option>)}
           </select>
         </label>
@@ -347,6 +349,9 @@ function CreatureAnims() {
     })().catch(() => alive && setClips([]));
     return () => { alive = false; };
   }, [row?.slug, row?.updated_at]); // eslint-disable-line react-hooks/exhaustive-deps
+  // antes dos returns de carregamento: hooks sempre na mesma ordem
+  const cleanMap = (o: Record<string, string>) => JSON.stringify(Object.fromEntries(Object.entries(o).filter(([, v]) => v).sort()));
+  useAdminDirty(!!row && cleanMap(map) !== cleanMap(row.data.animMap ?? {}));
   if (cat.rows === null) return <p className="hint">Carregando o catálogo…</p>;
   if (!list.length) return <div className="anim-side"><M2mGuide open /><p className="hint">Nenhum monstro com modelo .GLB ainda. No Invocador, envie o modelo; criaturas sem modelo usam o slime (todo por código).</p></div>;
   const def: CreatureDef | null = row ? { ...row.data, animMap: Object.fromEntries(Object.entries(map).filter(([, v]) => v)) } : null;

@@ -15,6 +15,7 @@ import { LookEditor } from './BiomeStudio';
 import { AutoRig, glbHasRig } from './RigEditor';
 import { CreaturePromptGen, RigSelect } from './CreaturePromptGen';
 import { CreatureStatsEditor } from './CreatureStatsEditor';
+import { ListSearch, StudioActions, matches, useAdminDirty } from './adminKit';
 
 const CreaturePreview = lazy(() => import('../scene/CreaturePreview').then((m) => ({ default: m.CreaturePreview })));
 const ESS = Object.keys(ELEMENTS) as Element[];
@@ -45,6 +46,8 @@ export function SummonerStudio() {
   const [newName, setNewName] = useState('');
   const [act, setAct] = useState('idle');
   const [lookOpen, setLookOpen] = useState(false);
+  const [q, setQ] = useState('');
+  useAdminDirty(dirty);
 
   const run = async (f: () => Promise<unknown>, ok: string) => {
     setBusy(true); setMsg(null);
@@ -98,18 +101,26 @@ export function SummonerStudio() {
   const clean = useMemo(() => (draft ? sanitizeCreature(draft) : null), [draft]);
   const totalW = draft?.skills.reduce((t, s) => t + s.weight, 0) || 1;
   const lv = clean ? creatureStatsAt(clean, clean.level[1]) : null;
+  const found = (cat.rows ?? []).filter((r) => matches(q, r.name, r.slug, ARCHETYPES[r.data.archetype].label, TEMPERAMENTS[r.data.temperament].label));
 
   return (
     <div className="biome-studio">
       <aside className="biome-list">
-        <h2>Invocador de Monstros</h2>
-        <small className="hint">As criaturas do Companion World (as Brumas do design de batalha: acalmadas, não mortas). Publicadas, já andam nas regiões marcadas.</small>
+        <div className="list-head">
+          <h2>Criaturas <small>{cat.rows?.length ?? 0}</small></h2>
+        </div>
+        <form className="biome-new" onSubmit={(e) => { e.preventDefault(); create(); }}>
+          <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Nome da nova criatura" maxLength={50} aria-label="Nome da nova criatura" />
+          <button className="primary" disabled={!newName.trim()}>+ Invocar</button>
+        </form>
+        <ListSearch value={q} onChange={setQ} label="Buscar criatura" count={found.length} />
         {cat.error && <p className="msg err">{cat.error}</p>}
         {cat.rows && !cat.rows.length && (
           <button className="primary" disabled={busy} onClick={() => void run(() => cat.saveMany(DEFAULT_CREATURES, 'published'), 'Criaturas de exemplo publicadas.')}>Carregar 3 criaturas de exemplo</button>
         )}
+        {q.trim() && !found.length && <p className="empty">Nenhuma criatura com “{q.trim()}”.</p>}
         <ul>
-          {cat.rows?.map((r) => (
+          {found.map((r) => (
             <li key={r.slug}>
               <button className={sel === r.slug ? 'on' : ''} onClick={() => pick(r.slug)}>
                 <strong><i className="look-dot" style={{ background: r.data.color }} />{r.name}</strong>
@@ -118,10 +129,10 @@ export function SummonerStudio() {
             </li>
           ))}
         </ul>
-        <form className="biome-new" onSubmit={(e) => { e.preventDefault(); create(); }}>
-          <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Nova criatura" maxLength={50} aria-label="Nome da nova criatura" />
-          <button className="primary" disabled={!newName.trim()}>Invocar</button>
-        </form>
+        <details className="list-extra">
+          <summary>Sobre o Invocador</summary>
+          <small className="hint">As criaturas do Companion World (as Brumas do design de batalha: acalmadas, não mortas). Publicadas, já andam nas regiões marcadas.</small>
+        </details>
       </aside>
 
       {!draft || !clean ? (
@@ -312,15 +323,12 @@ export function SummonerStudio() {
               <small className="hint">Ingredientes das receitas e materiais. Itens vazios são ignorados ao salvar.</small>
             </fieldset>
 
-            {msg && <p className={'msg' + (msg.ok ? ' ok' : ' err')}>{msg.text}</p>}
-            <div className="row studio-actions">
-              <button className="primary" disabled={busy || !dirty} onClick={() => void run(async () => { await cat.save(draft, status); setDirty(false); }, 'Salva.')}>Salvar</button>
-              {status === 'draft'
-                ? <button className="secondary" disabled={busy} onClick={() => void run(async () => { await cat.save(draft, 'published'); setStatus('published'); setDirty(false); }, 'Publicada: já aparece no Companion World.')}>Salvar e publicar</button>
-                : <button className="ghost" disabled={busy} onClick={() => void run(async () => { await cat.save(draft, 'draft'); setStatus('draft'); setDirty(false); }, 'Saiu do mundo (rascunho).')}>Tirar do mundo</button>}
-              <button className="link" disabled={busy} onClick={() => { if (window.confirm(`Apagar "${draft.name}"?`)) void run(async () => { await cat.remove(draft.slug); setSel(null); setDraft(null); setDirty(false); }, 'Apagada.'); }}>apagar</button>
-              {dirty && <small className="msg">Não salva: a prévia já mostra.</small>}
-            </div>
+            <StudioActions name={draft.name} status={status} dirty={dirty} busy={busy} msg={msg}
+              note={<small className="hint">A prévia já mostra o que não foi salvo.</small>}
+              onSave={() => void run(async () => { await cat.save(draft, status); setDirty(false); }, status === 'published' ? 'Salva: já vale no mundo.' : 'Rascunho salvo.')}
+              onPublish={() => void run(async () => { await cat.save(draft, 'published'); setStatus('published'); setDirty(false); }, 'Publicada: já aparece no Companion World.')}
+              onUnpublish={() => void run(async () => { await cat.save(draft, 'draft'); setStatus('draft'); setDirty(false); }, 'Despublicada: saiu do mundo e ficou como rascunho.')}
+              onDelete={() => void run(async () => { await cat.remove(draft.slug); setSel(null); setDraft(null); setDirty(false); }, 'Apagada.')} />
           </div>
         </section>
       )}

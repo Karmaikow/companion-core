@@ -8,6 +8,7 @@ import {
   type BiomeAmbient, type BiomeKind, type ModelLook, type BiomeAsset, type BiomeAssetRole, type BiomeConfig, type BiomePalette, type BiomeZone,
 } from '@rules';
 import { supabase } from '../backend/online';
+import { ListSearch, StudioActions, matches, useAdminDirty } from './adminKit';
 
 const BiomePreview = lazy(() => import('../scene/BiomePreview').then((m) => ({ default: m.BiomePreview })));
 
@@ -44,6 +45,8 @@ export function BiomeStudio() {
   const [lookOpen, setLookOpen] = useState<string | null>(null);
   const [daylight, setDaylight] = useState(1);
   const [open, setOpen] = useState(true);
+  const [q, setQ] = useState('');
+  useAdminDirty(dirty);
 
   const load = useCallback(async () => {
     const { data, error } = await supabase().from('biomes').select('*').order('updated_at', { ascending: false });
@@ -126,17 +129,26 @@ export function BiomeStudio() {
   return (
     <div className="biome-studio">
       <aside className="biome-list">
+        <form className="biome-new" onSubmit={(e) => { e.preventDefault(); void create(false); }}>
+          <select value={newKind} onChange={(e) => setNewKind(e.target.value as BiomeKind)} aria-label="Tipo do novo bioma">
+            <option value="world">Região do mundo</option>
+            <option value="refuge">Refúgio</option>
+          </select>
+          <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder={newKind === 'world' ? 'Ex.: Planície Vulcânica' : 'Ex.: Refúgio da Mayuna'} maxLength={60} aria-label="Nome do novo bioma" />
+          <button className="primary" disabled={busy || !newName.trim()}>+ Criar</button>
+        </form>
+        <ListSearch value={q} onChange={setQ} label="Buscar bioma" />
         {!rows && <p className="msg">Carregando…</p>}
         {([['refuge', 'Refúgios', 'O cenário em volta do altar. "refugio" é o padrão de todos; os outros a Fábrica dá a um Companion.'], ['world', 'Regiões do mundo', 'Pedaços do Companion World: cada uma vira várias regiões do mapa.']] as const).map(([kind, title, hint]) => (
           <div key={kind} className="biome-group">
             <h2>{title}</h2>
             <small className="hint">{hint}</small>
             <ul>
-              {rows?.filter((r) => r.settings.kind === kind).map((r) => (
+              {rows?.filter((r) => r.settings.kind === kind && matches(q, r.name, r.slug)).map((r) => (
                 <li key={r.slug}>
                   <button className={sel === r.slug ? 'on' : ''} onClick={() => pick(r.slug)}>
                     <strong>{r.name}</strong>
-                    <small>{r.slug} · {r.status === 'published' ? 'publicado' : 'rascunho'} · {r.assets.length} modelo(s)</small>
+                    <small>{r.slug} · {r.status === 'published' ? 'no jogo' : 'rascunho'} · {r.assets.length} modelo(s)</small>
                   </button>
                 </li>
               ))}
@@ -145,14 +157,6 @@ export function BiomeStudio() {
           </div>
         ))}
         {rows && !rows.some((r) => r.slug === 'refugio') && <button className="ghost" disabled={busy} onClick={() => void create(true)}>Criar o bioma do Refúgio (a partir do atual)</button>}
-        <form className="biome-new" onSubmit={(e) => { e.preventDefault(); void create(false); }}>
-          <select value={newKind} onChange={(e) => setNewKind(e.target.value as BiomeKind)} aria-label="Tipo do novo bioma">
-            <option value="world">Região do mundo</option>
-            <option value="refuge">Refúgio</option>
-          </select>
-          <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder={newKind === 'world' ? 'Ex.: Planície Vulcânica' : 'Ex.: Refúgio da Mayuna'} maxLength={60} aria-label="Nome do novo bioma" />
-          <button className="primary" disabled={busy || !newName.trim()}>Criar</button>
-        </form>
       </aside>
 
       {!draft ? (
@@ -240,14 +244,9 @@ export function BiomeStudio() {
               </label>
             </fieldset>
 
-            {msg && <p className={'msg' + (msg.ok ? ' ok' : ' err')}>{msg.text}</p>}
-            <div className="row studio-actions">
-              <button className="primary" disabled={busy || !dirty} onClick={() => void save()}>Salvar</button>
-              {draft.status === 'draft'
-                ? <button className="secondary" disabled={busy} onClick={() => void save('published')}>Salvar e publicar</button>
-                : <button className="ghost" disabled={busy} onClick={() => void save('draft')}>Tirar do jogo (rascunho)</button>}
-              {dirty && <small className="msg">Mudanças não salvas: a prévia já mostra, o jogo ainda não.</small>}
-            </div>
+            <StudioActions name={draft.name} status={draft.status === 'published' ? 'published' : 'draft'} dirty={dirty} busy={busy} msg={msg}
+              note={<small className="hint">A prévia já mostra o que não foi salvo; o jogo, só depois de salvar.</small>}
+              onSave={() => void save()} onPublish={() => void save('published')} onUnpublish={() => void save('draft')} />
           </div>
         </section>
       )}

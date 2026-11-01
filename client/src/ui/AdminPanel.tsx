@@ -4,7 +4,10 @@
  * montado a partir do contrato de identidade e recebe a arte final.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { buildArtPrompt, animKind, ANIM_KINDS, type ArtPrompt, type IdentityContractV1 } from '@rules';
+import { AdminDirty, Icon, useAdminDirty } from './adminKit';
+import './admin.css';
 import { supabase } from '../backend/online';
 import { BiomeStudio } from './BiomeStudio';
 import { CityStudio } from './CityStudio';
@@ -21,17 +24,25 @@ import { AutoRig, glbHasRig } from './RigEditor';
 import { STANDARD_PREFIX } from '../m2m/slots';
 
 type View = 'companions' | 'animacoes' | 'biomas' | 'cidade' | 'lojas' | 'forja' | 'invocador' | 'arsenal' | 'servidor';
-const VIEWS: { key: View; label: string; icon: string; hash: string; title: string; hint: string }[] = [
-  { key: 'companions', label: 'Companions', icon: '☺', hash: '#/admin', title: 'Companions', hint: 'Todos os Companions: ficha, progressão, coleta, build e os pedidos de arte da Fábrica. O jogador nunca vê este painel.' },
-  { key: 'animacoes', label: 'Animações', icon: '🎞', hash: '#/admin/animacoes', title: 'Animações', hint: 'Qual clipe faz cada papel (parado, andando, golpes, coleta…) para Companions e monstros, com campo de treino.' },
-  { key: 'biomas', label: 'Biomas', icon: '🌿', hash: '#/admin/biomas', title: 'Estúdio de Biomas', hint: 'Refúgios e regiões do Companion World: cores, modelos e a aparência de cada modelo, com prévia 3D.' },
-  { key: 'cidade', label: 'Cidade', icon: '🏰', hash: '#/admin/cidade', title: 'Estúdio da Cidade', hint: 'Áster, a Cidade-Farol: monte o interior com os seus modelos, marque lojas, escolas e portões, e encaixe a cidade vista de fora.' },
-  { key: 'lojas', label: 'Lojas', icon: '🛒', hash: '#/admin/lojas', title: 'Lojas', hint: 'O que cada loja de Áster vende, preços e limites, e o Mercadão rotativo (estoque diário e requisitos).' },
-  { key: 'forja', label: 'Forja de Batalha', icon: '⚔', hash: '#/admin/forja', title: 'Forja de Batalha', hint: 'Habilidades genéricas que qualquer Companion daquela essência e corpo pode usar.' },
-  { key: 'invocador', label: 'Invocador', icon: '🐾', hash: '#/admin/invocador', title: 'Invocador de Monstros', hint: 'O catálogo de criaturas: corpo, jeito de lutar, onde aparecem e o que soltam.' },
-  { key: 'arsenal', label: 'Arsenal', icon: '🗡', hash: '#/admin/arsenal', title: 'Arsenal', hint: 'Armas e equipamentos: modelo, atributos, raridade, pegada na mão e a receita da Forja (só Taurinas forjam).' },
-  { key: 'servidor', label: 'Servidor', icon: '⚙', hash: '#/admin/servidor', title: 'Servidor', hint: 'IA dos Companions, XP de vínculo e clima — vale na hora para todos os jogadores.' },
+const VIEWS: { key: View; label: string; hash: string; title: string; hint: string }[] = [
+  { key: 'companions', label: 'Companions', hash: '#/admin', title: 'Companions', hint: 'Todos os Companions: ficha, progressão, coleta, build e os pedidos de arte da Fábrica. O jogador nunca vê este painel.' },
+  { key: 'animacoes', label: 'Animações', hash: '#/admin/animacoes', title: 'Animações', hint: 'Qual clipe faz cada papel (parado, andando, golpes, coleta…) para Companions e monstros, com campo de treino.' },
+  { key: 'biomas', label: 'Biomas', hash: '#/admin/biomas', title: 'Estúdio de Biomas', hint: 'Refúgios e regiões do Companion World: cores, modelos e a aparência de cada modelo, com prévia 3D.' },
+  { key: 'cidade', label: 'Cidade', hash: '#/admin/cidade', title: 'Estúdio da Cidade', hint: 'Áster, a Cidade-Farol: monte o interior com os seus modelos, marque lojas, escolas e portões, e encaixe a cidade vista de fora.' },
+  { key: 'lojas', label: 'Lojas', hash: '#/admin/lojas', title: 'Lojas', hint: 'O que cada loja de Áster vende, preços e limites, e o Mercadão rotativo (estoque diário e requisitos).' },
+  { key: 'forja', label: 'Forja', hash: '#/admin/forja', title: 'Forja de Batalha', hint: 'Habilidades genéricas que qualquer Companion daquela essência e corpo pode usar.' },
+  { key: 'invocador', label: 'Invocador', hash: '#/admin/invocador', title: 'Invocador de Monstros', hint: 'O catálogo de criaturas: corpo, jeito de lutar, onde aparecem e o que soltam.' },
+  { key: 'arsenal', label: 'Arsenal', hash: '#/admin/arsenal', title: 'Arsenal', hint: 'Armas e equipamentos: modelo, atributos, raridade, pegada na mão e a receita da Forja (só Taurinas forjam).' },
+  { key: 'servidor', label: 'Servidor', hash: '#/admin/servidor', title: 'Servidor', hint: 'IA dos Companions, XP de vínculo e clima — vale na hora para todos os jogadores.' },
 ];
+// o menu em grupos: quem são os Companions, o mundo, o catálogo do jogo e o que vale para o servidor inteiro
+const GROUPS: { label: string; views: View[] }[] = [
+  { label: 'Companions', views: ['companions'] },
+  { label: 'Mundo', views: ['cidade', 'biomas', 'lojas'] },
+  { label: 'Catálogo', views: ['forja', 'invocador', 'arsenal', 'animacoes'] },
+  { label: 'Ao vivo', views: ['servidor'] },
+];
+const DIRTY_ASK = 'Há alterações não salvas nesta aba. Sair mesmo assim? (elas se perdem)';
 
 export interface Job {
   id: string; companionId: string; status: string; createdAt: string; updatedAt: string; contractVersion: number;
@@ -66,6 +77,23 @@ export function AdminPanel() {
   const [showLogin, setShowLogin] = useState(false);
   const [view, setView] = useState<View>(() => VIEWS.find((v) => v.key !== 'companions' && location.hash.includes(v.hash.split('/').pop()!))?.key ?? 'companions');
   const V = VIEWS.find((v) => v.key === view)!;
+  // alterações não salvas: cada estúdio avisa pelo AdminDirty; trocar de aba ou fechar a página pergunta antes
+  const dirtyIds = useRef(new Set<string>());
+  const reportDirty = useCallback((id: string, d: boolean) => { if (d) dirtyIds.current.add(id); else dirtyIds.current.delete(id); }, []);
+  useEffect(() => {
+    const warn = (e: BeforeUnloadEvent) => { if (dirtyIds.current.size) e.preventDefault(); };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, []);
+  function go(next: View) {
+    if (next === view) return;
+    if (dirtyIds.current.size && !window.confirm(DIRTY_ASK)) return;
+    dirtyIds.current.clear();
+    const swap = () => { flushSync(() => setView(next)); window.scrollTo({ top: 0 }); };
+    history.replaceState(null, '', VIEWS.find((v) => v.key === next)!.hash);
+    const doc = document as Document & { startViewTransition?: (f: () => void) => unknown };
+    if (doc.startViewTransition && !matchMedia('(prefers-reduced-motion: reduce)').matches) doc.startViewTransition(swap); else swap();
+  }
   // altura do cabeçalho fixo → --admin-head (barras laterais e telas 3D se encaixam abaixo dele)
   const shell = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -191,7 +219,16 @@ export function AdminPanel() {
     await update(job, 'review', { artPath: path });
   }
 
-  const renderJob = (j: Job) => (
+  const copy = (text: string) => void navigator.clipboard?.writeText(text);
+  const renderJob = (j: Job) => {
+    // o caminho de um pedido, na ordem em que acontece: referência → modelo → animações → no jogo
+    const steps = [
+      { label: 'Referência', done: !!j.artPath },
+      { label: 'Modelo 3D', done: !!j.modelPath },
+      { label: 'Animações', done: j.animPaths.length > 0 },
+      { label: 'No jogo', done: j.status === 'approved' },
+    ];
+    return (
           <article key={j.id} className={'job ' + j.status}>
             <header>
               <div>
@@ -200,6 +237,9 @@ export function AdminPanel() {
               </div>
               <span className={'pill ' + j.status}>{STATUS[j.status] ?? j.status}</span>
             </header>
+            <ol className="job-steps" aria-label="Andamento do pedido">
+              {steps.map((s) => <li key={s.label} className={s.done ? 'done' : ''}>{s.done && <Icon name="check" size={14} />}{s.label}</li>)}
+            </ol>
             <p className="summary-line">{j.prompt.summaryPt}</p>
             <div className="palette" aria-label="Paleta">
               {Object.entries(j.contract.palette).map(([k, v]) => <span key={k} title={`${k} ${v}`} style={{ background: v }} />)}
@@ -210,17 +250,20 @@ export function AdminPanel() {
                   <b>{j.prompt.sheet.species.label}</b> · humanoide · {j.prompt.sheet.species.features}
                   <small>{j.prompt.sheet.appendages.note}</small>
                 </div>
-                <label>1. Referência para o modelo 3D (Tripo, rig humanoide) <button className="link" onClick={() => void navigator.clipboard?.writeText(j.prompt.modelPrompt)}>copiar</button></label>
-                <textarea readOnly value={j.prompt.modelPrompt} rows={6} />
-                <small>Evitar: {j.prompt.modelNegative}</small>
-                <label>Folha de vistas da referência (frente, esquerda, direita, verso → multivista do Tripo) <button className="link" onClick={() => void navigator.clipboard?.writeText(j.prompt.views)}>copiar</button></label>
-                <textarea readOnly value={j.prompt.views} rows={4} />
-                <label>2. Arte do retrato (com {j.prompt.sheet.appendages.tail || j.prompt.sheet.appendages.wings ? 'cauda/asas' : 'todos os traços'}; não vai para o Tripo) <button className="link" onClick={() => void navigator.clipboard?.writeText(j.prompt.prompt)}>copiar</button></label>
-                <textarea readOnly value={j.prompt.prompt} rows={5} />
-                <label>Evitar no retrato <button className="link" onClick={() => void navigator.clipboard?.writeText(j.prompt.negative)}>copiar</button></label>
-                <textarea readOnly value={j.prompt.negative} rows={2} />
-                <small>Formato: {j.prompt.size} · Rig no Tripo: <b>humanoide</b> (o mesmo para todos; animações prontas de humanoide servem)</small>
-                <details open><summary>Ficha do personagem (JSON)</summary><pre>{JSON.stringify(j.prompt.sheet, null, 2)}</pre><button className="link" onClick={() => void navigator.clipboard?.writeText(JSON.stringify(j.prompt.sheet, null, 2))}>copiar ficha</button></details>
+                <details className="job-prompts" open={!j.artPath}>
+                  <summary>Prompts para gerar a arte e o modelo</summary>
+                  <label>1. Referência para o modelo 3D (Tripo, rig humanoide) <button className="link" onClick={() => copy(j.prompt.modelPrompt)}>copiar</button></label>
+                  <textarea readOnly value={j.prompt.modelPrompt} rows={6} />
+                  <small>Evitar: {j.prompt.modelNegative}</small>
+                  <label>Folha de vistas da referência (frente, esquerda, direita, verso → multivista do Tripo) <button className="link" onClick={() => copy(j.prompt.views)}>copiar</button></label>
+                  <textarea readOnly value={j.prompt.views} rows={4} />
+                  <label>2. Arte do retrato (com {j.prompt.sheet.appendages.tail || j.prompt.sheet.appendages.wings ? 'cauda/asas' : 'todos os traços'}; não vai para o Tripo) <button className="link" onClick={() => copy(j.prompt.prompt)}>copiar</button></label>
+                  <textarea readOnly value={j.prompt.prompt} rows={5} />
+                  <label>Evitar no retrato <button className="link" onClick={() => copy(j.prompt.negative)}>copiar</button></label>
+                  <textarea readOnly value={j.prompt.negative} rows={2} />
+                  <small>Formato: {j.prompt.size} · Rig no Tripo: <b>humanoide</b> (o mesmo para todos; animações prontas de humanoide servem)</small>
+                </details>
+                <details><summary>Ficha do personagem (JSON)</summary><pre>{JSON.stringify(j.prompt.sheet, null, 2)}</pre><button className="link" onClick={() => copy(JSON.stringify(j.prompt.sheet, null, 2))}>copiar ficha</button></details>
                 <details><summary>Contrato de identidade (JSON)</summary><pre>{JSON.stringify(j.contract, null, 2)}</pre></details>
               </div>
               <div className="art">
@@ -241,18 +284,7 @@ export function AdminPanel() {
                   <small className="hint">Envie o .GLB sem rig: o esqueleto é encaixado aqui e recebe o pacote de animações automaticamente.</small>
                   <strong>Animações</strong>
                   {j.animPaths.length ? (
-                    <ul className="anim-list">
-                      {j.animPaths.map((a) => (
-                        <li key={a.path}>
-                          <span title={a.name}>{a.name || a.path.split('/').pop()}</span>
-                          <select value={a.kind} disabled={busy} onChange={(e) => void update(j, j.status, { setAnim: { path: a.path, kind: e.target.value } })} aria-label={'Tipo de ' + a.name}>
-                            {ANIM_KINDS.map((k) => <option key={k.kind} value={k.kind}>{k.label}</option>)}
-                            <option value="special">Especial</option>
-                          </select>
-                          <button className="link" disabled={busy} onClick={() => void update(j, j.status, { removeAnim: a.path })}>tirar</button>
-                        </li>
-                      ))}
-                    </ul>
+                    <AnimKinds key={j.id + j.updatedAt} job={j} busy={busy} onSave={(changes) => saveAnimKinds(j, changes)} onRemove={(a) => { if (window.confirm(`Tirar a animação "${a.name || a.path.split('/').pop()}" de ${j.name}?`)) void update(j, j.status, { removeAnim: a.path }); }} />
                   ) : <small>Nenhuma. Exporte cada animação do mesmo rig num .GLB e ponha o tipo no nome: parado, andando, correndo, ataque, desmaiado, feliz, dormindo, pulo, comendo.</small>}
                   <label className="upload">
                     <input type="file" accept=".glb,model/gltf-binary" multiple disabled={busy || !j.modelPath} onChange={(e) => { const fs = [...(e.target.files ?? [])]; if (fs.length) void uploadAnims(j, fs); e.target.value = ''; }} />
@@ -263,13 +295,20 @@ export function AdminPanel() {
                 <RefugeBiomePicker companionId={j.companionId} />
                 <div className="row">
                   {j.status === 'queued' && <button className="ghost" disabled={busy} onClick={() => void update(j, 'generating')}>Marcar "gerando"</button>}
-                  {(j.artPath || j.modelPath) && j.status !== 'approved' && <button className="primary" disabled={busy} onClick={() => void update(j, 'approved')}>Aprovar e liberar no jogo</button>}
-                  {j.status === 'approved' && <button className="ghost" disabled={busy} onClick={() => void update(j, 'review')}>Tirar do jogo</button>}
+                  {(j.artPath || j.modelPath) && j.status !== 'approved' && <button className="primary" disabled={busy} onClick={() => { if (window.confirm(`Publicar a arte de ${j.name}?\n\nA pessoa passa a ver ${j.modelPath ? 'o modelo 3D' : 'a imagem'} no jogo.`)) void update(j, 'approved'); }}>Publicar no jogo</button>}
+                  {j.status === 'approved' && <button className="ghost" disabled={busy} onClick={() => { if (window.confirm(`Despublicar a arte de ${j.name}?\n\nSome do jogo agora e volta para revisão.`)) void update(j, 'review'); }}>Despublicar</button>}
                 </div>
               </div>
             </div>
           </article>
-  );
+    );
+  };
+
+  // tipos de animação: escolhe na lista e grava tudo de uma vez (antes, cada troca no menu gravava na hora)
+  async function saveAnimKinds(job: Job, changes: { path: string; kind: string }[]) {
+    for (const c of changes) if (!(await update(job, job.status, { setAnim: c }))) return false;
+    return true;
+  }
 
   // sem permissão (ou sem login): só a tela genérica com a partícula — nada do painel
   if (session === null || (session && admin === null)) return <div className="admin-void" aria-busy="true" />;
@@ -289,22 +328,28 @@ export function AdminPanel() {
   );
 
   return (
+    <AdminDirty.Provider value={reportDirty}>
     <div className="admin" ref={shell}>
       <header className="admin-head">
         <div className="admin-bar">
           <h1>O Administrador</h1>
           <nav className="admin-tabs" aria-label="Seções">
-            {VIEWS.map((v) => <button key={v.key} className={view === v.key ? 'on' : ''} aria-current={view === v.key ? 'page' : undefined} onClick={() => { setView(v.key); history.replaceState(null, '', v.hash); }}><span aria-hidden>{v.icon}</span> {v.label}</button>)}
+            {GROUPS.map((g) => (
+              <div key={g.label} className="admin-group" role="group" aria-label={g.label}>
+                <span className="admin-group-label" aria-hidden>{g.label}</span>
+                {g.views.map((k) => { const v = VIEWS.find((x) => x.key === k)!; return <button key={k} className={view === k ? 'on' : ''} aria-current={view === k ? 'page' : undefined} onClick={() => go(k)}><Icon name={k} />{v.label}</button>; })}
+              </div>
+            ))}
           </nav>
-          <div className="admin-actions">
-            {session && view === 'companions' && <button className="ghost" disabled={busy} onClick={() => void load()}>Atualizar</button>}
-            <a className="link" href="#/">← Voltar ao jogo</a>
-          </div>
+          <a className="admin-back" href="#/"><Icon name="back" size={16} />Voltar ao jogo</a>
         </div>
-        <p className="admin-hint"><b>{V.title}</b> · {V.hint}</p>
       </header>
+      <div className="admin-title">
+        <h2>{V.title}</h2>
+        <p>{V.hint}</p>
+      </div>
 
-      {msg && <p className="msg err">{msg}</p>}
+      {msg && <p className="msg err" role="alert">{msg}</p>}
 
       {session && view === 'animacoes' && <AnimStudio jobs={jobs ?? []} onUploadAnims={uploadAnims} busy={busy} />}
       {rigJob && (() => {
@@ -327,9 +372,10 @@ export function AdminPanel() {
       {session && view === 'servidor' && <ServerStudio />}
       {session && view === 'lojas' && <ShopStudio />}
       {session && view === 'companions' && (
-        <CompanionsAdmin jobs={jobs ?? []} renderJob={renderJob} reloadKey={jobs} />
+        <CompanionsAdmin jobs={jobs ?? []} renderJob={renderJob} reloadKey={jobs} onReloadJobs={() => void load()} busy={busy} />
       )}
     </div>
+    </AdminDirty.Provider>
   );
 }
 
@@ -337,10 +383,41 @@ export function AdminPanel() {
  * Refúgio do Companion: todos usam o bioma padrão "refugio"; um Companion evoluído pode ganhar um Refúgio próprio
  * (qualquer bioma publicado no Estúdio — de preferência um com "Aparece no mundo" desligado).
  */
+function AnimKinds({ job, busy, onSave, onRemove }: { job: Job; busy: boolean; onSave: (changes: { path: string; kind: string }[]) => Promise<boolean>; onRemove: (a: Job['animPaths'][number]) => void }) {
+  const [kinds, setKinds] = useState<Record<string, string>>({});
+  const changes = job.animPaths.filter((a) => kinds[a.path] && kinds[a.path] !== a.kind).map((a) => ({ path: a.path, kind: kinds[a.path] }));
+  useAdminDirty(changes.length > 0);
+  return (
+    <>
+      <ul className="anim-list">
+        {job.animPaths.map((a) => (
+          <li key={a.path} className={kinds[a.path] && kinds[a.path] !== a.kind ? 'changed' : ''}>
+            <span title={a.name}>{a.name || a.path.split('/').pop()}</span>
+            <select value={kinds[a.path] ?? a.kind} disabled={busy} onChange={(e) => setKinds((k) => ({ ...k, [a.path]: e.target.value }))} aria-label={'Tipo de ' + (a.name || 'animação')}>
+              {ANIM_KINDS.map((k) => <option key={k.kind} value={k.kind}>{k.label}</option>)}
+              <option value="special">Especial</option>
+            </select>
+            <button className="link" disabled={busy} onClick={() => onRemove(a)}>tirar</button>
+          </li>
+        ))}
+      </ul>
+      {changes.length > 0 && (
+        <div className="row inline-save">
+          <small className="dirty-note">{changes.length} tipo{changes.length > 1 ? 's' : ''} trocado{changes.length > 1 ? 's' : ''}</small>
+          <button className="ghost" disabled={busy} onClick={() => setKinds({})}>Desfazer</button>
+          <button className="primary" disabled={busy} onClick={() => void onSave(changes).then((ok) => { if (ok) setKinds({}); })}>Salvar tipos</button>
+        </div>
+      )}
+    </>
+  );
+}
+
 function RefugeBiomePicker({ companionId }: { companionId: string }) {
   const [list, setList] = useState<{ slug: string; name: string; status: string }[] | null>(null);
   const [cur, setCur] = useState<string>('');
+  const [pick, setPick] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
+  useAdminDirty(pick !== null && pick !== cur);
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -361,7 +438,7 @@ function RefugeBiomePicker({ companionId }: { companionId: string }) {
       ? await supabase().from('companion_biomes').upsert({ companion_id: companionId, biome_slug: slug, updated_at: new Date().toISOString(), updated_by: uid })
       : await supabase().from('companion_biomes').delete().eq('companion_id', companionId);
     if (r.error) { setNote('Não deu para salvar: ' + r.error.message); return; }
-    setCur(slug);
+    setCur(slug); setPick(null);
     const b = list?.find((x) => x.slug === slug);
     setNote(slug ? (b?.status === 'published' ? 'Salvo. O Refúgio muda na próxima vez que a pessoa abrir o jogo.' : 'Salvo, mas este bioma é rascunho: publique no Estúdio para valer no jogo.') : 'Voltou para o Refúgio padrão.');
   }
@@ -369,11 +446,17 @@ function RefugeBiomePicker({ companionId }: { companionId: string }) {
   return (
     <div className="model-box">
       <strong>Refúgio deste Companion</strong>
-      <select value={cur} onChange={(e) => void choose(e.target.value)} aria-label="Bioma do Refúgio">
+      <select value={pick ?? cur} onChange={(e) => { setPick(e.target.value); setNote(null); }} aria-label="Bioma do Refúgio">
         <option value="">Padrão (bioma "refugio")</option>
         {list.filter((b) => b.slug !== 'refugio').map((b) => <option key={b.slug} value={b.slug}>{b.name}{b.status === 'published' ? '' : ' (rascunho)'}</option>)}
       </select>
-      {note && <small>{note}</small>}
+      {pick !== null && pick !== cur && (
+        <div className="row inline-save">
+          <button className="ghost" onClick={() => setPick(null)}>Desfazer</button>
+          <button className="primary" onClick={() => void choose(pick)}>Salvar Refúgio</button>
+        </div>
+      )}
+      {note && <small role="status">{note}</small>}
     </div>
   );
 }

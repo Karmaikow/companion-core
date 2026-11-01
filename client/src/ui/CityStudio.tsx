@@ -19,6 +19,7 @@ import {
 } from '@rules';
 import { SHOP_KINDS, SHOP_KIND_IDS, CITY_SCHOOLS, CITY_SCHOOL_IDS, CRYSTAL_Y, type ShopKind, type CitySchool } from '@rules';
 import { supabase } from '../backend/online';
+import { useAdminDirty } from './adminKit';
 import { AssetBoundary, Sky } from '../scene/Biome';
 import { CityGround, InnerWall, MarkerView, OutskirtsView } from '../scene/AsterScene';
 
@@ -274,6 +275,8 @@ export function CityStudio() {
     if (error) setMsg({ text: error.message }); else { setStatus('draft'); setMsg({ ok: true, text: 'Voltou para rascunho: o jogo usa a cidade provisória.' }); }
   }
 
+  // antes do return de carregamento: hooks sempre na mesma ordem
+  useAdminDirty(!!layout && JSON.stringify(layout) !== saved);
   if (!layout) return <p className="empty">Abrindo o Estúdio da Cidade…</p>;
   const dirty = JSON.stringify(layout) !== saved;
   const piece = sel?.kind === 'piece' ? layout.pieces.find((p) => p.id === sel.id) : undefined;
@@ -323,18 +326,18 @@ export function CityStudio() {
           <legend>Cidade</legend>
           <label>Nome<input value={layout.name} onChange={(e) => commit((l) => ({ ...l, name: e.target.value }))} /></label>
           <div className="cs-row">
-            <span className={'pill ' + (status === 'published' ? 'approved' : 'review')}>{status === 'published' ? 'Publicada' : status === 'draft' ? 'Rascunho' : 'Nova'}</span>
-            {dirty && <span className="pill queued">não salvo</span>}
+            <span className={'pill ' + (status === 'published' ? 'published' : 'draft')}>{status === 'published' ? 'No jogo' : status === 'draft' ? 'Rascunho' : 'Nova'}</span>
+            {dirty && <small className="dirty-note">Alterações não salvas</small>}
           </div>
           <div className="cs-row">
             <button className="ghost" disabled={busy || !dirty} onClick={() => void save()}>Salvar rascunho</button>
-            <button className="primary" disabled={busy} onClick={() => void save(true)}>{status === 'published' ? 'Salvar e publicar' : 'Publicar'}</button>
+            <button className="primary" disabled={busy || (status === 'published' && !dirty)} onClick={() => { if (window.confirm(status === 'published' ? 'Publicar as mudanças da cidade?\n\nTodos os jogadores passam a ver Áster assim.' : 'Publicar a cidade?\n\nÁster passa a existir no jogo para todos.')) void save(true); }}>{status === 'published' ? 'Publicar mudanças' : 'Publicar'}</button>
           </div>
-          {status === 'published' && <button className="link" disabled={busy} onClick={() => void unpublish()}>tirar do jogo (voltar para rascunho)</button>}
+          {status === 'published' && <button className="ghost" disabled={busy} onClick={() => { if (window.confirm('Despublicar a cidade?\n\nÁster some do jogo para todos agora. O desenho continua salvo como rascunho.')) void unpublish(); }}>Despublicar</button>}
         </fieldset>
 
         <fieldset>
-          <legend>Biblioteca ({lib.length})</legend>
+          <legend>Biblioteca ({library.length})</legend>
           <label className="upload">
             <input type="file" accept=".glb,model/gltf-binary" multiple disabled={busy} onChange={(e) => { const fs = [...(e.target.files ?? [])]; e.target.value = ''; if (fs.length) void upload(fs); }} />
             <span>+ Enviar .GLB (prédios, muralhas, torres…)</span>
