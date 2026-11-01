@@ -111,6 +111,8 @@ export async function shopAction(action: string, body: Record<string, unknown>, 
     if (!chk.ok) throw new PactoError(409, chk.reason);
     const g = goodById(recipe!.good)!;
     const r = await trade(0, 'escola:' + recipe!.id, [{ key: shopKey(g.id), qty: chk.give, meta: { label: g.name, description: g.description, category: 'diversos', shop: g.id } }], chk.consume, null, 'escola-preparo');
+    // as missões de "fabricar" contam os preparos por aqui
+    await db.from('companion_events').insert({ companion_id: cid, actor: 'system', kind: 'escola.preparo', payload: { brew: recipe!.id, times: Math.max(1, Math.round(Number(body.times) || 1)), qty: chk.give } });
     return { ...r, brewed: { good: g.id, qty: chk.give, bonus: chk.bonus } };
   }
 

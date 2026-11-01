@@ -218,6 +218,7 @@ const PATHS: Record<string, ReactNode> = {
   forja: <><path d="M4 19.5h16M7 19.5l1.5-4h7l1.5 4" /><path d="M5 11.5h14l-2 4H7l-2-4Z" /><path d="M14.5 4.5 18 8M15.8 3.2l3 3-1.6 1.6-3-3z" /></>,
   invocador: <><path d="M12 20c-3.6 0-6.5-2.6-6.5-5.8 0-2.6 2-4.2 4-4.2 1 0 1.8.4 2.5 1 .7-.6 1.5-1 2.5-1 2 0 4 1.6 4 4.2C18.5 17.4 15.6 20 12 20Z" /><circle cx="5" cy="7" r="1.8" /><circle cx="9.5" cy="4.2" r="1.8" /><circle cx="14.5" cy="4.2" r="1.8" /><circle cx="19" cy="7" r="1.8" /></>,
   arsenal: <><path d="M14.5 3.5h6v6L9 21l-6-6L14.5 3.5Z" /><path d="M6 12l6 6M3 21l2.5-2.5" /></>,
+  missoes: <><rect x="5" y="3" width="14" height="18" rx="2" /><path d="m9 9.5 2 2 4-4M9 15.5h6" /></>,
   servidor: <><circle cx="12" cy="12" r="3" /><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7" /></>,
   search: <><circle cx="10.5" cy="10.5" r="6" /><path d="m15 15 5.5 5.5" /></>,
   more: <><circle cx="5.5" cy="12" r="1.2" /><circle cx="12" cy="12" r="1.2" /><circle cx="18.5" cy="12" r="1.2" /></>,

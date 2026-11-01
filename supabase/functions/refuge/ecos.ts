@@ -39,7 +39,7 @@ export const reasonText = (r: string | undefined) => (r && REASON[r]) || 'Não d
 // ---------------------------------------------------------------------------
 
 let worldCache: { at: number; w: CompanionWorld; weather: WeatherConfig } | null = null;
-async function worldNow(db: SupabaseClient) {
+export async function worldNow(db: SupabaseClient) {
   if (worldCache && Date.now() - worldCache.at < 60_000) return worldCache;
   const [bs, gc] = await Promise.all([
     db.from('biomes').select('slug,name,description,palette,settings,assets,status').eq('status', 'published'),
@@ -131,7 +131,7 @@ async function advanceChain(ctx: Ctx, act: { node?: string; approach?: string; i
   return { chain: SEIVA_AZUL.id, step: r.step, title: step.title, evidence: step.evidence, knowledge: step.knowledge ?? null };
 }
 
-async function grantBond(ctx: Ctx, cid: string, xp: number, reason: string) {
+export async function grantBond(ctx: { db: SupabaseClient; cfg: GameConfig }, cid: string, xp: number, reason: string) {
   if (xp <= 0) return null;
   const { data } = await ctx.db.from('companions').select('bond_xp').eq('id', cid).maybeSingle();
   if (!data) return null;

@@ -12,6 +12,7 @@ import {
 } from './rules/index.ts';
 import { complete, providerName, refreshAi, loadAiRow, targetFromRow, callTarget, listModels, describeImage, envProviderName, envTarget, AI_PROVIDERS, AI_DEFAULTS, type AiProvider, type AiRow } from './llm.ts';
 import { ecosAction, EcosError } from './ecos.ts';
+import { missionAction, MissionError } from './missions.ts';
 import { pactoAction, pactoState, PactoError, lumes } from './pacto.ts';
 import { shopAction } from './shop.ts';
 import { schoolView } from './schools.ts';
@@ -842,6 +843,13 @@ Deno.serve(async (req) => {
       const cc = c;
       return json(200, await ecosAction(action, body, { db, c: cc, cfg, ecfg: cfg.ecos, pcfg: cfg.pacto, admin: await isAdmin(db, userId), event: (kind, payload) => event(db, cc.id as string, 'system', kind, payload) }));
     }
+    if (action.startsWith('missions.')) {
+      const cc = c;
+      return json(200, await missionAction(action, body, {
+        db, c: cc, cfg, admin: await isAdmin(db, userId), event: (kind, payload) => event(db, cc.id as string, 'system', kind, payload),
+        creatures: () => creatureDefs(db), items: () => itemDefs(db), addToBag: (adds) => addToBag(db, cc.id as string, adds as { key: string; qty: number; label: string; category: string }[]),
+      }));
+    }
     if (action.startsWith('pacto.shop.') || action.startsWith('pacto.school.')) {
       const cc = c, admin = await isAdmin(db, userId);
       return json(200, await shopAction(action, body, { db, c: cc, admin, shop: cfg.shop, catalog: () => itemDefs(db), state: () => pactoState(db, cc, admin, cfg.pacto) }));
@@ -864,7 +872,7 @@ Deno.serve(async (req) => {
     }
     return json(404, { error: 'Ação desconhecida.' });
   } catch (e) {
-    if (e instanceof HttpError || e instanceof EcosError || e instanceof PactoError || e instanceof BuildError || e instanceof SocialError) return json(e.status, { error: e.message });
+    if (e instanceof HttpError || e instanceof EcosError || e instanceof MissionError || e instanceof PactoError || e instanceof BuildError || e instanceof SocialError) return json(e.status, { error: e.message });
     console.error('refuge', (e as Error).message);
     return json(500, { error: 'O Refúgio está instável agora. Tente de novo.' });
   }

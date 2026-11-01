@@ -1467,3 +1467,26 @@ body:has(.admin), #root:has(.admin) { height: auto; min-height: 100%; overflow: 
 :where(button:not([class])[aria-pressed="true"]) { border-color: var(--brass); color: #ffe7b8; background: color-mix(in srgb, var(--brass) 16%, var(--night-2)); }
 :where(button:not([class]):active:not(:disabled)) { translate: 0 1px; }
 :where(input[type="file"])::file-selector-button { font: inherit; color: var(--parchment); background: var(--night-2); border: 1px solid #3a4b70; border-radius: 8px; padding: 6px 12px; margin-right: 10px; cursor: pointer; }
+
+/* ---- Missões (Jornada) */
+.missions-tab { display: grid; gap: 10px; }
+.mission-group h4, .mission-group summary { margin: 8px 0 6px; color: var(--ecos-silver); font-family: var(--serif); cursor: default; }
+.mission-group summary { cursor: pointer; }
+.mission-group small { color: var(--muted, #9aa3ad); font-family: inherit; font-weight: 400; }
+.mission-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.mission-card { padding: 10px 12px; border-radius: 10px; background: rgba(255, 255, 255, 0.04); border-left: 3px solid var(--rarity, var(--ecos-moss-2)); display: grid; gap: 6px; }
+.mission-card header { display: grid; gap: 2px; }
+.mission-card header b { display: flex; align-items: center; gap: 6px; }
+.mission-card header small { color: var(--muted, #9aa3ad); }
+.mission-card.pronta { background: color-mix(in srgb, var(--rarity) 12%, rgba(255, 255, 255, 0.04)); }
+.mission-card.concluida, .mission-card.bloqueada { opacity: 0.78; }
+.mission-objs { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
+.mission-objs li { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; align-items: center; }
+.mission-objs li > .bar, .mission-objs li > .mission-deliver, .mission-objs li > .hint, .mission-objs li > .link { grid-column: 1 / -1; }
+.mission-objs li.done > span:first-child { color: var(--ecos-glow); }
+.mission-count { font-variant-numeric: tabular-nums; color: var(--muted, #9aa3ad); }
+.missions-tab .bar { height: 6px; border-radius: 99px; background: rgba(255, 255, 255, 0.12); overflow: hidden; }
+.missions-tab .bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--ecos-moss-2), var(--ecos-glow)); }
+.mission-deliver { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.mission-deliver select { flex: 1 1 180px; min-width: 0; }
+.mission-reward { margin: 0; color: var(--ecos-silver); font-size: 0.92em; }

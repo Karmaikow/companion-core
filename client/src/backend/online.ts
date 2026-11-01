@@ -36,6 +36,7 @@ export class OnlineBackend implements Backend {
   inventory(action: 'inventory.discard' | 'inventory.grant', body: Record<string, unknown>) { return this.call(action, body); }
   ecos(action: string, body: Record<string, unknown> = {}) { return this.call(action, body) as unknown as Promise<import('../ecos/types').EcosReply>; }
   pacto(action: string, body: Record<string, unknown> = {}) { return this.call(action, body) as unknown as Promise<import('../pacto/types').PactoReply>; }
+  missions(action: string, body: Record<string, unknown> = {}) { return this.call(action, body) as unknown as Promise<import('../missions/missionsStore').MissionsReply>; }
   build(action: string, body: Record<string, unknown> = {}) { return this.call(action, body) as unknown as Promise<import('../build/types').BuildReply>; }
   barks(req: BarksRequest) { return this.call('barks', req as unknown as Record<string, unknown>) as unknown as Promise<{ lines?: Record<string, string[]>; line?: string | null }>; }
   social(action: string, body: Record<string, unknown> = {}) { return this.call(action, body) as unknown as Promise<Record<string, unknown>>; }

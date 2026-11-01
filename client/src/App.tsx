@@ -17,6 +17,7 @@ import { Creation } from './ui/Creation';
 import { SkillTreePanel } from './ui/SkillTreePanel';
 import { SettingsPanel } from './ui/SettingsPanel';
 import { EcosPanel } from './ui/EcosPanel';
+import { MissionsPanel } from './ui/MissionsPanel';
 import { PactoPanel } from './ui/PactoPanel';
 import { LocationHud, QuestTracker } from './ui/GameHud';
 import { ChatComposer } from './ui/ChatComposer';
@@ -50,7 +51,7 @@ import { supabase } from './backend/online';
 /** Menu lateral em grupos: o Companion, a jornada, a bolsa, os ofícios e os ajustes. A Forja só aparece para Taurinas. */
 const TAB_GROUPS: { label: string; tabs: { key: Tab; label: string }[] }[] = [
   { label: 'Companion', tabs: [{ key: 'chat', label: 'Conversa' }, { key: 'bond', label: 'Vínculo' }, { key: 'skills', label: 'Habilidades' }] },
-  { label: 'Jornada', tabs: [{ key: 'quests', label: 'Quests' }, { key: 'ecos', label: 'Coleta' }, { key: 'diary', label: 'Diário' }, { key: 'memories', label: 'Memórias' }] },
+  { label: 'Jornada', tabs: [{ key: 'quests', label: 'Quests' }, { key: 'missoes', label: 'Missões' }, { key: 'ecos', label: 'Coleta' }, { key: 'diary', label: 'Diário' }, { key: 'memories', label: 'Memórias' }] },
   { label: 'Bolsa', tabs: [{ key: 'inventory', label: 'Inventário' }, { key: 'recipes', label: 'Receitas' }] },
   { label: 'Ofícios', tabs: [{ key: 'pacto', label: 'Oficina' }, { key: 'forja', label: 'Forja Primordial' }] },
   { label: 'Mundo', tabs: [{ key: 'social', label: 'Amigos e grupo' }] },
@@ -389,7 +390,7 @@ export function App() {
   const hiddenTab = (k: Tab) => (k === 'forja' ? !taurina : k === 'pacto' ? taurina : false);
   useEffect(() => setMinimized(false), [tab]);
   useEffect(() => { if ((tab === 'forja' && !taurina) || (tab === 'pacto' && taurina)) setTab(taurina ? 'forja' : 'pacto'); }, [tab, taurina]); // eslint-disable-line react-hooks/exhaustive-deps
-  const panel = { chat: ChatPanel, memories: MemoriesPanel, diary: DiaryPanel, quests: QuestsPanel, inventory: InventoryPanel, recipes: RecipesPanel, skills: SkillsTab, bond: BondPanel, ecos: EcosPanel, pacto: PactoPanel, forja: PactoPanel, social: SocialPanel, settings: SettingsPanel };
+  const panel = { chat: ChatPanel, memories: MemoriesPanel, diary: DiaryPanel, quests: QuestsPanel, missoes: MissionsPanel, inventory: InventoryPanel, recipes: RecipesPanel, skills: SkillsTab, bond: BondPanel, ecos: EcosPanel, pacto: PactoPanel, forja: PactoPanel, social: SocialPanel, settings: SettingsPanel };
   const Panel = tab ? panel[tab] : null;
 
   return (

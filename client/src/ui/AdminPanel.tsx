@@ -14,6 +14,7 @@ import { CityStudio } from './CityStudio';
 import { ForgeStudio } from './ForgeStudio';
 import { SummonerStudio } from './SummonerStudio';
 import { ArsenalStudio } from './ArsenalStudio';
+import { MissionStudio } from './MissionStudio';
 import { ServerStudio } from './ServerStudio';
 import { ShopStudio } from './ShopStudio';
 import { SkillAnimPicker } from './SkillAnimPicker';
@@ -23,7 +24,7 @@ import { AnimStudio } from './AnimStudio';
 import { AutoRig, glbHasRig } from './RigEditor';
 import { STANDARD_PREFIX } from '../m2m/slots';
 
-type View = 'companions' | 'animacoes' | 'biomas' | 'cidade' | 'lojas' | 'forja' | 'invocador' | 'arsenal' | 'servidor';
+type View = 'companions' | 'animacoes' | 'biomas' | 'cidade' | 'lojas' | 'forja' | 'invocador' | 'arsenal' | 'missoes' | 'servidor';
 const VIEWS: { key: View; label: string; hash: string; title: string; hint: string }[] = [
   { key: 'companions', label: 'Companions', hash: '#/admin', title: 'Companions', hint: 'Todos os Companions: ficha, progressão, coleta, build e os pedidos de arte da Fábrica. O jogador nunca vê este painel.' },
   { key: 'animacoes', label: 'Animações', hash: '#/admin/animacoes', title: 'Animações', hint: 'Qual clipe faz cada papel (parado, andando, golpes, coleta…) para Companions e monstros, com campo de treino.' },
@@ -33,12 +34,13 @@ const VIEWS: { key: View; label: string; hash: string; title: string; hint: stri
   { key: 'forja', label: 'Forja', hash: '#/admin/forja', title: 'Forja de Batalha', hint: 'Habilidades genéricas que qualquer Companion daquela essência e corpo pode usar.' },
   { key: 'invocador', label: 'Invocador', hash: '#/admin/invocador', title: 'Invocador de Monstros', hint: 'O catálogo de criaturas: corpo, jeito de lutar, onde aparecem e o que soltam.' },
   { key: 'arsenal', label: 'Arsenal', hash: '#/admin/arsenal', title: 'Arsenal', hint: 'Armas e equipamentos: modelo, atributos, raridade, pegada na mão e a receita da Forja (só Taurinas forjam).' },
+  { key: 'missoes', label: 'Missões', hash: '#/admin/missoes', title: 'Missões', hint: 'Missões de coleta, caça e fabricação: quem dá, requisitos (missão anterior, vínculo, escola, classe, essência), objetivos, prêmios, raridade e repetição.' },
   { key: 'servidor', label: 'Servidor', hash: '#/admin/servidor', title: 'Servidor', hint: 'IA dos Companions, XP de vínculo e clima — vale na hora para todos os jogadores.' },
 ];
 // o menu em grupos: quem são os Companions, o mundo, o catálogo do jogo e o que vale para o servidor inteiro
 const GROUPS: { label: string; views: View[] }[] = [
   { label: 'Companions', views: ['companions'] },
-  { label: 'Mundo', views: ['cidade', 'biomas', 'lojas'] },
+  { label: 'Mundo', views: ['cidade', 'biomas', 'lojas', 'missoes'] },
   { label: 'Catálogo', views: ['forja', 'invocador', 'arsenal', 'animacoes'] },
   { label: 'Ao vivo', views: ['servidor'] },
 ];
@@ -380,6 +382,7 @@ export function AdminPanel() {
       {session && view === 'forja' && <ForgeStudio />}
       {session && view === 'invocador' && <SummonerStudio />}
       {session && view === 'arsenal' && <ArsenalStudio />}
+      {session && view === 'missoes' && <MissionStudio />}
       {session && view === 'servidor' && <ServerStudio />}
       {session && view === 'lojas' && <ShopStudio />}
       {session && view === 'companions' && (
