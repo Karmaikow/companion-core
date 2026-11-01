@@ -6,7 +6,7 @@
 import { Suspense, useMemo, useRef } from 'react';
 import { createPortal, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { ITEM_TYPES, SLOTS_EQ, gripFor, type Bone, type EquipSlot, type ItemDef } from '@rules';
+import { DEFAULT_ITEMS, ITEM_TYPES, SLOTS_EQ, gripFor, type Bone, type EquipSlot, type ItemDef } from '@rules';
 import { ItemModel } from './ItemModel';
 import { AssetBoundary } from './Biome';
 
@@ -180,4 +180,9 @@ function Attached({ item, slot, bones, root, charge, showSocket }: { item: ItemD
 /** `slots`: em que espaço cada peça foi equipada (slug → espaço); sem ele, o espaço natural do tipo. */
 export function EquipmentLayer({ items, slots, bones, root, charge, modelKey, showSocket }: { items: ItemDef[]; slots?: Record<string, EquipSlot>; bones: GearBones | null; root: React.RefObject<THREE.Group | null>; charge?: { current: number }; modelKey?: string | null; showSocket?: boolean }) {
   return <>{items.filter((i) => boneFor(i, slots?.[i.slug]) !== 'nenhum').map((i) => { const it = { ...i, grip: gripFor(i, modelKey) }; return <Attached key={i.slug + (slots?.[i.slug] ?? '') + JSON.stringify(it.grip)} item={it} slot={slots?.[i.slug]} bones={bones} root={root} charge={charge} showSocket={showSocket} />; })}</>;
+}
+
+const gatheringAxe: ItemDef = { ...DEFAULT_ITEMS.find(i => i.type === 'maca')!, slug: 'gathering-axe-visual', model: { url: '/ecos_machado.glb' }, grip: { pos: [0, 0, 0], rot: [0, 0, 0], scale: 1 } };
+export function GatheringAxe({ bones, root }: { bones: GearBones | null; root: React.RefObject<THREE.Group | null> }) {
+ return <Attached item={gatheringAxe} slot="mainhand" bones={bones} root={root} />;
 }

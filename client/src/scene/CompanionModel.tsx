@@ -12,10 +12,10 @@ import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js
 import { clipAnimKind, animKind, attackVariant, strideSpeed, gameTime, COMPANION_ANIM_SLOTS, parseAnimRef, gatherSlot, type AnimKind } from '@rules';
 import type { CompanionModelFiles } from '../backend/types';
 import { CLEAR_R, companionFocus, companionPose, socialHold, moveRequest, attackRequest, attackPick, teleport, resolveCollisions, platformHeight, type WorldShape } from './world';
-import { work } from '../ecos/ecosStore';
+import { work, useEcos } from '../ecos/ecosStore';
 import { SpeechBubble } from './SpeechBubble';
 import { Appendages, findAnchors, type AppendageSpec } from './Appendages';
-import { EquipmentLayer, findGearBones } from './Equipment';
+import { EquipmentLayer, GatheringAxe, findGearBones } from './Equipment';
 import { aim, combatInput, chargeState, fxQueue, moveInput, requestSkill, skillInput, targets } from './Combat';
 import { canAct, spendStamina, tickVitals, vitals } from './vitals';
 import { useSkills, aiCast } from '../ui/skillState';
@@ -645,10 +645,12 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
     mixer.update(dt);
   });
 
+  const cuttingWillow = useEcos(s => !!s.run && s.run.approach === 'cortar' && s.run.node.startsWith('salgueiro-') && s.run.phase === 'coletando');
   return (
     <>
+    {cuttingWillow && <GatheringAxe bones={gearBones} root={root} />}
     {appendages && (appendages.tail || appendages.wings) && <Appendages spec={appendages} anchors={anchors} root={root} heightAt={world.heightAt} />}
-    {gear && gear.items.length > 0 && <EquipmentLayer items={gear.items} slots={gear.slots} bones={gearBones} root={root} charge={charge} modelKey={gear.modelKey} />}
+    {!cuttingWillow && gear && gear.items.length > 0 && <EquipmentLayer items={gear.items} slots={gear.slots} bones={gearBones} root={root} charge={charge} modelKey={gear.modelKey} />}
     <group ref={root} position={[start[0], 0, start[1]]}>
       <group ref={pose} scale={scale}>
         <primitive object={model} />
