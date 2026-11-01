@@ -3,6 +3,7 @@
  * Espaço vazio: toque para escolher a habilidade. Botão direito (ou segurar no celular): tirar da barra.
  * A recarga aparece como um relógio escurecendo o ícone, com os segundos que faltam.
  */
+import { SkillIcon } from './SkillIcon';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTouchLandscape } from './TouchControls';
@@ -14,7 +15,6 @@ import { BAR_SIZE, saveBar, useSkillData, useSkills } from './skillState';
 import { canAct, spendSp, useVitals } from '../scene/vitals';
 import { godFlags } from '../scene/god';
 
-const ICON: Record<string, string> = { impacto: '💥', chamas: '🔥', gotas: '💧', folhas: '🍃', pedras: '🪨', gelo: '❄️', raios: '⚡', vento: '🌪️', luz: '✨', sombra: '🌑', faiscas: '🎆', veneno: '🧪' };
 
 function colorOf(s: SkillDef, companion: string): string {
   if (s.vfx.color === 'companion') return companion;
@@ -145,7 +145,7 @@ export function SkillBar({ color }: { color: string }) {
           {unlocked.length === 0 && <p>Nenhuma habilidade aberta ainda. Distribua pontos na árvore (aba Habilidades).</p>}
           {unlocked.map((u) => (
             <button key={u.skill.slug} className={bar.includes(u.skill.slug) ? 'in' : ''} onClick={() => put(pick, u.skill.slug)}>
-              <span aria-hidden style={{ background: colorOf(u.skill, color) }}>{u.skill.iconUrl ? <img src={u.skill.iconUrl} alt="" style={{width:'100%',height:'100%',objectFit:'contain'}} /> : ICON[u.skill.vfx.style] ?? '✦'}</span>
+              <span aria-hidden style={{ background: colorOf(u.skill, color) }}><SkillIcon skill={u.skill} size={40} color={color} /></span>
               <b>{u.skill.name}{u.level > 1 ? ` +${u.level - 1}` : ''}</b>
               <small>{SHAPES[u.skill.shape]} · recarga {cooldownOf(u.skill, u.level).toFixed(1).replace('.0', '')}s{bar.includes(u.skill.slug) ? ` · no espaço ${bar.indexOf(u.skill.slug) + 1}` : ''}</small>
             </button>
@@ -173,7 +173,7 @@ export function SkillBar({ color }: { color: string }) {
             }}
             onPointerLeave={() => { if (hold.current) window.clearTimeout(hold.current); hold.current = null; }}>
             <kbd>{i + 1}</kbd>
-            {u ? <span className="sb-icon" aria-hidden>{u.skill.iconUrl ? <img src={u.skill.iconUrl} alt="" style={{width:'100%',height:'100%',objectFit:'contain'}} /> : ICON[u.skill.vfx.style] ?? '✦'}</span> : <span className="sb-plus" aria-hidden>{free.length ? '+' : ''}</span>}
+            {u ? <span className="sb-icon" aria-hidden><SkillIcon skill={u.skill} size={40} color={color} /></span> : <span className="sb-plus" aria-hidden>{free.length ? '+' : ''}</span>}
             {u && u.level > 1 && <em>+{u.level - 1}</em>}
             {chargingView?.slot === i && <span className="sb-charge" style={{ ['--k' as string]: chargingView.k }} aria-hidden><b>{chargingView.k >= 1 ? 'MÁX' : `×${(1 + chargingView.k).toFixed(1).replace('.', ',')}`}</b></span>}
             {left > 0 && <span className="sb-cd" style={{ ['--f' as string]: frac }}><b>{left > 1000 ? Math.ceil(left / 1000) : (left / 1000).toFixed(1)}</b></span>}

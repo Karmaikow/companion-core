@@ -1410,3 +1410,19 @@ body:has(.admin), #root:has(.admin) { height: auto; min-height: 100%; overflow: 
 }
 .biome-form label.cs-check { display: flex; align-items: center; gap: 6px; }
 .shop-entry { gap: 6px; }
+
+/* ---------- ícones gerados das habilidades (ui/SkillIcon) ---------- */
+.skill-icon { display: block; flex: none; filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.45)); }
+.sb-icon .skill-icon, .sb-icon img { width: 100%; height: 100%; }
+.sb-slot .sb-icon { display: grid; place-items: center; width: 78%; height: 78%; font-size: 0; filter: none; }
+.sb-pick button > span[aria-hidden] { display: grid; place-items: center; overflow: hidden; background: none !important; }
+.sb-pick button > span[aria-hidden] .skill-icon { width: 100%; height: 100%; }
+.skill-graph-node .skill-icon { filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.6)); }
+.skill-graph-node:not(.owned) .skill-icon.locked { opacity: 0.55; filter: grayscale(0.7) brightness(0.8); }
+.skill-graph-node.avail .skill-icon.locked { opacity: 0.85; filter: grayscale(0.3); }
+.shop-icon .skill-icon { width: 40px; height: 40px; }
+.shop-row .shop-icon:has(.skill-icon) { width: 40px; }
+.with-icon { display: flex !important; align-items: center; gap: 8px; }
+.with-icon .skill-icon { width: 26px; height: 26px; }
+.icon-auto { display: flex; align-items: center; gap: 12px; }
+.icon-auto .hint { max-width: 36ch; }

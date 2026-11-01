@@ -1,3 +1,4 @@
+import { SkillIcon } from './SkillIcon';
 import type { SkillDef } from '@rules';
 import { buildSchoolTree } from '../../../shared/rules/combat/schoolTree';
 import { useState } from 'react';
@@ -26,7 +27,7 @@ export function ForgeSchools({ catalogue = [], onClose }: { catalogue?: SkillDef
     <p>Convergente exige cinco maestrias, técnicas das trilhas, títulos, memórias, relíquias e a prova final. A Escola da Forja é exclusiva dos Taurinos, inclusive suas técnicas. A conquista Convergente exige revisão para as demais linhagens.</p>
     <label>Consultar escola <select value={school} onChange={e => setSchool(e.target.value as SchoolId)}>{SCHOOL_IDS.map(id => <option key={id} value={id}>{SCHOOL_DEFINITIONS[id].label}</option>)}</select></label>
     <p aria-live="polite">Exemplo a {Math.round(power * 100)}%: dano {example.damage}, cura {example.heal}, escudo {example.shield}, atordoamento {Number(example.controlSeconds.toFixed(2))} s. Dash preservado: {example.dashDistance} m.</p>
-    <details><summary>Árvore da escola · prévia administrativa ({schoolTree.nodes.length} técnicas)</summary><p>No jogo, esta árvore será acessível apenas no local da escola. Forja: somente Taurinos.</p>{[1,2,3,4,5].map(rank => <section key={rank}><h4>{SCHOOL_RANKS[rank-1].label}</h4><ul>{schoolTree.nodes.filter(node=>node.rank===rank).map(node=><li key={node.id}>{node.iconUrl && <img src={node.iconUrl} alt="" width={32} height={32} />} {node.name} · vínculo {node.requiredBond} · {node.reason}</li>)}</ul></section>)}</details>
+    <details><summary>Árvore da escola · prévia administrativa ({schoolTree.nodes.length} técnicas)</summary><p>No jogo, esta árvore será acessível apenas no local da escola. Forja: somente Taurinos.</p>{[1,2,3,4,5].map(rank => <section key={rank}><h4>{SCHOOL_RANKS[rank-1].label}</h4><ul>{schoolTree.nodes.filter(node=>node.rank===rank).map(node=><li key={node.id}>{(() => { const sk = catalogue.find((c) => c.slug === node.skill); return sk ? <SkillIcon skill={sk} size={32} /> : null; })()} {node.name} · vínculo {node.requiredBond} · {node.reason}</li>)}</ul></section>)}</details>
     <p>Memórias: {definition.themes.join(' · ')}. Título final: {definition.title}.</p>
     <p>Materiais: {definition.items.join(' · ')}. Localização a definir.</p>
     <div style={{ overflowX: 'auto' }}><table><caption>Requisitos propostos · quantidades sujeitas a balanceamento</caption><thead><tr><th>Grau / nível</th><th>Memórias / temas</th><th>Marcantes / extraordinárias</th><th>Entrega básica / incomum / rara</th><th>Vínculo / missão</th></tr></thead><tbody>

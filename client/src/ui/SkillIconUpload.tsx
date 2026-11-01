@@ -1,7 +1,9 @@
+import { SkillIcon } from './SkillIcon';
+import type { SkillDef } from '@rules';
 import { useEffect, useRef, useState } from 'react';
 import { uploadWorldAsset } from './catalog';
 
-export function SkillIconUpload({ value, onChange, onBusy }: { value?: string; onChange: (url?: string) => void; onBusy: (busy: boolean) => void }) {
+export function SkillIconUpload({ value, onChange, onBusy, skill }: { value?: string; onChange: (url?: string) => void; onBusy: (busy: boolean) => void; skill?: SkillDef }) {
   const [busy, setBusy] = useState(false), [error, setError] = useState('');
   const mounted = useRef(true);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
@@ -25,7 +27,7 @@ export function SkillIconUpload({ value, onChange, onBusy }: { value?: string; o
     finally { if (mounted.current) { setBusy(false); onBusy(false); } }
   }
   return <fieldset><legend>Ícone da habilidade</legend>
-    {value && <img src={value} alt="Prévia do ícone" width={72} height={72} style={{objectFit:'contain',borderRadius:12}} />}
+    {value ? <img src={value} alt="Prévia do ícone" width={72} height={72} style={{objectFit:'contain',borderRadius:12}} /> : skill && <span className="icon-auto"><SkillIcon skill={skill} size={72} /><small className="hint">Ícone gerado pelo nome, efeito e forma. Envie uma imagem só se quiser trocar.</small></span>}
     <label>Enviar imagem<input type="file" accept="image/png,image/jpeg,image/webp" disabled={busy} onChange={e => { void upload(e.target.files?.[0]); e.target.value=''; }} /></label>
     <small>Recomendado: imagem quadrada de 256 × 256 pixels. Salve a habilidade após o envio.</small>
     {value && <button type="button" disabled={busy} onClick={() => onChange(undefined)}>Remover ícone</button>}

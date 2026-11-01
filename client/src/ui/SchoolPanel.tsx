@@ -5,6 +5,7 @@
  *  - Escola do Veneno (Natureza ou Água): poções e comidas com as plantas do Vale, e as técnicas de veneno.
  * As regras ficam em shared/rules/escolas.ts; o servidor confere tudo.
  */
+import { SkillIcon } from './SkillIcon';
 import { useEffect, useState } from 'react';
 import { create } from 'zustand';
 import { CITY_SCHOOLS, BREWS, MAX_BREW, MATERIALS, brewCheck, goodById, schoolBlock, schoolSkills, parseBatchKey, type CitySchool, type SpeciesKey } from '@rules';
@@ -141,7 +142,7 @@ function PoisonSchool({ view, busy, setMsg }: { view: PactoView; busy: boolean; 
             <p className="hint">Técnicas ensinadas aqui. Elas entram na sua barra de habilidades (1–9) quando o vínculo chega ao nível pedido.</p>
             {schoolSkills(catalog, ['veneno']).map((s) => (
               <div key={s.slug} className="shop-row">
-                <span className="shop-icon" aria-hidden>☠️</span>
+                <span className="shop-icon" aria-hidden><SkillIcon skill={s} size={40} /></span>
                 <div className="shop-info"><b>{s.name}</b><small>{s.description}</small></div>
                 <small>{s.unlockBond <= bond ? '✓ aprendida' : `vínculo ${s.unlockBond}`}</small>
               </div>

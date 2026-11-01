@@ -9,6 +9,7 @@ import {
   type SkillDef, type SkillSlot, type SkillShape, type StatusKey, type VfxStyle, type Element, type BodyPlan, type SpeciesKey,
 } from '@rules';
 import { SkillIconUpload } from './SkillIconUpload';
+import { SkillIcon } from './SkillIcon';
 import { SCHOOL_IDS, SCHOOL_DEFINITIONS } from '../../../shared/rules/combat/schools';
 import { ForgeSchools } from './ForgeSchools';
 import { ForgeVfxEditor } from './ForgeVfxEditor';
@@ -123,7 +124,7 @@ export function ForgeStudio() {
                 {list.map((r) => (
                   <li key={r.slug}>
                     <button className={sel === r.slug ? 'on' : ''} onClick={() => pick(r.slug)}>
-                      <strong><i className="look-dot" style={{ background: r.data.essence ? ELEMENTS[r.data.essence].glow : compColor }} />{r.name}</strong>
+                      <strong className="with-icon"><SkillIcon skill={r.data} size={26} color={compColor} />{r.name}</strong>
                       <small>{SHAPES[r.data.shape]} · {r.data.classes.length || r.data.bodies.length ? [...r.data.classes.map((k) => CLASS_LABELS[k]), ...(r.data.bodies.length ? ['monstros: ' + r.data.bodies.map((b) => BODIES[b]).join(', ')] : [])].join(' · ') : 'todos'}{r.status === 'draft' ? ' · rascunho' : ''}</small>
                     </button>
                   </li>
@@ -194,7 +195,7 @@ export function ForgeStudio() {
               { key: 'visual', label: 'Ícone e efeito (VFX)', done: !!draft.iconUrl },
             ]} />
             {pane === 'visual' ? <>
-            <SkillIconUpload key={`icon:${draft.slug}`} value={draft.iconUrl} onBusy={setIconBusy} onChange={iconUrl => edit({ iconUrl })} />
+            <SkillIconUpload key={`icon:${draft.slug}`} value={draft.iconUrl} skill={clean} onBusy={setIconBusy} onChange={iconUrl => edit({ iconUrl })} />
             <ForgeVfxEditor key={`vfx:${draft.slug}`} skill={clean} onChange={(vfx) => edit({ vfx })} />
             </> : <>
             <div className="row-2">

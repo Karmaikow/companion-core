@@ -5,6 +5,7 @@
  * Navegação: arrastar move, roda do mouse/pinça aproxima, botões +/−/enquadrar. Clique seleciona e destaca
  * o caminho até o nó; duplo clique conquista o caminho inteiro (onConquer).
  */
+import { SkillIcon } from './SkillIcon';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { canSpend, needOf, nodeDepths, planTo, spent, nodeBond, type Allocation, type SkillDef, type SkillTree, type TreeBranch, type TreeNode } from '@rules';
 import './skill-tree-graph.css';
@@ -299,7 +300,7 @@ export function SkillTreeGraph({ tree, alloc, catalog, bond, points, selected, o
               const avail = !full && !canSpend(tree, alloc, n.id, bond, points);
               const bondLock = bond < nodeBond(n);
               const r = NODE_R[n.kind] * (sel ? 1.15 : 1);
-              const icon = n.kind === 'skill' ? catalog.find((s) => s.slug === n.skill)?.iconUrl : undefined;
+              const sk = n.kind === 'skill' ? catalog.find((s) => s.slug === n.skill) : undefined;
               const cls = 'skill-graph-node' + (rank ? ' owned' : '') + (full ? ' full' : '') + (avail ? ' avail' : '') + (bondLock ? ' bond-lock' : '') + (onPath(n.id) ? ' on-path' : '') + (sel ? ' sel' : '');
               const shape = n.kind === 'passive'
                 ? <rect x={p.x - r * 0.82} y={p.y - r * 0.82} width={r * 1.64} height={r * 1.64} rx="4" transform={`rotate(45 ${p.x} ${p.y})`} fill={rank ? '#1e3d4a' : '#0f1c30'} stroke={color} strokeWidth={sel ? 3.5 : 1.8} className="stg-body" />
@@ -318,8 +319,8 @@ export function SkillTreeGraph({ tree, alloc, catalog, bond, points, selected, o
                   {(rank > 0 || sel) && <circle cx={p.x} cy={p.y} r={r + 7} fill={color} opacity={rank ? 0.16 : 0.08} filter="url(#stg-glow)" />}
                   {n.kind === 'skill' && <circle cx={p.x} cy={p.y} r={r + 5} fill="none" stroke={color} strokeOpacity=".35" strokeWidth="1" />}
                   {shape}
-                  {icon
-                    ? <image href={icon} x={p.x - r * 0.62} y={p.y - r * 0.62} width={r * 1.24} height={r * 1.24} preserveAspectRatio="xMidYMid meet" />
+                  {sk
+                    ? <SkillIcon skill={sk} x={p.x - r * 0.72} y={p.y - r * 0.72} size={r * 1.44} className={rank ? '' : 'locked'} />
                     : <text x={p.x} y={p.y + r * 0.3} fill={rank ? '#fff6e0' : color} textAnchor="middle" fontSize={r * 0.85}>{GLYPH[n.kind]}</text>}
                   {bondLock && <text x={p.x + r * 0.75} y={p.y - r * 0.6} fontSize="11" textAnchor="middle" className="stg-lock">🔒</text>}
                   {showName && (
