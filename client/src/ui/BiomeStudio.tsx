@@ -8,6 +8,7 @@ import {
   type BiomeAmbient, type BiomeKind, type ModelLook, type BiomeAsset, type BiomeAssetRole, type BiomeConfig, type BiomePalette, type BiomeZone,
 } from '@rules';
 import { supabase } from '../backend/online';
+import { EditorHead, ListSearch, StudioActions, ask, matches, useAdminDirty } from './adminKit';
 
 const BiomePreview = lazy(() => import('../scene/BiomePreview').then((m) => ({ default: m.BiomePreview })));
 
@@ -44,6 +45,8 @@ export function BiomeStudio() {
   const [lookOpen, setLookOpen] = useState<string | null>(null);
   const [daylight, setDaylight] = useState(1);
   const [open, setOpen] = useState(true);
+  const [q, setQ] = useState('');
+  useAdminDirty(dirty);
 
   const load = useCallback(async () => {
     const { data, error } = await supabase().from('biomes').select('*').order('updated_at', { ascending: false });
@@ -54,8 +57,8 @@ export function BiomeStudio() {
   }, []);
   useEffect(() => { void load(); }, [load]);
 
-  function pick(slug: string) {
-    if (dirty && !window.confirm('Há mudanças não salvas neste bioma. Trocar mesmo assim?')) return;
+  async function pick(slug: string) {
+    if (dirty && !(await ask({ title: 'Trocar sem salvar?', body: 'Há mudanças não salvas neste item. Se trocar agora, elas se perdem.', confirm: 'Trocar e descartar', cancel: 'Continuar editando', danger: true }))) return;
     const r = rows?.find((x) => x.slug === slug) ?? null;
     setSel(slug); setDraft(r ? structuredClone(r) : null); setDirty(false); setMsg(null);
   }
@@ -126,17 +129,26 @@ export function BiomeStudio() {
   return (
     <div className="biome-studio">
       <aside className="biome-list">
+        <form className="biome-new" onSubmit={(e) => { e.preventDefault(); void create(false); }}>
+          <select value={newKind} onChange={(e) => setNewKind(e.target.value as BiomeKind)} aria-label="Tipo do novo bioma">
+            <option value="world">Região do mundo</option>
+            <option value="refuge">Refúgio</option>
+          </select>
+          <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder={newKind === 'world' ? 'Ex.: Planície Vulcânica' : 'Ex.: Refúgio da Mayuna'} maxLength={60} aria-label="Nome do novo bioma" />
+          <button className="primary" disabled={busy || !newName.trim()}>+ Criar</button>
+        </form>
+        <ListSearch value={q} onChange={setQ} label="Buscar bioma" />
         {!rows && <p className="msg">Carregando…</p>}
         {([['refuge', 'Refúgios', 'O cenário em volta do altar. "refugio" é o padrão de todos; os outros a Fábrica dá a um Companion.'], ['world', 'Regiões do mundo', 'Pedaços do Companion World: cada uma vira várias regiões do mapa.']] as const).map(([kind, title, hint]) => (
           <div key={kind} className="biome-group">
             <h2>{title}</h2>
             <small className="hint">{hint}</small>
             <ul>
-              {rows?.filter((r) => r.settings.kind === kind).map((r) => (
+              {rows?.filter((r) => r.settings.kind === kind && matches(q, r.name, r.slug)).map((r) => (
                 <li key={r.slug}>
                   <button className={sel === r.slug ? 'on' : ''} onClick={() => pick(r.slug)}>
                     <strong>{r.name}</strong>
-                    <small>{r.slug} · {r.status === 'published' ? 'publicado' : 'rascunho'} · {r.assets.length} modelo(s)</small>
+                    <small>{r.slug} · {r.status === 'published' ? 'no jogo' : 'rascunho'} · {r.assets.length} modelo(s)</small>
                   </button>
                 </li>
               ))}
@@ -145,20 +157,13 @@ export function BiomeStudio() {
           </div>
         ))}
         {rows && !rows.some((r) => r.slug === 'refugio') && <button className="ghost" disabled={busy} onClick={() => void create(true)}>Criar o bioma do Refúgio (a partir do atual)</button>}
-        <form className="biome-new" onSubmit={(e) => { e.preventDefault(); void create(false); }}>
-          <select value={newKind} onChange={(e) => setNewKind(e.target.value as BiomeKind)} aria-label="Tipo do novo bioma">
-            <option value="world">Região do mundo</option>
-            <option value="refuge">Refúgio</option>
-          </select>
-          <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder={newKind === 'world' ? 'Ex.: Planície Vulcânica' : 'Ex.: Refúgio da Mayuna'} maxLength={60} aria-label="Nome do novo bioma" />
-          <button className="primary" disabled={busy || !newName.trim()}>Criar</button>
-        </form>
       </aside>
 
       {!draft ? (
         <section className="biome-empty"><p>Escolha um bioma ou crie um novo. O bioma <b>refugio</b>, quando publicado, vira o cenário do Refúgio no jogo.</p></section>
       ) : (
         <section className="biome-editor">
+          <EditorHead name={draft.name} sub={(draft.settings.kind === 'refuge' ? 'Refúgio' : 'Região do mundo') + ' · ' + draft.slug + ' · ' + draft.assets.length + ' modelo(s)'} status={draft.status === 'published' ? 'published' : 'draft'} dirty={dirty} />
           <div className="biome-preview">
             <Suspense fallback={<div className="art-empty">Carregando prévia…</div>}>
               {preview && <BiomePreview biome={preview} daylight={daylight} seed={7} open={open || preview.settings.kind === 'world'} />}
@@ -223,8 +228,8 @@ export function BiomeStudio() {
                     <select value={a.zone} onChange={(e) => editAsset(a.id, { zone: e.target.value as BiomeZone })} aria-label="Zona">
                       {Object.entries(BIOME_ZONES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                     </select>
-                    <label title="Altura em metros (mín–máx)">Altura <input type="number" step={0.1} min={0.05} max={30} value={a.height[0]} onChange={(e) => editAsset(a.id, { height: [Number(e.target.value), a.height[1]] })} />–<input type="number" step={0.1} min={0.05} max={30} value={a.height[1]} onChange={(e) => editAsset(a.id, { height: [a.height[0], Number(e.target.value)] })} /> m</label>
-                    <label title="Quantas cópias (no celular cai pela metade)">Qtd <input type="number" min={0} max={600} value={a.count} onChange={(e) => editAsset(a.id, { count: Number(e.target.value) })} /></label>
+                    <label title="Altura em metros (mín–máx)">Altura <input type="number" step={0.1} min={0.05} max={30} aria-label={"Altura mínima de " + a.name} value={a.height[0]} onChange={(e) => editAsset(a.id, { height: [Number(e.target.value), a.height[1]] })} />–<input type="number" step={0.1} min={0.05} max={30} aria-label={"Altura máxima de " + a.name} value={a.height[1]} onChange={(e) => editAsset(a.id, { height: [a.height[0], Number(e.target.value)] })} /> m</label>
+                    <label title="Quantas cópias (no celular cai pela metade)">Qtd <input type="number" min={0} max={600} aria-label={"Quantidade de " + a.name} value={a.count} onChange={(e) => editAsset(a.id, { count: Number(e.target.value) })} /></label>
                     <label title="0 = parado, 0,35 = árvore, 1 = grama">Vento <input type="range" min={0} max={1.5} step={0.05} value={a.wind} onChange={(e) => editAsset(a.id, { wind: Number(e.target.value) })} /></label>
                     <button className={'link' + (a.look ? ' tinted' : '')} onClick={() => setLookOpen(lookOpen === a.id ? null : a.id)} aria-expanded={lookOpen === a.id}>
                       <i className="look-dot" style={{ background: a.look ? a.look.tint : 'transparent' }} />aparência
@@ -240,14 +245,9 @@ export function BiomeStudio() {
               </label>
             </fieldset>
 
-            {msg && <p className={'msg' + (msg.ok ? ' ok' : ' err')}>{msg.text}</p>}
-            <div className="row">
-              <button className="primary" disabled={busy || !dirty} onClick={() => void save()}>Salvar</button>
-              {draft.status === 'draft'
-                ? <button className="secondary" disabled={busy} onClick={() => void save('published')}>Salvar e publicar</button>
-                : <button className="ghost" disabled={busy} onClick={() => void save('draft')}>Tirar do jogo (rascunho)</button>}
-              {dirty && <small className="msg">Mudanças não salvas: a prévia já mostra, o jogo ainda não.</small>}
-            </div>
+            <StudioActions name={draft.name} status={draft.status === 'published' ? 'published' : 'draft'} dirty={dirty} busy={busy} msg={msg}
+              note={<small className="hint">A prévia já mostra o que não foi salvo; o jogo, só depois de salvar.</small>}
+              onSave={() => void save()} onPublish={() => void save('published')} onUnpublish={() => void save('draft')} />
           </div>
         </section>
       )}

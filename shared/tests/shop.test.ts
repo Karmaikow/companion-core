@@ -54,3 +54,34 @@ describe('Lojas de Áster', () => {
     expect(l.markers.find((m) => m.id === 'b')?.shop).toBe('pocoes');
   });
 });
+
+describe('configuração das lojas (ADM)', async () => {
+  const { DEFAULT_SHOP, resolveShop, shopListing, entryBuyCheck, materialsTake, bagSellPrice, batchKey } = await import('../rules');
+  const merc = (id: string, o: Record<string, unknown> = {}) => ({ id, shop: 'rotacao', ref: { kind: 'loja', good: 'pocao-vida-p' }, price: 10, maxBuy: 5, enabled: true, stock: 3, weight: 1, school: null, materials: [], ...o });
+  it('sem nada salvo vale o estoque padrão; lixo é descartado', () => {
+    expect(resolveShop(undefined)).toEqual(DEFAULT_SHOP);
+    const c = resolveShop({ entries: [merc('a'), { id: 'x', shop: 'nada' }, merc('a')], rotationPerDay: 99 });
+    expect(c.entries.map((e) => e.id)).toEqual(['a', 'a-2']);
+    expect(c.rotationPerDay).toBe(30);
+  });
+  it('Mercadão: sorteio do dia é estável e respeita o peso 0', () => {
+    const c = resolveShop({ rotationPerDay: 2, entries: [merc('a'), merc('b'), merc('c'), merc('d', { weight: 0 })] });
+    const d1 = shopListing(c, 'rotacao', '2026-11-01').map((e) => e.id);
+    expect(d1).toHaveLength(2);
+    expect(shopListing(c, 'rotacao', '2026-11-01').map((e) => e.id)).toEqual(d1);
+    for (const day of ['2026-11-02', '2026-11-03', '2026-11-04']) expect(shopListing(c, 'rotacao', day).some((e) => e.id === 'd')).toBe(false);
+  });
+  it('estoque, escola e materiais', () => {
+    const e = resolveShop({ entries: [merc('a', { school: 'veneno', materials: [{ material: 'erva-orvalho-folha', qty: 2 }] })] }).entries[0];
+    const bag = [{ key: batchKey('erva-orvalho-folha', { potencia: 'alta', estabilidade: 'alta' }), qty: 3 }];
+    expect(entryBuyCheck(e, 1, { lumes: 100, sold: 3, schools: ['veneno'], bag })).toMatch(/Esgotado/);
+    expect(entryBuyCheck(e, 1, { lumes: 100, sold: 0, schools: [], bag })).toMatch(/Escola do Veneno/);
+    expect(entryBuyCheck(e, 2, { lumes: 100, sold: 0, schools: ['veneno'], bag })).toMatch(/Faltam/);
+    expect(entryBuyCheck(e, 1, { lumes: 100, sold: 0, schools: ['veneno'], bag })).toBeNull();
+    expect(materialsTake(e, 1, bag)).toEqual([{ key: bag[0].key, qty: 2 }]);
+  });
+  it('revenda segue o preço e a taxa do ADM', () => {
+    const c = resolveShop({ sellRate: 0.5, entries: [{ ...merc('p', { shop: 'pocoes', stock: 0 }), price: 30 }] });
+    expect(bagSellPrice('loja:pocao-vida-p', {}, [], c)).toBe(15);
+  });
+});

@@ -3,11 +3,12 @@
  * identidade, progressão (nível, XP), coleta (materiais na mochila do Ecos), Pacto, Constelação e os pedidos de
  * arte da Fábrica (prompts, envio de imagem/modelo/animações, habilidades e animações, Refúgio, aprovação).
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ELEMENTS, SPECIES, STATS, STAT_KEYS, RESONANCES, QUESTS, type Discoveries, type IdentityContractV1, type SpeciesKey, type StatKey } from '@rules';
 import { supabase } from '../backend/online';
 import { keyLabel } from './PactoPanel';
 import type { Job } from './AdminPanel';
+import { Icon, ListSearch, matches } from './adminKit';
 
 interface Card { id: string; owner: string; name: string; stage: string; form: SpeciesKey | null; element: keyof typeof ELEMENTS | null; color: string; level: number; xp: number; createdAt: string; updatedAt: string; job: string | null; artUrl: string | null }
 interface Detail {
@@ -34,7 +35,7 @@ const date = (s?: string | null) => (s ? new Date(s).toLocaleString('pt-BR', { d
 
 type Filter = 'todos' | 'pendentes' | 'despertos' | 'particulas';
 
-export function CompanionsAdmin({ jobs, renderJob, reloadKey }: { jobs: Job[]; renderJob: (j: Job) => React.ReactElement; reloadKey: unknown }) {
+export function CompanionsAdmin({ jobs, renderJob, reloadKey, onReloadJobs, busy }: { jobs: Job[]; renderJob: (j: Job) => React.ReactElement; reloadKey: unknown; onReloadJobs: () => void; busy?: boolean }) {
   const [list, setList] = useState<Card[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [sel, setSel] = useState<string | null>(() => new URLSearchParams(location.hash.split('?')[1] ?? '').get('c'));
@@ -42,8 +43,15 @@ export function CompanionsAdmin({ jobs, renderJob, reloadKey }: { jobs: Job[]; r
   const [filter, setFilter] = useState<Filter>('todos');
   const load = () => { setErr(null); call<{ companions: Card[] }>('admin.companions').then((r) => setList(r.companions), (e) => setErr((e as Error).message)); };
   useEffect(load, [reloadKey]);
+  // Esc fecha a ficha aberta (menos quando se está digitando num campo)
+  useEffect(() => {
+    if (!sel) return;
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape' && !(e.target as HTMLElement).closest('input, textarea, select, [role=menu]')) pick(null); };
+    window.addEventListener('keydown', esc);
+    return () => window.removeEventListener('keydown', esc);
+  }, [sel]); // eslint-disable-line react-hooks/exhaustive-deps
   const shown = useMemo(() => (list ?? []).filter((c) =>
-    (!q.trim() || c.name.toLowerCase().includes(q.trim().toLowerCase())) &&
+    matches(q, c.name, c.id, c.owner) &&
     (filter === 'todos' || (filter === 'pendentes' ? !!c.job && c.job !== 'approved' : filter === 'despertos' ? c.stage === 'awakened' : c.stage === 'particles')),
   ), [list, q, filter]);
   const pending = (list ?? []).filter((c) => c.job && c.job !== 'approved').length;
@@ -52,13 +60,13 @@ export function CompanionsAdmin({ jobs, renderJob, reloadKey }: { jobs: Job[]; r
   return (
     <div className="adm-comps">
       <div className="adm-comps-bar">
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar pelo nome" aria-label="Buscar Companion" />
+        <ListSearch value={q} onChange={setQ} label="Buscar por nome ou ID" count={list ? shown.length : undefined} />
         <div className="adm-chips" role="radiogroup" aria-label="Filtro">
           {([['todos', `Todos (${list?.length ?? 0})`], ['pendentes', `Arte pendente (${pending})`], ['despertos', 'Despertos'], ['particulas', 'Partículas']] as [Filter, string][]).map(([k, l]) => (
             <button key={k} role="radio" aria-checked={filter === k} className={filter === k ? 'on' : ''} onClick={() => setFilter(k)}>{l}</button>
           ))}
         </div>
-        <button className="ghost" onClick={load}>Atualizar</button>
+        <button className="ghost" disabled={busy} onClick={() => { load(); onReloadJobs(); }}><Icon name="refresh" size={16} />Atualizar</button>
       </div>
       {err && <p className="msg err">{err}</p>}
       {!list && !err && <p className="empty">Carregando Companions…</p>}
@@ -71,6 +79,7 @@ export function CompanionsAdmin({ jobs, renderJob, reloadKey }: { jobs: Job[]; r
               </span>
               <b>{c.name}</b>
               <small>{c.form ? SPECIES[c.form].label : STAGE[c.stage] ?? c.stage} · nv {c.level}</small>
+              <small className="adm-id" title={'Companion ' + c.id}>#{c.id.slice(0, 5)}</small>
             </button>
           </li>
         ))}
@@ -85,6 +94,8 @@ function CompanionDetail({ id, jobs, renderJob, onClose }: { id: string; jobs: J
   const [d, setD] = useState<Detail | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [tab, setTab] = useState<'ficha' | 'fabrica'>('ficha');
+  const box = useRef<HTMLElement>(null);
+  useEffect(() => { if (!d) return; const f = requestAnimationFrame(() => box.current?.scrollIntoView({ block: 'start' })); return () => cancelAnimationFrame(f); }, [id, !!d]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { setD(null); setErr(null); call<Detail>('admin.companion', { companionId: id }).then(setD, (e) => setErr((e as Error).message)); }, [id]);
   if (err) return <section className="adm-detail"><p className="msg err">{err}</p></section>;
   if (!d) return <section className="adm-detail"><p className="empty">Abrindo a ficha…</p></section>;
@@ -93,19 +104,19 @@ function CompanionDetail({ id, jobs, renderJob, onClose }: { id: string; jobs: J
   const pct = Math.round(((p.xp - p.from) / Math.max(1, p.to - p.from)) * 100);
   const art = jobs.find((j) => j.artUrl)?.artUrl;
   return (
-    <section className="adm-detail" aria-label={`Ficha de ${ds.name ?? 'Companion'}`}>
+    <section ref={box} className="adm-detail" aria-label={`Ficha de ${ds.name ?? 'Companion'}`}>
       <header className="adm-detail-head">
         <span className="adm-face big" style={art ? { backgroundImage: `url("${art}")` } : { background: `radial-gradient(circle at 50% 42%, #fff 0 10%, ${ds.color ?? '#9fb4ff'} 42%, #101828 74%)` }} />
         <div>
           <h2>{ds.name ?? 'Sem nome'}</h2>
           <p>{STAGE[c.stage] ?? c.stage}{sp ? ` · ${sp.label}` : ''}{ds.element ? ` · ${ELEMENTS[ds.element].label}` : ''} · {ds.pronoun === 'ele' ? 'ele' : 'ela'} · de {ds.playerName ?? '—'} <small>(conta {c.owner}…)</small></p>
         </div>
-        <button className="close" onClick={onClose} aria-label="Fechar a ficha">×</button>
+        <button className="close" onClick={onClose} aria-label="Fechar a ficha (Esc)" title="Fechar (Esc)">×</button>
       </header>
-      <nav className="st-tabs" aria-label="Ficha">
-        <button className={tab === 'ficha' ? 'on' : ''} onClick={() => setTab('ficha')}>Ficha</button>
-        <button className={tab === 'fabrica' ? 'on' : ''} onClick={() => setTab('fabrica')}>Fábrica (arte, modelo, animações){jobs.length ? <em>{jobs.length}</em> : null}</button>
-      </nav>
+      <div className="st-tabs" role="tablist" aria-label="Ficha">
+        <button role="tab" aria-selected={tab === 'ficha'} className={tab === 'ficha' ? 'on' : ''} onClick={() => setTab('ficha')}>Ficha</button>
+        <button role="tab" aria-selected={tab === 'fabrica'} className={tab === 'fabrica' ? 'on' : ''} onClick={() => setTab('fabrica')}>Fábrica{jobs.length ? <em>{jobs.length}</em> : null}</button>
+      </div>
 
       {tab === 'ficha' ? (
         <div className="adm-cards">

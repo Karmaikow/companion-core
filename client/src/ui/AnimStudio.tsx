@@ -16,6 +16,7 @@ import { supabase } from '../backend/online';
 import { facingYaw, inPlace, restBox, sanitizeSkins } from '../scene/CompanionModel';
 import { CreatureBody, type CreatureAct } from '../scene/Creature';
 import { useCatalog } from './catalog';
+import { LiveActions, useAdminDirty } from './adminKit';
 import type { Job } from './AdminPanel';
 import { STANDARD_EXTRAS, STANDARD_PREFIX, STANDARD_SLOTS, STANDARD_VIRTUAL } from '../m2m/slots';
 import type { Retargeter } from '../m2m/standard';
@@ -137,6 +138,7 @@ function CompanionAnims({ jobs, onUploadAnims, busy }: { jobs: Job[]; onUploadAn
   };
   const saved = Object.fromEntries(Object.entries(all).filter(([k]) => k.startsWith('slot:')).map(([k, v]) => [k.slice(5), v]));
   const dirty = JSON.stringify(map) !== JSON.stringify(saved);
+  useAdminDirty(dirty);
 
   async function save() {
     if (!job) return;
@@ -181,7 +183,7 @@ function CompanionAnims({ jobs, onUploadAnims, busy }: { jobs: Job[]; onUploadAn
     <div className="anim-grid">
       <aside className="anim-side">
         <label>Companion
-          <select disabled={rtBusy || busy} value={job?.companionId ?? ''} onChange={(e) => setCid(e.target.value)}>
+          <select disabled={rtBusy || busy} value={job?.companionId ?? ''} onChange={(e) => setCid(e.target.value)} aria-label='Companion'>
             {withModel.map((j) => <option key={j.companionId} value={j.companionId}>{j.name}</option>)}
           </select>
         </label>
@@ -190,7 +192,7 @@ function CompanionAnims({ jobs, onUploadAnims, busy }: { jobs: Job[]; onUploadAn
           <strong>Animações padrão (Mesh2Motion)</strong>
           <small>As mesmas animações para todos os Companions, convertidas para o esqueleto deste modelo. As animações que vieram no .GLB continuam na lista, mas não são usadas nos papéis trocados.</small>
           <div className="row">
-            <button className="primary" disabled={!gltf || rtBusy} onClick={() => void openStandard(true)}>{rtBusy ? 'Convertendo…' : 'Aplicar o pacote padrão'}</button>
+            <button className="ghost" disabled={!gltf || rtBusy} onClick={() => void openStandard(true)} title="Converte as animações padrão para o rig deste modelo e preenche os papéis. Só vale depois de salvar.">{rtBusy ? 'Convertendo…' : 'Aplicar o pacote padrão'}</button>
             {!rt && <button className="link" disabled={!gltf || rtBusy} onClick={() => void openStandard(false)}>só abrir a biblioteca</button>}
           </div>
           {rtNote && <small role="status">{rtNote}</small>}
@@ -213,11 +215,9 @@ function CompanionAnims({ jobs, onUploadAnims, busy }: { jobs: Job[]; onUploadAn
             );
           })}
         </ul>
-        <div className="row">
-          <button className="primary" disabled={!dirty || busy || rtBusy} onClick={() => void save()}>Salvar animações</button>
-          {dirty && <button className="link" onClick={() => setMap(saved)}>desfazer</button>}
-        </div>
-        {note && <small>{note}</small>}
+        <LiveActions section dirty={dirty} busy={busy || rtBusy} msg={note ? { text: note, ok: !/^Não/.test(note) } : null} saveLabel="Salvar animações"
+          onUndo={() => setMap(saved)} onSave={() => void save()}
+          confirm={() => ({ title: 'Salvar as animações deste Companion?', body: 'Vale na próxima vez que o jogo dele abrir.', confirm: 'Salvar animações' })} />
         <div className="model-box">
           <strong>Adicionar animação</strong>
           <small>Outros .GLB do mesmo rig (o tipo vem do nome do arquivo; depois é só escolher o papel aqui).</small>
@@ -347,6 +347,9 @@ function CreatureAnims() {
     })().catch(() => alive && setClips([]));
     return () => { alive = false; };
   }, [row?.slug, row?.updated_at]); // eslint-disable-line react-hooks/exhaustive-deps
+  // antes dos returns de carregamento: hooks sempre na mesma ordem
+  const cleanMap = (o: Record<string, string>) => JSON.stringify(Object.fromEntries(Object.entries(o).filter(([, v]) => v).sort()));
+  useAdminDirty(!!row && cleanMap(map) !== cleanMap(row.data.animMap ?? {}));
   if (cat.rows === null) return <p className="hint">Carregando o catálogo…</p>;
   if (!list.length) return <div className="anim-side"><M2mGuide open /><p className="hint">Nenhum monstro com modelo .GLB ainda. No Invocador, envie o modelo; criaturas sem modelo usam o slime (todo por código).</p></div>;
   const def: CreatureDef | null = row ? { ...row.data, animMap: Object.fromEntries(Object.entries(map).filter(([, v]) => v)) } : null;
@@ -379,11 +382,9 @@ function CreatureAnims() {
             </li>
           ))}
         </ul>
-        <div className="row">
-          <button className="primary" disabled={!dirty} onClick={() => void save()}>Salvar animações</button>
-          {dirty && <button className="link" onClick={() => setMap(saved)}>desfazer</button>}
-        </div>
-        {note && <small>{note}</small>}
+        <LiveActions section dirty={dirty} msg={note ? { text: note, ok: !/^Não/.test(note) } : null} saveLabel="Salvar animações"
+          onUndo={() => setMap(saved)} onSave={() => void save()}
+          confirm={() => ({ title: 'Salvar as animações deste monstro?', body: 'Vale para todas as criaturas dessa espécie no mundo.', confirm: 'Salvar animações' })} />
         <small className="hint">Para enviar mais animações deste monstro, use o Invocador (seção do modelo).</small>
       </aside>
       <section className="anim-stage">
