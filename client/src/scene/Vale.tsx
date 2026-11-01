@@ -3,7 +3,7 @@
  * preservada) e a Ponte do Riacho, que aparece em etapas conforme a obra comunitária avança.
  * Modelos simples por código (low-poly), na paleta do Companion World. A interação mora no ecosStore.
  */
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame, type ThreeEvent } from '@react-three/fiber';
 import * as THREE from 'three';
 import { VALE, VALE_NODES, STREAM, NASCENTE, BRIDGE, NODE_KINDS, SEIVA_AZUL, waterLevelAt, nodeById, JARDIM, type ResourceNode } from '@rules';
@@ -11,6 +11,7 @@ import { useEcos, amountOf, bridgeDone, work } from '../ecos/ecosStore';
 import { colliders, companionFocus } from './world';
 import { gameVfx } from './vfx/engine';
 import { burst } from './vfx/recipes';
+import { WillowResource } from './WillowResource';
 
 type Height = (x: number, z: number) => number;
 
@@ -126,7 +127,7 @@ function Geode({ amount, cap }: { amount: number; cap: number }) {
 function NodeMesh({ node, amount, glow, specks }: { node: ResourceNode; amount: number; glow: boolean; specks: boolean }) {
   const k = NODE_KINDS[node.kind];
   switch (node.kind) {
-    case 'salgueiro': return <Willow amount={amount} cap={k.capacity} glow={glow} />;
+    case 'salgueiro': return <WillowResource id={node.id} amount={amount} glow={glow} fallback={<Willow amount={amount} cap={k.capacity} glow={glow} />} />;
     case 'carvalho': return <Oak amount={amount} cap={k.capacity} />;
     case 'erva': return <Herb amount={amount} cap={k.capacity} />;
     case 'cascalho': return <Pebbles amount={amount} cap={k.capacity} specks={specks} />;
@@ -141,6 +142,12 @@ const VFX_OF: Record<string, string> = { madeira: 'folhas', planta: 'folhas', pe
 const COLOR_OF: Record<string, string> = { madeira: '#a68a64', planta: '#7bd47a', pedra: '#c9c3b6', minerio: '#62c39a', gema: '#8fd8ff', magico: '#7fd6ff', caca: '#d0b090' };
 
 function ResourceNodes({ height }: { height: Height }) {
+  // Abundance is derived from timestamps: refresh visuals even while standing still.
+  const [, refreshAbundance] = useState(0);
+  useEffect(() => {
+    const timer = window.setInterval(() => refreshAbundance((v) => v + 1), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
   const view = useEcos((s) => s.view), selected = useEcos((s) => s.selected), run = useEcos((s) => s.run);
   const chain = view?.profile.chain[SEIVA_AZUL.id];
   const bridge = bridgeDone(view);
