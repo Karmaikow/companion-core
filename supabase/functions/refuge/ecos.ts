@@ -2,7 +2,7 @@
 // e grava tudo por funções SQL atômicas e idempotentes (request_id). A IA não participa: só as regras de shared/rules.
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import {
-  NODE_KINDS, VALE_NODES, NASCENTE, nodeById, approachOf, rollGather, cleanRequestId, parseBatchKey, resolveEcos, abundanceNow,
+  NODE_KINDS, VALE_NODES, NASCENTE, nodeById, approachOf, rollGather, cleanRequestId, parseBatchKey, resolveEcos, abundanceNow, scoreTune, cleanTune, COMPANION_TUNE,
   SEIVA_AZUL, CHAINS, stepSatisfied, chainReward, JARDIM, siteStoredNow, recipeById, checkCraft, PONTE, needFits, scaledNeed, levelForXp,
   type EcosConfig, type MaterialBatch, type ChainChoice, type GameConfig, type Discoveries, type ToolKey,
   type PactoConfig,
@@ -151,7 +151,9 @@ export async function ecosAction(action: string, body: Record<string, unknown>, 
     const kind = NODE_KINDS[node.kind];
     const block = superiorBlock(node.id, (await classInfo(db, c, ctx.admin)).forms);
     if (block) throw new EcosError(403, block);
-    const items = rollGather(node, ap, request).map((b) => ({ key: b.key, qty: b.qty }));
+    // afinar o eco: o servidor recalcula a nota dos três pulsos (com teto); a Companion sozinha afina como "bom"
+    const tune = scoreTune(body.by === 'companion' ? COMPANION_TUNE : cleanTune(body.tune));
+    const items = rollGather(node, ap, request, tune.bonus).map((b) => ({ key: b.key, qty: b.qty }));
     const r = await rpc<{ ok: boolean; reason?: string; items?: { key: string; qty: number }[]; repeat?: boolean; wait?: number }>(db, 'ecos_finish_gather', {
       p_request: request, p_cid: cid, p_node: node.id, p_approach: ap.id, p_cost: ap.cost, p_cap: kind.capacity, p_regen: kind.regenPerHour,
       p_min_seconds: ap.seconds * ecfg.timeSlack, p_items: items, p_bag_cap: ecfg.bag,
@@ -161,7 +163,7 @@ export async function ecosAction(action: string, body: Record<string, unknown>, 
       if (ap.tool) await wearTool(db, cid, ap.tool);
       clue = await advanceChain(ctx, { node: node.id, approach: ap.id });
     }
-    return { gather: { ok: r.ok, reason: r.reason ?? null, message: r.ok ? null : reasonText(r.reason), wait: r.wait ?? null, items: r.ok ? r.items : [], repeat: !!r.repeat }, clue, ecos: await ecosState(db, cid, ecfg) };
+    return { gather: { ok: r.ok, reason: r.reason ?? null, message: r.ok ? null : reasonText(r.reason), wait: r.wait ?? null, items: r.ok ? r.items : [], repeat: !!r.repeat, tune }, clue, ecos: await ecosState(db, cid, ecfg) };
   }
 
   if (action === 'ecos.inspect') {

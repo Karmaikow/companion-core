@@ -381,7 +381,7 @@ export function rollGather(node: ResourceNode, ap: Approach, requestId: string, 
     for (let i = 0; i < Math.max(qty, y.guaranteed); i++) {
       const bands: Partial<Record<PropKey, Band>> = {};
       for (const [k, rg] of Object.entries(m.ranges) as [PropKey, [number, number]][]) {
-        const v = rg[0] + r() * (rg[1] - rg[0]) + (bias[k] ?? 0) + Math.min(6, bonus);
+        const v = rg[0] + r() * (rg[1] - rg[0]) + (bias[k] ?? 0) + Math.max(0, Math.min(25, bonus)); // bônus = afinação do eco (ecosTune)
         bands[k] = bandOf(Math.max(0, Math.min(100, v)));
       }
       const key = batchKey(m.id, bands);

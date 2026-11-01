@@ -7,11 +7,11 @@
  *  - a escolha da nascente.
  * Tudo funciona com teclado (Tab/Enter/Esc) e toque, e o estado nunca depende só de cor.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   MATERIALS, NODE_KINDS, VALE, VALE_NODES, STREAM, NASCENTE, BRIDGE, CATEGORIES, TOOLS, PROP_LABEL, BAND_LABEL, SEIVA_AZUL, nodeById, nodeName,
-  expectedOutcome, msUntilAvailable, batchQuality, parseBatchKey, slotFit, RECIPES, superiorBlockFor,
-  type ResourceNode, type Approach, type PropKey, type Band,
+  expectedOutcome, msUntilAvailable, batchQuality, parseBatchKey, slotFit, RECIPES, superiorBlockFor, pulseTimes, gradeOf, TUNE_LABEL,
+  type ResourceNode, type Approach, type PropKey, type Band, type TuneGrade,
 } from '@rules';
 import {
   useEcos, amountOf, bagUsedOf, bagBatches, bridgeDone, matchesObjective, batchLabel, knownNow, visibleClues, suggestionsNow,
@@ -87,8 +87,15 @@ export function ObjectiveSummary() {
       ) : <b>Toque num recurso do vale para ver o que dá para coletar.</b>}
       {auto.on && <p className="ecos-auto">✦ Coletando por conta{auto.last ? `: ${auto.last}` : '…'} <button type="button" className="link" onClick={() => useEcos.getState().stopIntent()}>parar</button></p>}
       <small className="ecos-bagline">Mochila {used}/{cap}{used >= cap ? ' · cheia' : ''}{conn === 'perdida' ? ' · conexão perdida (tentando de novo)' : ''}</small>
+      <AutoTuneToggle />
     </section>
   );
+}
+
+/** sem o desafio de ritmo: a coleta conta como três "bom" */
+function AutoTuneToggle() {
+  const on = useEcos((s) => s.autoTune);
+  return <label className="ecos-autotune"><input type="checkbox" checked={on} onChange={(e) => useEcos.getState().setAutoTune(e.target.checked)} /> Afinação automática (sem o desafio de ritmo)</label>;
 }
 
 export function MiniMap() {
@@ -229,11 +236,63 @@ function ActionBar() {
         <b>{run.inspect ? 'Observar' : ap?.label ?? run.approach} · {nodeName(n)}</b>
         <span className="ea-phase">{lost ? 'Conexão perdida — tentando de novo (nada se perde)' : PHASE_LABEL[run.phase]}{run.by === 'companion' ? ' · pela Companion' : ''}</span>
       </div>
-      <div className="bar"><i style={{ width: pct + '%' }} /></div>
+      {run.phase === 'coletando' && run.by === 'pessoa' && !run.inspect && !useEcos.getState().autoTune
+        ? <TuneRing started={run.started} seconds={run.seconds} tune={run.tune ?? []} />
+        : <div className="bar"><i style={{ width: pct + '%' }} /></div>}
+      {run.phase === 'concluido' && run.result && <TuneResultLine grades={run.result.grades} pure={run.result.pure} />}
       {run.message && <small className="ea-msg">{run.message}</small>}
       {active && <button type="button" className="ghost" onClick={() => useEcos.getState().cancel()} aria-keyshortcuts="Escape">Cancelar (Esc)</button>}
     </div>
   );
+}
+
+/**
+ * Afinar o eco: três pulsos de luz crescem até o anel; toque (clique, toque ou Espaço) quando encostarem.
+ * Perfeito/Bom melhoram o material; errar não tira nada. Com movimento reduzido, os pulsos piscam no lugar.
+ */
+function TuneRing({ started, seconds, tune }: { started: number; seconds: number; tune: (number | null)[] }) {
+  const [now, setNow] = useState(Date.now());
+  const [flash, setFlash] = useState<{ grade: TuneGrade; at: number } | null>(null);
+  const btn = useRef<HTMLButtonElement>(null);
+  useEffect(() => { let f = 0; const loop = () => { setNow(Date.now()); f = requestAnimationFrame(loop); }; f = requestAnimationFrame(loop); return () => cancelAnimationFrame(f); }, []);
+  const tap = () => { const g = useEcos.getState().tap(); if (g) setFlash({ grade: g, at: Date.now() }); };
+  useEffect(() => {
+    const k = (e: KeyboardEvent) => { if (e.code === 'Space' && !(e.target as HTMLElement).closest('input, textarea, select')) { e.preventDefault(); tap(); } };
+    window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k);
+  }, []);
+  useEffect(() => { btn.current?.focus({ preventScroll: true }); }, []);
+  const at = now - started, times = pulseTimes(seconds), LEAD = 1300, R = 44;
+  const reduce = typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  return (
+    <div className="tune">
+      <button ref={btn} type="button" className="tune-ring" onPointerDown={(e) => { e.preventDefault(); tap(); }} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); tap(); } }}
+        aria-label="Afinar o eco: toque quando o pulso encostar no anel (Espaço)" aria-keyshortcuts="Space">
+        <svg viewBox="0 0 120 120" aria-hidden>
+          <circle cx="60" cy="60" r={R} className="tune-target" />
+          <circle cx="60" cy="60" r={R} className="tune-zone" strokeWidth={10} />
+          {times.map((t, i) => {
+            if (tune[i] !== undefined) return null;
+            const d = t - at;
+            if (d > LEAD || d < -260) return null;
+            const k = 1 - Math.max(0, d) / LEAD;
+            return reduce
+              ? <circle key={i} cx="60" cy="60" r={R} className="tune-pulse" style={{ opacity: Math.abs(d) < 260 ? 1 : 0.25 }} />
+              : <circle key={i} cx="60" cy="60" r={Math.max(4, R * k)} className="tune-pulse" style={{ opacity: d < 0 ? 0.4 : 0.35 + 0.65 * k }} />;
+          })}
+          <circle cx="60" cy="60" r="10" className="tune-core" />
+        </svg>
+        {flash && now - flash.at < 700 && <b className={'tune-flash ' + flash.grade}>{TUNE_LABEL[flash.grade]}</b>}
+      </button>
+      <ol className="tune-marks" aria-label="Pulsos afinados">
+        {times.map((t, i) => { const g = tune[i] !== undefined ? gradeOf(tune[i]) : at > t + 260 ? 'fora' : null; return <li key={i} className={g ?? 'wait'}>{g ? TUNE_LABEL[g] : `Pulso ${i + 1}`}</li>; })}
+      </ol>
+      <small className="tune-hint">Toque quando o pulso encostar no anel. Afinar melhora o material; errar não tira nada.</small>
+    </div>
+  );
+}
+
+function TuneResultLine({ grades, pure }: { grades: TuneGrade[]; pure: boolean }) {
+  return <p className={'tune-result' + (pure ? ' pure' : '')}>{pure ? 'Eco puro! O material saiu no melhor que o recurso dá.' : `Afinação: ${grades.map((g) => TUNE_LABEL[g]).join(' · ')}`}</p>;
 }
 
 function RecentLoot() {

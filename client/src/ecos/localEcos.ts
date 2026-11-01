@@ -3,7 +3,7 @@
  * simulado: não vale na economia online e nunca é enviado ao servidor (a identidade portátil do Companion não cria
  * itens negociáveis localmente). Serve para jogar sem conta e para testar a interface.
  */
-import {
+import { scoreTune, cleanTune, COMPANION_TUNE,
   NODE_KINDS, NASCENTE, nodeById, approachOf, rollGather, parseBatchKey, abundanceNow, DEFAULT_ECOS, SEIVA_AZUL, CHAINS, stepSatisfied,
   chainReward, JARDIM, siteStoredNow, recipeById, checkCraft, PONTE, needFits, scaledNeed, acceptContribution, stageComplete, STARTER_TOOLS,
   type MaterialBatch, type ToolKey,
@@ -83,7 +83,8 @@ export async function localEcos(action: string, b: Record<string, unknown> = {})
         if (a.status !== 'running') return { gather: { ...(a.result as EcosReply['gather'])!, repeat: true }, ecos: view(s) };
         if ((now - a.startedAt) / 1000 < ap.seconds * cfg.timeSlack) return { gather: { ok: false, reason: 'cedo', message: 'Ainda está coletando…', wait: ap.seconds * cfg.timeSlack - (now - a.startedAt) / 1000, items: [], repeat: false } };
         const k = NODE_KINDS[node.kind], cur = abundanceNow(node, s.nodes[node.id], now);
-        const items = rollGather(node, ap, req).map((x) => ({ key: x.key, qty: x.qty }));
+        const tune = scoreTune(b.by === 'companion' ? COMPANION_TUNE : cleanTune(b.tune));
+        const items = rollGather(node, ap, req, tune.bonus).map((x) => ({ key: x.key, qty: x.qty }));
         let res: NonNullable<EcosReply['gather']>;
         if (cur < ap.cost) res = { ok: false, reason: 'esgotado', message: 'Esse recurso está esgotado por enquanto — ele volta sozinho.', wait: null, items: [], repeat: false };
         else if (used(s) + items.reduce((x, y) => x + y.qty, 0) > cfg.bag) res = { ok: false, reason: 'mochila-cheia', message: 'A mochila está cheia: nada foi coletado (nem gasto). Libere espaço.', wait: null, items: [], repeat: false };
@@ -92,7 +93,7 @@ export async function localEcos(action: string, b: Record<string, unknown> = {})
           add(s, items, 1);
           if (!s.seen.includes(node.id)) s.seen.push(node.id);
           for (const it of items) { const m = it.key.split('|')[0]; if (!s.known.includes(m)) s.known.push(m); }
-          res = { ok: true, reason: null, message: null, wait: null, items, repeat: false };
+          res = { ok: true, reason: null, message: null, wait: null, items, repeat: false, tune };
         }
         if (res.ok && ap.tool) localHooks.wear(ap.tool);
         a.status = res.ok ? 'done' : 'rejected'; a.result = res as unknown as Record<string, unknown>;

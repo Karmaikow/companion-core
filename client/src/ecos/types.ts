@@ -1,3 +1,4 @@
+import type { TuneResult } from '@rules';
 /** O que o servidor (ou o modo offline simulado) devolve sobre o Ecos da Terra. */
 import type { EcosConfig, EnvironmentalClue, ToolKey } from '@rules';
 
@@ -17,7 +18,7 @@ export interface ClueGain { chain: string; step: number; title: string; evidence
 export interface EcosReply {
   ecos?: EcosView;
   started?: { request: string; startedAt: number; status: string; result: unknown; seconds: number };
-  gather?: { ok: boolean; reason: string | null; message: string | null; wait: number | null; items: { key: string; qty: number }[]; repeat: boolean };
+  gather?: { ok: boolean; reason: string | null; message: string | null; wait: number | null; items: { key: string; qty: number }[]; repeat: boolean; tune?: TuneResult };
   clue?: ClueGain | null;
   chosen?: { choice: string; gave: { key: string; qty: number }[]; site: string | null };
   crafted?: { recipe: string; label: string; quality: string; kind: string };

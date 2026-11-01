@@ -10,6 +10,7 @@ import {
   MATERIALS, NODE_KINDS, VALE, NASCENTE, nodeById, approachOf, nodeName, parseBatchKey, abundanceNow, atLeast, perceivedNodes, suggestGather, SEIVA_AZUL,
   cluesFor, nextStep, CATEGORIES, BAND_LABEL, PROP_LABEL, superiorBlockFor, type SpeciesKey,
   type GatheringIntent, type ResourceNode, type MaterialBatch, type Suggestion, type EnvironmentalClue, type GatherKind, type ResCategory, type PropKey, type Band,
+  pulseTimes, gradeOf, COMPANION_TUNE, TUNE_PULSES, type TuneGrade, type TuneResult,
 } from '@rules';
 import { useGame } from '../store';
 import { companionFocus, moveRequest } from '../scene/world';
@@ -17,7 +18,9 @@ import type { EcosReply, EcosView } from './types';
 import { playMaterialSound } from './sounds';
 
 export type RunPhase = 'andando' | 'coletando' | 'confirmando' | 'concluido' | 'interrompido' | 'erro';
-export interface Run { node: string; approach: string; request: string; phase: RunPhase; seconds: number; started: number; by: 'pessoa' | 'companion'; message?: string; inspect?: boolean }
+export interface Run { node: string; approach: string; request: string; phase: RunPhase; seconds: number; started: number; by: 'pessoa' | 'companion'; message?: string; inspect?: boolean;
+  /** afinar o eco: quanto antes (−) ou depois (+) de cada pulso foi o toque, em ms; a nota que o servidor devolveu */
+  tune?: (number | null)[]; result?: TuneResult }
 export interface Objective { label: string; qty: number; match: { category?: ResCategory; materials?: string[]; prop?: PropKey; min?: Band }; source: 'receita' | 'obra' | 'intencao' }
 export interface Recent { key: string; qty: number; at: number }
 export interface JournalEntry { at: number; text: string; kind: 'clue' | 'gather' | 'craft' | 'obra' | 'jardim' | 'info' }
@@ -38,6 +41,11 @@ interface EcosStore {
   auto: { on: boolean; got: number; actions: number; last: string | null } ;
   choiceOpen: boolean;
   inVale: boolean;
+  /** afinação automática (sem o desafio de ritmo): conta como três "bom" */
+  autoTune: boolean;
+  setAutoTune(v: boolean): void;
+  /** toque no eco (clique, toque ou Espaço) durante a coleta */
+  tap(): TuneGrade | null;
   refresh(): Promise<void>;
   select(id: string | null): void;
   gather(node: string, approach: string, by?: 'pessoa' | 'companion'): void;
@@ -124,6 +132,7 @@ const toast = (text: string, tone: 'soft' | 'gold' | 'warn' = 'soft') => useGame
 export const useEcos = create<EcosStore>((set, get) => ({
   view: null, conn: 'ok', error: null, selected: null, run: null, recent: [], journal: [], objective: null, intent: null,
   auto: { on: false, got: 0, actions: 0, last: null }, choiceOpen: false, inVale: false,
+  autoTune: (() => { try { return localStorage.getItem('ecos.autoTune') === '1'; } catch { return false; } })(),
 
   async call(action, body = {}) {
     const b = useGame.getState().backend;
@@ -150,6 +159,19 @@ export const useEcos = create<EcosStore>((set, get) => ({
 
   async refresh() { await get().call('ecos.state').catch(() => null); },
   select(id) { set({ selected: id }); },
+  setAutoTune(v) { set({ autoTune: v }); try { localStorage.setItem('ecos.autoTune', v ? '1' : '0'); } catch { /* sem armazenamento: vale só nesta sessão */ } },
+  tap() {
+    const r = get().run;
+    if (!r || r.phase !== 'coletando' || r.inspect || r.by !== 'pessoa' || get().autoTune) return null;
+    const at = Date.now() - r.started, times = pulseTimes(r.seconds), tune = [...(r.tune ?? [])];
+    // o pulso mais perto que ainda não foi tocado; toque longe de todos não conta
+    let best = -1;
+    for (let i = 0; i < times.length; i++) if (tune[i] === undefined && (best < 0 || Math.abs(at - times[i]) < Math.abs(at - times[best]))) best = i;
+    if (best < 0 || Math.abs(at - times[best]) > 700) return null;
+    tune[best] = at - times[best];
+    set({ run: { ...r, tune } });
+    return gradeOf(tune[best]);
+  },
   setObjective(o) { set({ objective: o }); },
   setInVale(v) { if (v !== get().inVale) { set({ inVale: v }); if (v && !get().view) void get().refresh(); } },
 
@@ -272,13 +294,15 @@ async function start(r: Run) {
 async function finish(r: Run) {
   const S = useEcos;
   try {
-    const res = await S.getState().call('ecos.finish', { request: r.request, node: r.node, approach: r.approach });
+    // pulsos sem toque vão como null (fora); afinação automática e a Companion: o servidor conta como "bom"
+    const tune = S.getState().autoTune ? COMPANION_TUNE : Array.from({ length: TUNE_PULSES }, (_, i) => r.tune?.[i] ?? null);
+    const res = await S.getState().call('ecos.finish', { request: r.request, node: r.node, approach: r.approach, by: r.by, tune });
     const cur = S.getState().run;
     if (!res) { nextAttempt = performance.now() + 3000; return; } // conexão perdida: tenta de novo com o mesmo pedido
     const g = res.gather!;
     if (!g.ok && g.reason === 'cedo') { nextAttempt = performance.now() + Math.max(300, (g.wait ?? 0.5) * 1000); if (cur?.request === r.request) S.setState({ run: { ...cur, phase: 'coletando' } }); return; }
     work.on = false;
-    if (cur?.request === r.request) S.setState({ run: { ...cur, phase: g.ok ? 'concluido' : 'erro', message: g.ok ? undefined : g.message ?? undefined } });
+    if (cur?.request === r.request) S.setState({ run: { ...cur, phase: g.ok ? 'concluido' : 'erro', message: g.ok ? undefined : g.message ?? undefined, result: g.tune } });
     if (g.ok) {
       const n = nodeById(r.node)!;
       playMaterialSound(NODE_KINDS[n.kind].category, true);

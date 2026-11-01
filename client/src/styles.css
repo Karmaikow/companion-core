@@ -846,14 +846,14 @@ body:has(.admin), #root:has(.admin) { height: auto; min-height: 100%; overflow: 
 .listening.conv button { margin-left: 4px; padding: 2px 10px; border-radius: 99px; border: 1px solid rgba(255, 255, 255, 0.35); background: transparent; color: #fff; font-size: 0.8rem; cursor: pointer; }
 
 /* ---------------------------------------------------------------------------
-   Ecos da Terra — tokens de tema (verde-musgo, prata e brilho mágico discreto)
+   Ecos da Terra — mesma moldura do jogo (noite e latão); o brilho do eco fica como acento
    --------------------------------------------------------------------------- */
 :root {
-  --ecos-moss: #3f5a3a;
-  --ecos-moss-2: #56704a;
-  --ecos-moss-bg: rgba(22, 34, 24, 0.86);
-  --ecos-silver: #c9d1d6;
-  --ecos-silver-dim: #8d979e;
+  --ecos-moss: var(--brass-dim);
+  --ecos-moss-2: var(--brass);
+  --ecos-moss-bg: var(--panel);
+  --ecos-silver: var(--parchment);
+  --ecos-silver-dim: var(--mist);
   --ecos-glow: #8fd8ff;
   --ecos-ok: #9fdc8a;
   --ecos-warn: #ffcf7a;
@@ -864,8 +864,8 @@ body:has(.admin), #root:has(.admin) { height: auto; min-height: 100%; overflow: 
 }
 .ecos-hud { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
 .ecos-hud > * { pointer-events: auto; }
-.ecos-card { background: var(--ecos-moss-bg); border: 1px solid color-mix(in srgb, var(--ecos-silver) 35%, transparent); border-radius: var(--ecos-radius); box-shadow: 0 10px 26px rgba(0, 0, 0, 0.4), inset 0 0 0 1px rgba(143, 216, 255, 0.06); color: #eef2ec; backdrop-filter: blur(6px); }
-.ecos-eyebrow { color: var(--ecos-silver); text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.68rem; }
+.ecos-card { background: var(--panel); border: 1px solid var(--brass-dim); border-radius: var(--ecos-radius); box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--night) 70%, transparent), inset 0 0 0 4px color-mix(in srgb, var(--brass) 35%, transparent), 0 10px 30px rgba(0, 0, 0, 0.45); backdrop-filter: blur(6px); color: var(--parchment); }
+.ecos-eyebrow { color: var(--brass); font-size: 0.78rem; font-weight: 600; }
 .ecos-card .bar, .ecos-tab .bar { height: 6px; border-radius: 99px; background: rgba(255, 255, 255, 0.12); overflow: hidden; margin: 4px 0; }
 .ecos-card .bar i, .ecos-tab .bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--ecos-moss-2), var(--ecos-glow)); }
 .ecos-hud button:focus-visible, .ecos-tab button:focus-visible, .ecos-tab input:focus-visible { outline: 2px solid var(--ecos-glow); outline-offset: 2px; }
@@ -1426,3 +1426,42 @@ body:has(.admin), #root:has(.admin) { height: auto; min-height: 100%; overflow: 
 .with-icon .skill-icon { width: 26px; height: 26px; }
 .icon-auto { display: flex; align-items: center; gap: 12px; }
 .icon-auto .hint { max-width: 36ch; }
+
+/* ---------- Ecos: afinar o eco (anel de pulsos durante a coleta) ---------- */
+.tune { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; align-items: center; margin: 6px 0 2px; }
+.tune-ring { position: relative; grid-row: span 2; width: 112px; height: 112px; padding: 0; border: 0; border-radius: 50%; background: radial-gradient(circle, color-mix(in srgb, var(--ecos-glow) 14%, transparent), transparent 70%); cursor: pointer; touch-action: manipulation; }
+.tune-ring:focus-visible { outline: 2px solid var(--brass); outline-offset: 4px; }
+.tune-ring svg { width: 100%; height: 100%; display: block; }
+.tune-target { fill: none; stroke: var(--brass); stroke-width: 2.5; }
+.tune-zone { fill: none; stroke: color-mix(in srgb, var(--brass) 22%, transparent); }
+.tune-pulse { fill: none; stroke: var(--ecos-glow); stroke-width: 3; filter: drop-shadow(0 0 4px var(--ecos-glow)); }
+.tune-core { fill: color-mix(in srgb, var(--ecos-glow) 70%, #fff); filter: drop-shadow(0 0 6px var(--ecos-glow)); }
+.tune-ring:active .tune-core { fill: #fff; }
+.tune-flash { position: absolute; left: 50%; top: -6px; translate: -50% -100%; font-family: var(--serif); font-size: 1rem; white-space: nowrap; pointer-events: none; animation: tune-pop 0.7s ease-out both; }
+.tune-flash.perfeito { color: #fff1a8; text-shadow: 0 0 10px #ffd56b; }
+.tune-flash.bom { color: var(--ecos-glow); }
+.tune-flash.fora { color: var(--mist); }
+@keyframes tune-pop { from { opacity: 0; translate: -50% -60%; } 20% { opacity: 1; translate: -50% -100%; } to { opacity: 0; translate: -50% -140%; } }
+.tune-marks { list-style: none; margin: 0; padding: 0; display: flex; gap: 6px; flex-wrap: wrap; }
+.tune-marks li { font-size: 0.78rem; padding: 2px 9px; border-radius: 99px; border: 1px solid color-mix(in srgb, var(--brass) 35%, transparent); color: var(--mist); }
+.tune-marks li.perfeito { color: #2a1e08; background: linear-gradient(180deg, #f3d48d, #d6a957); border-color: #f7e2a8; font-weight: 700; }
+.tune-marks li.bom { color: var(--parchment); border-color: var(--ecos-glow); }
+.tune-marks li.fora { opacity: 0.6; }
+.tune-hint { color: var(--mist); font-size: 0.8rem; line-height: 1.35; }
+.tune-result { margin: 4px 0 0; font-family: var(--serif); color: var(--parchment); }
+.tune-result.pure { color: #fff1a8; text-shadow: 0 0 12px rgba(255, 213, 107, 0.6); }
+.ecos-autotune { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--mist); }
+@media (prefers-reduced-motion: reduce) { .tune-flash { animation: none; } }
+@media (max-width: 760px) { .tune-ring { width: 96px; height: 96px; } }
+
+/* ---------- botões sem classe: o visual do jogo no lugar do cinza do navegador ----------
+   :where() zera a especificidade, então qualquer estilo de painel (barra de habilidades, abas, etc.) continua valendo. */
+:where(button:not([class])) {
+  font: inherit; font-size: 0.9rem; color: var(--parchment); line-height: 1.2;
+  background: var(--night-2); border: 1px solid #3a4b70; border-radius: 8px; padding: 6px 12px; min-height: 32px;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+}
+:where(button:not([class]):hover:not(:disabled)) { background: var(--night-3); border-color: var(--brass-dim); }
+:where(button:not([class])[aria-pressed="true"]) { border-color: var(--brass); color: #ffe7b8; background: color-mix(in srgb, var(--brass) 16%, var(--night-2)); }
+:where(button:not([class]):active:not(:disabled)) { translate: 0 1px; }
+:where(input[type="file"])::file-selector-button { font: inherit; color: var(--parchment); background: var(--night-2); border: 1px solid #3a4b70; border-radius: 8px; padding: 6px 12px; margin-right: 10px; cursor: pointer; }

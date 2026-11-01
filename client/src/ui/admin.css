@@ -447,3 +447,8 @@ html:has(.admin) { scrollbar-color: var(--a-line-2, #3a4b70) #0c0b15; scroll-pad
 .tier-badge.tier-mvp { color: #2a0d1e; background: linear-gradient(180deg, #ff9ae6, #ff5ad1); border-color: #ffb8ec; }
 .family-card { display: grid; gap: 6px; padding: 10px 0 2px; border-top: 1px solid var(--a-line); }
 .family-card b { font-family: var(--serif); font-size: 0.98rem; }
+
+/* botões sem classe dentro do Admin: o mesmo "ghost" da oficina (especificidade zero, estilos próprios vencem) */
+:where(.admin button:not([class])) { min-height: var(--a-tap); padding: 6px 14px; border-radius: 8px; background: transparent; color: var(--a-ink-2); border: 1px solid var(--a-line-2); font-weight: 600; }
+:where(.admin button:not([class]):hover:not(:disabled)) { background: var(--a-raise-2); color: var(--a-ink); border-color: #4d608a; }
+:where(.admin button:not([class])[aria-pressed="true"]) { background: var(--a-brass-soft); color: #ffe7b8; border-color: color-mix(in srgb, var(--brass) 55%, transparent); }
