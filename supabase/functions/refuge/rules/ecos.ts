@@ -462,7 +462,7 @@ export function expectedOutcome(node: ResourceNode, ap: Approach): { material: s
 }
 
 /** Mochila: capacidade total (unidades). */
-export const BAG_CAPACITY = 60;
+export const BAG_CAPACITY = 120; // dobrou em 2026-11-02 (enchia antes da carga)
 
 /** Parâmetros de balanceamento (Admin → game_config.values.ecos). */
 export interface EcosConfig {

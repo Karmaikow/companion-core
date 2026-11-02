@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  BAG_CAPACITY,
   MATERIALS, NODE_KINDS, VALE_NODES, VALE, NASCENTE, STREAM, CATEGORIES, rollGather, batchKey, parseBatchKey, bandOf, batchQuality, abundanceNow,
   msUntilAvailable, expectedOutcome, streamDist, valeHeight, makeCompanionWorld, WORLD_FALLBACK_BIOMES, resolveEcos,
   SEIVA_AZUL, stepSatisfied, cluesFor, chainReward, JARDIM, siteStoredNow, RECIPES, slotFit, checkCraft, autoPick, recipeById,
@@ -191,7 +192,7 @@ describe('Ecos: Companion decide com o que sabe', () => {
 describe('Ecos: configuração', () => {
   it('valores ruins viram padrão ou são limitados', () => {
     const c = resolveEcos({ bag: 'x', projectScale: 999, capShare: -1 });
-    expect(c.bag).toBe(60); expect(c.projectScale).toBe(20); expect(c.capShare).toBe(0.1);
+    expect(c.bag).toBe(BAG_CAPACITY); expect(c.projectScale).toBe(20); expect(c.capShare).toBe(0.1);
   });
 });
 
