@@ -5,7 +5,7 @@
  * ou .GLB), aparência; o que se veste tem a pegada (ajuste na mão/osso) e a receita da Forja (só Taurinas forjam).
  */
 import { lazy, Suspense, useMemo, useState } from 'react';
-import { DEFAULT_ITEMS, ITEM_TYPES, ITEM_CATEGORIES, ELEMENT_SETS, RARITIES, ELEMENTS, SLOTS_EQ, DEFAULT_GRIP, sanitizeItem, biomeSlug, basicAttack, isWearable, slotsFor, type ItemDef, type ItemType, type ItemCategory, type Rarity, type Element } from '@rules';
+import { TIERS, TIER_KEYS, tierOf, DEFAULT_ITEMS, ITEM_TYPES, ITEM_CATEGORIES, ELEMENT_SETS, RARITIES, ELEMENTS, SLOTS_EQ, DEFAULT_GRIP, sanitizeItem, biomeSlug, basicAttack, isWearable, slotsFor, type ItemDef, type ItemType, type ItemCategory, type Rarity, type Element } from '@rules';
 import { supabase } from '../backend/online';
 import { boneFor } from '../scene/Equipment';
 import { useCatalog, uploadWorldAsset, safeName } from './catalog';
@@ -108,7 +108,7 @@ export function ArsenalStudio() {
               {byCat(c).map((r) => (
                 <li key={r.slug}><button className={sel === r.slug ? 'on' : ''} onClick={() => pick(r.slug)}>
                   <strong><i className="look-dot" style={{ background: RARITIES[r.data.rarity].color }} />{r.name}</strong>
-                  <small>{ITEM_TYPES[r.data.type].label} · {RARITIES[r.data.rarity].label}{r.data.essence ? ' · ' + ELEMENTS[r.data.essence].label : ''} · {String(r.data.weight).replace('.', ',')} kg{r.data.model ? ' · .GLB' : ''}{r.status === 'draft' ? ' · rascunho' : ''}</small>
+                  <small>{ITEM_TYPES[r.data.type].label} · {RARITIES[r.data.rarity].label}{isWearable(r.data.type) ? ' · ' + TIERS[tierOf(r.data)].label : ''}{r.data.essence ? ' · ' + ELEMENTS[r.data.essence].label : ''} · {String(r.data.weight).replace('.', ',')} kg{r.data.model ? ' · .GLB' : ''}{r.status === 'draft' ? ' · rascunho' : ''}</small>
                 </button></li>
               ))}
             </ul>
@@ -171,6 +171,7 @@ export function ArsenalStudio() {
               <legend>Raridade, elemento{wear ? ' e atributos' : ''}</legend>
               <div className="grid-form">
                 <label>Raridade<select value={draft.rarity} onChange={(e) => edit({ rarity: e.target.value as Rarity })}>{(Object.keys(RARITIES) as Rarity[]).map((k) => <option key={k} value={k}>{RARITIES[k].label} (×{RARITIES[k].statMul})</option>)}</select></label>
+                {isWearable(draft.type) && <label>Tier<select value={draft.tier ?? ''} onChange={(e) => edit({ tier: e.target.value ? (Number(e.target.value) as ItemDef['tier']) : undefined })}><option value="">T1 (padrão)</option>{TIER_KEYS.map((t) => <option key={t} value={t}>{TIERS[t].label} · {TIERS[t].material} (dano ×{TIERS[t].power}, vínculo {TIERS[t].bond})</option>)}</select></label>}
                 <label>Elemento<select value={draft.essence ?? ''} onChange={(e) => edit({ essence: (e.target.value || null) as Element | null })}><option value="">Nenhuma</option>{ESS.map((e) => <option key={e} value={e}>{ELEMENTS[e].label}</option>)}</select></label>
                 {wear && ATTRS.map((k) => <label key={k}>{k[0].toUpperCase() + k.slice(1)} (%)<input type="number" min={-20} max={40} value={draft.stats[k] ?? 0} onChange={(e) => edit({ stats: { ...draft.stats, [k]: Number(e.target.value) } })} /></label>)}
               </div>

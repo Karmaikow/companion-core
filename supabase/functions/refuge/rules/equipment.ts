@@ -15,6 +15,7 @@ import type { Element } from './identity.ts';
 import type { SpeciesKey, AttrKey } from './species.ts';
 import type { AnimKind } from './anim.ts';
 import { sanitizeLook, type ModelLook } from './look.ts';
+import { TIERS, cleanTier, tierOf, tierBlock, type Tier } from './tiers.ts';
 
 export type Rarity = 'comum' | 'incomum' | 'rara' | 'lendaria';
 export type Bone = 'mao_direita' | 'mao_esquerda' | 'cabeca' | 'peito' | 'nenhum';
@@ -129,6 +130,8 @@ export interface ItemDef {
   description: string;
   type: ItemType;
   rarity: Rarity;
+  /** tier (T1–T5): progressão do item; sem valor, vale o da raridade (ver tiers.ts) */
+  tier?: Tier;
   essence: Element | null;
   /** peso (kg): soma na carga do Companion */
   weight: number;
@@ -257,12 +260,13 @@ export function unequip(current: Equipped, slot: EquipSlot): Equipped {
 }
 
 /** Confere um conjunto salvo (itens que existem, no espaço certo, que a pessoa tem, sem conflito de duas mãos). */
-export function validateEquipped(raw: unknown, catalog: ItemDef[], owned: (slug: string) => boolean): Equipped {
+/** `bond`: com o vínculo, tira o que o tier ainda não deixa vestir. */
+export function validateEquipped(raw: unknown, catalog: ItemDef[], owned: (slug: string) => boolean, bond?: number): Equipped {
   const eq = normalizeEquipped(raw);
   let out: Equipped = {};
   for (const slot of EQUIP_SLOTS) {
     const it = catalog.find((x) => x.slug === eq[slot]);
-    if (it && slotsFor(it.type).includes(slot) && owned(it.slug)) out = equip(out, it, catalog, slot);
+    if (it && slotsFor(it.type).includes(slot) && owned(it.slug) && (bond === undefined || !tierBlock(it, bond))) out = equip(out, it, catalog, slot);
   }
   return out;
 }
@@ -312,7 +316,7 @@ export function elementSets(eq: Equipped, catalog: ItemDef[]): ActiveSet[] {
 export function equipmentBonus(eq: Equipped, catalog: ItemDef[]): Partial<Record<AttrKey, number>> {
   const out: Partial<Record<AttrKey, number>> = {};
   const add = (k: AttrKey, v: number) => { out[k] = Math.round(((out[k] ?? 0) + v) * 10) / 10; };
-  for (const { item } of equippedItems(eq, catalog)) for (const [k, v] of Object.entries(item.stats)) add(k as AttrKey, (v as number) * RARITIES[item.rarity].statMul);
+  for (const { item } of equippedItems(eq, catalog)) for (const [k, v] of Object.entries(item.stats)) add(k as AttrKey, (v as number) * RARITIES[item.rarity].statMul * TIERS[tierOf(item)].stat);
   for (const s of elementSets(eq, catalog)) for (const [k, v] of Object.entries(s.bonus)) add(k as AttrKey, v as number);
   return out;
 }
@@ -375,7 +379,8 @@ export function basicAttack(weapon: ItemDef | null, species?: SpeciesKey | null)
   const w = weapon ? ITEM_TYPES[weapon.type].weapon : undefined;
   const base: WeaponProfile = w ?? { anim: 'attack', range: 1.2, cadence: 1.3, power: 0.6, twoHanded: false, ranged: 'none' };
   const affinity = weapon && species && CLASS_WEAPONS[species].includes(weapon.type) ? 1.05 : 1;
-  return { ...base, power: base.power * affinity, affinity, label: weapon ? ITEM_TYPES[weapon.type].label : 'Desarmado' };
+  const tier = weapon ? TIERS[tierOf(weapon)].power : 1;
+  return { ...base, power: base.power * affinity * tier, affinity, label: weapon ? ITEM_TYPES[weapon.type].label : 'Desarmado' };
 }
 
 // ---------------------------------------------------------------------------
@@ -425,6 +430,7 @@ export function sanitizeItem(input: unknown): ItemDef | null {
     description: typeof s.description === 'string' ? s.description.slice(0, 200) : '',
     type,
     rarity: (s.rarity && s.rarity in RARITIES ? s.rarity : 'comum') as Rarity,
+    ...(cleanTier(s.tier) ? { tier: cleanTier(s.tier) } : {}),
     essence: s.essence && ELEMENT_KEYS.includes(s.essence) ? s.essence : null,
     weight: Math.round(n(s.weight, 0, 500, ITEM_TYPES[type].weight) * 100) / 100,
     stats,

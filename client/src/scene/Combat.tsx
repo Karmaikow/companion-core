@@ -367,7 +367,8 @@ function runSkill(ev: Extract<FxEvent, { kind: 'skill' }>, world: WorldShape, po
     V.emit({ k: K.RING, flat: true, pos: { x: c.x, y: c.y + 0.05, z: c.z }, life: s.windup, size: s.radius * 2.1, c1: '#c9b8ff', alpha: 0.7 });
     V.emit({ k: K.RING, flat: true, pos: { x: c.x, y: c.y + 0.06, z: c.z }, life: s.windup, size: 0.2, size1: s.radius * 2.1, c1: '#c9b8ff', alpha: 0.5 });
   }
-  V.after(s.windup, () => {
+  // golpes seguidos (evolução "Dupla"/"Tripla"): o efeito e o dano se repetem com um intervalo curto
+  const once = () => {
     if (s.vfx.catalogue) {
       const delta = tp.clone().sub(feet);
       V.catalogue(s.vfx.catalogue, feet, s.shape === 'circle' || s.shape === 'leap' ? Math.atan2(delta.x, delta.z) : yaw, s.shape === 'circle' || s.shape === 'leap' ? delta.length() : s.range);
@@ -403,7 +404,8 @@ function runSkill(ev: Extract<FxEvent, { kind: 'skill' }>, world: WorldShape, po
     }
     // cura: soma no HP do Companion (antes só mostrava o número verde)
     if (ev.heal > 0) V.after(0.15, () => { healCompanion(ev.heal); pop(chest.clone().setY(chest.y + 0.7), '+' + ev.heal, 'heal'); });
-  });
+  };
+  for (let k = 0; k < Math.max(1, s.repeat ?? 1); k++) V.after(s.windup + k * 0.22, once);
 }
 
 /**

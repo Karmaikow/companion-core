@@ -82,3 +82,6 @@
   .inv-slot, .inv-tool { min-height: 58px; }
   .inv-grid { grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); }
 }
+
+/* tier do item (T1–T5) no canto do quadradinho */
+.inv-item .tier { position: absolute; left: 3px; bottom: 3px; font: 800 0.6rem/1 var(--sans); font-style: normal; color: #0b1330; background: var(--t, #c9c3b6); padding: 2px 3px; border-radius: 3px; box-shadow: 0 1px 2px #0008; }

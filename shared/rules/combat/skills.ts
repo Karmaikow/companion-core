@@ -48,6 +48,8 @@ export interface SkillDef {
   modality?: 'fisica' | 'magica' | 'hibrida';
   /** técnica de arma: só aparece com esse tipo de arma na mão, e sai com o elemento do Companion (ver techniques.ts) */
   weapon?: WeaponKind;
+  /** golpes seguidos (2–4): o efeito e o dano se repetem (cada um com o poder inteiro) */
+  repeat?: number;
 }
 
 export const SLOTS: Record<SkillSlot, string> = { basic: 'Golpe básico', essence: 'Habilidade de essência', form: 'Habilidade de forma', supreme: 'Sintonia suprema', technique: 'Técnica de arma' };
@@ -184,6 +186,7 @@ export function sanitizeSkill(input: unknown): SkillDef | null {
     unlockBond: Math.round(n(s.unlockBond, 1, 20, 1)),
     ...(s.modality === 'fisica' || s.modality === 'magica' || s.modality === 'hibrida' ? { modality: s.modality } : {}),
     ...(s.weapon && (WEAPON_KINDS as readonly string[]).includes(s.weapon) ? { weapon: s.weapon } : {}),
+    ...(Number(s.repeat) >= 2 ? { repeat: Math.round(n(s.repeat, 2, 4, 2)) } : {}),
   };
 }
 

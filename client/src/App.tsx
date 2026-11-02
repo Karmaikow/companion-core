@@ -352,7 +352,7 @@ export function App() {
         if (backend?.kind === 'online') raw = (await supabase().from('companion_equipment').select('equipped').eq('companion_id', c.id).maybeSingle()).data?.equipped ?? {};
         else raw = JSON.parse(localStorage.getItem('companion-core:equipped:' + c.id) ?? '{}');
       } catch { /* vazio */ }
-      if (alive) useGame.getState().setEquipped(validateEquipped(raw, useGame.getState().items, ownsItem));
+      if (alive) useGame.getState().setEquipped(validateEquipped(raw, useGame.getState().items, ownsItem, useGame.getState().snap?.companion?.bond.level));
     })();
     return () => { alive = false; };
   }, [c?.id, backend?.kind, items]);

@@ -11,6 +11,7 @@
  * essência. Dano físico (Força), salvo quando a técnica disser outra coisa.
  */
 import type { Element } from '../identity.ts';
+import { evolutionStage, type Tier } from '../tiers.ts';
 import type { SkillDef, SkillShape, StatusKey, VfxStyle, WeaponKind } from './skills.ts';
 
 export interface Infusion {
@@ -72,15 +73,81 @@ export function infuse(sk: SkillDef, essence: Element | null): SkillDef {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Evolução pelo tier da arma: no T3 a técnica evolui por um de dois caminhos (a pessoa escolhe); no T5, a forma final
+// do caminho. O slug não muda (a barra e os combos continuam valendo); muda o nome e os números.
+// ---------------------------------------------------------------------------
+
+export interface TechPatch { name: string; power?: number; range?: number; radius?: number; angle?: number; cooldown?: number; repeat?: number; status?: SkillDef['status'] }
+export interface TechPath { id: 'a' | 'b'; label: string; t3: TechPatch; t5: TechPatch }
+
+const P = (id: 'a' | 'b', label: string, t3: TechPatch, t5: TechPatch): TechPath => ({ id, label, t3, t5 });
+/** Caminhos de cada técnica. `power` e `cooldown` multiplicam; o resto substitui. Repetições pagam com menos poder por golpe. */
+export const TECH_EVOLUTIONS: Record<string, [TechPath, TechPath]> = {
+  'espada-corte-giratorio': [
+    P('a', 'Alcance', { name: 'Ciclone', radius: 3 }, { name: 'Ciclone de Lâminas', radius: 3.6, power: 1.3 }),
+    P('b', 'Golpes', { name: 'Giro Duplo', repeat: 2, power: 0.65 }, { name: 'Giro Triplo', repeat: 3, power: 0.6 }),
+  ],
+  'espada-estocada': [
+    P('a', 'Alcance', { name: 'Estocada Longa', range: 5 }, { name: 'Estocada do Horizonte', range: 7, power: 1.3 }),
+    P('b', 'Golpes', { name: 'Estocada Dupla', repeat: 2, power: 0.65 }, { name: 'Estocada Tripla', repeat: 3, power: 0.6 }),
+  ],
+  'espada-golpe-ascendente': [
+    P('a', 'Controle', { name: 'Golpe Trovejante', status: { key: 'atordoado', chance: 0.6, seconds: 1.5 } }, { name: 'Martelo do Céu', status: { key: 'atordoado', chance: 0.9, seconds: 2 }, power: 1.25 }),
+    P('b', 'Área', { name: 'Corte Lunar', angle: 120, range: 2.4 }, { name: 'Meia-Lua', angle: 160, range: 2.8, power: 1.3 }),
+  ],
+  'espada-investida-da-lamina': [
+    P('a', 'Alcance', { name: 'Investida Longa', range: 7 }, { name: 'Investida do Cometa', range: 9, power: 1.3 }),
+    P('b', 'Área', { name: 'Rastro Cortante', radius: 1.3 }, { name: 'Rastro de Lâminas', radius: 1.8, repeat: 2, power: 0.7 }),
+  ],
+  'arco-tiro-preciso': [
+    P('a', 'Força', { name: 'Tiro Certeiro', power: 1.3, range: 16 }, { name: 'Tiro do Falcão', power: 1.6, range: 18 }),
+    P('b', 'Ritmo', { name: 'Tiro Rápido', cooldown: 0.6 }, { name: 'Rajada', cooldown: 0.45, repeat: 2, power: 0.7 }),
+  ],
+  'arco-flecha-perfurante': [
+    P('a', 'Área', { name: 'Flecha Larga', radius: 0.8 }, { name: 'Flecha Avalanche', radius: 1.2, power: 1.3 }),
+    P('b', 'Golpes', { name: 'Flecha Dupla', repeat: 2, power: 0.65 }, { name: 'Flecha Tripla', repeat: 3, power: 0.6 }),
+  ],
+  'arco-leque-de-flechas': [
+    P('a', 'Área', { name: 'Leque Aberto', angle: 90 }, { name: 'Leque do Pavão', angle: 130, power: 1.25 }),
+    P('b', 'Golpes', { name: 'Leque Duplo', repeat: 2, power: 0.65 }, { name: 'Leque Triplo', repeat: 3, power: 0.6 }),
+  ],
+  'arco-chuva-de-flechas': [
+    P('a', 'Área', { name: 'Tempestade', radius: 3.4 }, { name: 'Tempestade de Aço', radius: 4.4, power: 1.25 }),
+    P('b', 'Golpes', { name: 'Saraivada', repeat: 3, power: 0.5 }, { name: 'Saraivada Sem Fim', repeat: 4, power: 0.48 }),
+  ],
+};
+
+export const evolutionsOf = (slug: string): [TechPath, TechPath] | null => TECH_EVOLUTIONS[slug] ?? null;
+
+/** A técnica no tier da arma: T1–T2 base; T3–T4 o patch do caminho; T5 a forma final. Sem caminho escolhido, fica na base. */
+export function evolve(sk: SkillDef, tier: Tier, path: 'a' | 'b' | null | undefined): SkillDef {
+  const stage = evolutionStage(tier), ev = TECH_EVOLUTIONS[sk.slug];
+  if (!stage || !ev || !path) return sk;
+  const p = (ev.find((x) => x.id === path) ?? ev[0])[stage === 2 ? 't5' : 't3'];
+  return {
+    ...sk,
+    name: p.name,
+    power: Math.round(sk.power * (p.power ?? 1)),
+    cooldown: Math.round(sk.cooldown * (p.cooldown ?? 1) * 10) / 10,
+    ...(p.range !== undefined ? { range: p.range } : {}),
+    ...(p.radius !== undefined ? { radius: p.radius } : {}),
+    ...(p.angle !== undefined ? { angle: p.angle, shape: sk.shape === 'melee' ? 'cone' : sk.shape } : {}),
+    ...(p.repeat !== undefined ? { repeat: p.repeat } : {}),
+    ...(p.status !== undefined ? { status: p.status } : {}),
+  };
+}
+
 /**
- * Técnicas da arma na mão, já infundidas, abertas pelo vínculo. `catalog` são as da Forja (slot "technique"): pelo
- * mesmo slug, a da Forja vale no lugar da que vem com o jogo; as novas entram junto.
+ * Técnicas da arma na mão, evoluídas pelo tier e infundidas, abertas pelo vínculo. `catalog` são as da Forja (slot
+ * "technique"): pelo mesmo slug, a da Forja vale no lugar da que vem com o jogo; as novas entram junto.
  */
-export function techniquesFor(catalog: SkillDef[], weapon: WeaponKind | null | undefined, essence: Element | null, bond: number): SkillDef[] {
+export function techniquesFor(catalog: SkillDef[], weapon: WeaponKind | null | undefined, essence: Element | null, bond: number, evo?: { tier: Tier; paths: Record<string, 'a' | 'b'> }): SkillDef[] {
   if (!weapon) return [];
   const forged = catalog.filter((s) => s.slot === 'technique' && s.weapon);
   const all = [...WEAPON_TECHNIQUES.filter((t) => !forged.some((f) => f.slug === t.slug)), ...forged];
-  return all.filter((t) => t.weapon === weapon && t.unlockBond <= bond).sort((a, b) => a.unlockBond - b.unlockBond || a.slug.localeCompare(b.slug)).map((t) => infuse(t, essence));
+  return all.filter((t) => t.weapon === weapon && t.unlockBond <= bond).sort((a, b) => a.unlockBond - b.unlockBond || a.slug.localeCompare(b.slug))
+    .map((t) => infuse(evo ? evolve(t, evo.tier, evo.paths[t.slug]) : t, essence));
 }
 
 /** Técnicas de um tipo de arma que ainda vão abrir (para o painel mostrar o que vem pela frente). */

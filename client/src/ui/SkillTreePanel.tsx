@@ -13,6 +13,7 @@ import {
 } from '@rules';
 import { useSkillData, useSkills, persistAlloc } from './skillState';
 import { useGame } from '../store';
+import { WeaponArts } from './WeaponArts';
 
 const ATTR_LABEL: Record<string, string> = { vida: 'Vida', energia: 'Energia', poder: 'Poder', defesa: 'Defesa', agilidade: 'Agilidade', sintonia: 'Sintonia' };
 const KIND_LABEL: Record<TreeNode['kind'], string> = { skill: 'Habilidade', rank: 'Nível', passive: 'Passiva', boost: 'Buff' };
@@ -151,6 +152,7 @@ function SkillTreeContent({ large = false }: { large?: boolean }) {
         <div className="st-screen-right">
           {detail ?? <p className="hint st-no-sel">Clique num nó para ver o caminho até ele. Duplo clique conquista o caminho inteiro.</p>}
           {summary}
+          <WeaponArts />
         </div>
       </div>
     );
@@ -163,6 +165,7 @@ function SkillTreeContent({ large = false }: { large?: boolean }) {
       {graph}
       {detail}
       {summary}
+      <WeaponArts />
     </>
   );
 }

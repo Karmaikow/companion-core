@@ -75,7 +75,7 @@ function toItem(e: EquipmentView, base: ItemDef[]): ItemDef | null {
   const bp = blueprintById(e.blueprint);
   const sig = e.signature ? ` Forjado por ${e.signature.artisanName}.` : '';
   return {
-    ...like, slug: instanceSlug(e.id), name: e.name ?? bp?.name ?? like.name, type: e.itemType as ItemType, rarity: e.rarity ?? 'comum', essence: e.affinity ?? null,
+    ...like, slug: instanceSlug(e.id), name: e.name ?? bp?.name ?? like.name, type: e.itemType as ItemType, rarity: e.rarity ?? 'comum', ...((e as { tier?: number }).tier ? { tier: (e as { tier?: number }).tier as ItemDef['tier'] } : {}), essence: e.affinity ?? null,
     stats: e.stats ?? {}, starter: false, obtain: 'Forja Primordial',
     // peso da peça: o do tipo, mais leve ou mais pesado conforme a forja
     weight: Math.round(ITEM_TYPES[e.itemType as ItemType].weight * ({ leve: 0.7, medio: 1, pesado: 1.4 } as Record<string, number>)[(e as { weight?: string }).weight ?? 'medio'] * 100) / 100 || ITEM_TYPES[e.itemType as ItemType].weight,

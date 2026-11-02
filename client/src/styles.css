@@ -1519,3 +1519,25 @@ body:has(.admin), #root:has(.admin) { height: auto; min-height: 100%; overflow: 
 .mission-card.lendaria { border-left-width: 4px; box-shadow: 0 0 0 1px color-mix(in srgb, var(--rarity) 45%, transparent), 0 0 18px color-mix(in srgb, var(--rarity) 22%, transparent); }
 @media (prefers-reduced-motion: no-preference) { .mission-card.lendaria { animation: legend-breathe 3.2s ease-in-out infinite; } }
 @keyframes legend-breathe { 50% { box-shadow: 0 0 0 1px color-mix(in srgb, var(--rarity) 70%, transparent), 0 0 26px color-mix(in srgb, var(--rarity) 34%, transparent); } }
+
+/* Técnicas de arma (painel Habilidades): tier, evolução e combos */
+.weapon-arts { margin-top: 14px; padding-top: 10px; border-top: 1px solid #b79d6155; display: grid; gap: 8px; }
+.weapon-arts h3 { margin: 0; font: 700 1.05rem var(--serif); color: var(--parchment); display: flex; align-items: center; gap: 8px; }
+.weapon-arts h4 { margin: 6px 0 0; font: 700 0.9rem var(--serif); color: var(--brass); }
+.weapon-arts .wa-tier { font: 800 0.72rem var(--sans); color: #0b1330; background: var(--t); padding: 2px 6px; border-radius: 4px; }
+.wa-list, .wa-combos { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.wa-tech { padding: 8px 10px; border: 1px solid #b79d6155; border-radius: 6px; background: #0e163899; }
+.wa-tech.locked { opacity: 0.55; }
+.wa-tech header { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.wa-tech header b { font: 700 0.95rem var(--serif); color: #fff3dc; }
+.wa-tech header small, .wa-hint { color: var(--mist); font-size: 0.75rem; }
+.wa-tech p { margin: 4px 0; font-size: 0.82rem; color: var(--mist); }
+.wa-paths { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.wa-paths button { display: grid; gap: 2px; text-align: left; padding: 6px 8px; border-radius: 5px; border: 1px solid #b79d6188; background: #1b2452; color: var(--parchment); min-height: 44px; }
+.wa-paths button span { font: 700 0.82rem var(--serif); }
+.wa-paths button small { font-size: 0.7rem; color: var(--mist); }
+.wa-paths button.on { border-color: #ffd84d; background: #3a2f12; box-shadow: 0 0 0 1px #ffd84d inset; }
+.wa-paths button:disabled { opacity: 0.5; }
+.wa-combos li { display: flex; justify-content: space-between; gap: 10px; font-size: 0.82rem; padding: 4px 8px; border-radius: 4px; background: #0e163866; }
+.wa-combos li span { color: var(--mist); }
+.wa-combos li b { color: #ffd84d; font-family: var(--serif); }

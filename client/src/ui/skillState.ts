@@ -9,7 +9,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import { create } from 'zustand';
 import {
   DEFAULT_SKILLS, ELEMENTS, RANK_COOLDOWN, buildSkillTree, validateAllocation, treeEffects, skillPoints, sanitizeSkill, skillPowerMult,
-  companionElement, studiesAt, schoolSkills, techniquesFor, equippedItems, ITEM_TYPES, WEAPON_KINDS, type WeaponKind, type Allocation, type SkillDef, type SkillTree, type CitySchool,
+  companionElement, studiesAt, schoolSkills, techniquesFor, equippedItems, ITEM_TYPES, WEAPON_KINDS, TIERS, tierOf, type Tier, type WeaponKind, type Allocation, type SkillDef, type SkillTree, type CitySchool,
 } from '@rules';
 import { usePacto } from '../pacto/pactoStore';
 import { useGame } from '../store';
@@ -20,6 +20,7 @@ import { useGod } from './godMode';
 export const BAR_SIZE = 9;
 const allocKey = (id: string) => 'companion-core:skill-alloc:' + id;
 const barKey = (id: string) => 'companion-core:skill-bar:' + id;
+const pathKey = (id: string) => 'companion-core:tech-path:' + id;
 
 interface BarSave { slots: (string | null)[]; removed: string[] }
 /** `mult`: efeito final (níveis + focos + corrente da essência) */
@@ -37,6 +38,8 @@ interface SkillState {
   animMap: Record<string, string>;
   /** habilidades abertas (com nível) — para a Companion usar sozinha */
   unlocked: Unlocked[];
+  /** caminho escolhido na evolução de cada técnica de arma (T3+) */
+  paths: Record<string, 'a' | 'b'>;
   setCatalog: (c: SkillDef[]) => void;
   setAlloc: (a: Allocation) => void;
   setBar: (slots: (string | null)[], removed?: string[]) => void;
@@ -55,6 +58,7 @@ export const useSkills = create<SkillState>((set) => ({
   saving: false,
   animMap: {},
   unlocked: [],
+  paths: {},
   setCatalog: (catalog) => set({ catalog }),
   setAlloc: (alloc) => set({ alloc }),
   setBar: (bar, removed) => set((s) => ({ bar, removed: removed ?? s.removed })),
@@ -81,11 +85,13 @@ export function useSkillData() {
   const granted = useGod((g) => g.skills);
   // técnicas de arma: as do tipo da arma na mão direita, com o elemento do Companion
   const equipped = useGame((s) => s.equipped), items = useGame((s) => s.items);
-  const weapon = useMemo<WeaponKind | null>(() => {
-    const w = equippedItems(equipped, items).find((x) => x.slot === 'mainhand' && ITEM_TYPES[x.item.type].weapon)?.item.type;
-    return w && (WEAPON_KINDS as readonly string[]).includes(w) ? (w as WeaponKind) : null;
+  const { weapon, weaponTier } = useMemo<{ weapon: WeaponKind | null; weaponTier: Tier }>(() => {
+    const w = equippedItems(equipped, items).find((x) => x.slot === 'mainhand' && ITEM_TYPES[x.item.type].weapon)?.item;
+    return w && (WEAPON_KINDS as readonly string[]).includes(w.type) ? { weapon: w.type as WeaponKind, weaponTier: tierOf(w) } : { weapon: null, weaponTier: 1 };
   }, [equipped, items]);
-  const techniques = useMemo(() => techniquesFor(catalog, weapon, essence, bond), [catalog, weapon, essence, bond]);
+  // evoluídas pelo tier da arma (T3: caminho escolhido; T5: forma final)
+  const paths = useSkills((s) => s.paths);
+  const techniques = useMemo(() => techniquesFor(catalog, weapon, essence, bond, { tier: weaponTier, paths }), [catalog, weapon, essence, bond, weaponTier, paths]);
   const tree: SkillTree | null = useMemo(() => (species ? buildSkillTree(catalog, { essence, species }) : null), [catalog, essence, species]);
   const fx = useMemo(() => (tree ? treeEffects(tree, alloc) : null), [tree, alloc]);
   /** habilidades abertas, na ordem da árvore, com o nível */
@@ -97,7 +103,7 @@ export function useSkillData() {
     for (const sk of schoolSkills(catalog, schoolKey ? (schoolKey.split(',') as CitySchool[]) : [])) {
       if (sk.unlockBond <= bond && !base.some((b) => b.skill.slug === sk.slug)) base.push({ skill: sk, level: 1, mult: skillPowerMult(fx, sk, 1) });
     }
-    for (const sk of techniques) if (!base.some((b) => b.skill.slug === sk.slug)) base.push({ skill: sk, level: 1, mult: skillPowerMult(fx, sk, 1) });
+    for (const sk of techniques) if (!base.some((b) => b.skill.slug === sk.slug)) base.push({ skill: sk, level: 1, mult: skillPowerMult(fx, sk, 1) * TIERS[weaponTier].power });
     // Modo GOD: habilidades dadas pelo painel do Administrador (valem mesmo fora da árvore)
     for (const [slug, level] of Object.entries(granted)) {
       const sk = known.find((x) => x.slug === slug), at = base.findIndex((b) => b.skill.slug === slug);
@@ -106,8 +112,8 @@ export function useSkillData() {
       if (at >= 0) base[at] = u; else base.push(u);
     }
     return base;
-  }, [fx, known, granted, catalog, schoolKey, bond, techniques]);
-  return { companion: c ?? null, species, essence, bond, points, secrets, tree, fx, unlocked, catalog: known, alloc, testing, testKey, weapon };
+  }, [fx, known, granted, catalog, schoolKey, bond, techniques, weaponTier]);
+  return { companion: c ?? null, species, essence, bond, points, secrets, tree, fx, unlocked, catalog: known, alloc, testing, testKey, weapon, weaponTier };
 }
 
 /** Grava a distribuição (online ou neste navegador). */
@@ -121,6 +127,13 @@ export async function persistAlloc(companionId: string, next: Allocation) {
     if (useGame.getState().backend?.kind === 'online') await supabase().from('companion_skill_alloc').upsert({ companion_id: companionId, alloc: next, updated_at: new Date().toISOString() });
     else localStorage.setItem(allocKey(companionId), JSON.stringify(next));
   } catch { /* fica só nesta sessão */ } finally { useSkills.getState().setSaving(false); }
+}
+
+/** Escolhe o caminho da evolução de uma técnica de arma (fica salvo neste navegador, por Companion). */
+export function setTechPath(companionId: string, slug: string, path: 'a' | 'b') {
+  const paths = { ...useSkills.getState().paths, [slug]: path };
+  useSkills.setState({ paths });
+  try { localStorage.setItem(pathKey(companionId), JSON.stringify(paths)); } catch { /* só nesta sessão */ }
 }
 
 export function saveBar(companionId: string, slots: (string | null)[], removed: string[]) {
@@ -178,6 +191,14 @@ export function useSkillSync() {
     window.addEventListener('focus', refresh);
     return () => { alive = false; window.removeEventListener('focus', refresh); };
   }, [c?.id, backend?.kind, visualKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // caminhos de evolução das técnicas deste Companion
+  useEffect(() => {
+    if (!c) return;
+    let p: Record<string, 'a' | 'b'> = {};
+    try { const v = JSON.parse(localStorage.getItem(pathKey(c.id)) ?? '{}'); for (const [k, x] of Object.entries(v ?? {})) if (x === 'a' || x === 'b') p[k] = x; } catch { p = {}; }
+    useSkills.setState({ paths: p });
+  }, [c?.id]);
 
   // barra salva deste Companion
   useEffect(() => {

@@ -7,6 +7,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import './inventory.css';
 import {
+  TIERS, tierOf, tierBlock,
   ITEM_TYPES, ITEM_CATEGORIES, RARITIES, SLOTS_EQ, EQUIP_SLOTS, ELEMENTS, ELEMENT_SETS, SET_TIERS, QUEST_REWARDS, LOAD_LABEL, TOOLS,
   equip, unequip, equipmentBonus, elementSets, slotsFor, isWearable, canForge, basicAttack, itemWeight, categoryOf,
   type EquipSlot, type Equipped, type ItemCategory, type ItemDef, type ItemType, type BagEntry, type Element, type ToolKey,
@@ -108,7 +109,12 @@ export function EquipmentPanel() {
     setFilter(s === 'mainhand' ? 'arma' : s === 'offhand' && it && ITEM_TYPES[it.type].weapon ? 'arma' : 'equipamento');
     setPick(it ? { kind: 'item', key: it.slug } : null);
   };
-  const doEquip = (it: ItemDef, slot?: EquipSlot) => { setMsg(null); void save(equip(equipped, it, items, slot)); };
+  const bond = c?.bond.level ?? 1;
+  const doEquip = (it: ItemDef, slot?: EquipSlot) => {
+    const block = tierBlock(it, bond);
+    if (block) { setMsg(block); return; }
+    setMsg(null); void save(equip(equipped, it, items, slot));
+  };
   const doUnequip = (slot: EquipSlot) => { setMsg(null); void save(unequip(equipped, slot)); };
   const slotOf = (slug: string) => EQUIP_SLOTS.find((s) => equipped[s] === slug) ?? null;
   async function discard(r: Row, qty: number) {
@@ -242,6 +248,7 @@ export function EquipmentPanel() {
                       <span className="ic" aria-hidden>{r.icon}</span>
                       {r.qty > 1 && <em className="qty">{r.qty}</em>}
                       {on && <em className="worn" aria-label="equipado">E</em>}
+                      {r.item && isWearable(r.item.type) && <em className="tier" style={{ ['--t' as string]: TIERS[tierOf(r.item)].color }} aria-label={`tier ${tierOf(r.item)}`}>T{tierOf(r.item)}</em>}
                       {r.essence && <i className="el" style={{ background: ELEMENTS[r.essence].glow }} aria-hidden />}
                       <small>{r.label}</small>
                     </button>
@@ -261,6 +268,7 @@ export function EquipmentPanel() {
                   <small>
                     {sel.item ? ITEM_TYPES[sel.item.type].label : ITEM_CATEGORIES[sel.category].label}
                     {sel.rarity && <> · <span style={{ color: RARITIES[sel.rarity].color }}>{RARITIES[sel.rarity].label}</span></>}
+                    {sel.item && isWearable(sel.item.type) && <> · <span style={{ color: TIERS[tierOf(sel.item)].color }}>{TIERS[tierOf(sel.item)].label} {TIERS[tierOf(sel.item)].material}</span></>}
                     {sel.essence && <> · {ELEMENTS[sel.essence].label}</>}
                     {' · '}{kg(sel.unitWeight)}{sel.qty > 1 ? ` cada (${kg(sel.unitWeight * sel.qty)})` : ''}
                   </small>
@@ -268,8 +276,10 @@ export function EquipmentPanel() {
                 <button type="button" className="close" aria-label="Fechar" onClick={() => setPick(null)}>×</button>
               </header>
               {sel.description && <p>{sel.description}</p>}
-              {sel.item && Object.keys(sel.item.stats).length > 0 && <p className="stats">{Object.entries(sel.item.stats).map(([k, v]) => `${ATTR[k]} ${v! > 0 ? '+' : ''}${Math.round(v! * RARITIES[sel.item!.rarity].statMul * 10) / 10}%`).join(' · ')}</p>}
+              {sel.item && Object.keys(sel.item.stats).length > 0 && <p className="stats">{Object.entries(sel.item.stats).map(([k, v]) => `${ATTR[k]} ${v! > 0 ? '+' : ''}${Math.round(v! * RARITIES[sel.item!.rarity].statMul * TIERS[tierOf(sel.item!)].stat * 10) / 10}%`).join(' · ')}</p>}
               {sel.item && ITEM_TYPES[sel.item.type].weapon && (() => { const w = basicAttack(sel.item); return <p className="stats">Golpe: alcance {String(w.range).replace('.', ',')} m · {String(w.cadence).replace('.', ',')}/s · dano ×{String(w.power).replace('.', ',')}{ITEM_TYPES[sel.item.type].weapon!.twoHanded ? ' · duas mãos' : ' · uma mão (também vai na mão esquerda)'}</p>; })()}
+              {sel.item && isWearable(sel.item.type) && tierBlock(sel.item, bond) && <p className="msg err">{tierBlock(sel.item, bond)}</p>}
+              {sel.item && ITEM_TYPES[sel.item.type].weapon && tierOf(sel.item) >= 3 && <p className="hint">{tierOf(sel.item) >= 5 ? 'T5: as técnicas desta arma estão na forma final.' : 'T3+: as técnicas desta arma evoluem (escolha o caminho em Habilidades).'}</p>}
               <div className="row">
                 {sel.item && isWearable(sel.item.type) && (() => {
                   const it = sel.item!, cur = slotOf(it.slug), opts = slotsFor(it.type);
