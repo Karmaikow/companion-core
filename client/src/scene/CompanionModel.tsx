@@ -28,8 +28,9 @@ import { spendSp } from './vitals';
 import type { Target } from './Combat';
 import { gameVfx } from './vfx/engine';
 import { Shield } from './vfx/recipes';
-import { basicAttack, bowShot, ELEMENTS, RANK_POWER, NODE_KINDS, type EquipSlot, type ItemDef, type SpeciesKey, type ToolKey } from '@rules';
+import { basicAttack, bowShot, ELEMENTS, RANK_POWER, NODE_KINDS, type WeaponKind, type EquipSlot, type ItemDef, type SpeciesKey, type ToolKey } from '@rules';
 import { basicHit, castSkill, combat } from '../build/combatStats';
+import { styleNow, timeScale, tryCombo } from './comboState';
 
 /** O que o Companion carrega: itens visíveis, a arma (escolhe o ataque) e o que muda o dano. */
 export interface Gear { items: ItemDef[]; /** espaço de cada peça (slug → espaço) */ slots?: Record<string, EquipSlot>; weapon: ItemDef | null; species: SpeciesKey | null; color: string; poder: number; /** id do Companion: pegada ajustada para este modelo */ modelKey?: string | null }
@@ -303,7 +304,7 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
   const fxColor = gear?.weapon?.essence ? ELEMENTS[gear.weapon.essence].glow : gear?.color ?? '#ffd56b';
   // Constelação Viva: Força (armas físicas) ou Magia (cajado, varinha, orbe…) escalam o golpe; o equipamento já entra na potência
   const basic = () => basicHit(prof.ranged, gear?.weapon?.essence ?? null);
-  const damageOf = (mul = 1) => Math.max(1, Math.round(20 * prof.power * basic().power * mul));
+  const damageOf = (mul = 1) => Math.max(1, Math.round(20 * prof.power * basic().power * mul * styleNow().damage));
   const cadence = () => prof.cadence * combat.d.attackSpeed; // velocidade de ataque = frequência
   // mira do mouse (PC): o ponto do chão sob o cursor, na altura do Companion
   const aimRay = useMemo(() => ({ ray: new THREE.Raycaster(), plane: new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), hit: new THREE.Vector3() }), []);
@@ -327,7 +328,8 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
   // cópia nova do modelo (outro arquivo, outras animações): solta o esqueleto da anterior
   useEffect(() => () => { mixer.stopAllAction(); releaseClone(model); }, [model, mixer]);
 
-  useFrame((state, dt) => {
+  useFrame((state, dtRaw) => {
+    const dt = dtRaw * timeScale();
     const s = st.current, r = root.current, p = pose.current;
     if (!r || !p) return;
     companionPose.yaw = s.yaw; companionPose.down = vitals.down > 0; // para os outros jogadores verem (presença)
@@ -474,7 +476,12 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
         targets.forEach((tg) => { const dx = tg.x - r.position.x, dz = tg.z - r.position.z, dd = Math.hypot(dx, dz); if (dd < bestD && dd > 0.3) { bestD = dd; s.yaw = Math.atan2(dx, dz); r.rotation.y = s.yaw; } });
       }
       const pos = r.position.clone();
-      fxQueue.push(prof.ranged === 'magic'
+      // terceiro golpe no ritmo (espada): sai o finalizador no lugar do golpe comum
+      const fin = prof.ranged === 'none' ? tryCombo('basic', (gear?.weapon?.type ?? null) as WeaponKind | null, combat.essence) : null;
+      if (fin) {
+        const fz = castSkill(fin.skill, styleNow().damage * fin.mult);
+        fxQueue.push({ kind: 'skill', pos, yaw: s.yaw, target: pos.clone().add(new THREE.Vector3(Math.sin(s.yaw), 0, Math.cos(s.yaw)).multiplyScalar(1.5)), skill: { ...fin.skill, windup: fz.windup }, damage: fz.damage, heal: 0, color: fin.skill.essence ? ELEMENTS[fin.skill.essence].glow : fxColor, info: fz.info });
+      } else fxQueue.push(prof.ranged === 'magic'
         ? { kind: 'magic', pos: pos.setY(0), yaw: s.yaw, range: prof.range, damage: damageOf(), color: fxColor, style: gear?.weapon?.essence ? ESSENCE_FX[gear.weapon.essence] : 'luz', info: basic().info }
         : { kind: 'slash', pos, yaw: s.yaw, range: prof.range, damage: damageOf(), color: fxColor, heavy: prof.power > 1.2, info: basic().info });
     }

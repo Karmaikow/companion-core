@@ -5,6 +5,7 @@
  * (determinístico); o jeito de andar segue o temperamento: passivo passeia, medroso foge, territorial defende o seu
  * canto e agressivo vem desafiar o Companion (um "!" e a animação de ataque — a batalha entra numa próxima fatia).
  */
+import { timeScale } from './comboState';
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
@@ -69,7 +70,7 @@ function WorldCreature({ cw, def, spawn }: { cw: CompanionWorld; def: CreatureDe
   const R = Math.max(0.25, def.size * 0.35);
   // vida no nível dela; os golpes do Companion descontam a defesa. Zerou: explode em névoa e volta depois de um tempo.
   const stats = useMemo(() => creatureStatsAt(def, spawn.level), [def, spawn.level]);
-  const life = useRef({ hp: stats.vida, dead: 0, provoked: false, atk: 0.8, swing: -1, engaged: false, returning: false, faint: vitals.faintId, dots: [] as { key: string; left: number; dps: number; stacks: number; tick: number }[], ctl: { lento: 0, atordoado: 0, enraizado: 0, ofuscado: 0, sombreado: 0 } as Record<string, number>, casting: 0, cds: {} as Record<string, number> });
+  const life = useRef({ hp: stats.vida, dead: 0, provoked: false, atk: 0.8, swing: -1, engaged: false, returning: false, faint: vitals.faintId, dots: [] as { key: string; left: number; dps: number; stacks: number; tick: number }[], ctl: { lento: 0, atordoado: 0, enraizado: 0, ofuscado: 0, sombreado: 0 } as Record<string, number>, kb: null as null | { x: number; z: number; t: number }, casting: 0, cds: {} as Record<string, number> });
   // alcance da melhor habilidade de distância aberta no nível (as atiradoras ficam longe e usam ela)
   const ranged = useMemo(() => Math.max(0, ...creatureSkillsAt(def, spawn.level).map((x) => skillDef(x.slug)).filter((k): k is SkillDef => !!k && k.shape !== 'melee' && k.shape !== 'aura' && k.power > 0).map((k) => k.range)), [def, spawn.level]);
   // os efeitos do catálogo das habilidades dela começam a compilar quando ela aparece, não no primeiro ataque
@@ -102,6 +103,8 @@ function WorldCreature({ cw, def, spawn }: { cw: CompanionWorld; def: CreatureDe
         else L.dots.push({ key, left: seconds, dps, stacks: 1, tick: 1 });
         L.provoked = true;
       },
+      // empurrão do golpe: desliza um pouco para trás nos próximos quadros (não atravessa pedras)
+      push: (dx, dz, dist) => { const L = life.current; if (L.dead > 0) return; const n = Math.hypot(dx, dz) || 1; L.kb = { x: (dx / n) * dist, z: (dz / n) * dist, t: 0.16 }; },
       hit: (damage0, info) => {
         const L = life.current;
         if (L.dead > 0) return 0;
@@ -141,7 +144,7 @@ function WorldCreature({ cw, def, spawn }: { cw: CompanionWorld; def: CreatureDe
   }, [spawn.id, spawn.x, spawn.z, def, stats, cw]);
   useFrame((_, dtRaw) => {
     const s = st.current, grp = g.current; if (!grp) return;
-    const dt = Math.min(dtRaw, 0.1);
+    const dt = Math.min(dtRaw, 0.1) * timeScale();
     const L = life.current;
     // dano por segundo (veneno, fogo): número na cor do estado e a nuvem saindo do corpo
     if (L.dead <= 0 && L.dots.length) {
@@ -281,6 +284,11 @@ function WorldCreature({ cw, def, spawn }: { cw: CompanionWorld; def: CreatureDe
       const wantYaw = Math.atan2(dx, dz); let dy = wantYaw - s.yaw; while (dy > Math.PI) dy -= 2 * Math.PI; while (dy < -Math.PI) dy += 2 * Math.PI;
       s.yaw += dy * Math.min(1, dt * 6);
       if (want === 'idle') want = 'walk';
+    }
+    if (L.kb) {
+      const k = Math.min(1, dt / L.kb.t), q = { x: s.x + L.kb.x * k, z: s.z + L.kb.z * k };
+      resolveCollisions(q, R); s.x = q.x; s.z = q.z; L.kb.x *= 1 - k; L.kb.z *= 1 - k; L.kb.t -= dt;
+      if (L.kb.t <= 0) L.kb = null;
     }
     // não ficar em cima do Companion
     if (dC < R + 0.5 && dC > 1e-3) { s.x = fx + ((s.x - fx) / dC) * (R + 0.5); s.z = fz + ((s.z - fz) / dC) * (R + 0.5); }

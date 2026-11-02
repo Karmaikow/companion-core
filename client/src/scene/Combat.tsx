@@ -17,7 +17,8 @@ import { area, aura, beam, burst, Charge, cone, Missile, missile, slash } from '
 import { K } from './vfx/engine';
 import { makeArrowPath, sampleArrowPath, arrowGroundHit, type ArrowPath } from './arrowFlight';
 import { healCompanion, hurtCompanion, vitals } from './vitals';
-import { inferModality, STATUSES, type HitInfo, type SkillDef } from '@rules';
+import { inferModality, finisherBySlug, STATUSES, type HitInfo, type SkillDef } from '@rules';
+import { registerHit, hitStop, shake, tickStyle, impact } from './comboState';
 import { markCombat } from '../build/combatStats';
 import { attackPick, companionFocus, type WorldShape } from './world';
 import { useSkills } from '../ui/skillState';
@@ -59,7 +60,7 @@ export function requestSkill(c: SkillCast) { skillInput.req = c; skillInput.id++
 
 /** Alvos que podem ser acertados (bonecos, criaturas). */
 /** `hit` devolve o dano que entrou (com a defesa), se o alvo tiver vida. */
-export interface Target { x: number; z: number; r: number; hit: (damage: number, info?: HitInfo) => number | void; /** criatura do mundo (para a Companion escolher alvos) */ creature?: { slug: string; name: string; level: number; hostile: () => boolean; hp: () => number }; /** estado: dano por segundo (envenenado, queimando) ou controle (lento, atordoado, enraizado, ofuscado, sombreado) */ afflict?: (key: string, seconds: number, dps: number) => void }
+export interface Target { x: number; z: number; r: number; hit: (damage: number, info?: HitInfo) => number | void; /** criatura do mundo (para a Companion escolher alvos) */ creature?: { slug: string; name: string; level: number; hostile: () => boolean; hp: () => number }; /** estado: dano por segundo (envenenado, queimando) ou controle (lento, atordoado, enraizado, ofuscado, sombreado) */ afflict?: (key: string, seconds: number, dps: number) => void; /** empurrão (m) na direção dx,dz */ push?: (dx: number, dz: number, dist: number) => void }
 export const targets = new Map<string, Target>();
 
 /** Acerta tudo no círculo; devolve o maior dano que entrou (-1 = ninguém). */
@@ -100,6 +101,11 @@ export function CombatFx({ world }: { world: WorldShape }) {
 
   useFrame((s, dtRaw) => {
     const dt = Math.min(dtRaw, 0.05), t = s.clock.elapsedTime;
+    tickStyle(dt);
+    // tremida de câmera dos finalizadores: desfaz a do quadro anterior e aplica outra
+    s.camera.position.sub(shakeOff);
+    shakeOff.set(0, 0, 0);
+    if (performance.now() < impact.shakeUntil) { const a = impact.shakeAmp * ((impact.shakeUntil - performance.now()) / 220); shakeOff.set((Math.random() - 0.5) * a, (Math.random() - 0.5) * a, (Math.random() - 0.5) * a); s.camera.position.add(shakeOff); }
     // novos eventos
     while (fxQueue.length) {
       const ev = fxQueue.shift()!;
@@ -175,7 +181,7 @@ export function CombatFx({ world }: { world: WorldShape }) {
         L.fx?.update(L.at, dt);
         const dealt = terrainHit ? -1 : hitAt(L.at.x, L.at.z, 0.35, ev.damage, ev.info);
         if (dealt >= 0) {
-          L.hit = true; pop(L.at, String(dealt), ev.kind === 'arrow' && ev.perfect); L.t = Math.max(L.t, ev.range / speed);
+          L.hit = true; pop(L.at, String(dealt), ev.kind === 'arrow' && ev.perfect); L.t = Math.max(L.t, ev.range / speed); registerHit('basic');
           L.fx?.end(); burst(gameVfx, ev.kind === 'magic' ? ev.style ?? 'luz' : 'faiscas', L.at.clone(), ev.color, ev.kind === 'arrow' && !ev.perfect ? 0.45 : 0.75, gy);
         }
         if (!L.hit && (terrainHit || dist >= ev.range)) { L.hit = true; L.t = Math.max(L.t, ev.range / speed); L.fx?.end(); burst(gameVfx, ev.kind === 'magic' ? ev.style ?? 'luz' : 'impacto', L.at.clone(), ev.color, 0.35, gy); }
@@ -186,6 +192,7 @@ export function CombatFx({ world }: { world: WorldShape }) {
           const f = new THREE.Vector3(Math.sin(ev.yaw), 0, Math.cos(ev.yaw)), p = ev.pos.clone().addScaledVector(f, ev.range * 0.7);
           const dealt = hitAt(p.x, p.z, ev.range * 0.55, ev.damage, ev.info);
           if (dealt >= 0) {
+            registerHit('basic'); hitStop(ev.heavy ? 55 : 35); pushNear(p, ev.yaw, ev.range * 0.55, ev.heavy ? 0.35 : 0.2);
             const gy = world.heightAt(p.x, p.z);
             burst(gameVfx, 'impacto', p.clone().setY(gy + 0.7), ev.color, ev.heavy ? 0.8 : 0.55, gy);
             pop(p.setY(gy + 1), String(dealt), ev.heavy);
@@ -312,6 +319,12 @@ function FxView({ L }: { L: Live }) {
   );
 }
 
+const shakeOff = new THREE.Vector3();
+/** Empurra os alvos perto de um ponto, para longe de quem bateu (golpe básico). */
+function pushNear(p: THREE.Vector3, yaw: number, r: number, dist: number) {
+  targets.forEach((t) => { if (t.r > 0 && Math.hypot(t.x - p.x, t.z - p.z) <= r + t.r) t.push?.(Math.sin(yaw), Math.cos(yaw), dist); });
+}
+
 /** Lança uma habilidade no mundo: aviso no chão, efeito do formato e do estilo, e o dano nos alvos dentro da área. */
 function runSkill(ev: Extract<FxEvent, { kind: 'skill' }>, world: WorldShape, pop: (p: THREE.Vector3, t: string, g: boolean | 'heal' | 'hurt' | 'drop' | 'poison' | 'burn') => void) {
   const s = ev.skill, st = s.vfx.style, col = ev.color, yaw = ev.yaw, V = gameVfx;
@@ -335,7 +348,16 @@ function runSkill(ev: Extract<FxEvent, { kind: 'skill' }>, world: WorldShape, po
   };
   // estado da habilidade no alvo: dano por segundo (veneno, fogo) ou controle (lento, atordoado, enraizado, ofuscado, sombreado)
   const afflict = (t: Target) => { const x = s.status; if (x && !STATUSES[x.key].good && Math.random() < x.chance) t.afflict?.(x.key, x.seconds, Math.max(2, Math.round(ev.damage * 0.15))); };
+  const fin = !!finisherBySlug(s.slug), physical = s.slot === 'technique';
+  // acertou alguém: abre a janela do combo, pausa de impacto e empurrão (técnicas e finalizadores pesam mais)
+  const weight = (list: Target[]) => {
+    if (!list.length || ev.damage <= 0) return;
+    registerHit(s.slug, fin);
+    if (physical) { hitStop(fin ? 90 : 50); for (const t of list) t.push?.(t.x - feet.x, t.z - feet.z, fin ? 1.1 : 0.45); }
+    if (fin) shake(0.12, 220);
+  };
   const strike = (list: Target[], delay: number) => V.after(delay, () => {
+    weight(list);
     for (const t of list) { afflict(t); if (ev.damage > 0) { markCombat(); const d = t.hit(ev.damage, ev.info); pop(at(t).setY(at(t).y + 0.4), String(typeof d === 'number' ? d : ev.damage), false); } burst(V, st, at(t), col, 0.5, gy(t.x, t.z)); }
   });
   const inside = () => { const l: Target[] = []; targets.forEach((t) => { if (inShape(t)) l.push(t); }); return l; };
@@ -365,7 +387,7 @@ function runSkill(ev: Extract<FxEvent, { kind: 'skill' }>, world: WorldShape, po
         const hit = best as Target | null, to = hit ? at(hit) : chest.clone().addScaledVector(fw, s.range);
         missile(V, { style: st, color: col, from: chest.clone().addScaledVector(fw, 0.4), to, duration: Math.max(0.15, chest.distanceTo(to) / 14), arc: 0.3, size: Math.max(0.55, s.radius * 1.3), onArrive: (p) => {
           burst(V, st, p, col, 0.85, gy(p.x, p.z));
-          if (hit) afflict(hit);
+          if (hit) { afflict(hit); weight([hit]); }
           if (hit && ev.damage > 0) { markCombat(); const d = hit.hit(ev.damage, ev.info); pop(p.clone().setY(p.y + 0.4), String(typeof d === 'number' ? d : ev.damage), false); }
         } });
         break;

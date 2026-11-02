@@ -13,6 +13,7 @@ import { create } from 'zustand';
 import { applyBuildToResources, incomingDamage, type DerivedStats, type Modality } from '@rules';
 import { combat, markCombat } from '../build/combatStats';
 import { godFlags } from './god';
+import { comboHurt, styleNow } from './comboState';
 
 export interface VitalsView { /** Barreira Breve: segundos ativos restantes e de recarga */ shield: number; shieldCd: number; hp: number; hpMax: number; sp: number; spMax: number; st: number; stMax: number; down: boolean; hitId: number; /** segundos até levantar (desmaiado) */ wake: number; /** desmaiado, contagem terminada: esperando a escolha */ ready: boolean; /** segundos de invencibilidade restantes */ invuln: number }
 
@@ -85,6 +86,7 @@ export function hurtCompanion(damage: number, modality: Modality = 'fisica'): nu
   // física → defesa física; mágica → resistência mágica (e o Bastião na guarda). A guarda corta 75% como antes.
   const dmg = incomingDamage(damage, modality, combat.d, v.blocking);
   v.hp = Math.max(0, v.hp - dmg); v.hitId++; v.lastHit = performance.now();
+  if (dmg > 0) comboHurt();
   if (v.hp <= 0) { v.down = 1; v.st = 0; v.blocking = false; v.faintId++; } // desmaia: a stamina zera
   publish();
   return dmg;
@@ -111,7 +113,7 @@ export function tickVitals(dt: number) {
     v.st = Math.min(v.stMax, v.st + (v.stMax / DOWN_SECONDS) * dt);
   } else {
     v.hp = Math.min(v.hpMax, v.hp + (performance.now() - v.lastHit > 6000 ? 2 : 0.4) * dt);
-    v.sp = Math.min(v.spMax, v.sp + combat.d.spRegen * dt);
+    v.sp = Math.min(v.spMax, v.sp + combat.d.spRegen * styleNow().sp * dt);
     if (v.blocking) v.st = Math.max(0, v.st - combat.d.guard.drain * dt), v.rest = combat.cfg.stamina.regenDelay;
     else if (v.rest > 0) v.rest -= dt;
     else v.st = Math.min(v.stMax, v.st + combat.d.stRegen * dt);

@@ -14,6 +14,7 @@ import { requestSkill, skillChargeState, skillInput } from '../scene/Combat';
 import { BAR_SIZE, saveBar, useSkillData, useSkills } from './skillState';
 import { canAct, spendSp, useVitals } from '../scene/vitals';
 import { godFlags } from '../scene/god';
+import { comboGlow, styleNow, tryCombo } from '../scene/comboState';
 
 
 function colorOf(s: SkillDef, companion: string): string {
@@ -25,7 +26,7 @@ function colorOf(s: SkillDef, companion: string): string {
 const cooldownOf = (s: SkillDef, level: number) => Math.max(0.3, s.cooldown * (1 - RANK_COOLDOWN * (level - 1)));
 
 export function SkillBar({ color }: { color: string }) {
-  const { companion, unlocked } = useSkillData();
+  const { companion, unlocked, weapon, essence } = useSkillData();
   const bar = useSkills((s) => s.bar), removed = useSkills((s) => s.removed), ready = useSkills((s) => s.ready);
   const [pick, setPick] = useState<number | null>(null);
   const [now, setNow] = useState(() => performance.now());
@@ -46,6 +47,19 @@ export function SkillBar({ color }: { color: string }) {
     return () => cancelAnimationFrame(raf);
   }, [waiting]);
 
+  // janela de combo aberta: os botões que continuam a sequência acendem (dourado no ponto perfeito)
+  const [glow, setGlow] = useState<{ press: Set<string>; perfect: boolean } | null>(null);
+  useEffect(() => {
+    let raf = 0;
+    const tick = () => {
+      const g = comboGlow(weapon);
+      setGlow((old) => (!g && !old) || (g && old && g.perfect === old.perfect && [...g.press].join() === [...old.press].join()) ? old : g);
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [weapon]);
+
   const info = (slug: string | null) => (slug ? unlocked.find((u) => u.skill.slug === slug) ?? null : null);
 
   /** `held`: segundos segurando Shift + número (concentração: dano extra até 2,5 s). */
@@ -54,11 +68,20 @@ export function SkillBar({ color }: { color: string }) {
     const u = info(slug);
     if (!u) { setPick(i); return; }
     const t = performance.now(), at = useSkills.getState().ready[u.skill.slug] ?? 0;
-    if (at > t) return;
     if (!skillInput.body) { toast('As habilidades precisam do corpo 3D do Companion (a Fábrica cria o modelo).', 'warn'); return; }
     if (!canAct()) return;
+    // dentro da janela do combo, a técnica certa vira finalizador (mesmo recarregando)
+    const fin = tryCombo(u.skill.slug, weapon, essence);
+    if (fin) {
+      const fz = castSkill(fin.skill, u.mult * fin.mult * styleNow().damage);
+      if (!spendSp(fz.cost)) { setShort(i); window.setTimeout(() => setShort((f) => (f === i ? null : f)), 500); return; }
+      requestSkill({ skill: fin.skill, level: u.level, color: colorOf(fin.skill, color), frozen: fz });
+      setNow(t); setFlash(i); window.setTimeout(() => setFlash((f) => (f === i ? null : f)), 180);
+      return;
+    }
+    if (at > t) return;
     // Constelação Viva: custo (afinidade, Canal Profundo) e preparação (Agilidade, Ressonância) congelados agora
-    const frozen = castSkill(u.skill, u.mult);
+    const frozen = castSkill(u.skill, u.mult * styleNow().damage);
     const mult = skillChargeMultiplier(held);
     if (mult > 1 && frozen.damage > 0) { frozen.damage = Math.round(frozen.damage * mult); toast(`${u.skill.name} concentrada: ×${mult.toFixed(2).replace('.', ',')} de dano`, 'gold'); }
     if (!spendSp(frozen.cost)) { setShort(i); window.setTimeout(() => setShort((f) => (f === i ? null : f)), 500); return; }
@@ -159,7 +182,7 @@ export function SkillBar({ color }: { color: string }) {
         const total = u ? (cooldownOf(u.skill, u.level) + u.skill.windup) * 1000 : 1;
         const frac = Math.min(1, left / total);
         return (
-          <button key={i} className={'sb-slot' + (u ? '' : ' empty') + (left > 0 ? ' cd' : '') + (flash === i ? ' fire' : '') + (pick === i ? ' sel' : '') + (short === i ? ' short' : '') + (chargingView?.slot === i ? ' charging' : '') + (u && u.skill.energy > sp ? ' nosp' : '')}
+          <button key={i} className={'sb-slot' + (u ? '' : ' empty') + (left > 0 ? ' cd' : '') + (flash === i ? ' fire' : '') + (pick === i ? ' sel' : '') + (short === i ? ' short' : '') + (chargingView?.slot === i ? ' charging' : '') + (u && u.skill.energy > sp ? ' nosp' : '') + (u && glow?.press.has(u.skill.slug) ? (glow.perfect ? ' combo perfect' : ' combo') : '')}
             title={u ? `${u.skill.name} — ${u.skill.description} (SP ${castSkill(u.skill, 1).cost})` : free.length ? 'Escolher habilidade' : 'Espaço livre'}
             aria-label={u ? `${i + 1}: ${u.skill.name}${left > 0 ? `, recarregando ${Math.ceil(left / 1000)} s` : ''}` : `${i + 1}: vazio`}
             style={u ? { ['--sk' as string]: colorOf(u.skill, color) } : undefined}

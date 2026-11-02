@@ -32,6 +32,7 @@ import { EcosHud } from './ui/EcosHud';
 import { speak, sendPlayerMessage, stopConversation, useConversation, useMic } from './ui/voice';
 import { brain } from './scene/brain';
 import { SkillBar } from './ui/SkillBar';
+import { ComboHud } from './ui/ComboHud';
 import { HudEditor } from './ui/HudEditor';
 import { GodMode, GodButton } from './ui/GodPanel';
 import { ShopPanel } from './ui/ShopPanel';
@@ -454,6 +455,7 @@ export function App() {
             </div>
           )}
           {model && <SkillBar color={visual.glow} />}
+          {model && <ComboHud />}
           {model && <TouchMoves />}
           {model && touchLand && <Joystick />}
           {touchLand && chatOpen && (
