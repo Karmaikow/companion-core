@@ -21,6 +21,7 @@ import { inferModality, type HitInfo, type SkillDef } from '@rules';
 import { markCombat } from '../build/combatStats';
 import { attackPick, companionFocus, type WorldShape } from './world';
 import { useSkills } from '../ui/skillState';
+import { refreshCursor } from '../ui/gameCursor';
 
 /** Entrada: apertar começa (o arco carrega enquanto segura), soltar termina. */
 export const combatInput = { holding: false, pressId: 0, releaseId: 0 };
@@ -250,12 +251,12 @@ function AttackReticle({ world }: { world: WorldShape }) {
     });
     return best;
   }, [camera, gl, world, v]);
-  useEffect(() => { attackPick.pick = pick; return () => { if (attackPick.pick === pick) attackPick.pick = null; attackPick.hover = null; gl.domElement.classList.remove('cursor-attack'); }; }, [pick, gl]);
+  useEffect(() => { attackPick.pick = pick; return () => { if (attackPick.pick === pick) attackPick.pick = null; attackPick.hover = null; refreshCursor(); }; }, [pick, gl]);
   useFrame((st) => {
     const t = st.clock.elapsedTime;
     // o que está sob o mouse (só com mouse e quando o clique esquerdo anda; no modo "atacar" o cursor já é de ataque)
     const hov = mousePx.inside && aim.mouse && skillInput.body && settings().click !== 'atacar' ? pick(mousePx.x, mousePx.y) : null;
-    if (hov !== attackPick.hover) { attackPick.hover = hov; gl.domElement.classList.toggle('cursor-attack', !!hov); }
+    if (hov !== attackPick.hover) { attackPick.hover = hov; refreshCursor(); }
     const place = (g: THREE.Group | null, key: string | null, spin: number, pulse: number) => {
       if (!g) return;
       const tg = key ? targets.get(key) : undefined;

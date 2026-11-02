@@ -1,7 +1,6 @@
 /**
  * Baús de drop e a reconstrução de Áster no cliente.
- *  - baús: o monstro derrotado deixa um baú fechado onde caiu (some em 3 min). Tocar faz o Companion ir até ele e
- *    abrir: Lumes e cristais vão na hora, os itens aparecem e vão para a bolsa no que couber (o servidor confere a
+ *  - baús: o monstro derrotado deixa um baú fechado onde caiu (some em 3 min). Tocar abre na hora, de onde estiver: Lumes e cristais vão na hora, os itens aparecem e vão para a bolsa no que couber (o servidor confere a
  *    distância e entrega uma vez só). O que não couber fica no baú aberto, com ouro, por 2 min; vazio, ele some em 10 s.
  *  - cidade: o estado de Áster (normal/destruída) e o progresso da reconstrução, lidos do banco (todos veem igual).
  */
@@ -63,7 +62,7 @@ export const useChests = create<Store>((set, get) => ({
   open(id) {
     const c = get().chests.find((x) => x.id === id); if (!c || c.state === 'vazio' || get().opening?.id === id) return;
     if (Math.hypot(companionFocus.x - c.x, companionFocus.z - c.z) <= CHEST_REACH - 1) { void openNow(c); return; }
-    // vai até o baú e abre na chegada (outro clique de andar cancela)
+    // longe demais (raro: só aparece dentro do alcance): vai até ele e abre na chegada (outro clique de andar cancela)
     const dx = companionFocus.x - c.x, dz = companionFocus.z - c.z, d = Math.hypot(dx, dz) || 1;
     moveRequest.point.set(c.x + (dx / d) * 1.2, 0, c.z + (dz / d) * 1.2); moveRequest.id++;
     set({ going: { id, move: moveRequest.id } });

@@ -26,7 +26,8 @@ import { CombatFx } from './Combat';
 import { RemoteCompanions } from './RemoteCompanions';
 import { WeatherFx } from './Weather';
 import { AssetBoundary, CameraRig, ClickMarker, Sky, WindClock } from './Biome';
-import { buildingHover, colliders, companionFocus, decks, groundDown, groundMove, groundPointer, moveRequest, requestMove, smooth, type Circle, type WorldShape } from './world';
+import { colliders, companionFocus, decks, groundDown, groundMove, groundPointer, moveRequest, requestMove, smooth, type Circle, type WorldShape } from './world';
+import { hoverCursor } from '../ui/gameCursor';
 import { bakeMeshField } from './meshField';
 import { openShop } from '../ui/ShopPanel';
 import { openSchool } from '../ui/SchoolPanel';
@@ -531,8 +532,8 @@ const pickHandlers = (onPick?: () => void) => onPick ? {
     if (groundPointer.down) { clearTimeout(groundPointer.down.timer); groundPointer.down = null; }
     onPick();
   },
-  onPointerOver: () => { document.body.style.cursor = 'pointer'; },
-  onPointerOut: () => { document.body.style.cursor = ''; },
+  onPointerOver: () => hoverCursor('apontar'),
+  onPointerOut: () => hoverCursor(null),
 } : {};
 
 const nrm = new THREE.Vector3();
@@ -542,11 +543,7 @@ const isFloorHit = (e: ThreeEvent<PointerEvent>, base: number) => {
   nrm.copy(e.face.normal).transformDirection(e.object.matrixWorld);
   return nrm.y > 0.7;
 };
-const setEnterCursor = (on: boolean) => {
-  if (buildingHover.on === on) return;
-  buildingHover.on = on;
-  document.querySelectorAll('canvas').forEach((c) => c.classList.toggle('cursor-enter', on));
-};
+const setEnterCursor = (on: boolean) => hoverCursor(on ? 'apontar' : null);
 
 /**
  * Prédio de loja/escola: o clique nas paredes, no telhado e na fachada leva até a porta e abre o painel; no piso

@@ -298,32 +298,12 @@
 /* desmaio: terminada a contagem, a escolha (levantar ou voltar ao Refúgio) */
 .faint-counter.ready { pointer-events: auto; z-index: 16777272; /* acima das plaquinhas dos monstros (drei <Html>) */ gap: 8px; max-width: min(360px, calc(100vw - 32px)); text-align: center; }
 .faint-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 4px; }
-.faint-actions button { min-height: 40px; padding: 8px 16px; border-radius: 4px 14px 4px 14px; border: 1px solid #b79d61; background: linear-gradient(#1b2452, #0e1638); color: #fff2d8; font: 0.95rem var(--serif); cursor: pointer; }
+.faint-actions button { min-height: 40px; padding: 8px 16px; border-radius: 4px 14px 4px 14px; border: 1px solid #b79d61; background: linear-gradient(#1b2452, #0e1638); color: #fff2d8; font: 0.95rem var(--serif); cursor: var(--cur-apontar, pointer); }
 .faint-actions button.primary { background: linear-gradient(#e8c776, #b88d3c); color: #1b1430; border-color: #ffe7a8; font-weight: 600; }
 .faint-actions button:hover, .faint-actions button:focus-visible { filter: brightness(1.12); box-shadow: 0 0 12px #ffd98a55; }
 .vshield.invuln { background: rgba(255, 214, 120, 0.4); color: #fff8e0; box-shadow: 0 0 12px #ffd98a; animation: invuln-pulse 0.9s ease-in-out infinite alternate; }
 @keyframes invuln-pulse { to { box-shadow: 0 0 4px #ffd98a66; } }
 
-/* cursor de ataque: alvo girando + espadinha balançando (a seta some sobre o monstro) */
-canvas.cursor-attack { cursor: none !important; }
-.attack-cursor { position: fixed; left: 0; top: 0; z-index: 50; pointer-events: none; opacity: 0; transition: opacity 0.12s; will-change: transform; }
-.attack-cursor .ac-target { position: absolute; left: -20px; top: -20px; overflow: visible; filter: drop-shadow(0 0 4px #ffcf6a) drop-shadow(0 1px 1px #000a); }
-.attack-cursor .ac-spin { animation: ac-spin 1.6s linear infinite; transform-origin: 0 0; }
-.attack-cursor .ac-spin path { fill: none; stroke: #ffd77a; stroke-width: 3; stroke-linecap: round; }
-.attack-cursor .ac-core { fill: none; stroke: #fff4cf; stroke-width: 1.5; animation: ac-pulse 0.7s ease-in-out infinite alternate; transform-origin: 0 0; }
-.attack-cursor .ac-dot { fill: #fff; }
-.attack-cursor .ac-sword { position: absolute; left: -3px; top: -3px; overflow: visible; transform-origin: 3px 3px; animation: ac-swing 0.9s ease-in-out infinite; filter: drop-shadow(0 1px 1px #000c); }
-.attack-cursor .ac-blade { stroke: #fff; stroke-width: 1; }
-.attack-cursor .ac-blade-fill { fill: #e8eef8; stroke: #6b7894; stroke-width: 0.8; }
-.attack-cursor .ac-guard { stroke: #d9a63a; stroke-width: 2.6; stroke-linecap: round; }
-.attack-cursor .ac-grip { stroke: #7a4a22; stroke-width: 2.4; stroke-linecap: round; }
-.attack-cursor .ac-pommel { fill: #ffd77a; }
-.attack-cursor.locked .ac-spin path { stroke: #ff6a5a; }
-.attack-cursor.locked .ac-target { filter: drop-shadow(0 0 5px #ff5a4a) drop-shadow(0 1px 1px #000a); }
-@keyframes ac-spin { to { transform: rotate(360deg); } }
-@keyframes ac-pulse { from { transform: scale(0.8); opacity: 0.6; } to { transform: scale(1.25); opacity: 1; } }
-@keyframes ac-swing { 0%, 100% { transform: rotate(-8deg); } 50% { transform: rotate(14deg); } }
-@media (prefers-reduced-motion: reduce) { .attack-cursor .ac-spin, .attack-cursor .ac-core, .attack-cursor .ac-sword { animation: none; } }
 
 /* outros Companions no mundo (presença): plaquinha com o nome na cor dele */
 .remote-tag { padding: 2px 9px; border-radius: 3px 10px 3px 10px; background: #0d1638d9; border: 1px solid color-mix(in srgb, var(--c, #9fd8ff) 70%, #fff 10%); color: #f4ead2; font: 600 0.74rem var(--serif); white-space: nowrap; box-shadow: 0 0 10px color-mix(in srgb, var(--c, #9fd8ff) 40%, transparent); }
@@ -346,7 +326,7 @@ canvas.cursor-attack { cursor: none !important; }
 .soc-dot { width: 12px; height: 12px; border-radius: 50%; box-shadow: 0 0 8px currentColor; flex: none; }
 .soc-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .soc-row button { min-height: 34px; }
-.soc-meet { all: unset; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 0.86rem; }
+.soc-meet { all: unset; cursor: var(--cur-apontar, pointer); display: flex; align-items: center; gap: 8px; font-size: 0.86rem; }
 .soc-meet:focus-visible { outline: 2px solid var(--hud-gold); outline-offset: 2px; }
 .soc-lines { margin: 0; padding-left: 18px; display: grid; gap: 4px; font-size: 0.84rem; }
 .soc-lines li.mine b { color: #bfe0a0; }
@@ -515,9 +495,9 @@ canvas.cursor-attack { cursor: none !important; }
 /* Amigos e grupo: botões de ícone e confirmação de saída (v1.29) */
 .soc-card:has(> .soc-icons) { grid-template-columns: 1fr auto; align-items: center; }
 .soc-icons { display: flex; gap: 6px; }
-.soc-icon { display: grid; place-items: center; width: 38px; height: 38px; padding: 0; border-radius: 50%; border: 1px solid #b79d61; background: linear-gradient(#1b2452, #0e1638); color: #f6dfa8; cursor: pointer; transition: transform 0.12s, box-shadow 0.12s; }
+.soc-icon { display: grid; place-items: center; width: 38px; height: 38px; padding: 0; border-radius: 50%; border: 1px solid #b79d61; background: linear-gradient(#1b2452, #0e1638); color: #f6dfa8; cursor: var(--cur-apontar, pointer); transition: transform 0.12s, box-shadow 0.12s; }
 .soc-icon:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 0 10px #ffd77a55; }
-.soc-icon:disabled { opacity: 0.45; cursor: default; }
+.soc-icon:disabled { opacity: 0.45; cursor: var(--cur-seta, default); }
 .soc-icon.danger { color: #ffb3a8; border-color: #c98a7c; }
 .soc-party-card { position: relative; }
 .soc-corner { position: absolute; top: 8px; right: 8px; width: 34px; height: 34px; z-index: 1; }
@@ -564,9 +544,9 @@ canvas.cursor-attack { cursor: none !important; }
 .hud-edit-bar button { padding: 7px 12px; border-radius: 10px; border: 1px solid #b79d61; background: #1a2350; color: #f6dfa8; font-size: 0.82rem; }
 .hud-edit-bar button.primary { background: #c99a4c; color: #2a1e08; border-color: #f7e2a8; font-weight: 700; }
 .hud-edit-hint { position: absolute; left: max(12px, env(safe-area-inset-left)); bottom: max(10px, env(safe-area-inset-bottom)); max-width: 34vw; font-size: 0.74rem; color: #cfd6ea; background: #0d1638cc; padding: 4px 10px; border-radius: 10px; }
-.hud-ghost { position: absolute; translate: 50% 50%; scale: var(--ui-s, 1); border-radius: 50%; display: grid; place-items: center; background: radial-gradient(circle at 40% 35%, #fff2c933, #dcbc7a55); border: 2px dashed #f7e2a8; color: #fff3cf; font: 700 0.85rem var(--sans, sans-serif); text-shadow: 0 1px 2px #000; touch-action: none; cursor: grab; box-shadow: 0 4px 12px #0008; }
+.hud-ghost { position: absolute; translate: 50% 50%; scale: var(--ui-s, 1); border-radius: 50%; display: grid; place-items: center; background: radial-gradient(circle at 40% 35%, #fff2c933, #dcbc7a55); border: 2px dashed #f7e2a8; color: #fff3cf; font: 700 0.85rem var(--sans, sans-serif); text-shadow: 0 1px 2px #000; touch-action: none; cursor: var(--cur-pegar, grab); box-shadow: 0 4px 12px #0008; }
 .hud-ghost small { display: block; font-size: 0.55rem; font-weight: 600; opacity: 0.85; margin-top: -2px; }
-.hud-ghost.drag { cursor: grabbing; border-style: solid; background: radial-gradient(circle at 40% 35%, #fff2c966, #dcbc7a88); z-index: 3; }
+.hud-ghost.drag { cursor: var(--cur-segurar, grabbing); border-style: solid; background: radial-gradient(circle at 40% 35%, #fff2c966, #dcbc7a88); z-index: 3; }
 .hud-ghost.bad { border-color: #ff8f8f; background: #ff6a6a44; }
 .hud-ghost.attack { background: radial-gradient(circle at 40% 35%, #f3d48d, #c99a4c); color: #2a1e08; text-shadow: none; }
 
@@ -663,19 +643,6 @@ canvas.cursor-attack { cursor: none !important; }
 .res-tag.empty { border-color: #6a6f80; }
 .res-tag.empty b { color: #c9ccd6; }
 
-/* cursor de pegar (baús e prédios que abrem painel): luva clara com contorno dourado; fecha no clique */
-canvas.cursor-enter { cursor: none !important; }
-.grab-cursor .gc-hand { position: absolute; left: -6px; top: -4px; overflow: visible; filter: drop-shadow(0 0 4px #ffcf6a77) drop-shadow(0 1px 1px #000c); transform-origin: 12px 14px; animation: gc-bob 1.2s ease-in-out infinite; }
-.grab-cursor .gc-glove { fill: #fff3dc; stroke: #8a5a24; stroke-width: 1.3; stroke-linejoin: round; }
-.grab-cursor .gc-cuff { fill: #ffd77a; stroke: #8a5a24; stroke-width: 1.2; stroke-linejoin: round; }
-.grab-cursor .gc-line { fill: none; stroke: #c99a5a; stroke-width: 0.9; stroke-linecap: round; }
-.grab-cursor .gc-closed { display: none; }
-.grab-cursor.grab .gc-open { display: none; }
-.grab-cursor.grab .gc-closed { display: inline; }
-.grab-cursor.grab .gc-hand { animation: gc-squeeze 0.26s ease-out; }
-@keyframes gc-bob { 50% { transform: translateY(1.5px) rotate(-4deg); } }
-@keyframes gc-squeeze { 0% { transform: scale(1.12); } 60% { transform: scale(0.86); } 100% { transform: scale(1); } }
-@media (prefers-reduced-motion: reduce) { .grab-cursor .gc-hand, .grab-cursor.grab .gc-hand { animation: none; } }
 
 /* baú: o que saiu dele e o que ficou dentro */
 .chest-reveal { display: grid; justify-items: center; gap: 3px; pointer-events: none; }

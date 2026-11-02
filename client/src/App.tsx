@@ -21,7 +21,6 @@ import { MissionsPanel } from './ui/MissionsPanel';
 import { PactoPanel } from './ui/PactoPanel';
 import { LocationHud, QuestTracker } from './ui/GameHud';
 import { ChatComposer } from './ui/ChatComposer';
-import { AttackCursor } from './ui/AttackCursor';
 import { Joystick, RotateHint, useTouchLandscape } from './ui/TouchControls';
 import { useSkills } from './ui/skillState';
 import { joinWorld, type PresenceMap, type RemoteInfo } from './net/presence';
@@ -499,7 +498,6 @@ export function App() {
           {place === 'cidade' && <EcosHouse />}
           {place === 'cidade' && <TowerPanel />}
           {model && !hudEditing && <GodMode inWorld={place === 'world'} place={place} world={companionWorld} city={cityLayout} />}
-          {model && <AttackCursor />}
           {model && <FaintCounter onReturn={place !== 'refuge' ? goHome : undefined} />}
           {model && (
             <button className={'attack-btn' + (bowEquipped ? ' bow' : '')} aria-label={bowEquipped ? 'Segure para carregar o arco e solte para atirar' : 'Atacar'}

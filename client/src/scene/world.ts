@@ -103,8 +103,6 @@ export const groundPointer = { down: null as null | { x: number; y: number; id: 
  */
 export const attackPick = { pick: null as null | ((clientX: number, clientY: number) => string | null), hover: null as string | null, focus: null as string | null };
 export const attackRequest = { id: 0, key: '' };
-/** Mouse sobre um prédio que abre um painel (cursor de "entrar"). */
-export const buildingHover = { on: false };
 export function requestAttackOn(key: string) { attackRequest.key = key; attackRequest.id++; attackPick.focus = key; }
 const DRAG_PX = 8, HOLD_MS = 300;
 export function requestMove(p: THREE.Vector3) { moveRequest.point.set(p.x, 0, p.z); moveRequest.id++; attackPick.focus = null; }

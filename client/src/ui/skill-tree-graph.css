@@ -1,11 +1,11 @@
 .skill-constellation { display: flex; flex-direction: column; gap: 6px; }
 .stg-stage {
-  position: relative; height: 420px; overflow: hidden; touch-action: none; cursor: grab; user-select: none;
+  position: relative; height: 420px; overflow: hidden; touch-action: none; cursor: var(--cur-pegar, grab); user-select: none;
   border: 1px solid var(--brass-dim, #425163); border-radius: 18px;
   background: radial-gradient(ellipse at 50% 50%, #142446 0%, #0b1428 55%, #070c1c 100%);
   box-shadow: inset 0 0 40px #000a;
 }
-.stg-stage:active { cursor: grabbing; }
+.stg-stage:active { cursor: var(--cur-segurar, grabbing); }
 .stg-stage svg { display: block; }
 .stg-hint { margin: 0; padding: 0 6px; color: #9fb0c8; font-size: 11.5px; }
 .stg-hint b { color: #f3dca4; font-weight: 600; }
@@ -17,7 +17,7 @@
 .stg-need text { font-size: 9.5px; font-weight: 700; pointer-events: none; }
 .stg-lock { pointer-events: none; }
 
-.skill-graph-node { cursor: pointer; outline: none; }
+.skill-graph-node { cursor: var(--cur-apontar, pointer); outline: none; }
 .skill-graph-node .stg-body { opacity: .7; transition: opacity .15s; }
 .skill-graph-node.owned .stg-body, .skill-graph-node.avail .stg-body, .skill-graph-node.sel .stg-body, .skill-graph-node.on-path .stg-body { opacity: 1; }
 .skill-graph-node.bond-lock .stg-body { opacity: .4; }
@@ -30,7 +30,7 @@
 
 .stg-controls { position: absolute; right: 10px; top: 10px; display: flex; flex-direction: column; gap: 6px; z-index: 2; }
 .stg-controls button {
-  width: 34px; height: 34px; display: grid; place-items: center; padding: 0; cursor: pointer;
+  width: 34px; height: 34px; display: grid; place-items: center; padding: 0; cursor: var(--cur-apontar, pointer);
   border: 1px solid #8d7449; border-radius: 4px 10px 4px 10px; background: #0d1638e6; color: #f3dca4;
   font: 1.15rem/1 var(--serif, serif); box-shadow: inset 0 0 0 2px #0b1330, 0 4px 10px #0008;
 }

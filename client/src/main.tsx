@@ -3,6 +3,9 @@ import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import './styles.css';
 import './game-hud.css';
+import { installCursors } from './ui/gameCursor';
+
+installCursors();
 
 // O painel do ADM (O Administrador) fica fora do jogo: /#/admin
 const AdminPanel = lazy(() => import('./ui/AdminPanel').then((m) => ({ default: m.AdminPanel })));

@@ -8,7 +8,8 @@ import { useFrame, type ThreeEvent } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { NODE_KINDS, chunkResources, type CompanionWorld, type WeatherConfig, type ResourceNode, type WorldNode } from '@rules';
-import { useEcos, amountOf, work } from '../ecos/ecosStore';
+import { useEcos, amountOf, work, toolBelt } from '../ecos/ecosStore';
+import { hoverCursor } from '../ui/gameCursor';
 import { setEcosWorld, findNode, isAvailable } from '../ecos/worldNodes';
 import { colliders, companionFocus } from './world';
 import { gameVfx } from './vfx/engine';
@@ -200,6 +201,15 @@ const R = 2;
 // Cena
 // ---------------------------------------------------------------------------
 
+/** Cursor da coleta: a ferramenta que o recurso pede (com o "proibido" se falta), ou a mão para os mágicos. */
+function gatherCursor(n: ResourceNode) {
+  const tool = NODE_KINDS[n.kind].approaches[0]?.tool;
+  if (!tool) return 'pegar' as const;
+  const ok = (useEcos.getState().view?.profile.tools ?? []).includes(tool) && toolBelt.get(tool) !== false;
+  const icon = tool === 'cinzel' ? 'picareta' : tool;
+  return ok ? icon : (`${icon}-x` as const);
+}
+
 export function WorldResources({ cw, center, weather }: { cw: CompanionWorld; center: [number, number]; weather?: WeatherConfig }) {
   useEffect(() => { setEcosWorld(cw, weather); }, [cw, weather]);
   useEffect(() => () => { setEcosWorld(null); }, []);
@@ -240,7 +250,7 @@ export function WorldResources({ cw, center, weather }: { cw: CompanionWorld; ce
         const near = Math.hypot(n.x - me.x, n.z - me.z) < PARTED_NEAR;
         const tag = sel || n.id === closest || (run?.node === n.id && ['andando', 'coletando', 'confirmando'].includes(run.phase));
         return (
-          <group key={n.id} position={[n.x, y, n.z]} onClick={(e) => pick(e, n.id)} onPointerOver={(e) => { e.stopPropagation(); document.body.style.cursor = 'pointer'; }} onPointerOut={() => { document.body.style.cursor = ''; }}>
+          <group key={n.id} position={[n.x, y, n.z]} onClick={(e) => pick(e, n.id)} onPointerOver={(e) => { e.stopPropagation(); hoverCursor(gatherCursor(n)); }} onPointerOut={() => hoverCursor(null)}>
             <NodeMesh node={n} amount={amount} near={near} />
             {tag && <ResourceTag node={n} amount={amount} height={TAG_Y[n.kind] ?? 1.5} />}
             {/* área de clique generosa (toque) */}
