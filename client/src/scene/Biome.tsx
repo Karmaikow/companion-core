@@ -5,6 +5,7 @@
 import { Component, Suspense, useEffect, useLayoutEffect, useMemo, useRef, type ReactNode } from 'react';
 import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
+import { fitTextures } from './fitTextures';
 import * as THREE from 'three';
 import { BIOME_ROLES, type ModelLook, type BiomeAsset, type BiomeConfig, type BiomePalette, type BiomeZone } from '@rules';
 import { lookUniforms, setLook, withLook } from './look';
@@ -179,6 +180,7 @@ function bakeGeometry(src: THREE.BufferGeometry, m: THREE.Matrix4) {
 export function GlbInstances({ url, spots, world, height, wind = 0, shadows = false, hideNearCamera = false, solid = 0, layer, capacity, look }: { /** cor/luz/brilho deste bioma */ look?: ModelLook; /** reserva de cópias (o mundo aberto troca os pontos sem recriar a malha) */ capacity?: number; url: string; spots: Spot[]; world: WorldShape; height: [number, number]; wind?: number; shadows?: boolean; hideNearCamera?: boolean; /** fração do pé do modelo que bloqueia (0 = passa por cima/através) */ solid?: number; layer?: string }) {
   const { scene } = useGLTF(url);
   const { parts, foot, trunk, lu } = useMemo(() => {
+    fitTextures(scene, 1024);
     const lu = lookUniforms();
     scene.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(scene), c = box.getCenter(new THREE.Vector3()), size = box.getSize(new THREE.Vector3());

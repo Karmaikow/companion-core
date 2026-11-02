@@ -6,6 +6,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
+import { fitTextures, releaseClone } from './fitTextures';
 import * as THREE from 'three';
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import type { GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
@@ -19,7 +20,7 @@ import { companionFocus, type WorldShape } from './world';
 const VIEW_R = 70, MAX_SHOWN = 24;
 
 const cache = new Map<string, Promise<GLTF>>();
-const loadOnce = (url: string) => { const k = url.split('?')[0]; if (!cache.has(k)) cache.set(k, loadGltf(url)); return cache.get(k)!; };
+const loadOnce = (url: string) => { const k = url.split('?')[0]; if (!cache.has(k)) cache.set(k, loadGltf(url).then((g) => { fitTextures(g.scene, 1024); return g; })); return cache.get(k)!; };
 
 export function RemoteCompanions({ world }: { world: WorldShape }) {
   const others = usePresence((s) => s.others);
@@ -77,6 +78,8 @@ function Remote({ info, world }: { info: RemoteInfo; world: WorldShape }) {
     })().catch(() => { if (alive) setBody(null); });
     return () => { alive = false; };
   }, [modelKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  // corpo trocado ou o Companion saiu da cena: solta o esqueleto da cópia
+  useEffect(() => () => { if (body) { body.mixer.stopAllAction(); releaseClone(body.model); } }, [body]);
 
   const speech = useRemoteSpeech((s) => s[info.id]);
   const party = useSocial((s) => !!s.data?.party?.members.some((m) => m.id === info.id));

@@ -11,6 +11,7 @@ import { Canvas, useFrame, type ThreeEvent } from '@react-three/fiber';
 import { Clone, Html, useGLTF } from '@react-three/drei';
 import { EffectComposer, Bloom, Vignette, ToneMapping, SMAA } from '@react-three/postprocessing';
 import { ToneMappingMode } from 'postprocessing';
+import { fitTextures } from './fitTextures';
 import * as THREE from 'three';
 import {
   gameTime, BRIDGE_DECKS, BRIDGE_HW, bridgeSpan, CITY_MARKERS, CITY_R, CITY_SCHOOLS, CRYSTAL_Y, CRATERS, DEAD_CRYSTALS, GATES, GATE_IDS, GATE_GAP, LABYRINTH_R, LABYRINTH_WALLS, MOAT_DEPTH, MOAT_IN, MOAT_OUT,
@@ -284,7 +285,7 @@ function ProceduralCity({ dead, high, walls = true, inner = true }: { dead: bool
 /** O .GLB grande do ADM; o cristal flutua acima do ponto mais alto dele. */
 function ExteriorModel({ layout, dead }: { layout: CityLayout; dead: boolean }) {
   const { scene } = useGLTF(layout.exterior.url!);
-  const top = useMemo(() => new THREE.Box3().setFromObject(scene).max.y, [scene]);
+  const top = useMemo(() => new THREE.Box3().setFromObject(fitTextures(scene, 1024)).max.y, [scene]);
   return (
     <group>
       <Clone object={scene} position={[0, layout.exterior.y, 0]} rotation={[0, layout.exterior.rot, 0]} scale={layout.exterior.scale} castShadow receiveShadow />
@@ -576,6 +577,7 @@ export const meshSolid = (p: CityPiece) => !p.wall && p.solid >= 1.5;
 
 export function Piece({ p, onPick, walkable = false }: { p: CityPiece; onPick?: () => void; walkable?: boolean }) {
   const { scene } = useGLTF(p.url);
+  useMemo(() => fitTextures(scene, 1024), [scene]);
   const box = useRef<THREE.Object3D | null>(null);
   // pontes e portões: o piso por onde se anda sai do próprio modelo (ver useBridgeDecks)
   const reg = (o: THREE.Object3D | null) => { box.current = o; if (p.wall !== 'ponte' && p.wall !== 'portao') return; if (o) bridgeObjs.set(p.id, o); else bridgeObjs.delete(p.id); };

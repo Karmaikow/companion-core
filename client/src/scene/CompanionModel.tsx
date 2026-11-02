@@ -5,6 +5,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
+import { releaseClone } from './fitTextures';
 import * as THREE from 'three';
 import { GLTFLoader, type GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
@@ -36,7 +37,18 @@ export interface Gear { items: ItemDef[]; /** espaço de cada peça (slug → es
 const loader = new GLTFLoader();
 loader.setMeshoptDecoder(MeshoptDecoder);
 export const loadGltf = (url: string) => new Promise<GLTF>((ok, bad) => loader.load(url, ok, undefined, bad));
-const load = loadGltf;
+/**
+ * Modelo e animações do Companion, uma vez por arquivo (o endereço assinado muda, o arquivo não). Sem isto, cada vez que
+ * a cena montava de novo o .glb inteiro era baixado e ia de novo para a placa — 4 texturas de 2048 (~88 MB) que nunca
+ * eram liberadas, até o navegador derrubar o 3D.
+ */
+const companionFiles = new Map<string, Promise<GLTF>>();
+const load = (url: string) => {
+  const k = url.split('?')[0];
+  let p = companionFiles.get(k);
+  if (!p) { p = loadGltf(url); companionFiles.set(k, p); p.catch(() => companionFiles.delete(k)); }
+  return p;
+};
 
 interface Loaded { gltf: GLTF; clips: { clip: THREE.AnimationClip; kind: AnimKind | string; stride: number; /** arquivo de onde veio: "corpo" ou o nome do .GLB de animação */ src: string }[] }
 
@@ -136,6 +148,8 @@ export function CompanionModel({ files, world, burstKey, speech, onFail, roam = 
   // modelo no meio da corrida e ele deslizava sem animar. Só recarrega quando os endereços mudam.
   const filesKey = files.url.split('?')[0] + '|' + files.anims.map((a) => a.url.split('?')[0] + ':' + a.kind).join(',');
   const filesRef = useRef(files); filesRef.current = files;
+  // quem chama passa uma função nova a cada desenho: ela não pode recarregar o modelo
+  const failRef = useRef(onFail); failRef.current = onFail;
   useEffect(() => {
     const files = filesRef.current;
     let alive = true;
@@ -152,9 +166,9 @@ export function CompanionModel({ files, world, burstKey, speech, onFail, roam = 
         try { const g = await load(a.url); add(g.animations, g.animations.length > 1 ? null : a.kind, a.name); } catch { /* animação que falhou só fica de fora */ }
       }
       if (alive) setLoaded({ gltf, clips });
-    })().catch(() => alive && onFail());
+    })().catch(() => alive && failRef.current());
     return () => { alive = false; };
-  }, [filesKey, onFail]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [filesKey]);
   if (!loaded) return null;
   return <Walker loaded={loaded} world={world} burstKey={burstKey} speech={speech} roam={roam} appendages={appendages ?? null} speed={speed} gear={gear ?? null} />;
 }
@@ -310,6 +324,8 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
   const camYaw = (state: { camera: THREE.Camera }) => { state.camera.getWorldDirection(fwd); return Math.atan2(fwd.x, fwd.z); };
   const shield = useMemo(() => new Shield(gameVfx), []);
   useEffect(() => () => { chargeState.active = false; vitals.blocking = false; shield.stop(); }, [shield]);
+  // cópia nova do modelo (outro arquivo, outras animações): solta o esqueleto da anterior
+  useEffect(() => () => { mixer.stopAllAction(); releaseClone(model); }, [model, mixer]);
 
   useFrame((state, dt) => {
     const s = st.current, r = root.current, p = pose.current;

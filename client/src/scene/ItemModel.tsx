@@ -9,6 +9,7 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
+import { fitTextures } from './fitTextures';
 import * as THREE from 'three';
 import { ELEMENTS, ITEM_TYPES, RARITIES, type ItemDef } from '@rules';
 import { lookUniforms, setLook, withLook } from './look';
@@ -26,6 +27,7 @@ function GlbItem({ item, size }: { item: ItemDef; size: number }) {
   const { scene } = useGLTF(item.model!.url);
   const { obj, lu } = useMemo(() => {
     const lu = lookUniforms();
+    fitTextures(scene, 512);
     const obj = scene.clone(true);
     obj.traverse((o) => { const m = o as THREE.Mesh; if (m.isMesh) { m.castShadow = true; m.material = withLook((m.material as THREE.Material).clone(), lu); } });
     const box = new THREE.Box3().setFromObject(obj), sz = box.getSize(new THREE.Vector3()), c = box.getCenter(new THREE.Vector3());

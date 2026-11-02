@@ -13,6 +13,7 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { NODE_KINDS } from '@rules';
 import { useEcos } from '../ecos/ecosStore';
+import { fitTextures } from './fitTextures';
 
 export interface PartedSpec { url: string; /** maior medida do modelo, em metros */ size: number }
 /** Recursos que já têm modelo; os outros continuam com o desenho por código. */
@@ -22,18 +23,6 @@ export const RESOURCE_MODELS: Partial<Record<string, PartedSpec>> = {
 };
 /** Até onde o modelo detalhado aparece; mais longe, o desenho simples (bem mais leve). */
 export const PARTED_NEAR = 22;
-
-const MAX_TEX = 512;
-const shrunk = new WeakSet<THREE.Texture>();
-function shrinkTexture(t: THREE.Texture | null | undefined) {
-  const img = t?.image as (HTMLImageElement | ImageBitmap | HTMLCanvasElement | undefined);
-  if (!t || !img || shrunk.has(t) || !('width' in img) || Math.max(img.width, img.height) <= MAX_TEX) return;
-  const k = MAX_TEX / Math.max(img.width, img.height);
-  const c = document.createElement('canvas');
-  c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
-  c.getContext('2d')?.drawImage(img as CanvasImageSource, 0, 0, c.width, c.height);
-  t.image = c; t.needsUpdate = true; shrunk.add(t);
-}
 
 interface Part { mesh: THREE.Mesh; center: THREE.Vector3; rank: number }
 interface Prepared { template: THREE.Group; core: number; order: number[] }
@@ -45,7 +34,7 @@ function prepare(scene: THREE.Object3D, spec: PartedSpec): Prepared {
   const hit = prepared.get(key);
   if (hit) return hit;
   const root = new THREE.Group();
-  const obj = scene.clone(true);
+  const obj = fitTextures(scene, 512).clone(true);
   const box = new THREE.Box3().setFromObject(obj), ext = box.getSize(new THREE.Vector3()), mid = box.getCenter(new THREE.Vector3());
   const s = spec.size / Math.max(ext.x, ext.y, ext.z, 1e-3);
   obj.scale.setScalar(s);
@@ -57,8 +46,6 @@ function prepare(scene: THREE.Object3D, spec: PartedSpec): Prepared {
   const H = spec.size;
   const info = meshes.map((m, i) => {
     const b = new THREE.Box3().setFromObject(m), sz = b.getSize(new THREE.Vector3()), c = b.getCenter(new THREE.Vector3());
-    const mat = m.material as THREE.MeshStandardMaterial;
-    shrinkTexture(mat.map); shrinkTexture(mat.normalMap); shrinkTexture(mat.roughnessMap); shrinkTexture(mat.emissiveMap);
     // sombra só das partes grandes (as gotinhas e pétalas soltas não precisam)
     m.castShadow = Math.max(sz.x, sz.y, sz.z) > H * 0.15; m.receiveShadow = true;
     return { i, vol: sz.x * sz.y * sz.z, grounded: b.min.y < H * 0.1, score: c.y / H + Math.hypot(c.x, c.z) / H };

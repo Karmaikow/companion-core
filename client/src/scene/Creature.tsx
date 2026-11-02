@@ -5,6 +5,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame, useLoader } from '@react-three/fiber';
+import { fitTextures, releaseClone } from './fitTextures';
 import * as THREE from 'three';
 import { GLTFLoader, type GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
@@ -38,6 +39,7 @@ function ModelBody({ def, act }: { def: CreatureDef; act: CreatureAct }) {
     let alive = true;
     (async () => {
       const g = await loadGltf(def.model!.url);
+      fitTextures(g.scene, 1024);
       // o nome do clipe decide (o endereço do arquivo só quando o clipe não diz nada); o clipe com o nome exato do
       // papel vem antes ("Walk" ganha de "Swim" no andar do kaiju)
       const exact = /^(idle|walk|run|attack|death|hit|sleep)$/i;
@@ -98,7 +100,8 @@ function ModelInstance({ def, data, act }: { def: CreatureDef; data: Loaded; act
     return { root, pivot, mixer, actions, lu };
   }, [data, def.size, def.animMap]);
   useEffect(() => setLook(lu, def.look), [lu, def.look]);
-  useEffect(() => () => { mixer.stopAllAction(); }, [mixer]);
+  // a cópia é só deste monstro: ao sumir, solta o esqueleto e os materiais clonados
+  useEffect(() => () => { mixer.stopAllAction(); releaseClone(root, true); }, [mixer, root]);
   const cur = useRef('');
   useEffect(() => {
     const want = actions.has(act) ? act : act === 'run' && actions.has('walk') ? 'walk' : actions.has('idle') ? 'idle' : [...actions.keys()][0];
