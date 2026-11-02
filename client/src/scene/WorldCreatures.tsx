@@ -36,6 +36,8 @@ function reachOf(sk: SkillDef, bodyR: number): number {
   }
 }
 
+/** brilho ao pegar um estado de controle: estilo e cor */
+const CTL_FX: Record<string, [string, string]> = { lento: ['gelo', '#bfe9ff'], atordoado: ['raios', '#ffe14d'], enraizado: ['folhas', '#7be36b'], ofuscado: ['luz', '#fff1a8'], sombreado: ['sombra', '#a07cff'] };
 const ESSENCE_STYLE: Record<string, string> = { fogo: 'chamas', agua: 'gotas', terra: 'pedras', vento: 'vento', luz: 'luz', sombra: 'sombra', gelo: 'gelo', raio: 'raios', natureza: 'folhas', veneno: 'veneno' };
 
 export function WorldCreatures({ cw, creatures, center, night, high }: { cw: CompanionWorld; creatures: CreatureDef[]; center: [number, number]; night: boolean; high: boolean }) {
@@ -67,7 +69,7 @@ function WorldCreature({ cw, def, spawn }: { cw: CompanionWorld; def: CreatureDe
   const R = Math.max(0.25, def.size * 0.35);
   // vida no nível dela; os golpes do Companion descontam a defesa. Zerou: explode em névoa e volta depois de um tempo.
   const stats = useMemo(() => creatureStatsAt(def, spawn.level), [def, spawn.level]);
-  const life = useRef({ hp: stats.vida, dead: 0, provoked: false, atk: 0.8, swing: -1, engaged: false, returning: false, faint: vitals.faintId, dots: [] as { key: string; left: number; dps: number; stacks: number; tick: number }[], casting: 0, cds: {} as Record<string, number> });
+  const life = useRef({ hp: stats.vida, dead: 0, provoked: false, atk: 0.8, swing: -1, engaged: false, returning: false, faint: vitals.faintId, dots: [] as { key: string; left: number; dps: number; stacks: number; tick: number }[], ctl: { lento: 0, atordoado: 0, enraizado: 0, ofuscado: 0, sombreado: 0 } as Record<string, number>, casting: 0, cds: {} as Record<string, number> });
   // alcance da melhor habilidade de distância aberta no nível (as atiradoras ficam longe e usam ela)
   const ranged = useMemo(() => Math.max(0, ...creatureSkillsAt(def, spawn.level).map((x) => skillDef(x.slug)).filter((k): k is SkillDef => !!k && k.shape !== 'melee' && k.shape !== 'aura' && k.power > 0).map((k) => k.range)), [def, spawn.level]);
   // os efeitos do catálogo das habilidades dela começam a compilar quando ela aparece, não no primeiro ataque
@@ -86,6 +88,15 @@ function WorldCreature({ cw, def, spawn }: { cw: CompanionWorld; def: CreatureDe
       // envenenado acumula até 3 doses (renova o tempo); queimando só renova
       afflict: (key, seconds, dps) => {
         const L = life.current; if (L.dead > 0) return;
+        L.provoked = true;
+        // controle: só o tempo (renova); um brilho rápido mostra o que pegou
+        if (key in L.ctl) {
+          L.ctl[key] = Math.max(L.ctl[key], seconds);
+          const s2 = st.current, gy = cw.heightAt(s2.x, s2.z);
+          burst(gameVfx, CTL_FX[key][0], new THREE.Vector3(s2.x, gy + def.size * 0.8, s2.z), CTL_FX[key][1], 0.35, gy);
+          return;
+        }
+        if (key !== 'envenenado' && key !== 'queimando') return;
         const cur = L.dots.find((d) => d.key === key);
         if (cur) { cur.left = Math.max(cur.left, seconds); if (key === 'envenenado') cur.stacks = Math.min(3, cur.stacks + 1); cur.dps = Math.max(cur.dps, dps); }
         else L.dots.push({ key, left: seconds, dps, stacks: 1, tick: 1 });
@@ -100,7 +111,8 @@ function WorldCreature({ cw, def, spawn }: { cw: CompanionWorld; def: CreatureDe
         const dealt = info
           ? resolveHit(damage, info, { essence: def.essence, physDefense: stats.defesa, magResist: (stats as { resistencia?: number }).resistencia ?? null }, affinity(info.essence, def.essence), Math.random())
           : mitigate(damage, stats.defesa);
-        L.hp -= dealt; L.provoked = true; hurt.current = 0.45;
+        const marked = L.ctl.sombreado > 0 ? Math.round(dealt * 1.15) : dealt;
+        L.hp -= marked; L.provoked = true; hurt.current = 0.45;
         setHpPct(Math.max(0, L.hp / stats.vida));
         if (L.hp <= 0) {
           const st2 = st.current, gy = cw.heightAt(st2.x, st2.z), at = new THREE.Vector3(st2.x, gy + def.size * 0.5, st2.z);
@@ -122,7 +134,7 @@ function WorldCreature({ cw, def, spawn }: { cw: CompanionWorld; def: CreatureDe
           });
           const tg = targets.get(id); if (tg) tg.r = -99; // fora do alcance enquanto não volta
         }
-        return dealt;
+        return marked;
       },
     });
     return () => { targets.delete(id); };
@@ -157,6 +169,9 @@ function WorldCreature({ cw, def, spawn }: { cw: CompanionWorld; def: CreatureDe
       }
       return;
     }
+    // estados de controle das técnicas e habilidades: o tempo corre; atordoada não anda nem ataca
+    for (const k in L.ctl) if (L.ctl[k] > 0) L.ctl[k] -= dt;
+    const stunned = L.ctl.atordoado > 0;
     const fx = companionFocus.x, fz = companionFocus.z;
     const dC = Math.hypot(fx - s.x, fz - s.z), dHomeC = Math.hypot(fx - spawn.x, fz - spawn.z);
     let mode: 'wander' | 'chase' | 'flee' | 'face' = 'wander';
@@ -191,6 +206,7 @@ function WorldCreature({ cw, def, spawn }: { cw: CompanionWorld; def: CreatureDe
         if (L.hp >= stats.vida) setHpPct(1);
       }
     }
+    if (stunned) { mode = 'face'; L.swing = -1; }
     let speed = L.returning ? def.speed * 1.4 : def.speed, want: CreatureAct = 'idle';
     for (const k in L.cds) L.cds[k] -= dt;
     if (mode === 'chase') {
@@ -199,7 +215,7 @@ function WorldCreature({ cw, def, spawn }: { cw: CompanionWorld; def: CreatureDe
       const stop = def.style === 'distancia' && ranged > 0 ? Math.max(melee, Math.min(ranged * 0.75, def.aggroRange)) : melee;
       if (dC > stop && L.casting <= 0) { s.tx = fx; s.tz = fz; speed = def.speed * 1.6; } else { s.tx = s.x; s.tz = s.z; }
       want = dC > stop ? 'run' : 'attack';
-      L.atk -= dt;
+      L.atk -= dt * (L.ctl.lento > 0 ? 0.7 : 1);
       if (L.casting > 0) {
         // preparando uma habilidade: parada, virada para o alvo
         L.casting -= dt; want = 'attack';
@@ -231,7 +247,8 @@ function WorldCreature({ cw, def, spawn }: { cw: CompanionWorld; def: CreatureDe
         L.swing -= dt;
         if (L.swing <= 0) {
           L.swing = -1;
-          if (Math.hypot(companionFocus.x - s.x, companionFocus.z - s.z) <= melee + 0.7) {
+          // ofuscada: erra 40% dos golpes
+          if (Math.hypot(companionFocus.x - s.x, companionFocus.z - s.z) <= melee + 0.7 && !(L.ctl.ofuscado > 0 && Math.random() < 0.4)) {
             const got = hurtCompanion(stats.poder);
             if (got > 0) {
               const cy = companionFocus.y;
@@ -254,8 +271,9 @@ function WorldCreature({ cw, def, spawn }: { cw: CompanionWorld; def: CreatureDe
         s.tx = spawn.x + Math.cos(a) * r; s.tz = spawn.z + Math.sin(a) * r; s.wait = 2 + Math.random() * 5;
       }
     }
+    if (L.ctl.enraizado > 0 || stunned) speed = 0; else if (L.ctl.lento > 0) speed *= 0.6;
     const dx = s.tx - s.x, dz = s.tz - s.z, d = Math.hypot(dx, dz);
-    if (d > 0.15) {
+    if (d > 0.15 && speed > 0) {
       const step = Math.min(d, speed * dt), p = { x: s.x + (dx / d) * step, z: s.z + (dz / d) * step };
       resolveCollisions(p, R);
       // fugindo, vai no máximo 20 m de casa; perseguindo ou voltando, sem limite

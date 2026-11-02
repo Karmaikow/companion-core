@@ -5,11 +5,11 @@
  * - Barra: neste navegador, por Companion. Habilidade nova entra sozinha no primeiro espaço livre; tirar da barra
  *   é respeitado (não volta sozinha).
  */
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { create } from 'zustand';
 import {
   DEFAULT_SKILLS, ELEMENTS, RANK_COOLDOWN, buildSkillTree, validateAllocation, treeEffects, skillPoints, sanitizeSkill, skillPowerMult,
-  companionElement, studiesAt, schoolSkills, type Allocation, type SkillDef, type SkillTree, type CitySchool,
+  companionElement, studiesAt, schoolSkills, techniquesFor, equippedItems, ITEM_TYPES, WEAPON_KINDS, type WeaponKind, type Allocation, type SkillDef, type SkillTree, type CitySchool,
 } from '@rules';
 import { usePacto } from '../pacto/pactoStore';
 import { useGame } from '../store';
@@ -79,6 +79,13 @@ export function useSkillData() {
   const catalog = useSkills((s) => s.catalog), savedAlloc = useSkills((s) => s.alloc);
   const alloc = testing ? profile.alloc : savedAlloc;
   const granted = useGod((g) => g.skills);
+  // técnicas de arma: as do tipo da arma na mão direita, com o elemento do Companion
+  const equipped = useGame((s) => s.equipped), items = useGame((s) => s.items);
+  const weapon = useMemo<WeaponKind | null>(() => {
+    const w = equippedItems(equipped, items).find((x) => x.slot === 'mainhand' && ITEM_TYPES[x.item.type].weapon)?.item.type;
+    return w && (WEAPON_KINDS as readonly string[]).includes(w) ? (w as WeaponKind) : null;
+  }, [equipped, items]);
+  const techniques = useMemo(() => techniquesFor(catalog, weapon, essence, bond), [catalog, weapon, essence, bond]);
   const tree: SkillTree | null = useMemo(() => (species ? buildSkillTree(catalog, { essence, species }) : null), [catalog, essence, species]);
   const fx = useMemo(() => (tree ? treeEffects(tree, alloc) : null), [tree, alloc]);
   /** habilidades abertas, na ordem da árvore, com o nível */
@@ -90,6 +97,7 @@ export function useSkillData() {
     for (const sk of schoolSkills(catalog, schoolKey ? (schoolKey.split(',') as CitySchool[]) : [])) {
       if (sk.unlockBond <= bond && !base.some((b) => b.skill.slug === sk.slug)) base.push({ skill: sk, level: 1, mult: skillPowerMult(fx, sk, 1) });
     }
+    for (const sk of techniques) if (!base.some((b) => b.skill.slug === sk.slug)) base.push({ skill: sk, level: 1, mult: skillPowerMult(fx, sk, 1) });
     // Modo GOD: habilidades dadas pelo painel do Administrador (valem mesmo fora da árvore)
     for (const [slug, level] of Object.entries(granted)) {
       const sk = known.find((x) => x.slug === slug), at = base.findIndex((b) => b.skill.slug === slug);
@@ -98,8 +106,8 @@ export function useSkillData() {
       if (at >= 0) base[at] = u; else base.push(u);
     }
     return base;
-  }, [fx, known, granted, catalog, schoolKey, bond]);
-  return { companion: c ?? null, species, essence, bond, points, secrets, tree, fx, unlocked, catalog: known, alloc, testing, testKey };
+  }, [fx, known, granted, catalog, schoolKey, bond, techniques]);
+  return { companion: c ?? null, species, essence, bond, points, secrets, tree, fx, unlocked, catalog: known, alloc, testing, testKey, weapon };
 }
 
 /** Grava a distribuição (online ou neste navegador). */
@@ -182,15 +190,19 @@ export function useSkillSync() {
 
   // habilidade nova → primeiro espaço livre; habilidade que saiu da árvore → some da barra
   const open = unlocked.map((u) => u.skill.slug).join(',');
+  const prevTech = useRef(new Set<string>());
   useEffect(() => { useSkills.setState({ unlocked }); }, [open, unlocked]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!c) return;
     const { bar, removed } = useSkills.getState();
     const has = new Set(unlocked.map((u) => u.skill.slug));
+    // trocou de arma: as técnicas novas entram nos espaços onde estavam as da arma anterior
+    const freed = bar.map((s, i) => (s && !has.has(s) && prevTech.current.has(s) ? i : -1)).filter((i) => i >= 0);
+    prevTech.current = new Set(unlocked.filter((u) => u.skill.slot === 'technique').map((u) => u.skill.slug));
     const slots = bar.map((s) => (s && has.has(s) ? s : null));
     for (const u of unlocked) {
       if (slots.includes(u.skill.slug) || removed.includes(u.skill.slug)) continue;
-      const i = slots.indexOf(null); if (i < 0) break;
+      const i = u.skill.slot === 'technique' && freed.length ? freed.shift()! : slots.indexOf(null); if (i < 0) break;
       slots[i] = u.skill.slug;
     }
     if (slots.join() !== bar.join()) saveBar(c.id, slots, removed);

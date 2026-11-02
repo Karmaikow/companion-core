@@ -17,7 +17,7 @@ import { area, aura, beam, burst, Charge, cone, Missile, missile, slash } from '
 import { K } from './vfx/engine';
 import { makeArrowPath, sampleArrowPath, arrowGroundHit, type ArrowPath } from './arrowFlight';
 import { healCompanion, hurtCompanion, vitals } from './vitals';
-import { inferModality, type HitInfo, type SkillDef } from '@rules';
+import { inferModality, STATUSES, type HitInfo, type SkillDef } from '@rules';
 import { markCombat } from '../build/combatStats';
 import { attackPick, companionFocus, type WorldShape } from './world';
 import { useSkills } from '../ui/skillState';
@@ -59,7 +59,7 @@ export function requestSkill(c: SkillCast) { skillInput.req = c; skillInput.id++
 
 /** Alvos que podem ser acertados (bonecos, criaturas). */
 /** `hit` devolve o dano que entrou (com a defesa), se o alvo tiver vida. */
-export interface Target { x: number; z: number; r: number; hit: (damage: number, info?: HitInfo) => number | void; /** criatura do mundo (para a Companion escolher alvos) */ creature?: { slug: string; name: string; level: number; hostile: () => boolean; hp: () => number }; /** estado com dano por segundo (envenenado, queimando) */ afflict?: (key: string, seconds: number, dps: number) => void }
+export interface Target { x: number; z: number; r: number; hit: (damage: number, info?: HitInfo) => number | void; /** criatura do mundo (para a Companion escolher alvos) */ creature?: { slug: string; name: string; level: number; hostile: () => boolean; hp: () => number }; /** estado: dano por segundo (envenenado, queimando) ou controle (lento, atordoado, enraizado, ofuscado, sombreado) */ afflict?: (key: string, seconds: number, dps: number) => void }
 export const targets = new Map<string, Target>();
 
 /** Acerta tudo no círculo; devolve o maior dano que entrou (-1 = ninguém). */
@@ -333,9 +333,10 @@ function runSkill(ev: Extract<FxEvent, { kind: 'skill' }>, world: WorldShape, po
       case 'projectile': return false;
     }
   };
+  // estado da habilidade no alvo: dano por segundo (veneno, fogo) ou controle (lento, atordoado, enraizado, ofuscado, sombreado)
+  const afflict = (t: Target) => { const x = s.status; if (x && !STATUSES[x.key].good && Math.random() < x.chance) t.afflict?.(x.key, x.seconds, Math.max(2, Math.round(ev.damage * 0.15))); };
   const strike = (list: Target[], delay: number) => V.after(delay, () => {
-    const dot = s.status && (s.status.key === 'envenenado' || s.status.key === 'queimando') ? s.status : null;
-    for (const t of list) { if (dot && Math.random() < dot.chance) t.afflict?.(dot.key, dot.seconds, Math.max(2, Math.round(ev.damage * 0.15))); if (ev.damage > 0) { markCombat(); const d = t.hit(ev.damage, ev.info); pop(at(t).setY(at(t).y + 0.4), String(typeof d === 'number' ? d : ev.damage), false); } burst(V, st, at(t), col, 0.5, gy(t.x, t.z)); }
+    for (const t of list) { afflict(t); if (ev.damage > 0) { markCombat(); const d = t.hit(ev.damage, ev.info); pop(at(t).setY(at(t).y + 0.4), String(typeof d === 'number' ? d : ev.damage), false); } burst(V, st, at(t), col, 0.5, gy(t.x, t.z)); }
   });
   const inside = () => { const l: Target[] = []; targets.forEach((t) => { if (inShape(t)) l.push(t); }); return l; };
   // aviso: onde vai cair (área, salto, aura)
@@ -364,7 +365,7 @@ function runSkill(ev: Extract<FxEvent, { kind: 'skill' }>, world: WorldShape, po
         const hit = best as Target | null, to = hit ? at(hit) : chest.clone().addScaledVector(fw, s.range);
         missile(V, { style: st, color: col, from: chest.clone().addScaledVector(fw, 0.4), to, duration: Math.max(0.15, chest.distanceTo(to) / 14), arc: 0.3, size: Math.max(0.55, s.radius * 1.3), onArrive: (p) => {
           burst(V, st, p, col, 0.85, gy(p.x, p.z));
-          if (hit && s.status && (s.status.key === 'envenenado' || s.status.key === 'queimando') && Math.random() < s.status.chance) hit.afflict?.(s.status.key, s.status.seconds, Math.max(2, Math.round(ev.damage * 0.15)));
+          if (hit) afflict(hit);
           if (hit && ev.damage > 0) { markCombat(); const d = hit.hit(ev.damage, ev.info); pop(p.clone().setY(p.y + 0.4), String(typeof d === 'number' ? d : ev.damage), false); }
         } });
         break;

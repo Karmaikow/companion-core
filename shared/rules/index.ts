@@ -17,6 +17,7 @@ export * from './worldgen.ts';
 export * from './aster.ts';
 export * from './look.ts';
 export * from './combat/skills.ts';
+export * from './combat/techniques.ts';
 export * from './combat/skillIcon.ts';
 export * from './combat/vfx.ts';
 export * from './creatures.ts';

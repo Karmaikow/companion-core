@@ -13,7 +13,10 @@ import type { BodyPlan } from '../art.ts';
 import type { AnimKind } from '../anim.ts';
 import type { SpeciesKey } from '../species.ts';
 
-export type SkillSlot = 'basic' | 'essence' | 'form' | 'supreme';
+export type SkillSlot = 'basic' | 'essence' | 'form' | 'supreme' | 'technique';
+/** Tipos de arma que têm técnicas próprias (as chaves de ITEM_TYPES com golpe). */
+export const WEAPON_KINDS = ['espada', 'faca', 'maca', 'lanca', 'cajado', 'varinha', 'arco'] as const;
+export type WeaponKind = typeof WEAPON_KINDS[number];
 export type SkillShape = 'melee' | 'cone' | 'line' | 'circle' | 'projectile' | 'aura' | 'dash' | 'leap';
 export type StatusKey = 'encharcado' | 'queimando' | 'enraizado' | 'lento' | 'ofuscado' | 'sombreado' | 'atordoado' | 'protegido' | 'acelerado' | 'envenenado';
 export type VfxStyle = 'impacto' | 'chamas' | 'gotas' | 'folhas' | 'pedras' | 'gelo' | 'raios' | 'vento' | 'luz' | 'sombra' | 'faiscas' | 'veneno';
@@ -43,9 +46,11 @@ export interface SkillDef {
   unlockBond: number;            // nível de vínculo para entrar no kit
   /** modalidade do dano (Constelação Viva): física usa Força e a defesa física; mágica, Magia e a resistência; híbrida divide 50/50. Sem o campo, vale a regra pela forma (inferModality). */
   modality?: 'fisica' | 'magica' | 'hibrida';
+  /** técnica de arma: só aparece com esse tipo de arma na mão, e sai com o elemento do Companion (ver techniques.ts) */
+  weapon?: WeaponKind;
 }
 
-export const SLOTS: Record<SkillSlot, string> = { basic: 'Golpe básico', essence: 'Habilidade de essência', form: 'Habilidade de forma', supreme: 'Sintonia suprema' };
+export const SLOTS: Record<SkillSlot, string> = { basic: 'Golpe básico', essence: 'Habilidade de essência', form: 'Habilidade de forma', supreme: 'Sintonia suprema', technique: 'Técnica de arma' };
 export const SHAPES: Record<SkillShape, string> = {
   melee: 'Golpe (corpo a corpo)', cone: 'Cone', line: 'Linha', circle: 'Área no alvo', projectile: 'Projétil', aura: 'Aura (em volta de si)', dash: 'Investida', leap: 'Salto',
 };
@@ -178,13 +183,14 @@ export function sanitizeSkill(input: unknown): SkillDef | null {
     vfx: { ...(validSpellId(v.catalogue) ? { catalogue: v.catalogue } : {}), style: v.style && v.style in VFX_STYLES ? v.style : 'impacto', color: v.color === 'essence' || v.color === 'companion' || (typeof v.color === 'string' && /^#[0-9a-f]{6}$/i.test(v.color)) ? v.color : 'essence', ground: !!v.ground, ...(v.layers !== undefined ? { layers: sanitizeVfxLayers(v.layers) } : {}) },
     unlockBond: Math.round(n(s.unlockBond, 1, 20, 1)),
     ...(s.modality === 'fisica' || s.modality === 'magica' || s.modality === 'hibrida' ? { modality: s.modality } : {}),
+    ...(s.weapon && (WEAPON_KINDS as readonly string[]).includes(s.weapon) ? { weapon: s.weapon } : {}),
   };
 }
 
 /** Serve para este Companion? (essência igual ou neutra; corpo na lista ou lista vazia) */
 export function skillFits(s: SkillDef, essence: Element | null, body: BodyPlan, species?: SpeciesKey | null): boolean {
   // School techniques are acquired and equipped only through their school flow.
-  if (s.learning) return false;
+  if (s.learning || s.slot === 'technique') return false;
   if (s.essence !== null && s.essence !== essence) return false;
   if (!s.classes.length && !s.bodies.length) return true;
   // Companion (humanoide): vale a classe; criatura: vale o corpo
