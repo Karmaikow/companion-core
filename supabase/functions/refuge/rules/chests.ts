@@ -31,8 +31,8 @@ export const CHEST_EMPTY_MS = 10_000;
 /** carga máxima para ainda pegar itens do baú (vezes a capacidade): acima disso, o resto fica no baú */
 export const CHEST_CARRY_LIMIT = 2;
 export type ChestState = 'fechado' | 'aberto' | 'vazio';
-/** distância máxima para abrir (m) */
-export const CHEST_REACH = 5;
+/** distância máxima para abrir (m): o baú abre no clique, de onde o Companion estiver (é o raio em que ele aparece na tela) */
+export const CHEST_REACH = 60;
 
 export function chestTierFor(def: Pick<CreatureDef, 'family'> | null): ChestTier {
   const t = def?.family?.tier;
