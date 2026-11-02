@@ -30,7 +30,7 @@ import { gameVfx } from './vfx/engine';
 import { Shield } from './vfx/recipes';
 import { basicAttack, bowShot, ELEMENTS, RANK_POWER, NODE_KINDS, type WeaponKind, type EquipSlot, type ItemDef, type SpeciesKey, type ToolKey } from '@rules';
 import { basicHit, castSkill, combat } from '../build/combatStats';
-import { styleNow, timeScale, tryCombo } from './comboState';
+import { markPlayerAct, playerFighting, styleNow, timeScale, tryCombo } from './comboState';
 
 /** O que o Companion carrega: itens visíveis, a arma (escolhe o ataque) e o que muda o dano. */
 export interface Gear { items: ItemDef[]; /** espaço de cada peça (slug → espaço) */ slots?: Record<string, EquipSlot>; weapon: ItemDef | null; species: SpeciesKey | null; color: string; poder: number; /** id do Companion: pegada ajustada para este modelo */ modelKey?: string | null }
@@ -424,7 +424,7 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
         }
       }
       // habilidades da barra, quando dá (SP, recarga, alcance)
-      if (ai.skillT <= 0 && s.once <= 0 && !focusT) { // na ordem de ataque da pessoa, só o golpe básico
+      if (ai.skillT <= 0 && s.once <= 0 && !focusT && !playerFighting()) { // na ordem de ataque da pessoa, só o golpe básico
         ai.skillT = 1.4 + Math.random() * 1.2;
         const used = aiCast(dd, { x: tg.x, z: tg.z }, gear?.color ?? '#ffd56b', hpR, vitals.sp, spendSp, (c) => requestSkill(c));
         if (used) say('skill', {}, { chance: 0.45 });
@@ -448,7 +448,7 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
     // apertar guarda o pedido por um instante (não perde o clique feito no fim do golpe anterior);
     // segurar F/Espaço continua atacando no ritmo da arma
     if (combatInput.pressId !== cs.press) {
-      cs.press = combatInput.pressId;
+      cs.press = combatInput.pressId; markPlayerAct();
       if (prof.ranged === 'charged') { cs.charging = true; cs.held = 0; }
       else cs.want = 0.35;
     }

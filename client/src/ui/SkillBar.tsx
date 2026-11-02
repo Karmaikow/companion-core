@@ -14,7 +14,7 @@ import { requestSkill, skillChargeState, skillInput } from '../scene/Combat';
 import { BAR_SIZE, saveBar, useSkillData, useSkills } from './skillState';
 import { canAct, spendSp, useVitals } from '../scene/vitals';
 import { godFlags } from '../scene/god';
-import { comboGlow, styleNow, tryCombo } from '../scene/comboState';
+import { comboGlow, markPlayerAct, styleNow, tryCombo } from '../scene/comboState';
 
 
 function colorOf(s: SkillDef, companion: string): string {
@@ -70,6 +70,7 @@ export function SkillBar({ color }: { color: string }) {
     const t = performance.now(), at = useSkills.getState().ready[u.skill.slug] ?? 0;
     if (!skillInput.body) { toast('As habilidades precisam do corpo 3D do Companion (a Fábrica cria o modelo).', 'warn'); return; }
     if (!canAct()) return;
+    markPlayerAct();
     // dentro da janela do combo, a técnica certa vira finalizador (mesmo recarregando)
     const fin = tryCombo(u.skill.slug, weapon, essence);
     if (fin) {

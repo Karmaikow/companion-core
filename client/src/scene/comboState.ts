@@ -86,6 +86,11 @@ export function tickStyle(dt: number) {
 
 export const styleNow = () => styleRank(combo.points);
 
+/** A pessoa agiu (barra ou ataque): a Companion para de lançar habilidades sozinha por um tempo, para não atropelar o combo. */
+export const playerAct = { at: -1e9 };
+export const markPlayerAct = () => { playerAct.at = performance.now(); };
+export const playerFighting = () => performance.now() - playerAct.at < 4000;
+
 // ---------------------------------------------------------------------------
 // Peso do golpe
 // ---------------------------------------------------------------------------
