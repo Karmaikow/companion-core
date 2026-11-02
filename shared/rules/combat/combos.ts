@@ -39,6 +39,7 @@ export const COMBO_FINISHERS: SkillDef[] = [
   F('espada-redemoinho-aereo', 'Redemoinho Aéreo', 'espada', 'aura', { description: 'Lançador → Corte Giratório: salta girando e corta tudo em volta.', power: 140, energy: 15, radius: 2.8, anim: 'jump', vfx: { style: 'impacto', color: 'essence', ground: true } }),
   F('espada-estocada-relampago', 'Estocada Relâmpago', 'espada', 'dash', { description: 'Investida → Estocada: atravessa o alvo num piscar e para atrás dele.', power: 120, energy: 12, range: 6.5, radius: 0.8, anim: 'run' }),
   F('arco-tiro-duplo', 'Tiro Duplo', 'arco', 'projectile', { description: 'Tiro Preciso → Tiro Preciso no ritmo: duas flechas no mesmo ponto.', power: 120, energy: 8, range: 14, radius: 0.4 }),
+  F('cajado-prisao-runica', 'Prisão Rúnica', 'cajado', 'circle', { description: 'Seta Arcana → Selo Rúnico: o selo cai em cima do alvo marcado e o prende de vez.', power: 130, energy: 14, range: 10, radius: 2.4, windup: 0.3, modality: 'magica', status: { key: 'enraizado', chance: 1, seconds: 2.5 }, anim: 'attack', vfx: { style: 'luz', color: 'essence', ground: true } }),
   F('arco-chuva-cruzada', 'Chuva Cruzada', 'arco', 'circle', { description: 'Leque → Chuva: duas chuvas que se cruzam numa área maior.', power: 95, energy: 15, range: 12, radius: 3.2, windup: 0.4, vfx: { style: 'impacto', color: 'essence', ground: true } }),
 ];
 
@@ -60,6 +61,7 @@ export const COMBO_LINKS: ComboLink[] = [
   { weapon: 'espada', from: 'espada-lancador', press: 'espada-corte-giratorio', becomes: 'espada-redemoinho-aereo' },
   { weapon: 'espada', from: 'espada-investida-da-lamina', press: 'espada-estocada', becomes: 'espada-estocada-relampago' },
   { weapon: 'arco', from: 'arco-tiro-preciso', press: 'arco-tiro-preciso', becomes: 'arco-tiro-duplo' },
+  { weapon: 'cajado', from: 'cajado-seta-arcana', press: 'cajado-selo-runico', becomes: 'cajado-prisao-runica' },
   { weapon: 'arco', from: 'arco-leque-de-flechas', press: 'arco-chuva-de-flechas', becomes: 'arco-chuva-cruzada' },
 ];
 

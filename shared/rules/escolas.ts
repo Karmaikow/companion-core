@@ -14,19 +14,27 @@ import { canCompleteEquipment, type Forms } from './pacto.ts';
 import { goodById } from './shop.ts';
 import { MATERIALS, parseBatchKey } from './ecos.ts';
 import type { SkillDef } from './combat/skills.ts';
+import { weaponBlock, type WeaponReq } from './tiers.ts';
 
-export type CitySchool = 'forja' | 'veneno';
+export type CitySchool = 'forja' | 'veneno' | 'arcana';
 export const CITY_SCHOOLS: Record<CitySchool, { label: string; icon: string; master: string; focus: string; who: string }> = {
   forja: { label: 'Escola da Forja', icon: '🔨', master: 'Mestra Ferreira', focus: 'Forja, reforja e encomendas de equipamentos.', who: 'Só Taurinas.' },
   veneno: { label: 'Escola do Veneno', icon: '☠️', master: 'Boticária', focus: 'Poções, comidas e as técnicas de veneno.', who: 'Companions de essência Natureza ou Água.' },
+  arcana: { label: 'Escola Arcana', icon: '🔮', master: 'Arquimaga Selene', focus: 'As técnicas arcanas do cajado: Seta Arcana, Selo Rúnico e Explosão Arcana.', who: 'Quem empunha um cajado de duas mãos T4 ou maior.' },
 };
+/** Escolas que pedem uma arma para a matrícula (conferida só ao se matricular). */
+export const SCHOOL_WEAPON: Partial<Record<CitySchool, WeaponReq>> = { arcana: { kind: 'cajado', tier: 4, twoHanded: true } };
 export const CITY_SCHOOL_IDS = Object.keys(CITY_SCHOOLS) as CitySchool[];
 export const isCitySchool = (v: unknown): v is CitySchool => typeof v === 'string' && v in CITY_SCHOOLS;
 export const cleanSchools = (v: unknown): CitySchool[] => (Array.isArray(v) ? [...new Set(v.filter(isCitySchool))] : []);
 
 const VENENO_ESSENCES: Element[] = ['natureza', 'agua'];
-/** Pode estudar nesta escola? Devolve o motivo de não poder (null = pode). */
-export function schoolBlock(school: CitySchool, forms: Forms, essences: readonly (Element | null)[]): string | null {
+/**
+ * Pode estudar nesta escola? Devolve o motivo de não poder (null = pode). `weapon`: a arma na mão, para as escolas que
+ * pedem arma (só na matrícula; sem o argumento, não confere a arma).
+ */
+export function schoolBlock(school: CitySchool, forms: Forms, essences: readonly (Element | null)[], weapon?: { type: string; tier?: number; twoHanded?: boolean } | null): string | null {
+  if (school === 'arcana') return weapon === undefined ? null : weaponBlock(SCHOOL_WEAPON.arcana, weapon);
   if (school === 'forja') return canCompleteEquipment(forms) ? null : 'A Escola da Forja é só para Taurinas.';
   return essences.some((e) => e && VENENO_ESSENCES.includes(e)) ? null : 'A Escola do Veneno aceita só Companions de essência Natureza ou Água.';
 }

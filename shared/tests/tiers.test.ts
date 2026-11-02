@@ -61,3 +61,43 @@ describe('evolução das técnicas', () => {
     expect(sanitizeSkill({ slug: 'golpe-x', repeat: 1 })!.repeat).toBeUndefined();
   });
 });
+
+import { tierUpCheck, weaponBlock, schoolBlock, sanitizeMission, missionBlock, batchKey, techniquesFor as tf } from '../rules/index';
+
+describe('subir tier, arma exigida e Escola Arcana', () => {
+  it('subir tier gasta materiais refinados; sem eles, diz o que falta', () => {
+    expect(tierUpCheck(1, []).ok).toBe(false);
+    const bag = [{ key: batchKey('lingote-de-cobre', {}), qty: 5 }];
+    const r = tierUpCheck(1, bag);
+    expect(r.ok && r.to).toBe(2);
+    expect(r.ok && r.take.reduce((a, t) => a + t.qty, 0)).toBe(2);
+    expect(tierUpCheck(5, bag).ok).toBe(false);
+  });
+
+  it('arma exigida: tipo, tier e duas mãos', () => {
+    const req = { kind: 'cajado' as const, tier: 4 as const, twoHanded: true };
+    expect(weaponBlock(req, null)).toMatch(/cajado/);
+    expect(weaponBlock(req, { type: 'cajado', tier: 3, twoHanded: true })).toMatch(/T4/);
+    expect(weaponBlock(req, { type: 'cajado', tier: 4, twoHanded: true })).toBeNull();
+    expect(weaponBlock(req, { type: 'varinha', tier: 5 })).not.toBeNull();
+  });
+
+  it('Escola Arcana pede cajado de duas mãos T4 na matrícula', () => {
+    expect(schoolBlock('arcana', ['touro'], ['fogo'], null)).not.toBeNull();
+    expect(schoolBlock('arcana', ['touro'], ['fogo'], { type: 'cajado', tier: 4, twoHanded: true })).toBeNull();
+    expect(schoolBlock('arcana', ['touro'], ['fogo'])).toBeNull(); // quem já estuda não é conferido de novo
+  });
+
+  it('técnicas arcanas só com a matrícula', () => {
+    expect(tf([], 'cajado', 'fogo', 20).length).toBe(0);
+    expect(tf([], 'cajado', 'fogo', 20, { tier: 1, paths: {}, schools: ['arcana'] }).length).toBe(3);
+  });
+
+  it('missão com arma exigida', () => {
+    const m = sanitizeMission({ slug: 'teste-arma', name: 'Teste', objectives: [{ kind: 'coletar', qty: 1, material: 'erva-orvalho-folha' }], req: { weapon: { kind: 'arco', tier: 3 } } })!;
+    expect(m.req.weapon).toEqual({ kind: 'arco', tier: 3 });
+    const who = { done: new Set<string>(), bondLevel: 30, schools: [], forms: [], essence: null };
+    expect(missionBlock(m, { ...who, weapon: { type: 'arco', tier: 2 } })).toMatch(/arco/);
+    expect(missionBlock(m, { ...who, weapon: { type: 'arco', tier: 3 } })).toBeNull();
+  });
+});

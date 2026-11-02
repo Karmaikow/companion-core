@@ -7,6 +7,7 @@ import {
   type MissionDef, type MissionLog, type GameConfig, type CreatureDef, type ItemDef, type ItemCategory,
 } from './rules/index.ts';
 import { classInfo, lumes } from './pacto.ts';
+import { heldWeapon } from './weapon.ts';
 import { grantBond, worldNow } from './ecos.ts';
 
 export class MissionError extends Error { constructor(public status: number, msg: string) { super(msg); } }
@@ -50,13 +51,14 @@ async function logSince(ctx: Ctx, since: string): Promise<(acceptedAt: string) =
 
 async function who(ctx: Ctx, rows: Row[]) {
   const { db, c, cfg, admin } = ctx;
-  const [cls, prof] = await Promise.all([classInfo(db, c, admin), db.from('pacto_profile').select('schools').eq('companion_id', c.id).maybeSingle()]);
+  const [cls, prof, weapon] = await Promise.all([classInfo(db, c, admin), db.from('pacto_profile').select('schools').eq('companion_id', c.id).maybeSingle(), heldWeapon(db, c.id as string)]);
   return {
     done: new Set(rows.filter((r) => r.status === 'concluida').map((r) => r.mission)),
     bondLevel: levelForXp(Number(c.bond_xp) || 0, cfg),
     schools: cleanSchools(prof.data?.schools),
     forms: cls.forms,
     essence: cls.essence,
+    weapon,
   };
 }
 

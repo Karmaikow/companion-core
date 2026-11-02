@@ -58,9 +58,10 @@ describe('itens: conjuntos de elemento', () => {
 
 describe('itens: peso', () => {
   it('capacidade cresce com Força e Vitalidade e com a mochila', () => {
-    expect(carryCapacity({})).toBe(30);
-    expect(carryCapacity({ forca: 10, vitalidade: 5 })).toBe(55);
-    expect(carryCapacity({}, { cape: 'mochila-de-viagem' }, cat)).toBe(45);
+    expect(carryCapacity({})).toBe(90);
+    expect(carryCapacity({ forca: 10, vitalidade: 5 })).toBe(165);
+    expect(carryCapacity({}, { cape: 'mochila-de-viagem' }, cat)).toBe(135);
+    expect(carryCapacity({}, undefined, undefined, 20)).toBe(120);
   });
   it('carga: leve, pesado e sobrecarregado', () => {
     expect(loadState(30, 30).level).toBe('leve');

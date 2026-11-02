@@ -21,7 +21,7 @@ describe('missões', () => {
       rewards: { lumes: -5, bond: 30, materials: [{ key: 'lixo', qty: 1 }, { key: batchKey('pedra-granito', { resistencia: 'alta' }), qty: 3 }], items: [{ item: 'pocao-vida-p', qty: 2 }], unlock: 'erva:lunar' },
     })!;
     expect(m).toMatchObject({ name: 'Nome', rarity: 'comum', repeat: 'diaria', giver: 'escola-veneno' });
-    expect(m.req).toEqual({ after: ['outra'], bond: 99, schools: ['veneno'], classes: ['felino'], essences: ['fogo'] });
+    expect(m.req).toEqual({ after: ['outra'], bond: 99, schools: ['veneno'], classes: ['felino'], essences: ['fogo'], weapon: null });
     expect(m.objectives.map((o) => o.kind)).toEqual(['coletar', 'cacar', 'fabricar']);
     expect(m.objectives[0]).toMatchObject({ qty: 999, prop: 'estabilidade', min: 'alta', biome: 'floresta-densa' });
     expect(m.rewards).toMatchObject({ lumes: 0, bond: 30, materials: [{ qty: 3 }], items: [{ item: 'pocao-vida-p', qty: 2 }], unlock: 'erva:lunar' });

@@ -9,6 +9,7 @@
  *  - cacar: derrotar N de uma criatura, de uma família ou qualquer uma (nível mínimo opcional);
  *  - fabricar: fazer N vezes uma receita da Coleta, um preparo das Escolas ou um refino da Casa dos Ecos.
  */
+import { cleanWeaponReq, weaponBlock, type WeaponReq } from './tiers.ts';
 import { clampText } from './text.ts';
 import { MATERIALS, CATEGORIES, PROP_LABEL, BAND_LABEL, atLeast, parseBatchKey, batchKey, type ResCategory, type PropKey, type Band } from './ecos.ts';
 import { RECIPES } from './ecosPlay.ts';
@@ -62,6 +63,8 @@ export interface MissionRequirements {
   classes: SpeciesKey[];
   /** só estas essências (vazio = todas) */
   essences: Element[];
+  /** arma na mão: tipo, tier mínimo e duas mãos (null = qualquer) */
+  weapon: WeaponReq | null;
 }
 export interface MissionRewards {
   lumes: number;
@@ -149,6 +152,7 @@ export function sanitizeMission(input: unknown): MissionDef | null {
       schools: Array.isArray(req.schools) ? [...new Set(req.schools.filter((s): s is CitySchool => typeof s === 'string' && s in CITY_SCHOOLS))] : [],
       classes: Array.isArray(req.classes) ? [...new Set(req.classes.filter((s): s is SpeciesKey => typeof s === 'string' && s in CLASS_LABEL))] : [],
       essences: Array.isArray(req.essences) ? [...new Set(req.essences.filter((s): s is Element => typeof s === 'string' && s in ELEMENTS))] : [],
+      weapon: cleanWeaponReq(req.weapon),
     },
     objectives,
     rewards: {
@@ -209,6 +213,8 @@ export interface MissionWho {
   schools: readonly string[];
   forms: readonly SpeciesKey[];
   essence: Element | null;
+  /** arma na mão direita (tipo, tier, duas mãos) — para missões que pedem arma */
+  weapon?: { type: string; tier?: number; twoHanded?: boolean } | null;
 }
 /** Por que não pode pegar (null = pode). `names` resolve o nome de outra missão. */
 export function missionBlock(m: MissionDef, who: MissionWho, names: (slug: string) => string = (s) => s): string | null {
@@ -219,6 +225,7 @@ export function missionBlock(m: MissionDef, who: MissionWho, names: (slug: strin
   if (sch.length) return `Só para quem estuda na ${sch.map((s) => CITY_SCHOOLS[s].label).join(' e na ')}.`;
   if (m.req.classes.length && !m.req.classes.some((c) => who.forms.includes(c))) return `Só para ${m.req.classes.map((c) => CLASS_LABEL[c]).join(' ou ')}.`;
   if (m.req.essences.length && (!who.essence || !m.req.essences.includes(who.essence))) return `Só para essência de ${m.req.essences.map((e) => ELEMENTS[e].label).join(' ou ')}.`;
+  if (m.req.weapon) return weaponBlock(m.req.weapon, who.weapon ?? null);
   return null;
 }
 

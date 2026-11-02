@@ -5,6 +5,7 @@ export interface EquipmentView {
   id: string; blueprint: string; kind: 'equipamento' | 'ferramenta'; tool: string | null; durability: number; maxDurability: number; createdAt: string;
   name?: string; itemType?: string | null; stats?: Partial<Record<AttrKey, number>>; weight?: 'leve' | 'medio' | 'pesado'; affinity?: Element | null; mark?: MarkConfig | null; rarity?: Rarity;
   layers?: { corpo: string[]; trama: string[]; marca: string[]; tempera: string[] }; consumed?: { key: string; qty: number }[]; plan?: ForgePlan;
+  tier?: number;
   signature?: ArtisanSignature & { contributors: { office: string; maker: string; component: string; name?: string }[] }; history?: { at: string; what: string }[];
 }
 export interface JobView { request: string; kind: 'forja' | 'oficio'; ref: string; order: string | null; startedAt: number; seconds: number }
@@ -31,6 +32,8 @@ export interface PactoView {
 }
 export interface PactoReply {
   pacto?: PactoView;
+  /** reforja: o tier novo da peça */
+  tierUp?: number;
   /** lojas de Áster: Lumes que entraram (+) ou saíram (−) */
   shop?: { ok: boolean; delta: number; repeat?: boolean };
   school?: { ok: boolean; school: CitySchool };

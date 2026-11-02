@@ -3,6 +3,7 @@
  * reciclagem funcionam; encomendas entre pessoas precisam do modo online. Nada daqui vale na economia online.
  */
 import {
+  tierUpCheck, tierOf, equippedItems, ITEM_TYPES,
   SPECIES, OFFICES, canCompleteEquipment, transformationById, checkTransformation, blueprintById, forgePreview, DEFAULT_PACTO, coreCost,
   recycleReturn, REPAIR_KIT_AMOUNT, superiorBlockFor, lineageOf, officesOf, LINEAGE_LIMITS, COMPANION_ELEMENTS, companionElement,
   isCitySchool, schoolBlock, studiesAt, brewById, brewCheck, type CitySchool,
@@ -134,6 +135,14 @@ export async function localPacto(action: string, b: Record<string, unknown> = {}
         s.equipment = s.equipment.filter((x) => x !== e); save();
         return { recycled: give, pacto: view(s) };
       }
+      case 'pacto.item.tierup': {
+        forgeSchool();
+        const e = s.equipment.find((x) => x.id === b.item); if (!e || e.kind !== 'equipamento') throw new Fail('Peça inválida.');
+        const chk = tierUpCheck(tierOf({ tier: e.tier }), localBag.list()); if (!chk.ok) throw new Fail(chk.reason);
+        localBag.apply(chk.take, []);
+        Object.assign(e, { tier: chk.to, history: [...(e.history ?? []), { at: new Date().toISOString(), what: `subiu para T${chk.to} por ${m.name}` }] });
+        save(); return { tierUp: chk.to, pacto: view(s) };
+      }
       case 'pacto.item.reforge': {
         forgeSchool();
         const e = s.equipment.find((x) => x.id === b.item); if (!e?.plan || !e.consumed) throw new Fail('Peça inválida.');
@@ -183,7 +192,8 @@ export async function localPacto(action: string, b: Record<string, unknown> = {}
       // escolas de Áster
       case 'pacto.school.join': {
         const school = b.school; if (!isCitySchool(school)) throw new Fail('Escola inexistente.');
-        const block = schoolBlock(school, cls, essAll); if (block) throw new Fail(block);
+        const gs = useGame.getState(), w = equippedItems(gs.equipped, gs.items).find((x) => x.slot === 'mainhand' && ITEM_TYPES[x.item.type].weapon)?.item;
+        const block = schoolBlock(school, cls, essAll, w ? { type: w.type, tier: w.tier, twoHanded: !!ITEM_TYPES[w.type].weapon?.twoHanded } : null); if (block) throw new Fail(block);
         s.schools = [...new Set([...(s.schools ?? []), school])]; save();
         return { school: { ok: true, school }, pacto: view(s) };
       }

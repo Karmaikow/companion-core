@@ -42,6 +42,7 @@ export function useCarry(): Carry {
   const equipped = useGame((s) => s.equipped);
   const ecosView = useEcos((s) => s.view);
   const alloc = useBuild((s) => s.view?.active.alloc);
+  const bond = useGame((s) => s.snap?.companion?.bond.level ?? 0);
   return useMemo(() => {
     const entries = bagEntries((inv ?? []).map((r) => ({ item_key: r.item_key, qty: r.qty, meta: r.meta })), items);
     const forged = items.filter((i) => i.slug.startsWith('inst-') && ownsInstance(i.slug));
@@ -54,8 +55,8 @@ export function useCarry(): Carry {
       + forged.reduce((t, i) => t + itemWeight(i), 0)
       + vale.reduce((t, v) => t + v.qty * v.unitWeight, 0)
     ) * 10) / 10;
-    const capacity = carryCapacity(alloc ?? {}, equipped, items);
+    const capacity = carryCapacity(alloc ?? {}, equipped, items, bond);
     carryNow.carried = carried; carryNow.capacity = capacity;
     return { entries, forged, vale, carried, capacity, load: loadState(carried, capacity) };
-  }, [inv, items, equipped, ecosView, alloc]);
+  }, [inv, items, equipped, ecosView, alloc, bond]);
 }

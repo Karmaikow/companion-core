@@ -325,11 +325,15 @@ export function equipmentBonus(eq: Equipped, catalog: ItemDef[]): Partial<Record
 // Peso
 // ---------------------------------------------------------------------------
 
-/** Quanto o Companion carrega sem perder ritmo (kg): base + Força + um pouco de Vitalidade; a mochila soma. */
-export const MOCHILA_CAPACITY = 15;
-export function carryCapacity(attrs: { forca?: number; vitalidade?: number }, eq?: Equipped, catalog?: ItemDef[]): number {
+/**
+ * Quanto o Companion carrega sem perder ritmo (kg): base 90 + 6 por ponto de Força + 3 de Vitalidade + 1,5 por nível
+ * de vínculo; a mochila soma 45. (Era um terço disso: a bolsa enchia rápido demais.)
+ */
+export const MOCHILA_CAPACITY = 45;
+export const CARRY_PER_BOND = 1.5;
+export function carryCapacity(attrs: { forca?: number; vitalidade?: number }, eq?: Equipped, catalog?: ItemDef[], bond = 0): number {
   const backpack = eq && catalog ? equippedItems(eq, catalog).some(({ item }) => item.type === 'mochila') : false;
-  return Math.round((30 + 2 * (attrs.forca ?? 0) + 1 * (attrs.vitalidade ?? 0) + (backpack ? MOCHILA_CAPACITY : 0)) * 10) / 10;
+  return Math.round((90 + 6 * (attrs.forca ?? 0) + 3 * (attrs.vitalidade ?? 0) + CARRY_PER_BOND * Math.max(0, bond) + (backpack ? MOCHILA_CAPACITY : 0)) * 10) / 10;
 }
 
 export type LoadLevel = 'leve' | 'pesado' | 'sobrecarregado';

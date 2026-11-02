@@ -5,7 +5,7 @@ describe('técnicas de arma', () => {
   it('espada e arco têm 4 técnicas cada, físicas e com slugs únicos', () => {
     for (const w of ['espada', 'arco'] as const) expect(WEAPON_TECHNIQUES.filter((t) => t.weapon === w)).toHaveLength(4);
     expect(new Set(WEAPON_TECHNIQUES.map((t) => t.slug)).size).toBe(WEAPON_TECHNIQUES.length);
-    for (const t of WEAPON_TECHNIQUES) { expect(t.slot).toBe('technique'); expect(t.modality).toBe('fisica'); expect(t.essence).toBeNull(); }
+    for (const t of WEAPON_TECHNIQUES) { expect(t.slot).toBe('technique'); expect(t.modality).toBe(t.weapon === 'cajado' ? 'magica' : 'fisica'); expect(t.essence).toBeNull(); }
   });
 
   it('toda essência tem infusão', () => {

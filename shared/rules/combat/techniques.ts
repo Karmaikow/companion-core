@@ -43,7 +43,7 @@ const T = (slug: string, name: string, weapon: WeaponKind, shape: SkillShape, o:
   modality: 'fisica', ...o,
 });
 
-/** Técnicas que vêm com o jogo (a Forja pode sobrescrever pelo slug). Fase 1: espada e arco. */
+/** Técnicas que vêm com o jogo (a Forja pode sobrescrever pelo slug): espada, arco e cajado (Escola Arcana). */
 export const WEAPON_TECHNIQUES: SkillDef[] = [
   // espada: versátil, corpo a corpo
   T('espada-corte-giratorio', 'Corte Giratório', 'espada', 'aura', { description: 'Gira com a lâmina estendida e corta todos em volta.', power: 55, energy: 18, cooldown: 5, windup: 0.25, radius: 2.2, vfx: { style: 'impacto', color: 'essence', ground: true } }),
@@ -54,6 +54,10 @@ export const WEAPON_TECHNIQUES: SkillDef[] = [
   T('arco-tiro-preciso', 'Tiro Preciso', 'arco', 'projectile', { description: 'Respira, mira e solta uma flecha certeira de longe.', power: 65, energy: 12, cooldown: 3, windup: 0.35, range: 14, radius: 0.35 }),
   T('arco-flecha-perfurante', 'Flecha Perfurante', 'arco', 'line', { description: 'Uma flecha tão forte que atravessa todos em linha reta.', power: 60, energy: 18, cooldown: 5, windup: 0.45, range: 12, radius: 0.4, unlockBond: 3 }),
   T('arco-leque-de-flechas', 'Leque de Flechas', 'arco', 'cone', { description: 'Três flechas de uma vez, abertas em leque à frente.', power: 45, energy: 20, cooldown: 6, windup: 0.35, range: 7, angle: 50, unlockBond: 6 }),
+  // cajado (Escola Arcana): magia pura, só para quem estuda lá — matrícula pede cajado de duas mãos T4
+  T('cajado-seta-arcana', 'Seta Arcana', 'cajado', 'projectile', { description: 'Uma seta de energia pura disparada da ponta do cajado.', power: 75, energy: 14, cooldown: 3, windup: 0.3, range: 12, radius: 0.4, modality: 'magica', anim: 'attack', vfx: { style: 'luz', color: 'essence', ground: false } }),
+  T('cajado-selo-runico', 'Selo Rúnico', 'cajado', 'circle', { description: 'Grava um selo no chão que explode e prende quem estiver em cima.', power: 85, energy: 22, cooldown: 7, windup: 0.6, range: 9, radius: 2.2, status: { key: 'enraizado', chance: 0.5, seconds: 1.5 }, modality: 'magica', anim: 'attack', vfx: { style: 'luz', color: 'essence', ground: true }, unlockBond: 3 }),
+  T('cajado-explosao-arcana', 'Explosão Arcana', 'cajado', 'aura', { description: 'Bate o cajado no chão e libera uma onda arcana em volta.', power: 100, energy: 26, cooldown: 9, windup: 0.4, radius: 2.8, modality: 'magica', anim: 'attack', vfx: { style: 'luz', color: 'essence', ground: true }, unlockBond: 6 }),
   T('arco-chuva-de-flechas', 'Chuva de Flechas', 'arco', 'circle', { description: 'Atira para o alto e as flechas caem sobre uma área.', power: 50, energy: 28, cooldown: 10, windup: 0.9, range: 12, radius: 2.4, vfx: { style: 'impacto', color: 'essence', ground: true }, unlockBond: 9 }),
 ];
 
@@ -112,11 +116,26 @@ export const TECH_EVOLUTIONS: Record<string, [TechPath, TechPath]> = {
     P('a', 'Área', { name: 'Leque Aberto', angle: 90 }, { name: 'Leque do Pavão', angle: 130, power: 1.25 }),
     P('b', 'Golpes', { name: 'Leque Duplo', repeat: 2, power: 0.65 }, { name: 'Leque Triplo', repeat: 3, power: 0.6 }),
   ],
+  'cajado-seta-arcana': [
+    P('a', 'Força', { name: 'Lança Arcana', power: 1.3, range: 14 }, { name: 'Lança do Arquimago', power: 1.6, range: 16 }),
+    P('b', 'Golpes', { name: 'Setas Gêmeas', repeat: 2, power: 0.65 }, { name: 'Chuva de Setas', repeat: 3, power: 0.6 }),
+  ],
+  'cajado-selo-runico': [
+    P('a', 'Controle', { name: 'Selo Aprisionador', status: { key: 'enraizado', chance: 0.85, seconds: 2.2 } }, { name: 'Grande Selo', status: { key: 'enraizado', chance: 1, seconds: 3 }, radius: 2.8, power: 1.2 }),
+    P('b', 'Área', { name: 'Círculo Rúnico', radius: 3.2 }, { name: 'Mandala Rúnica', radius: 4.2, power: 1.25 }),
+  ],
+  'cajado-explosao-arcana': [
+    P('a', 'Área', { name: 'Onda Arcana', radius: 3.6 }, { name: 'Maré Arcana', radius: 4.6, power: 1.25 }),
+    P('b', 'Golpes', { name: 'Pulso Duplo', repeat: 2, power: 0.65 }, { name: 'Pulso Triplo', repeat: 3, power: 0.6 }),
+  ],
   'arco-chuva-de-flechas': [
     P('a', 'Área', { name: 'Tempestade', radius: 3.4 }, { name: 'Tempestade de Aço', radius: 4.4, power: 1.25 }),
     P('b', 'Golpes', { name: 'Saraivada', repeat: 3, power: 0.5 }, { name: 'Saraivada Sem Fim', repeat: 4, power: 0.48 }),
   ],
 };
+
+/** Técnicas ensinadas por uma escola de Áster: só aparecem para quem estuda lá. */
+export const TECHNIQUE_SCHOOL: Record<string, string> = { 'cajado-seta-arcana': 'arcana', 'cajado-selo-runico': 'arcana', 'cajado-explosao-arcana': 'arcana' };
 
 export const evolutionsOf = (slug: string): [TechPath, TechPath] | null => TECH_EVOLUTIONS[slug] ?? null;
 
@@ -142,17 +161,17 @@ export function evolve(sk: SkillDef, tier: Tier, path: 'a' | 'b' | null | undefi
  * Técnicas da arma na mão, evoluídas pelo tier e infundidas, abertas pelo vínculo. `catalog` são as da Forja (slot
  * "technique"): pelo mesmo slug, a da Forja vale no lugar da que vem com o jogo; as novas entram junto.
  */
-export function techniquesFor(catalog: SkillDef[], weapon: WeaponKind | null | undefined, essence: Element | null, bond: number, evo?: { tier: Tier; paths: Record<string, 'a' | 'b'> }): SkillDef[] {
+export function techniquesFor(catalog: SkillDef[], weapon: WeaponKind | null | undefined, essence: Element | null, bond: number, evo?: { tier: Tier; paths: Record<string, 'a' | 'b'>; schools?: readonly string[] }): SkillDef[] {
   if (!weapon) return [];
   const forged = catalog.filter((s) => s.slot === 'technique' && s.weapon);
   const all = [...WEAPON_TECHNIQUES.filter((t) => !forged.some((f) => f.slug === t.slug)), ...forged];
-  return all.filter((t) => t.weapon === weapon && t.unlockBond <= bond).sort((a, b) => a.unlockBond - b.unlockBond || a.slug.localeCompare(b.slug))
+  return all.filter((t) => t.weapon === weapon && t.unlockBond <= bond && (!TECHNIQUE_SCHOOL[t.slug] || !!evo?.schools?.includes(TECHNIQUE_SCHOOL[t.slug]))).sort((a, b) => a.unlockBond - b.unlockBond || a.slug.localeCompare(b.slug))
     .map((t) => infuse(evo ? evolve(t, evo.tier, evo.paths[t.slug]) : t, essence));
 }
 
 /** Técnicas de um tipo de arma que ainda vão abrir (para o painel mostrar o que vem pela frente). */
-export function lockedTechniques(catalog: SkillDef[], weapon: WeaponKind | null | undefined, bond: number): SkillDef[] {
+export function lockedTechniques(catalog: SkillDef[], weapon: WeaponKind | null | undefined, bond: number, schools: readonly string[] = []): SkillDef[] {
   if (!weapon) return [];
   const forged = catalog.filter((s) => s.slot === 'technique' && s.weapon);
-  return [...WEAPON_TECHNIQUES.filter((t) => !forged.some((f) => f.slug === t.slug)), ...forged].filter((t) => t.weapon === weapon && t.unlockBond > bond);
+  return [...WEAPON_TECHNIQUES.filter((t) => !forged.some((f) => f.slug === t.slug)), ...forged].filter((t) => t.weapon === weapon && (t.unlockBond > bond || (!!TECHNIQUE_SCHOOL[t.slug] && !schools.includes(TECHNIQUE_SCHOOL[t.slug]))));
 }

@@ -6,6 +6,7 @@ import {
   meetsRequirements, cancelSettlement, payout, recycleReturn, REPAIR_KIT_AMOUNT, parseComponentKey, COMPONENTS, cleanRequestId, nodeKindOf, NODE_KINDS,
   superiorBlockFor, lineageOf, officesOf, LINEAGE_LIMITS, COMPANION_ELEMENTS, cleanSchools, studiesAt, companionElement, type PactoConfig, type ForgePlan, type SpeciesKey, type Element, type IdentityContractV1, type Discoveries,
   type OrderRequirements, type EcosConfig, type Conduct, type Temper,
+  tierUpCheck, tierOf,
 } from './rules/index.ts';
 
 export class PactoError extends Error { constructor(public status: number, msg: string) { super(msg); } }
@@ -376,6 +377,22 @@ export async function pactoAction(action: string, body: Record<string, unknown>,
     const r = await rpc<{ ok: boolean; reason?: string }>(db, 'pacto_equipment_update', { p_cid: cid, p_item: item, p_data: next, p_take: [{ key: cost.key, qty: 1 }] });
     if (!r.ok) throw new PactoError(409, reason(r.reason));
     return { reforged: true, pacto: await state() };
+  }
+
+  // subir o tier da peça (só Taurina, na Escola da Forja): materiais refinados da Casa dos Ecos
+  if (action === 'pacto.item.tierup') {
+    await forgeSchool();
+    const item = rid(body.item);
+    const { data: e } = await db.from('pacto_equipment').select('data,owner,status,kind').eq('id', item).maybeSingle();
+    if (!e || e.owner !== cid || e.status !== 'ativo') throw new PactoError(409, 'Só dá para subir o tier de uma peça sua.');
+    if (e.kind !== 'equipamento') throw new PactoError(409, 'Ferramentas não têm tier.');
+    const data = e.data as Record<string, unknown> & { tier?: number; history?: { at: string; what: string }[] };
+    const chk = tierUpCheck(tierOf({ tier: data.tier }), await bagOf(db, cid));
+    if (!chk.ok) throw new PactoError(409, chk.reason);
+    const next = { ...data, tier: chk.to, history: [...(data.history ?? []), { at: new Date().toISOString(), what: `subiu para T${chk.to} por ${me}` }] };
+    const r = await rpc<{ ok: boolean; reason?: string }>(db, 'pacto_equipment_update', { p_cid: cid, p_item: item, p_data: next, p_take: chk.take });
+    if (!r.ok) throw new PactoError(409, reason(r.reason));
+    return { tierUp: chk.to, pacto: await state() };
   }
 
   if (action === 'pacto.board.post') {

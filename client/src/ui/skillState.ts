@@ -91,7 +91,7 @@ export function useSkillData() {
   }, [equipped, items]);
   // evoluídas pelo tier da arma (T3: caminho escolhido; T5: forma final)
   const paths = useSkills((s) => s.paths);
-  const techniques = useMemo(() => techniquesFor(catalog, weapon, essence, bond, { tier: weaponTier, paths }), [catalog, weapon, essence, bond, weaponTier, paths]);
+  const techniques = useMemo(() => techniquesFor(catalog, weapon, essence, bond, { tier: weaponTier, paths, schools: schoolKey ? schoolKey.split(',') : [] }), [catalog, weapon, essence, bond, weaponTier, paths, schoolKey]);
   const tree: SkillTree | null = useMemo(() => (species ? buildSkillTree(catalog, { essence, species }) : null), [catalog, essence, species]);
   const fx = useMemo(() => (tree ? treeEffects(tree, alloc) : null), [tree, alloc]);
   /** habilidades abertas, na ordem da árvore, com o nível */
@@ -113,7 +113,7 @@ export function useSkillData() {
     }
     return base;
   }, [fx, known, granted, catalog, schoolKey, bond, techniques, weaponTier]);
-  return { companion: c ?? null, species, essence, bond, points, secrets, tree, fx, unlocked, catalog: known, alloc, testing, testKey, weapon, weaponTier };
+  return { companion: c ?? null, species, essence, bond, points, secrets, tree, fx, unlocked, catalog: known, alloc, testing, testKey, weapon, weaponTier, schools: schoolKey ? schoolKey.split(',') : [] };
 }
 
 /** Grava a distribuição (online ou neste navegador). */

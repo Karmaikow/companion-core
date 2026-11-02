@@ -349,9 +349,10 @@ function runSkill(ev: Extract<FxEvent, { kind: 'skill' }>, world: WorldShape, po
   // estado da habilidade no alvo: dano por segundo (veneno, fogo) ou controle (lento, atordoado, enraizado, ofuscado, sombreado)
   const afflict = (t: Target) => { const x = s.status; if (x && !STATUSES[x.key].good && Math.random() < x.chance) t.afflict?.(x.key, x.seconds, Math.max(2, Math.round(ev.damage * 0.15))); };
   const fin = !!finisherBySlug(s.slug), physical = s.slot === 'technique';
-  // acertou alguém: abre a janela do combo, pausa de impacto e empurrão (técnicas e finalizadores pesam mais)
+  // acertou alguém com técnica de arma: abre a janela do combo, conta no Estilo, pausa de impacto e empurrão.
+  // Magias de essência, forma e suprema não entram no combo.
   const weight = (list: Target[]) => {
-    if (!list.length || ev.damage <= 0) return;
+    if (!list.length || ev.damage <= 0 || !physical) return;
     registerHit(s.slug, fin);
     if (physical) { hitStop(fin ? 90 : 50); for (const t of list) t.push?.(t.x - feet.x, t.z - feet.z, fin ? 1.1 : 0.45); }
     if (fin) shake(0.12, 220);

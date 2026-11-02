@@ -102,17 +102,24 @@ function fitting(drops: ChestDrop[]): { key: string; qty: number }[] {
   }
   return out;
 }
-const setChest = (id: string, patch: Partial<ChestView>) => useChests.setState({ chests: useChests.getState().chests.map((c) => (c.id === id ? { ...c, ...patch } : c)) });
+/**
+ * Atualiza o baú na tela. Se a resposta do servidor já o tirou da lista (vazio, ou só com Lumes), põe de volta: ele
+ * precisa ficar para mostrar o que saiu e sumir sozinho em 10 s — antes ele sumia na hora, como se não tivesse nada.
+ */
+const setChest = (c: ChestView, patch: Partial<ChestView>) => {
+  const list = useChests.getState().chests;
+  useChests.setState({ chests: list.some((x) => x.id === c.id) ? list.map((x) => (x.id === c.id ? { ...x, ...patch } : x)) : [...list, { ...c, ...patch }] });
+};
 
 /** Pega o que couber do baú aberto; vazio, ele some em 10 s. Devolve os itens que ficaram. */
 async function takeNow(c: ChestView, drops: ChestDrop[]): Promise<ChestDrop[]> {
-  if (!drops.length) { setChest(c.id, { state: 'vazio', drops: [], expiresAt: Date.now() + CHEST_EMPTY_MS }); return []; }
+  if (!drops.length) { setChest(c, { state: 'vazio', drops: [], expiresAt: Date.now() + CHEST_EMPTY_MS }); return []; }
   const items = fitting(drops);
   if (!items.length) { useGame.getState().toast('Sem espaço: a bolsa está pesada demais. O que ficou espera no baú por 2 min.', 'warn'); return drops; }
   const r = await useChests.getState().call('chest.take', { id: c.id, items, x: companionFocus.x, z: companionFocus.z });
   const left = r?.took?.left ?? drops;
-  if (!left.length) setChest(c.id, { state: 'vazio', drops: [], expiresAt: Date.now() + CHEST_EMPTY_MS });
-  else { setChest(c.id, { state: 'aberto', drops: left }); useGame.getState().toast(`Sem espaço para tudo: ${left.map((d) => `${d.qty}× ${d.label}`).join(', ')} ficou no baú (2 min).`, 'warn'); }
+  if (!left.length) setChest(c, { state: 'vazio', drops: [], expiresAt: Date.now() + CHEST_EMPTY_MS });
+  else { setChest(c, { state: 'aberto', drops: left }); useGame.getState().toast(`Sem espaço para tudo: ${left.map((d) => `${d.qty}× ${d.label}`).join(', ')} ficou no baú (2 min).`, 'warn'); }
   if (r?.took?.taken.length) void useGame.getState().run((b) => b.state());
   return left;
 }
@@ -127,7 +134,7 @@ async function openNow(c: ChestView) {
   // a animação de abrir dura ~0,9 s: os itens aparecem quando a tampa "estoura"
   const wait = Math.max(0, 900 - (performance.now() - (useChests.getState().opening?.at ?? 0)));
   await new Promise((ok) => setTimeout(ok, wait));
-  setChest(c.id, { state: 'aberto', drops: got.drops, expiresAt: Date.now() + CHEST_OPEN_TTL_MS });
+  setChest(c, { state: 'aberto', drops: got.drops, expiresAt: Date.now() + CHEST_OPEN_TTL_MS });
   useChests.setState({ opening: null });
   const left = await takeNow({ ...c, state: 'aberto', drops: got.drops }, got.drops);
   useChests.setState({ reveal: { id: c.id, at: Date.now(), items: got.drops.map((d) => ({ label: d.label, qty: d.qty, kept: left.some((l) => l.key === d.key) })), lumes: got.lumes, crystals: got.crystals } });

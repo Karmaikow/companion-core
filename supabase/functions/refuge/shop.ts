@@ -8,6 +8,7 @@ import {
   type ItemDef, type ShopConfig,
 } from './rules/index.ts';
 import { PactoError, classInfo } from './pacto.ts';
+import { heldWeapon } from './weapon.ts';
 
 interface Ctx { db: SupabaseClient; c: Record<string, unknown>; admin: boolean; shop: ShopConfig; catalog: () => Promise<ItemDef[]>; state: () => Promise<unknown> }
 
@@ -90,7 +91,8 @@ export async function shopAction(action: string, body: Record<string, unknown>, 
     const school = body.school;
     if (!isCitySchool(school)) throw new PactoError(400, 'Escola inexistente.');
     const cls = await classInfo(db, c, ctx.admin);
-    const block = schoolBlock(school, cls.forms, cls.essences);
+    // escolas que pedem arma (Escola Arcana: cajado de duas mãos T4) conferem a arma na mão na matrícula
+    const block = schoolBlock(school, cls.forms, cls.essences, await heldWeapon(db, cid));
     if (block) throw new PactoError(403, block);
     const { data: prof } = await db.from('pacto_profile').select('*').eq('companion_id', cid).maybeSingle();
     const schools = cleanSchools(prof?.schools);

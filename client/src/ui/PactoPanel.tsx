@@ -10,6 +10,7 @@ import {
   SOURCE_LABEL, SOURCE_CLASS, AFFINITY_COLOR, canCompleteEquipment, transformationFor, checkTransformation, essenceApplies, inputFits, forgePreview, assistPlan,
   coreCost, meetsRequirements, recycleReturn, parseComponentKey, componentPropLabel, bandWord, blueprintById, cancelSettlement, payout, CERNE_ALTERNATIVE, REPAIR_KIT_AMOUNT,
   type SpeciesKey, type ForgePlan, type Pick, type Conduct, type Temper, type ForgeBlueprint, type OrderRequirements, type SourceKind,
+  TIERS, TIER_UP, tierOf, tierUpCheck, MATERIALS,
 } from '@rules';
 import { useEcos, batchLabel } from '../ecos/ecosStore';
 import { usePacto, uuid } from '../pacto/pactoStore';
@@ -531,7 +532,7 @@ export function Pieces({ view, bag, atForge = false }: { view: PactoView; bag: {
             <li key={e.id} className={'eq-item piece-item' + (e.durability <= 0 ? ' broken' : '')}>
               <span className="eq-icon" style={{ borderColor: e.affinity ? AFFINITY_COLOR[e.affinity] : RARITIES[e.rarity ?? 'comum'].color }} aria-hidden>{pieceIcon(bp)}</span>
               <div>
-                <strong>{e.name ?? bp?.name}</strong> <small style={{ color: RARITIES[e.rarity ?? 'comum'].color }}>{RARITIES[e.rarity ?? 'comum'].label}{e.kind === 'ferramenta' ? ' · ferramenta' : ''}</small>
+                <strong>{e.name ?? bp?.name}</strong> <small style={{ color: RARITIES[e.rarity ?? 'comum'].color }}>{RARITIES[e.rarity ?? 'comum'].label}{e.kind === 'ferramenta' ? ' · ferramenta' : ''}</small>{e.kind === 'equipamento' && <small className="piece-tier" style={{ color: TIERS[tierOf({ tier: e.tier })].color }}> · {TIERS[tierOf({ tier: e.tier })].label}</small>}
                 <div className="bar dur"><i style={{ width: `${ratio * 100}%`, background: ratio < 0.25 ? '#e0664f' : undefined }} /></div>
                 <small className="d">Durabilidade {e.durability}/{e.maxDurability}{e.durability <= 0 ? ' — quebrada: repare para usar' : ''}{e.stats && Object.keys(e.stats).length ? ' · ' + Object.entries(e.stats).map(([k, v]) => `${ATTR[k]} ${v! > 0 ? '+' : ''}${v}%`).join(' · ') : ''}{e.mark ? ` · ${e.mark.label}` : ''}</small>
                 {open === e.id && (
@@ -541,6 +542,7 @@ export function Pieces({ view, bag, atForge = false }: { view: PactoView; bag: {
                     <p><b>Reciclar devolve:</b> {back.map((b) => `${b.qty}× ${keyLabel(b.key, view)}`).join(', ') || 'nada (componentes se perdem)'} — sempre menos do que entrou.</p>
                     <ol className="history">{(e.history ?? []).map((h, i) => <li key={i}><small>{new Date(h.at).toLocaleString()}</small> {h.what}</li>)}</ol>
                     {taurina && e.plan && (atForge ? <Reforge id={e.id} plan={e.plan} /> : <p className="d">Reforja: na Escola da Forja.</p>)}
+                    {taurina && atForge && e.kind === 'equipamento' && <TierUp id={e.id} tier={tierOf({ tier: e.tier })} bag={bag} />}
                   </div>
                 )}
               </div>
@@ -553,6 +555,20 @@ export function Pieces({ view, bag, atForge = false }: { view: PactoView; bag: {
           );
         })}
       </ul>
+    </div>
+  );
+}
+
+/** Subir o tier da peça (T1 → T5) com materiais refinados da Casa dos Ecos. */
+function TierUp({ id, tier, bag }: { id: string; tier: 1 | 2 | 3 | 4 | 5; bag: { key: string; qty: number }[] }) {
+  if (tier >= 5) return <p className="d">Tier: <b>T5</b> (máximo).</p>;
+  const to = (tier + 1) as 2 | 3 | 4 | 5, chk = tierUpCheck(tier, bag);
+  return (
+    <div className="reforge">
+      <b>Subir para {TIERS[to].label} ({TIERS[to].material}):</b>
+      <span className="d">{TIER_UP[to].map((m) => `${m.qty}× ${MATERIALS[m.material]?.name ?? m.material}`).join(', ')}</span>
+      <button className="ghost" disabled={!chk.ok} title={chk.ok ? '' : chk.reason} onClick={() => void usePacto.getState().call('pacto.item.tierup', { item: id })}>Subir tier</button>
+      {!chk.ok && <small className="d">{chk.reason}</small>}
     </div>
   );
 }

@@ -3,20 +3,20 @@
  * de evolução (abre no T3; no T5 vira a forma final) e a lista de combos daquela arma.
  */
 import {
-  COMBO_LINKS, TIERS, WEAPON_TECHNIQUES, ITEM_TYPES, evolutionsOf, finisherBySlug, lockedTechniques, type SkillDef,
+  COMBO_LINKS, TIERS, WEAPON_TECHNIQUES, ITEM_TYPES, CITY_SCHOOLS, TECHNIQUE_SCHOOL, evolutionsOf, finisherBySlug, lockedTechniques, type CitySchool, type SkillDef,
 } from '@rules';
 import { setTechPath, useSkillData, useSkills } from './skillState';
 
 const nameOf = (slug: string) => (slug === 'basic' ? 'Golpe' : WEAPON_TECHNIQUES.find((t) => t.slug === slug)?.name ?? finisherBySlug(slug)?.name ?? slug);
 
 export function WeaponArts() {
-  const { companion: c, unlocked, catalog, bond, weapon, weaponTier } = useSkillData();
+  const { companion: c, unlocked, catalog, bond, weapon, weaponTier, schools } = useSkillData();
   const paths = useSkills((s) => s.paths);
   if (!c) return null;
   if (!weapon) return <section className="weapon-arts"><h3>Técnicas de arma</h3><p className="hint">Equipe uma arma (espada, arco...) para ver as técnicas dela. Elas trocam sozinhas na barra quando a arma muda.</p></section>;
   const tier = TIERS[weaponTier];
   const techs = unlocked.map((u) => u.skill).filter((s) => s.slot === 'technique' && s.weapon === weapon);
-  const locked = lockedTechniques(catalog, weapon, bond);
+  const locked = lockedTechniques(catalog, weapon, bond, schools);
   const combos = COMBO_LINKS.filter((l) => l.weapon === weapon);
   const card = (sk: SkillDef, open: boolean) => {
     const ev = evolutionsOf(sk.slug), base = WEAPON_TECHNIQUES.find((t) => t.slug === sk.slug);
@@ -26,7 +26,7 @@ export function WeaponArts() {
         <header>
           <b>{sk.name}</b>
           {base && base.name !== sk.name && <small>de {base.name}</small>}
-          {!open && <small>abre no vínculo {sk.unlockBond}</small>}
+          {!open && <small>{TECHNIQUE_SCHOOL[sk.slug] && !schools.includes(TECHNIQUE_SCHOOL[sk.slug]) ? `ensinada na ${CITY_SCHOOLS[TECHNIQUE_SCHOOL[sk.slug] as CitySchool].label}` : `abre no vínculo ${sk.unlockBond}`}</small>}
         </header>
         <p>{sk.description}</p>
         {ev && open && (

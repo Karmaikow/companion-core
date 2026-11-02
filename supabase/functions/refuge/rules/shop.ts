@@ -12,6 +12,7 @@
  * O ADM muda preços, itens, limites e o Mercadão (rotação diária com estoque global e requisitos) na aba Lojas:
  * ver ShopConfig no fim do arquivo.
  */
+import { isCitySchool } from './escolas.ts';
 import { MATERIALS, parseBatchKey, bandRank, type ToolKey } from './ecos.ts';
 import { findItem, type ItemDef, type Rarity } from './equipment.ts';
 import type { CitySchool } from './escolas.ts';
@@ -165,7 +166,7 @@ export function sanitizeShopEntry(raw: unknown, i = 0): ShopEntry | null {
     enabled: e.enabled !== false,
     stock: Math.round(n(e.stock, 0, 100_000, 0)),
     weight: n(e.weight, 0, 100, 1),
-    school: e.school === 'forja' || e.school === 'veneno' ? e.school : null,
+    school: isCitySchool(e.school) ? e.school : null,
     materials: (Array.isArray(e.materials) ? e.materials : []).filter((m) => m && MATERIALS[m.material]).slice(0, 6).map((m) => ({ material: m.material, qty: Math.round(n(m.qty, 1, 999, 1)) })),
   };
 }

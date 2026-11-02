@@ -3,6 +3,7 @@
  * (missão anterior, vínculo, escola, classe, essência) e prêmios (Lumes, vínculo, materiais, itens, desbloqueio).
  * O jogo confere tudo no servidor: progresso só conta o que acontece depois de aceitar.
  */
+import { WEAPON_KINDS, ITEM_TYPES, TIERS, TIER_KEYS, type WeaponReq } from '@rules';
 import { useEffect, useMemo, useState } from 'react';
 import {
   sanitizeMission, biomeSlug, objectiveLabel, batchKey, parseBatchKey, recipeName, sanitizeCreature, sanitizeItem, sanitizeBiome,
@@ -18,7 +19,7 @@ import { EditorHead, ListSearch, StudioActions, Tabs, ask, matches, useAdminDirt
 const BANDS: Band[] = ['baixa', 'media', 'alta'];
 const EMPTY: Omit<MissionDef, 'slug' | 'name'> = {
   description: '', rarity: 'comum', repeat: 'unica', giver: 'casa-dos-ecos',
-  req: { after: [], bond: 0, schools: [], classes: [], essences: [] },
+  req: { after: [], bond: 0, schools: [], classes: [], essences: [], weapon: null },
   objectives: [{ kind: 'coletar', qty: 5, material: 'erva-orvalho-folha' }],
   rewards: { lumes: 30, bond: 10, materials: [], items: [] },
 };
@@ -132,6 +133,16 @@ export function MissionStudio() {
               </fieldset>
               <fieldset><legend>Só estas essências (nenhuma marcada = todas)</legend>
                 <div className="chips">{(Object.keys(ELEMENTS) as Element[]).filter((e) => e !== 'veneno').map((s) => { const on = draft.req.essences.includes(s); return <button key={s} type="button" className={'chip' + (on ? ' on' : '')} aria-pressed={on} onClick={() => edit({ req: { ...draft.req, essences: toggle(draft.req.essences, s) } })}>{ELEMENTS[s].label}</button>; })}</div>
+              </fieldset>
+              <fieldset><legend>Arma na mão (opcional)</legend>
+                <div className="row">
+                  <label>Tipo<select value={draft.req.weapon ? draft.req.weapon.kind ?? '' : 'none'} onChange={(e) => edit({ req: { ...draft.req, weapon: e.target.value === 'none' ? null : { tier: draft.req.weapon?.tier ?? 1, ...(draft.req.weapon?.twoHanded ? { twoHanded: true } : {}), kind: (e.target.value || null) as WeaponReq['kind'] } } })}>
+                    <option value="none">Não pede arma</option><option value="">Qualquer arma</option>
+                    {WEAPON_KINDS.map((k) => <option key={k} value={k}>{ITEM_TYPES[k].label}</option>)}
+                  </select></label>
+                  {draft.req.weapon && <label>Tier mínimo<select value={draft.req.weapon.tier} onChange={(e) => edit({ req: { ...draft.req, weapon: { ...draft.req.weapon!, tier: Number(e.target.value) as WeaponReq['tier'] } } })}>{TIER_KEYS.map((t) => <option key={t} value={t}>{TIERS[t].label}</option>)}</select></label>}
+                  {draft.req.weapon && <label className="check"><input type="checkbox" checked={!!draft.req.weapon.twoHanded} onChange={(e) => edit({ req: { ...draft.req, weapon: { ...draft.req.weapon!, twoHanded: e.target.checked || undefined } } })} /> De duas mãos</label>}
+                </div>
               </fieldset>
             </>}
 

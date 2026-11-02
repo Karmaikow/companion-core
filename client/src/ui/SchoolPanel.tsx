@@ -8,7 +8,7 @@
 import { SkillIcon } from './SkillIcon';
 import { useEffect, useState } from 'react';
 import { create } from 'zustand';
-import { CITY_SCHOOLS, BREWS, MAX_BREW, MATERIALS, brewCheck, goodById, schoolBlock, schoolSkills, parseBatchKey, type CitySchool, type SpeciesKey } from '@rules';
+import { CITY_SCHOOLS, BREWS, MAX_BREW, MATERIALS, brewCheck, goodById, schoolBlock, schoolSkills, parseBatchKey, equippedItems, ITEM_TYPES, WEAPON_TECHNIQUES, TECHNIQUE_SCHOOL, COMBO_LINKS, finisherBySlug, type CitySchool, type SpeciesKey } from '@rules';
 import { useGame } from '../store';
 import { usePacto, uuid } from '../pacto/pactoStore';
 import { useEcos, bagBatches } from '../ecos/ecosStore';
@@ -33,8 +33,11 @@ export function SchoolPanel() {
   useEffect(() => { if (!open) return; const k = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [open]);
   if (!open) return null;
   const info = CITY_SCHOOLS[open.school];
-  const block = view ? schoolBlock(open.school, formsOf(view), essOf(view)) : null;
-  const enrolled = !!view?.schools?.includes(open.school) && !block;
+  // a arma na mão (Escola Arcana pede cajado de duas mãos T4 para a matrícula; quem já estuda não perde por trocar de arma)
+  const held = useHeld();
+  const studying = !!view?.schools?.includes(open.school);
+  const block = view ? schoolBlock(open.school, formsOf(view), essOf(view), studying ? undefined : held) : null;
+  const enrolled = studying && !block;
 
   const join = async () => {
     setMsg(null);
@@ -64,12 +67,39 @@ export function SchoolPanel() {
             <div className="school-join">
               <p className="hint">{open.school === 'forja'
                 ? 'A Escola da Forja é o único lugar onde equipamentos são forjados, reforjados e encomendas são aceitas.'
+                : open.school === 'arcana' ? 'A Escola Arcana ensina as técnicas arcanas do cajado: Seta Arcana, Selo Rúnico e Explosão Arcana, e o combo Prisão Rúnica.'
                 : 'A Escola do Veneno ensina a preparar poções e comidas com as plantas coletadas, e as técnicas Cuspe Tóxico e Névoa Venenosa.'}</p>
               <button className="primary" disabled={!!busy} onClick={join}>Matricular-se</button>
             </div>
           )
-          : open.school === 'forja' ? <ForgeSchool view={view} /> : <PoisonSchool view={view} busy={!!busy} setMsg={setMsg} />}
+          : open.school === 'forja' ? <ForgeSchool view={view} /> : open.school === 'arcana' ? <ArcaneSchool /> : <PoisonSchool view={view} busy={!!busy} setMsg={setMsg} />}
       </div>
+    </div>
+  );
+}
+
+/** Arma na mão direita (tipo, tier, duas mãos), para as escolas que pedem arma. */
+function useHeld() {
+  const equipped = useGame((s) => s.equipped), items = useGame((s) => s.items);
+  const w = equippedItems(equipped, items).find((x) => x.slot === 'mainhand' && ITEM_TYPES[x.item.type].weapon)?.item;
+  return w ? { type: w.type, tier: w.tier, twoHanded: !!ITEM_TYPES[w.type].weapon?.twoHanded } : null;
+}
+
+function ArcaneSchool() {
+  const bond = useGame((s) => s.snap?.companion?.bond.level ?? 1);
+  const techs = WEAPON_TECHNIQUES.filter((t) => TECHNIQUE_SCHOOL[t.slug] === 'arcana');
+  const combos = COMBO_LINKS.filter((l) => l.weapon === 'cajado');
+  return (
+    <div className="shop-list">
+      <p className="hint">Técnicas arcanas do cajado. Entram sozinhas na barra (1–9) com um cajado na mão, quando o vínculo chega ao nível pedido. Saem com o elemento do seu Companion e evoluem com o tier do cajado (Habilidades → Essência e evolução).</p>
+      {techs.map((s) => (
+        <div key={s.slug} className="shop-row">
+          <span className="shop-icon" aria-hidden><SkillIcon skill={s} size={40} /></span>
+          <div className="shop-info"><b>{s.name}</b><small>{s.description}</small></div>
+          <small>{s.unlockBond <= bond ? '✓ aprendida' : `vínculo ${s.unlockBond}`}</small>
+        </div>
+      ))}
+      {combos.map((l) => <p key={l.becomes} className="hint">Combo: <b>{WEAPON_TECHNIQUES.find((t) => t.slug === l.from)?.name} → {WEAPON_TECHNIQUES.find((t) => t.slug === l.press)?.name}</b> = {finisherBySlug(l.becomes)?.name}</p>)}
     </div>
   );
 }
