@@ -189,7 +189,7 @@ function ResourceTag({ node, amount, height }: { node: ResourceNode; amount: num
 }
 const fmtMin = (m: number) => (m >= 90 ? `${Math.round(m / 60)} h` : `${Math.max(1, Math.round(m))} min`);
 /** altura da plaquinha por recurso (acima do modelo) */
-const TAG_Y: Record<string, number> = { salgueiro: 3.5, carvalho: 3.6, 'salgueiro-antigo': 4.2, 'arvore-ancestral': 6.2, erva: 1.0, 'erva-lunar': 1.0, cascalho: 0.8, granito: 1.5, cobre: 1.5, 'veio-prateado': 1.5, geodo: 1.2, 'liquen-dos-ventos': 2.6, 'pedra-inscrita': 2.0, 'nascente-azul': 2.2, 'remanso-profundo': 1.2 };
+const TAG_Y: Record<string, number> = { salgueiro: 3.5, carvalho: 3.6, 'salgueiro-antigo': 4.2, 'arvore-ancestral': 7.9, erva: 1.0, 'erva-lunar': 1.0, cascalho: 0.8, granito: 1.5, cobre: 1.5, 'veio-prateado': 1.5, geodo: 1.2, 'liquen-dos-ventos': 1.7, 'pedra-inscrita': 2.0, 'nascente-azul': 2.2, 'remanso-profundo': 1.2 };
 
 const VFX_OF: Record<string, string> = { madeira: 'folhas', planta: 'folhas', pedra: 'pedras', minerio: 'pedras', gema: 'luz', magico: 'luz', caca: 'impacto' };
 const COLOR_OF: Record<string, string> = { madeira: '#a68a64', planta: '#7bd47a', pedra: '#c9c3b6', minerio: '#62c39a', gema: '#8fd8ff', magico: '#7fd6ff', caca: '#d0b090' };
