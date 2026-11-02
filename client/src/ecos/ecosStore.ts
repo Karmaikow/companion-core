@@ -20,6 +20,8 @@ import { findNode, availableNear, isAvailable, setEcosUnlocks } from './worldNod
 
 export type RunPhase = 'andando' | 'coletando' | 'confirmando' | 'concluido' | 'interrompido' | 'erro';
 export interface Run { node: string; approach: string; request: string; phase: RunPhase; seconds: number; started: number; by: 'pessoa' | 'companion'; message?: string; inspect?: boolean;
+  /** coleta já começou na tela, mas o servidor ainda não confirmou o começo (vai em paralelo) */
+  pending?: boolean;
   /** afinar o eco: quanto antes (−) ou depois (+) de cada pulso foi o toque, em ms; a nota que o servidor devolveu */
   tune?: (number | null)[]; result?: TuneResult }
 export interface Objective { label: string; qty: number; match: { category?: ResCategory; materials?: string[]; prop?: PropKey; min?: Band }; source: 'receita' | 'obra' | 'intencao' }
@@ -72,7 +74,7 @@ const NET_ERR = /não respondeu|failed to fetch|network|conex/i;
 const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-8xxx-xxxxxxxxxxxx'.replace(/x/g, () => ((Math.random() * 16) | 0).toString(16)));
 let nextAttempt = 0, lastSuggest = '', myMove = -1, walkCheck = { at: 0, d: Infinity, tries: 0 };
 /** quando a ação entrou em "confirmando": se o servidor não responder, reenvia o mesmo pedido (não duplica) */
-let confirmAt = 0;
+let confirmAt = 0, startAt = 0;
 const STUCK_MS = 12000;
 
 export const bagBatches = (v: EcosView | null): MaterialBatch[] => (v?.bag ?? []).map((b) => { const p = parseBatchKey(b.key); return p && b.qty > 0 ? { key: b.key, qty: b.qty, ...p } : null; }).filter((x): x is MaterialBatch => !!x);
@@ -236,11 +238,17 @@ export const useEcos = create<EcosStore>((set, get) => ({
         if (dist <= reach || walkCheck.d === 0) {
           work.on = true; work.at.set(n.x, 0, n.z); work.kind = NODE_KINDS[n.kind].category;
           if (r.inspect) { set({ run: { ...r, phase: 'confirmando' } }); void doInspect(r); return; }
-          set({ run: { ...r, phase: 'confirmando' } }); confirmAt = now;
-          void start(r);
+          // coleta ágil: começa na hora (animação, barra, partes saindo) e avisa o servidor em paralelo. O tempo na
+          // tela é o da ação inteira; o servidor aceita a partir de timeSlack dele — a folga cobre o atraso do aviso.
+          playMaterialSound(NODE_KINDS[n.kind].category);
+          const go = { ...r, phase: 'coletando' as const, started: Date.now(), pending: true };
+          set({ run: go }); startAt = now;
+          void start(go);
         }
       } else if (r.phase === 'coletando') {
         if (dist > (v?.config.reach ?? 4.5) + 1.5) { get().cancel('ela se afastou do recurso'); return; }
+        // o começo ainda não foi confirmado: reenvia (o mesmo pedido) se demorar; só termina depois dele
+        if (r.pending) { if (now - startAt > 4000 && now >= nextAttempt) { startAt = now; void start(r); } return; }
         if (Date.now() >= r.started + r.seconds * 1000 && now >= nextAttempt) { set({ run: { ...r, phase: 'confirmando' } }); confirmAt = now; void finish(r); }
       } else if (r.phase === 'confirmando' && !r.inspect && now >= nextAttempt && (s.conn === 'perdida' || now - confirmAt > STUCK_MS)) {
         // reconexão ou servidor que não respondeu: reenvia o MESMO pedido (começar ou terminar)
@@ -290,11 +298,9 @@ async function start(r: Run) {
     const res = await S.getState().call('ecos.start', { request: r.request, node: r.node, approach: r.approach, x: companionFocus.x, z: companionFocus.z });
     const cur = S.getState().run;
     // (um reenvio pode responder depois do primeiro: o que chegou primeiro vale)
-    if (!cur || cur.request !== r.request || cur.phase !== 'confirmando' || cur.started > 0) return;
-    if (!res?.started) { nextAttempt = performance.now() + 3000; S.setState({ run: { ...cur, phase: 'andando' } }); return; }
-    const k = NODE_KINDS[findNode(r.node)?.kind ?? 'erva'];
-    playMaterialSound(k.category);
-    S.setState({ run: { ...cur, phase: 'coletando', started: Date.now(), seconds: res.started.seconds } });
+    if (!cur || cur.request !== r.request || !cur.pending || ['concluido', 'interrompido', 'erro'].includes(cur.phase)) return;
+    if (!res?.started) { nextAttempt = performance.now() + 3000; return; } // sem conexão: o tick reenvia
+    S.setState({ run: { ...cur, pending: false } });
   } catch (e) {
     work.on = false;
     const cur = S.getState().run;
