@@ -99,7 +99,8 @@
 .ib-page { position: relative; min-height: 0; overflow: auto; padding: 22px 20px 18px; background: linear-gradient(180deg, var(--pg), var(--pg2)); scrollbar-width: thin; scrollbar-color: var(--cell-b) transparent; }
 .ib-left { border-radius: 8px 2px 2px 8px; box-shadow: inset -18px 0 22px -14px rgba(120, 80, 40, .45); }
 .ib-right { border-radius: 2px 8px 8px 2px; box-shadow: inset 18px 0 22px -14px rgba(120, 80, 40, .45); }
-.ib-page::before { content: ""; position: absolute; inset: 6px; border: 1px solid rgba(168, 119, 74, .35); border-radius: 6px; pointer-events: none; }
+/* fio interno da página: contorno (não rola junto com o conteúdo; o ::before rolava e cortava os cartões) */
+.ib-page { outline: 1px solid rgba(168, 119, 74, .35); outline-offset: -7px; }
 .ib-book .hint { color: var(--ink2); }
 .ib-book .msg.err { color: #b33a2a; }
 
