@@ -48,6 +48,7 @@ import { useSkillSync } from './ui/skillState';
 import { pressAttack, releaseAttack } from './scene/Combat';
 import { ownsItem } from './ui/EquipmentPanel';
 import { useCarry } from './ui/bag';
+import { useToolBelt } from './ui/toolBelt';
 import { WeatherOverlay } from './ui/WeatherOverlay';
 import { supabase } from './backend/online';
 
@@ -140,6 +141,8 @@ export function App() {
   }
 
   const c = snap?.companion;
+  // cinto de ferramentas (Inventário): a coleta já respeita o que foi tirado, mesmo sem abrir o painel
+  useEffect(() => { if (c?.id) useToolBelt.getState().load(c.id); }, [c?.id]);
   const d = c?.discoveries ?? {};
   const visual = useMemo(() => {
     const p = d.color ? derivePalette(d.color, d.element ?? null) : null;

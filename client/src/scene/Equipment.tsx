@@ -6,7 +6,7 @@
 import { Suspense, useMemo, useRef } from 'react';
 import { createPortal, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { DEFAULT_ITEMS, ITEM_TYPES, SLOTS_EQ, gripFor, type Bone, type EquipSlot, type ItemDef } from '@rules';
+import { DEFAULT_ITEMS, ITEM_TYPES, SLOTS_EQ, gripFor, type Bone, type EquipSlot, type ItemDef, type ToolKey } from '@rules';
 import { ItemModel } from './ItemModel';
 import { AssetBoundary } from './Biome';
 
@@ -182,7 +182,17 @@ export function EquipmentLayer({ items, slots, bones, root, charge, modelKey, sh
   return <>{items.filter((i) => boneFor(i, slots?.[i.slug]) !== 'nenhum').map((i) => { const it = { ...i, grip: gripFor(i, modelKey) }; return <Attached key={i.slug + (slots?.[i.slug] ?? '') + JSON.stringify(it.grip)} item={it} slot={slots?.[i.slug]} bones={bones} root={root} charge={charge} showSocket={showSocket} />; })}</>;
 }
 
-const gatheringAxe: ItemDef = { ...DEFAULT_ITEMS.find(i => i.type === 'maca')!, slug: 'gathering-axe-visual', model: { url: '/ecos_machado.glb' }, grip: { pos: [0, 0, 0], rot: [0, 0, 0], scale: 1 } };
-export function GatheringAxe({ bones, root }: { bones: GearBones | null; root: React.RefObject<THREE.Group | null> }) {
- return <Attached item={gatheringAxe} slot="mainhand" bones={bones} root={root} />;
+/**
+ * Ferramenta na mão durante a coleta. O machado tem modelo próprio; picareta, foice e cinzel usam por enquanto o
+ * desenho de uma arma parecida (maça e faca) até chegarem os modelos.
+ */
+const like = (type: string) => DEFAULT_ITEMS.find((i) => i.type === type) ?? DEFAULT_ITEMS[0];
+const TOOL_VISUAL: Record<ToolKey, ItemDef> = {
+  machado: { ...like('maca'), slug: 'gathering-axe-visual', model: { url: '/ecos_machado.glb' }, grip: { pos: [0, 0, 0], rot: [0, 0, 0], scale: 1 } },
+  picareta: { ...like('maca'), slug: 'gathering-pick-visual' },
+  faca: { ...like('faca'), slug: 'gathering-sickle-visual' },
+  cinzel: { ...like('faca'), slug: 'gathering-chisel-visual' },
+};
+export function GatheringTool({ tool, bones, root }: { tool: ToolKey; bones: GearBones | null; root: React.RefObject<THREE.Group | null> }) {
+  return <Attached item={TOOL_VISUAL[tool]} slot="mainhand" bones={bones} root={root} />;
 }

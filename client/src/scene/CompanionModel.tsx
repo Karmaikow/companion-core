@@ -16,7 +16,7 @@ import { slideFields } from './meshField';
 import { work, useEcos } from '../ecos/ecosStore';
 import { SpeechBubble } from './SpeechBubble';
 import { Appendages, findAnchors, type AppendageSpec } from './Appendages';
-import { EquipmentLayer, GatheringAxe, findGearBones } from './Equipment';
+import { EquipmentLayer, GatheringTool, findGearBones } from './Equipment';
 import { aim, combatInput, chargeState, fxQueue, moveInput, requestSkill, skillInput, targets } from './Combat';
 import { canAct, spendStamina, tickVitals, vitals } from './vitals';
 import { useSkills, aiCast } from '../ui/skillState';
@@ -27,7 +27,7 @@ import { spendSp } from './vitals';
 import type { Target } from './Combat';
 import { gameVfx } from './vfx/engine';
 import { Shield } from './vfx/recipes';
-import { basicAttack, bowShot, ELEMENTS, RANK_POWER, type EquipSlot, type ItemDef, type SpeciesKey } from '@rules';
+import { basicAttack, bowShot, ELEMENTS, RANK_POWER, NODE_KINDS, type EquipSlot, type ItemDef, type SpeciesKey, type ToolKey } from '@rules';
 import { basicHit, castSkill, combat } from '../build/combatStats';
 
 /** O que o Companion carrega: itens visíveis, a arma (escolhe o ataque) e o que muda o dano. */
@@ -649,12 +649,18 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
     mixer.update(dt);
   });
 
-  const cuttingWillow = useEcos(s => !!s.run && s.run.approach === 'cortar' && s.run.node.startsWith('salgueiro-') && s.run.phase === 'coletando');
+  // coletando com ferramenta: ela vai para a mão (no lugar da arma) enquanto a ação dura
+  const toolInHand = useEcos((s) => {
+    const r = s.run;
+    if (!r || r.inspect || (r.phase !== 'coletando' && r.phase !== 'confirmando')) return null;
+    const kind = r.node.split('@')[0];
+    return (NODE_KINDS[kind]?.approaches.find((a) => a.id === r.approach)?.tool ?? null) as ToolKey | null;
+  });
   return (
     <>
-    {cuttingWillow && <GatheringAxe bones={gearBones} root={root} />}
+    {toolInHand && <GatheringTool tool={toolInHand} bones={gearBones} root={root} />}
     {appendages && (appendages.tail || appendages.wings) && <Appendages spec={appendages} anchors={anchors} root={root} heightAt={world.heightAt} />}
-    {!cuttingWillow && gear && gear.items.length > 0 && <EquipmentLayer items={gear.items} slots={gear.slots} bones={gearBones} root={root} charge={charge} modelKey={gear.modelKey} />}
+    {!toolInHand && gear && gear.items.length > 0 && <EquipmentLayer items={gear.items} slots={gear.slots} bones={gearBones} root={root} charge={charge} modelKey={gear.modelKey} />}
     <group ref={root} position={[start[0], 0, start[1]]}>
       <group ref={pose} scale={scale}>
         <primitive object={model} />

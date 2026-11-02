@@ -646,3 +646,13 @@ canvas.cursor-enter { cursor: none !important; }
 .enter-cursor .ec-step { stroke: #ffd77a; stroke-width: 1.6; stroke-linecap: round; }
 @keyframes ec-glow { from { fill: #f3c860; opacity: 0.75; } to { fill: #fff3c4; opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .enter-cursor .ec-glow { animation: none; } }
+
+/* recurso de coleta: quanto ainda dá para coletar */
+.res-tag { display: grid; justify-items: center; gap: 3px; padding: 5px 10px 6px; border-radius: 4px 12px 4px 12px; background: #0d1638e0; border: 1px solid #b79d61; color: #f4ead2; font: 600 0.78rem var(--serif); white-space: nowrap; box-shadow: 0 3px 10px #0008; }
+.res-tag b { font-weight: 700; color: #f6dfa8; }
+.res-tag small { font: 500 0.68rem var(--sans); color: #c9d2e6; }
+.res-pips { display: flex; gap: 3px; }
+.res-pips i { width: 9px; height: 9px; border-radius: 2px; background: #2a355c; box-shadow: inset 0 0 0 1px #4a5785; }
+.res-pips i.on { background: linear-gradient(#bfe89a, #6fb85a); box-shadow: inset 0 0 0 1px #d8f5b8, 0 0 4px #9fe07a88; }
+.res-tag.empty { border-color: #6a6f80; }
+.res-tag.empty b { color: #c9ccd6; }

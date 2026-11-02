@@ -182,7 +182,7 @@ export const insideVale = (x: number, z: number, pad = 2) => Math.hypot(x - VALE
 export type Zone = 'bosque' | 'riacho' | 'afloramento' | 'margem-leste';
 export type ToolKey = 'faca' | 'machado' | 'picareta' | 'cinzel';
 export const TOOLS: Record<ToolKey, { label: string; icon: string }> = {
-  faca: { label: 'Faca de colheita', icon: '🔪' }, machado: { label: 'Machado', icon: '🪓' }, picareta: { label: 'Picareta', icon: '⛏️' }, cinzel: { label: 'Cinzel de Cobre', icon: '🛠️' },
+  faca: { label: 'Foice de colheita', icon: '🌾' }, machado: { label: 'Machado', icon: '🪓' }, picareta: { label: 'Picareta', icon: '⛏️' }, cinzel: { label: 'Cinzel de Cobre', icon: '🛠️' },
 };
 /** Kit inicial do explorador (o cinzel se fabrica). */
 /**

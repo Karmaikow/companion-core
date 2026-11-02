@@ -5,14 +5,15 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame, type ThreeEvent } from '@react-three/fiber';
+import { Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { NODE_KINDS, chunkResources, type CompanionWorld, type WeatherConfig, type ResourceNode, type WorldNode } from '@rules';
 import { useEcos, amountOf, work } from '../ecos/ecosStore';
 import { setEcosWorld, findNode, isAvailable } from '../ecos/worldNodes';
-import { colliders } from './world';
+import { colliders, companionFocus } from './world';
 import { gameVfx } from './vfx/engine';
 import { burst } from './vfx/recipes';
-import { WillowResource } from './WillowResource';
+import { PartedResource, RESOURCE_MODELS, PARTED_NEAR } from './PartedResource';
 
 // ---------------------------------------------------------------------------
 // Modelos
@@ -137,10 +138,11 @@ function InscribedStone({ amount }: { amount: number }) {
   );
 }
 
-function NodeMesh({ node, amount }: { node: ResourceNode; amount: number }) {
+/** Desenho simples (por código) de cada recurso: de longe, e enquanto o modelo carrega. */
+function SimpleMesh({ node, amount }: { node: ResourceNode; amount: number }) {
   const k = NODE_KINDS[node.kind];
   switch (node.kind) {
-    case 'salgueiro': return <WillowResource id={node.id} amount={amount} glow={false} fallback={<Willow amount={amount} cap={k.capacity} glow={false} />} />;
+    case 'salgueiro': return <Willow amount={amount} cap={k.capacity} glow={false} />;
     case 'carvalho': return <Oak amount={amount} cap={k.capacity} />;
     case 'erva': return <Herb amount={amount} cap={k.capacity} />;
     case 'cascalho': return <Pebbles amount={amount} cap={k.capacity} />;
@@ -158,6 +160,35 @@ function NodeMesh({ node, amount }: { node: ResourceNode; amount: number }) {
   }
   return null;
 }
+
+/** Perto, o modelo em partes (mostra quanto resta); longe, o desenho simples. */
+function NodeMesh({ node, amount, near }: { node: ResourceNode; amount: number; near: boolean }) {
+  const spec = RESOURCE_MODELS[node.kind];
+  const simple = <SimpleMesh node={node} amount={amount} />;
+  return spec && near ? <PartedResource spec={spec} nodeId={node.id} kind={node.kind} amount={amount} fallback={simple} /> : simple;
+}
+
+/** Plaquinha de quanto ainda dá para coletar (e quando volta o que falta). */
+function ResourceTag({ node, amount, height }: { node: ResourceNode; amount: number; height: number }) {
+  const k = NODE_KINDS[node.kind];
+  const left = Math.floor(amount), full = left >= k.capacity, perUnit = 60 / Math.max(0.01, k.regenPerHour);
+  const min = Math.min(...k.approaches.map((a) => a.cost));
+  const back = full ? '' : left < min ? `volta em ~${fmtMin((min - amount) * perUnit)}` : `+1 a cada ${fmtMin(perUnit)}`;
+  return (
+    <Html position={[0, height, 0]} center distanceFactor={9} zIndexRange={[20, 0]} style={{ pointerEvents: 'none' }}>
+      <div className={'res-tag' + (left < min ? ' empty' : '')}>
+        <b>{k.name}</b>
+        <span className="res-pips" aria-label={`Resta ${left} de ${k.capacity}`}>
+          {Array.from({ length: k.capacity }, (_, i) => <i key={i} className={i < left ? 'on' : ''} />)}
+        </span>
+        <small>{left}/{k.capacity}{back ? ` · ${back}` : ''}</small>
+      </div>
+    </Html>
+  );
+}
+const fmtMin = (m: number) => (m >= 90 ? `${Math.round(m / 60)} h` : `${Math.max(1, Math.round(m))} min`);
+/** altura da plaquinha por recurso (acima do modelo) */
+const TAG_Y: Record<string, number> = { salgueiro: 3.5, carvalho: 3.6, 'salgueiro-antigo': 4.2, 'arvore-ancestral': 6.2, erva: 1.0, 'erva-lunar': 1.0, cascalho: 0.8, granito: 1.5, cobre: 1.5, 'veio-prateado': 1.5, geodo: 1.2, 'liquen-dos-ventos': 2.6, 'pedra-inscrita': 2.0, 'nascente-azul': 2.2, 'remanso-profundo': 1.2 };
 
 const VFX_OF: Record<string, string> = { madeira: 'folhas', planta: 'folhas', pedra: 'pedras', minerio: 'pedras', gema: 'luz', magico: 'luz', caca: 'impacto' };
 const COLOR_OF: Record<string, string> = { madeira: '#a68a64', planta: '#7bd47a', pedra: '#c9c3b6', minerio: '#62c39a', gema: '#8fd8ff', magico: '#7fd6ff', caca: '#d0b090' };
@@ -197,15 +228,21 @@ export function WorldResources({ cw, center, weather }: { cw: CompanionWorld; ce
     burst(gameVfx, VFX_OF[cat] ?? 'impacto', new THREE.Vector3(n.x, y + 0.6, n.z), COLOR_OF[cat] ?? '#ffffff', 0.45, y);
   });
   const pick = (e: ThreeEvent<MouseEvent>, id: string) => { e.stopPropagation(); useEcos.getState().select(id); };
+  // a plaquinha aparece no selecionado, no que está sendo coletado e no mais perto do Companion (ao alcance)
+  const me = companionFocus;
+  const closest = shown.reduce<{ id: string; d: number } | null>((a, n) => { const d = Math.hypot(n.x - me.x, n.z - me.z); return d < 4.5 && (!a || d < a.d) ? { id: n.id, d } : a; }, null)?.id;
   return (
     <group>
       <EcosTicker />
       {shown.map((n) => {
         const y = cw.heightAt(n.x, n.z), amount = amountOf(view, n), sel = selected === n.id, k = NODE_KINDS[n.kind];
         const empty = amount < Math.min(...k.approaches.map((a) => a.cost));
+        const near = Math.hypot(n.x - me.x, n.z - me.z) < PARTED_NEAR;
+        const tag = sel || n.id === closest || (run?.node === n.id && ['andando', 'coletando', 'confirmando'].includes(run.phase));
         return (
           <group key={n.id} position={[n.x, y, n.z]} onClick={(e) => pick(e, n.id)} onPointerOver={(e) => { e.stopPropagation(); document.body.style.cursor = 'pointer'; }} onPointerOut={() => { document.body.style.cursor = ''; }}>
-            <NodeMesh node={n} amount={amount} />
+            <NodeMesh node={n} amount={amount} near={near} />
+            {tag && <ResourceTag node={n} amount={amount} height={TAG_Y[n.kind] ?? 1.5} />}
             {/* área de clique generosa (toque) */}
             <mesh position={[0, 0.8, 0]} visible={false}><cylinderGeometry args={[0.9, 0.9, 1.8, 8]} /><meshBasicMaterial /></mesh>
             {sel && <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.05, 0]}><ringGeometry args={[0.95, 1.12, 40]} /><meshBasicMaterial color={empty ? '#9aa3ad' : '#d9f0ff'} transparent opacity={0.85} toneMapped={false} /></mesh>}

@@ -1,23 +1,24 @@
 /**
- * Bolsa e equipamento (Inventário): os oito espaços do equipamento (chapéu, acessório 1 e 2, capa, armadura, mão
- * direita, mão esquerda, sapatos), o resumo (golpe, bônus, conjuntos de elemento, carga) e a bolsa por categoria:
- * Materiais, Diversos, Equipamentos e Armas. Tocar num espaço mostra só o que entra nele; tocar num item mostra os
- * detalhes e as ações (equipar, tirar, jogar fora).
+ * Inventário: carga no topo; o que está equipado (os oito espaços e o golpe que eles dão); o cinto de ferramentas
+ * (machado, picareta, foice e cinzel, que a coleta usa); e a bolsa com busca e filtro por categoria. Tocar num espaço
+ * filtra a bolsa pelo que entra nele; tocar num item abre o detalhe com as ações (equipar, tirar, jogar fora).
  * A Taurina vê também a aba da Forja (que leva à Oficina do Pacto).
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import './inventory.css';
 import {
-  ITEM_TYPES, ITEM_CATEGORIES, RARITIES, SLOTS_EQ, EQUIP_SLOTS, ELEMENTS, ELEMENT_SETS, SET_TIERS, QUEST_REWARDS, LOAD_LABEL,
+  ITEM_TYPES, ITEM_CATEGORIES, RARITIES, SLOTS_EQ, EQUIP_SLOTS, ELEMENTS, ELEMENT_SETS, SET_TIERS, QUEST_REWARDS, LOAD_LABEL, TOOLS,
   equip, unequip, equipmentBonus, elementSets, slotsFor, isWearable, canForge, basicAttack, itemWeight, categoryOf,
-  type EquipSlot, type Equipped, type ItemCategory, type ItemDef, type ItemType, type BagEntry, type Element,
+  type EquipSlot, type Equipped, type ItemCategory, type ItemDef, type ItemType, type BagEntry, type Element, type ToolKey,
 } from '@rules';
 import { useGame } from '../store';
 import { supabase } from '../backend/online';
-import { offhandMark } from '../pacto/pactoStore';
+import { offhandMark, usePacto } from '../pacto/pactoStore';
 import { markSource } from '../scene/vitals';
 import { useEcos } from '../ecos/ecosStore';
 import { ownsItem, useCarry } from './bag';
 import { ItemIcon } from './itemIcons';
+import { TOOL_INFO, TOOL_ORDER, ownedToolPieces, useToolBelt } from './toolBelt';
 
 export { ownsItem };
 markSource.get = offhandMark;
@@ -30,11 +31,17 @@ export const TYPE_ICON: Record<ItemType, string> = {
   parte: '🦴', comida: '🍎', pocao: '🧪', chave: '🗝', lembranca: '📜', outro: '📦',
 };
 const SLOT_ICON: Record<EquipSlot, string> = { head: '🎩', acc1: '💍', acc2: '📿', cape: '🧣', armor: '🥋', mainhand: '🗡', offhand: '🛡', feet: '👢' };
-const TABS: ItemCategory[] = ['material', 'diversos', 'equipamento', 'arma'];
+/** filtros da bolsa: tudo e as quatro categorias */
+type Filter = 'tudo' | ItemCategory;
+const FILTERS: Filter[] = ['tudo', 'arma', 'equipamento', 'material', 'diversos'];
+const FILTER_LABEL: Record<Filter, string> = { tudo: 'Tudo', arma: 'Armas', equipamento: 'Equipamentos', material: 'Materiais', diversos: 'Diversos' };
 const kg = (n: number) => `${Math.round(n * 10) / 10}`.replace('.', ',') + ' kg';
+const pct = (v: number) => `${v > 0 ? '+' : ''}${String(v).replace('.', ',')}%`;
 
-/** Uma linha da bolsa para mostrar: item da bolsa, peça forjada ou material do vale. */
+/** Uma linha da bolsa para mostrar: item da bolsa, peça forjada ou material da coleta. */
 interface Row { key: string; label: string; icon: string; qty: number; unitWeight: number; category: ItemCategory; item: ItemDef | null; entry: BagEntry | null; vale?: boolean; rarity?: ItemDef['rarity']; essence?: Element | null; description: string }
+/** O que está aberto no detalhe: um item da bolsa ou uma ferramenta do cinto. */
+type Pick = { kind: 'item'; key: string } | { kind: 'tool'; tool: ToolKey } | null;
 
 export function EquipmentPanel() {
   const items = useGame((s) => s.items);
@@ -43,16 +50,26 @@ export function EquipmentPanel() {
   const backend = useGame((s) => s.backend);
   const c = useGame((s) => s.snap?.companion);
   const inv = useGame((s) => s.snap?.inventory ?? []);
+  const equipment = usePacto((s) => s.view?.equipment);
+  const beltOff = useToolBelt((s) => s.off);
   const species = c?.discoveries.form ?? null;
   const carry = useCarry();
-  const [tab, setTab] = useState<ItemCategory>('arma');
+  const [filter, setFilter] = useState<Filter>('tudo');
+  const [query, setQuery] = useState('');
   const [slotFilter, setSlotFilter] = useState<EquipSlot | null>(null);
-  const [pick, setPick] = useState<string | null>(null);
+  const [pick, setPick] = useState<Pick>(null);
   const [mode, setMode] = useState<'bolsa' | 'forja'>('bolsa');
   const [msg, setMsg] = useState<string | null>(null);
+  const detail = useRef<HTMLElement>(null);
   const awakened = c?.stage === 'awakened';
-  // a mochila do vale entra na carga: carrega quando o painel abre
-  useEffect(() => { if (awakened && !useEcos.getState().view) void useEcos.getState().refresh(); }, [awakened]);
+  // a mochila da coleta entra na carga e as ferramentas vêm do Pacto: carrega quando o painel abre
+  useEffect(() => {
+    if (!awakened) return;
+    if (!useEcos.getState().view) void useEcos.getState().refresh();
+    if (!usePacto.getState().view) void usePacto.getState().refresh();
+  }, [awakened]);
+  useEffect(() => { if (c?.id) useToolBelt.getState().load(c.id); }, [c?.id]);
+  useEffect(() => { if (pick) detail.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }, [pick]);
 
   async function save(next: Equipped) {
     setEquipped(next);
@@ -66,8 +83,9 @@ export function EquipmentPanel() {
   const bonus = equipmentBonus(equipped, items);
   const sets = elementSets(equipped, items);
   const atk = basicAttack(bySlug(equipped.mainhand) ?? null, species);
+  const tools = ownedToolPieces(equipment);
 
-  // todas as linhas da bolsa, por categoria
+  // todas as linhas da bolsa
   const rows = useMemo<Row[]>(() => {
     const out: Row[] = carry.entries.map((e) => ({
       key: e.key, label: e.label, icon: e.item ? TYPE_ICON[e.item.type] : e.category === 'material' ? '🧩' : '🎁', qty: e.qty, unitWeight: e.unitWeight,
@@ -76,18 +94,19 @@ export function EquipmentPanel() {
     for (const f of carry.forged) out.push({ key: f.slug, label: f.name, icon: TYPE_ICON[f.type], qty: 1, unitWeight: itemWeight(f), category: categoryOf(f.type), item: f, entry: null, rarity: f.rarity, essence: f.essence, description: f.description });
     // peças de evento ou do modo de teste que não estão na bolsa
     for (const it of items) if (isWearable(it.type) && !out.some((r) => r.key === it.slug) && ownsItem(it.slug)) out.push({ key: it.slug, label: it.name, icon: TYPE_ICON[it.type], qty: 1, unitWeight: itemWeight(it), category: categoryOf(it.type), item: it, entry: null, rarity: it.rarity, essence: it.essence, description: it.description });
-    for (const v of carry.vale) out.push({ key: 'vale:' + v.key, label: v.label, icon: v.icon, qty: v.qty, unitWeight: v.unitWeight, category: 'material', item: null, entry: null, vale: true, description: 'Da mochila de coleta (vai para receitas e para a Oficina).' });
+    for (const v of carry.vale) out.push({ key: 'vale:' + v.key, label: v.label, icon: v.icon, qty: v.qty, unitWeight: v.unitWeight, category: 'material', item: null, entry: null, vale: true, description: 'Da mochila de coleta (vai para receitas, para a Oficina e para o refino na Casa dos Ecos).' });
     return out;
   }, [carry, items]);
-  const shown = rows.filter((r) => r.category === tab && (!slotFilter || (r.item && slotsFor(r.item.type).includes(slotFilter))));
-  const sel = rows.find((r) => r.key === pick) ?? null;
-  const count = (k: ItemCategory) => rows.filter((r) => r.category === k).reduce((t, r) => t + r.qty, 0);
+  const q = query.trim().toLowerCase();
+  const shown = rows.filter((r) => (filter === 'tudo' || r.category === filter) && (!slotFilter || (r.item && slotsFor(r.item.type).includes(slotFilter))) && (!q || r.label.toLowerCase().includes(q)));
+  const sel = pick?.kind === 'item' ? rows.find((r) => r.key === pick.key) ?? null : null;
+  const count = (k: Filter) => rows.filter((r) => k === 'tudo' || r.category === k).reduce((t, r) => t + r.qty, 0);
 
   const clickSlot = (s: EquipSlot) => {
     const it = bySlug(equipped[s]);
     setSlotFilter(slotFilter === s ? null : s);
-    setTab(s === 'mainhand' ? 'arma' : s === 'offhand' && it && ITEM_TYPES[it.type].weapon ? 'arma' : 'equipamento');
-    if (it) setPick(it.slug);
+    setFilter(s === 'mainhand' ? 'arma' : s === 'offhand' && it && ITEM_TYPES[it.type].weapon ? 'arma' : 'equipamento');
+    setPick(it ? { kind: 'item', key: it.slug } : null);
   };
   const doEquip = (it: ItemDef, slot?: EquipSlot) => { setMsg(null); void save(equip(equipped, it, items, slot)); };
   const doUnequip = (slot: EquipSlot) => { setMsg(null); void save(unequip(equipped, slot)); };
@@ -102,8 +121,8 @@ export function EquipmentPanel() {
   const slotCell = (s: EquipSlot) => {
     const it = bySlug(equipped[s]);
     return (
-      <button key={s} type="button" className={'doll-slot' + (slotFilter === s ? ' on' : '') + (it ? ' has' : '')} onClick={() => clickSlot(s)}
-        style={it ? { borderColor: RARITIES[it.rarity].color } : undefined} aria-label={`${SLOTS_EQ[s].label}: ${it ? it.name : 'vazio'}`} title={SLOTS_EQ[s].label}>
+      <button key={s} type="button" className={'inv-slot' + (slotFilter === s ? ' on' : '') + (it ? ' has' : '')} onClick={() => clickSlot(s)}
+        style={it ? { ['--r' as string]: RARITIES[it.rarity].color } : undefined} aria-label={`${SLOTS_EQ[s].label}: ${it ? it.name : 'vazio'}`} title={it ? `${SLOTS_EQ[s].label}: ${it.name}` : SLOTS_EQ[s].label}>
         <span className="ic" aria-hidden>{it ? TYPE_ICON[it.type] : SLOT_ICON[s]}</span>
         <small>{it ? it.name : SLOTS_EQ[s].short}</small>
         {it?.essence && <i className="el" style={{ background: ELEMENTS[it.essence].glow }} aria-hidden />}
@@ -111,8 +130,47 @@ export function EquipmentPanel() {
     );
   };
 
+  const toolCell = (t: ToolKey) => {
+    const piece = tools[t], on = !!piece && !beltOff[t];
+    const open = pick?.kind === 'tool' && pick.tool === t;
+    return (
+      <button key={t} type="button" className={'inv-tool' + (piece ? ' has' : '') + (on ? ' on' : '') + (open ? ' sel' : '')} onClick={() => setPick(open ? null : { kind: 'tool', tool: t })}
+        aria-label={`${TOOLS[t].label}: ${piece ? (on ? 'no cinto' : 'guardada') : 'não tem'}`}>
+        <span className="ic" aria-hidden>{TOOLS[t].icon}</span>
+        <small>{TOOLS[t].label.split(' ')[0]}</small>
+        {piece && <span className="dur" aria-hidden><i style={{ width: `${Math.round((piece.durability / Math.max(1, piece.maxDurability)) * 100)}%` }} /></span>}
+        {on && <em className="worn" aria-hidden>✓</em>}
+      </button>
+    );
+  };
+
+  const toolDetail = (t: ToolKey) => {
+    const piece = tools[t], on = !!piece && !beltOff[t];
+    return (
+      <article className="inv-detail" ref={detail} aria-label={TOOLS[t].label}>
+        <header>
+          <span className="ic" aria-hidden>{TOOLS[t].icon}</span>
+          <div>
+            <strong>{piece?.name ?? TOOLS[t].label}</strong>
+            <small>Ferramenta de coleta{piece ? ` · durabilidade ${piece.durability}/${piece.maxDurability}` : ' · você ainda não tem'}</small>
+          </div>
+          <button type="button" className="close" aria-label="Fechar" onClick={() => setPick(null)}>×</button>
+        </header>
+        <p>{TOOL_INFO[t].use}</p>
+        {piece ? (
+          <>
+            <p className="hint">{on ? 'No cinto: vai para a mão quando a coleta pede esta ferramenta. Cada uso gasta 1 de durabilidade.' : 'Guardada: as coletas que pedem esta ferramenta ficam bloqueadas até você equipar.'}</p>
+            <div className="row">
+              <button type="button" className={on ? 'ghost' : 'primary'} onClick={() => useToolBelt.getState().set(t, !on)}>{on ? 'Tirar do cinto' : 'Equipar no cinto'}</button>
+            </div>
+          </>
+        ) : <p className="hint">Onde conseguir: {TOOL_INFO[t].where}</p>}
+      </article>
+    );
+  };
+
   return (
-    <div className="bag-panel">
+    <div className="bag-panel inv">
       {canForge(species) && (
         <nav className="st-tabs" aria-label="Bolsa ou Forja">
           <button className={mode === 'bolsa' ? 'on' : ''} onClick={() => setMode('bolsa')}>Bolsa e equipamento</button>
@@ -126,13 +184,23 @@ export function EquipmentPanel() {
         </div>
       ) : (
         <>
-          <section className="doll" aria-label="Equipamento">
-            <div className="doll-col">{EQUIP_SLOTS.slice(0, 4).map(slotCell)}</div>
-            <div className="doll-mid">
-              <div className="doll-atk"><b>{atk.label}</b>{atk.affinity > 1 && <em> afinidade +5%</em>}<small>alcance {String(atk.range).replace('.', ',')} m{atk.ranged === 'charged' ? ' · segure para carregar' : ''}</small></div>
-              <div className="doll-bonus">{Object.entries(bonus).filter(([, v]) => v).map(([k, v]) => <span key={k}>{ATTR[k]} {v! > 0 ? '+' : ''}{String(v).replace('.', ',')}%</span>)}{!Object.values(bonus).some(Boolean) && <span className="hint">Sem bônus</span>}</div>
+          <div className={'inv-carry ' + carry.load.level} title={LOAD_LABEL[carry.load.level]}>
+            <span><b>Carga</b> {kg(carry.carried)} / {kg(carry.capacity)}</span>
+            <div className="bar" role="progressbar" aria-label="Carga" aria-valuemin={0} aria-valuemax={carry.capacity} aria-valuenow={carry.carried}><i style={{ width: `${Math.min(100, carry.load.ratio * 100)}%` }} /></div>
+            {carry.load.level !== 'leve' && <small>{LOAD_LABEL[carry.load.level]}</small>}
+          </div>
+
+          <section className="inv-card" aria-labelledby="inv-eq">
+            <h4 id="inv-eq">Equipado</h4>
+            <div className="inv-slots">{EQUIP_SLOTS.map(slotCell)}</div>
+            <div className="inv-atk">
+              <span className="atk"><b>{atk.label}</b> · alcance {String(atk.range).replace('.', ',')} m{atk.affinity > 1 ? ' · afinidade +5%' : ''}{atk.ranged === 'charged' ? ' · segure para carregar' : ''}</span>
+              <span className="chips">
+                {Object.entries(bonus).filter(([, v]) => v).map(([k, v]) => <em key={k}>{ATTR[k]} {pct(v!)}</em>)}
+                {!Object.values(bonus).some(Boolean) && <em className="none">Sem bônus de atributo</em>}
+              </span>
               {sets.length > 0 && (
-                <ul className="doll-sets">
+                <ul className="inv-sets">
                   {sets.map((s) => (
                     <li key={s.element} className={s.tier ? 'on' : ''} title={ELEMENT_SETS[s.element].note}>
                       <i style={{ background: ELEMENTS[s.element].glow }} aria-hidden /> {ELEMENT_SETS[s.element].label} {s.pieces}/{s.next ?? SET_TIERS[SET_TIERS.length - 1].pieces}
@@ -141,45 +209,51 @@ export function EquipmentPanel() {
                   ))}
                 </ul>
               )}
-              <div className={'carry ' + carry.load.level} title={LOAD_LABEL[carry.load.level]}>
-                <span>Carga {kg(carry.carried)} / {kg(carry.capacity)}</span>
-                <div className="bar" role="progressbar" aria-valuemin={0} aria-valuemax={carry.capacity} aria-valuenow={carry.carried}><i style={{ width: `${Math.min(100, carry.load.ratio * 100)}%` }} /></div>
-                {carry.load.level !== 'leve' && <small>{LOAD_LABEL[carry.load.level]}</small>}
-              </div>
             </div>
-            <div className="doll-col">{EQUIP_SLOTS.slice(4).map(slotCell)}</div>
           </section>
 
-          <nav className="bag-tabs" role="tablist" aria-label="Categorias da bolsa">
-            {TABS.map((k) => (
-              <button key={k} type="button" role="tab" aria-selected={tab === k} className={'chip' + (tab === k ? ' on' : '')} onClick={() => { setTab(k); setSlotFilter(null); }} title={ITEM_CATEGORIES[k].hint}>
-                {ITEM_CATEGORIES[k].icon} {ITEM_CATEGORIES[k].label} <em>{count(k)}</em>
-              </button>
-            ))}
-          </nav>
-          {slotFilter && <p className="hint">Mostrando o que entra em <b>{SLOTS_EQ[slotFilter].label}</b> <button className="link" onClick={() => setSlotFilter(null)}>ver tudo</button></p>}
-          {msg && <p className="msg err" role="alert">{msg}</p>}
+          <section className="inv-card" aria-labelledby="inv-tools">
+            <h4 id="inv-tools">Ferramentas <small>para a coleta</small></h4>
+            <div className="inv-tools">{TOOL_ORDER.map(toolCell)}</div>
+          </section>
+          {pick?.kind === 'tool' && toolDetail(pick.tool)}
 
-          <ul className="bag-grid">
-            {shown.map((r) => {
-              const on = r.item ? !!slotOf(r.item.slug) : false;
-              return (
-                <li key={r.key}>
-                  <button type="button" className={'bag-item' + (pick === r.key ? ' sel' : '') + (on ? ' on' : '')} onClick={() => setPick(pick === r.key ? null : r.key)} style={r.rarity ? { borderColor: RARITIES[r.rarity].color } : undefined}>
-                    <span className="ic" aria-hidden>{r.icon}</span>
-                    {r.qty > 1 && <em className="qty">{r.qty}</em>}
-                    {on && <em className="worn" aria-label="equipado">E</em>}
-                    {r.essence && <i className="el" style={{ background: ELEMENTS[r.essence].glow }} aria-hidden />}
-                    <small>{r.label}</small>
-                  </button>
-                </li>
-              );
-            })}
-            {!shown.length && <li className="empty">{tab === 'material' ? 'Nada ainda. Monstros soltam materiais e a coleta pelo mundo dá madeira, pedra e minério.' : tab === 'diversos' ? 'Nada ainda. Comida, chaves e lembranças aparecem aqui.' : slotFilter ? 'Nenhuma peça sua entra neste espaço.' : 'Nenhuma peça ainda. Peças nascem na Forja (Taurinas) ou caem de monstros.'}</li>}
-          </ul>
+          <section className="inv-card inv-bag" aria-labelledby="inv-bag">
+            <h4 id="inv-bag">Bolsa</h4>
+            <div className="inv-tools-bar">
+              <input type="search" className="inv-search" placeholder="Buscar na bolsa…" value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Buscar na bolsa" />
+            </div>
+            <nav className="inv-filters" role="tablist" aria-label="Categorias da bolsa">
+              {FILTERS.map((k) => (
+                <button key={k} type="button" role="tab" aria-selected={filter === k} className={filter === k ? 'on' : ''} onClick={() => { setFilter(k); setSlotFilter(null); }} title={k === 'tudo' ? 'Tudo o que está na bolsa' : ITEM_CATEGORIES[k].hint}>
+                  {FILTER_LABEL[k]} <em>{count(k)}</em>
+                </button>
+              ))}
+            </nav>
+            {slotFilter && <p className="hint">Mostrando o que entra em <b>{SLOTS_EQ[slotFilter].label}</b>. <button className="link" onClick={() => setSlotFilter(null)}>Ver tudo</button></p>}
+            {msg && <p className="msg err" role="alert">{msg}</p>}
+            <ul className="inv-grid">
+              {shown.map((r) => {
+                const on = r.item ? !!slotOf(r.item.slug) : false, open = pick?.kind === 'item' && pick.key === r.key;
+                return (
+                  <li key={r.key}>
+                    <button type="button" className={'inv-item' + (open ? ' sel' : '') + (on ? ' on' : '')} onClick={() => setPick(open ? null : { kind: 'item', key: r.key })}
+                      style={r.rarity ? { ['--r' as string]: RARITIES[r.rarity].color } : undefined} title={r.label}>
+                      <span className="ic" aria-hidden>{r.icon}</span>
+                      {r.qty > 1 && <em className="qty">{r.qty}</em>}
+                      {on && <em className="worn" aria-label="equipado">E</em>}
+                      {r.essence && <i className="el" style={{ background: ELEMENTS[r.essence].glow }} aria-hidden />}
+                      <small>{r.label}</small>
+                    </button>
+                  </li>
+                );
+              })}
+              {!shown.length && <li className="empty">{q ? 'Nada com esse nome.' : filter === 'material' ? 'Nada ainda. Monstros soltam materiais, e a coleta pelo mundo dá madeira, pedra e minério.' : filter === 'diversos' ? 'Nada ainda. Comida, chaves e lembranças aparecem aqui.' : slotFilter ? 'Nenhuma peça sua entra neste espaço.' : filter === 'tudo' ? 'A bolsa está vazia.' : 'Nenhuma peça ainda. Peças nascem na Forja (Taurinas) ou caem de monstros.'}</li>}
+            </ul>
+          </section>
 
           {sel && (
-            <article className="bag-detail" aria-label={sel.label}>
+            <article className="inv-detail" ref={detail} aria-label={sel.label}>
               <header>
                 <span className="ic" aria-hidden>{sel.icon}</span>
                 <div>
@@ -210,12 +284,11 @@ export function EquipmentPanel() {
                     {sel.qty > 1 && !(sel.item && slotOf(sel.item.slug)) && <button className="ghost" onClick={() => void discard(sel, sel.qty)}>Jogar fora todos</button>}
                   </>
                 )}
-                {sel.vale && <button className="ghost" onClick={() => useGame.getState().setTab('ecos')}>Abrir a Coleta</button>}
               </div>
             </article>
           )}
 
-          {tab === 'diversos' && <Collection inv={inv} />}
+          {(filter === 'diversos' || filter === 'tudo') && <Collection inv={inv} />}
         </>
       )}
     </div>
@@ -229,8 +302,8 @@ function Collection({ inv }: { inv: { item_key: string }[] }) {
   const missing = slots.filter((r) => !inv.some((i) => i.item_key === r.item));
   if (!missing.length) return null;
   return (
-    <>
-      <h3 className="rare-title">Descobertas que faltam <small>{slots.length - missing.length}/{slots.length}</small></h3>
+    <section className="inv-card">
+      <h4>Descobertas que faltam <small>{slots.length - missing.length}/{slots.length}</small></h4>
       <div className="inventory">
         {missing.map((r) => (
           <div key={r.item} className="slot" title="Ainda não descoberto">
@@ -240,6 +313,6 @@ function Collection({ inv }: { inv: { item_key: string }[] }) {
           </div>
         ))}
       </div>
-    </>
+    </section>
   );
 }

@@ -8,7 +8,7 @@ import { create } from 'zustand';
 import * as THREE from 'three';
 import {
   MATERIALS, NODE_KINDS, approachOf, nodeName, parseBatchKey, abundanceNow, atLeast, suggestGather, SEIVA_AZUL, PERCEPTION_R,
-  CATEGORIES, BAND_LABEL, PROP_LABEL, superiorBlockFor, type SpeciesKey,
+  CATEGORIES, BAND_LABEL, PROP_LABEL, superiorBlockFor, TOOLS, type SpeciesKey, type ToolKey,
   type GatheringIntent, type ResourceNode, type MaterialBatch, type Suggestion, type GatherKind, type ResCategory, type PropKey, type Band,
   pulseTimes, gradeOf, COMPANION_TUNE, TUNE_PULSES, type TuneGrade, type TuneResult,
 } from '@rules';
@@ -25,6 +25,12 @@ export interface Run { node: string; approach: string; request: string; phase: R
 export interface Objective { label: string; qty: number; match: { category?: ResCategory; materials?: string[]; prop?: PropKey; min?: Band }; source: 'receita' | 'obra' | 'intencao' }
 export interface Recent { key: string; qty: number; at: number }
 export interface JournalEntry { at: number; text: string; kind: 'clue' | 'gather' | 'craft' | 'obra' | 'jardim' | 'info' }
+
+/**
+ * Cinto de ferramentas (Inventário → Ferramentas): `get(tool)` diz se a ferramenta está equipada — true, false (tem e
+ * tirou do cinto) ou undefined (ainda não decidiu: vale como equipada). O Inventário liga isto.
+ */
+export const toolBelt: { get: (tool: ToolKey) => boolean | undefined } = { get: () => undefined };
 
 /** Onde o Companion está trabalhando (o modelo 3D olha para lá e faz a animação de coleta). */
 export const work = { on: false, at: new THREE.Vector3(), kind: '' };
@@ -65,6 +71,9 @@ interface EcosStore {
 const NET_ERR = /não respondeu|failed to fetch|network|conex/i;
 const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-8xxx-xxxxxxxxxxxx'.replace(/x/g, () => ((Math.random() * 16) | 0).toString(16)));
 let nextAttempt = 0, lastSuggest = '', myMove = -1, walkCheck = { at: 0, d: Infinity, tries: 0 };
+/** quando a ação entrou em "confirmando": se o servidor não responder, reenvia o mesmo pedido (não duplica) */
+let confirmAt = 0;
+const STUCK_MS = 12000;
 
 export const bagBatches = (v: EcosView | null): MaterialBatch[] => (v?.bag ?? []).map((b) => { const p = parseBatchKey(b.key); return p && b.qty > 0 ? { key: b.key, qty: b.qty, ...p } : null; }).filter((x): x is MaterialBatch => !!x);
 export const bagUsedOf = (v: EcosView | null) => (v?.bag ?? []).reduce((a, b) => a + Math.max(0, b.qty), 0);
@@ -92,7 +101,7 @@ export const classSource = { get: (): SpeciesKey | SpeciesKey[] | null => null }
 export function suggestionsNow(v: EcosView | null, intent: GatheringIntent): Suggestion[] {
   const cls = classSource.get();
   return suggestGather(intent, {
-    known: knownNow(v).filter(({ node }) => node.kind !== 'salgueiro' || amountOf(v, node) >= 6), bagFree: (v?.config.bag ?? 60) - bagUsedOf(v), tools: v?.profile.tools ?? [], knownMaterials: v?.profile.knownMaterials ?? [],
+    known: knownNow(v), bagFree: (v?.config.bag ?? 60) - bagUsedOf(v), tools: v?.profile.tools ?? [], knownMaterials: v?.profile.knownMaterials ?? [],
     clueNode: null, now: Date.now(),
   }).map((s) => { const b = superiorBlockFor(s.node.id, cls); return b && !s.blocked ? { ...s, blocked: b } : s; });
 }
@@ -168,7 +177,21 @@ export const useEcos = create<EcosStore>((set, get) => ({
     const n = findNode(node), ap = n && approachOf(n, approach);
     if (!n || !ap) return;
     if (!isAvailable(n)) { toast(n.time === 'noite' ? 'Esse recurso só aparece de noite.' : 'Esse recurso sumiu por agora.', 'warn'); return; }
-    if (n.kind === 'salgueiro' && amountOf(get().view, n) < 6) { toast('O salgueiro está se recuperando.', 'warn'); return; }
+    // confere antes de andar até lá: quanto resta e a ferramenta
+    const left = amountOf(get().view, n);
+    if (left < ap.cost) {
+      const perUnit = 60 / Math.max(0.01, NODE_KINDS[n.kind].regenPerHour), min = Math.ceil((ap.cost - left) * perUnit);
+      toast(`${nodeName(n)}: resta ${Math.floor(left)} e "${ap.label}" precisa de ${ap.cost}. Volta em ~${min >= 90 ? Math.round(min / 60) + ' h' : min + ' min'}.`, 'warn');
+      return;
+    }
+    if (ap.tool && !(get().view?.profile.tools ?? []).includes(ap.tool)) {
+      toast(`Precisa de ${TOOLS[ap.tool].label}: compre na Loja de Equipamentos de Áster ou encomende a uma Taurina.`, 'warn');
+      return;
+    }
+    if (ap.tool && toolBelt.get(ap.tool) === false) {
+      toast(`Equipe ${TOOLS[ap.tool].label} no Inventário (Ferramentas) para usar.`, 'warn');
+      return;
+    }
     if (get().run && !['concluido', 'interrompido', 'erro'].includes(get().run!.phase)) get().cancel('trocou de ação');
     if (by === 'pessoa' && get().auto.on) get().stopIntent('você assumiu o controle');
     // o painel do recurso fecha: a barra de ação mostra o andamento (e a coleta da Companion não abre nada sozinha)
@@ -213,14 +236,16 @@ export const useEcos = create<EcosStore>((set, get) => ({
         if (dist <= reach || walkCheck.d === 0) {
           work.on = true; work.at.set(n.x, 0, n.z); work.kind = NODE_KINDS[n.kind].category;
           if (r.inspect) { set({ run: { ...r, phase: 'confirmando' } }); void doInspect(r); return; }
-          set({ run: { ...r, phase: 'confirmando' } });
+          set({ run: { ...r, phase: 'confirmando' } }); confirmAt = now;
           void start(r);
         }
       } else if (r.phase === 'coletando') {
         if (dist > (v?.config.reach ?? 4.5) + 1.5) { get().cancel('ela se afastou do recurso'); return; }
-        if (Date.now() >= r.started + r.seconds * 1000 && now >= nextAttempt) { set({ run: { ...r, phase: 'confirmando' } }); void finish(r); }
-      } else if (r.phase === 'confirmando' && s.conn === 'perdida' && now >= nextAttempt && !r.inspect) {
-        void finish(r); // reconexão: reenvia o MESMO pedido
+        if (Date.now() >= r.started + r.seconds * 1000 && now >= nextAttempt) { set({ run: { ...r, phase: 'confirmando' } }); confirmAt = now; void finish(r); }
+      } else if (r.phase === 'confirmando' && !r.inspect && now >= nextAttempt && (s.conn === 'perdida' || now - confirmAt > STUCK_MS)) {
+        // reconexão ou servidor que não respondeu: reenvia o MESMO pedido (começar ou terminar)
+        confirmAt = now; nextAttempt = now + 3000;
+        if (r.started > 0) void finish(r); else void start(r);
       }
     }
     // Companion por intenção
@@ -264,7 +289,8 @@ async function start(r: Run) {
   try {
     const res = await S.getState().call('ecos.start', { request: r.request, node: r.node, approach: r.approach, x: companionFocus.x, z: companionFocus.z });
     const cur = S.getState().run;
-    if (!cur || cur.request !== r.request || cur.phase === 'interrompido') return;
+    // (um reenvio pode responder depois do primeiro: o que chegou primeiro vale)
+    if (!cur || cur.request !== r.request || cur.phase !== 'confirmando' || cur.started > 0) return;
     if (!res?.started) { nextAttempt = performance.now() + 3000; S.setState({ run: { ...cur, phase: 'andando' } }); return; }
     const k = NODE_KINDS[findNode(r.node)?.kind ?? 'erva'];
     playMaterialSound(k.category);

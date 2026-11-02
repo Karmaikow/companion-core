@@ -12,7 +12,7 @@ import {
   type ResourceNode, type Approach, type PropKey, type Band, type TuneGrade,
 } from '@rules';
 import {
-  useEcos, amountOf, bagUsedOf, bagBatches, matchesObjective, batchLabel, knownNow, suggestionsNow,
+  useEcos, toolBelt, amountOf, bagUsedOf, bagBatches, matchesObjective, batchLabel, knownNow, suggestionsNow,
   type RunPhase,
 } from '../ecos/ecosStore';
 import { findNode, ecosWorld } from '../ecos/worldNodes';
@@ -147,7 +147,9 @@ function ContextPanel() {
   const superior = superiorBlockFor(node.id, cls);
   const states = k.approaches.map((ap) => {
     if (superior) return superior;
-    if (ap.tool && !tools.includes(ap.tool)) return `precisa de ${TOOLS[ap.tool].label} (forjada por uma Taurina — encomende na Oficina)`;
+    if (ap.tool && !tools.includes(ap.tool)) return `precisa de ${TOOLS[ap.tool].label} (Loja de Equipamentos de Áster ou a Forja de uma Taurina)`;
+    if (ap.tool && toolBelt.get(ap.tool) === false) return `${TOOLS[ap.tool].label} está guardada: equipe no Inventário → Ferramentas`;
+    if (amount < ap.cost) return `resta ${Math.floor(amount)}; esta coleta precisa de ${ap.cost}`;
     const wait = msUntilAvailable(node, ap, view?.nodes[node.id] ?? null, now);
     if (wait > 0) return `esgotado: volta em ~${fmtTime(wait)}`;
     if (free < ap.yields.reduce((a, y) => a + y.qty[1], 0)) return 'mochila cheia (ou quase): libere espaço';
