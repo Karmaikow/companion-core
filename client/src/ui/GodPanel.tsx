@@ -7,7 +7,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   CITY_MARKERS, DEFAULT_CREATURES, ELEMENTS, COMPANION_ELEMENTS, GATES, GATE_IDS, ITEM_CATEGORIES, OUT_ARRIVAL, OUT_GATE_ARRIVE, SPECIES, categoryOf, cityArrival, creatureStatsAt, outskirtsGatePoint,
-  type CityLayout, type CompanionWorld, type Element, type ItemCategory, type SpeciesKey,
+  NODE_KINDS, CATEGORIES, CHUNK, chunkResources, nodeAvailable, nodeEnvAt, nodeName,
+  type CityLayout, type CompanionWorld, type Element, type ItemCategory, type SpeciesKey, type WorldNode,
 } from '@rules';
 import { supabase } from '../backend/online';
 import { useGame } from '../store';
@@ -19,9 +20,11 @@ import { useSkills } from './skillState';
 import { useCompanionModels } from './companionModels';
 import { useGod, type TpPlace } from './godMode';
 import { usePacto, uuid } from '../pacto/pactoStore';
+import { useEcos, amountOf } from '../ecos/ecosStore';
+import { envNow } from '../ecos/worldNodes';
 
-type Tab = 'poderes' | 'teleporte' | 'monstros' | 'itens' | 'modelo' | 'habilidades' | 'perfil';
-const TABS: [Tab, string][] = [['poderes', 'Poderes'], ['teleporte', 'Teleporte'], ['monstros', 'Monstros'], ['itens', 'Itens'], ['modelo', 'Modelo 3D'], ['habilidades', 'Habilidades'], ['perfil', 'Classe e essência']];
+type Tab = 'poderes' | 'teleporte' | 'coleta' | 'monstros' | 'itens' | 'modelo' | 'habilidades' | 'perfil';
+const TABS: [Tab, string][] = [['poderes', 'Poderes'], ['teleporte', 'Teleporte'], ['coleta', 'Coleta'], ['monstros', 'Monstros'], ['itens', 'Itens'], ['modelo', 'Modelo 3D'], ['habilidades', 'Habilidades'], ['perfil', 'Classe e essência']];
 const DEV_FORCE = typeof location !== 'undefined' && import.meta.env.DEV && new URLSearchParams(location.search).has('god');
 const PLACE_LABEL: Record<TpPlace, string> = { refuge: 'Refúgio', world: 'Companion World', arredores: 'Arredores de Áster', cidade: 'Cidade de Áster' };
 interface Where { place: TpPlace; world: CompanionWorld; city: CityLayout }
@@ -65,6 +68,7 @@ function GodPanel({ inWorld, where }: { inWorld: boolean; where: Where }) {
         <div className="god-body">
           {tab === 'poderes' && <Powers />}
           {tab === 'teleporte' && <Teleport {...where} />}
+          {tab === 'coleta' && <Gather world={where.world} place={where.place} />}
           {tab === 'monstros' && <Monsters inWorld={inWorld} />}
           {tab === 'itens' && <Items />}
           {tab === 'modelo' && <Models />}
@@ -172,6 +176,84 @@ function Teleport({ place, world, city }: Where) {
             </li>
           )),
         ])}
+      </ul>
+    </div>
+  );
+}
+
+/**
+ * Coleta: o recurso mais perto de cada tipo (os do mundo têm lugar fixo e o servidor confere que existem, então o
+ * GOD acha e leva até lá em vez de inventar um). "À vista" respeita horário, clima e desbloqueio de agora.
+ */
+const GATHER_R = 40; // em chunks (~640 m para cada lado)
+type Hit = { n: WorldNode; d: number; now: boolean };
+function Gather({ world, place }: { world: CompanionWorld; place: TpPlace }) {
+  const toast = useGame((s) => s.toast);
+  const view = useEcos((s) => s.view);
+  const [onlyNow, setOnlyNow] = useState(true);
+  const [seed, setSeed] = useState(0);
+  const [found, setFound] = useState<{ best: Map<string, Hit>; bestNow: Map<string, Hit>; ring: number; done: boolean }>({ best: new Map(), bestNow: new Map(), ring: 0, done: false });
+  // busca em anéis em volta do Companion, um pouco por vez (sem travar a tela); para quando já não dá para achar nada
+  // mais perto do que o que já foi achado de todos os tipos
+  useEffect(() => {
+    let alive = true;
+    const from = place === 'world' ? { x: companionFocus.x, z: companionFocus.z } : { x: 0, z: 0 };
+    const env = envNow() ?? nodeEnvAt(world, Date.now(), undefined, useEcos.getState().view?.profile.unlocks ?? []);
+    const best = new Map<string, Hit>(), bestNow = new Map<string, Hit>();
+    const cx0 = Math.floor(from.x / CHUNK), cz0 = Math.floor(from.z / CHUNK), all = Object.keys(NODE_KINDS).length;
+    // as casas de cada anel, em ordem (o anel 0 é a do Companion)
+    const cells = function* () {
+      for (let r = 0; r <= GATHER_R; r++) for (let dz = -r; dz <= r; dz++) for (let dx = -r; dx <= r; dx++) if (Math.max(Math.abs(dx), Math.abs(dz)) === r) yield [dx, dz, r];
+    }();
+    let ring = 0, end = false;
+    const step = () => {
+      if (!alive) return;
+      const t0 = performance.now();
+      while (performance.now() - t0 < 10) {
+        const c = cells.next();
+        if (c.done) { end = true; ring = GATHER_R + 1; break; }
+        const [dx, dz, r] = c.value; ring = r;
+        for (const n of chunkResources(world, cx0 + dx, cz0 + dz)) {
+          const d = Math.hypot(n.x - from.x, n.z - from.z), now = nodeAvailable(n, env);
+          if (!best.has(n.kind) || d < best.get(n.kind)!.d) best.set(n.kind, { n, d, now });
+          if (now && (!bestNow.has(n.kind) || d < bestNow.get(n.kind)!.d)) bestNow.set(n.kind, { n, d, now });
+        }
+      }
+      const done = end || bestNow.size >= all;
+      setFound({ best: new Map(best), bestNow: new Map(bestNow), ring, done });
+      if (!done) window.setTimeout(step, 0);
+    };
+    step();
+    return () => { alive = false; };
+  }, [world, place, seed]);
+  const kinds = Object.keys(NODE_KINDS).filter((k) => found.best.has(k) || !found.done);
+  const go = (n: WorldNode) => {
+    useGod.getState().teleportTo('world', n.x + 1.6, n.z + 1.2);
+    // já abre o painel do recurso ao chegar
+    window.setTimeout(() => useEcos.getState().select(n.id), 1500);
+    toast(`Teleporte: ${nodeName(n)}.`, 'gold');
+  };
+  return (
+    <div className="god-col">
+      <p className="god-hint">O recurso mais perto de cada tipo, a partir de {place === 'world' ? 'onde você está' : 'o centro do Companion World'} (até ~{GATHER_R * CHUNK} m). Ir leva para o lado dele e abre o painel.{found.done ? '' : ` Procurando… ${Math.min(GATHER_R, found.ring) * CHUNK} m`}</p>
+      <div className="god-row">
+        <label><input type="checkbox" checked={onlyNow} onChange={(e) => setOnlyNow(e.target.checked)} /> Só os à vista agora (horário, clima e missões)</label>
+        <button onClick={() => setSeed((n) => n + 1)}>Procurar de novo</button>
+      </div>
+      <ul className="god-items">
+        {kinds.map((k) => {
+          const hit = (onlyNow ? found.bestNow : found.best).get(k);
+          const K = NODE_KINDS[k];
+          if (!hit) return <li key={k}><span><b>{CATEGORIES[K.category].icon} {K.name}</b><small>{found.done ? 'nada à vista agora (depende de horário, clima ou missão)' : 'procurando…'}</small></span></li>;
+          const amt = amountOf(view, hit.n);
+          return (
+            <li key={k}>
+              <span><b>{CATEGORIES[K.category].icon} {K.name}</b><small>{Math.round(hit.d)} m · resta {Math.floor(amt)}/{K.capacity}{hit.now ? '' : ' · fora de hora agora'}</small></span>
+              <button onClick={() => go(hit.n)}>Ir</button>
+            </li>
+          );
+        })}
+        {!kinds.length && <li className="god-hint">Nenhum recurso no alcance.</li>}
       </ul>
     </div>
   );
