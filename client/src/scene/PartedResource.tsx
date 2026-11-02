@@ -15,12 +15,50 @@ import { NODE_KINDS } from '@rules';
 import { useEcos } from '../ecos/ecosStore';
 import { fitTextures } from './fitTextures';
 
-export interface PartedSpec { url: string; /** maior medida do modelo, em metros */ size: number }
+export interface PartedSpec { url: string; /** maior medida do modelo, em metros */ size: number; /** cor das runas e cristais (troca o azul do modelo) */ tint?: string }
 /** Recursos que já têm modelo; os outros continuam com o desenho por código. */
 export const RESOURCE_MODELS: Partial<Record<string, PartedSpec>> = {
   salgueiro: { url: '/ecos_salgueiro.glb', size: 3.2 },
   erva: { url: '/ecos_erva.glb', size: 0.85 },
+  // pedra rúnica: a mesma pedra, com runas e cristais na cor do material
+  'pedra-inscrita': { url: '/ecos_runa.glb', size: 1.6, tint: '#b98cff' },
+  geodo: { url: '/ecos_runa.glb', size: 1.3, tint: '#5cc6ff' },
+  cobre: { url: '/ecos_runa.glb', size: 1.4, tint: '#3fd0a0' },
+  'veio-prateado': { url: '/ecos_runa.glb', size: 1.4, tint: '#e6ecf5' },
 };
+
+/**
+ * Troca o azul das runas e dos cristais pela cor pedida, pixel a pixel (a pedra cinza e o musgo ficam): matiz e
+ * luz vêm da cor nova, o desenho e o sombreado ficam os do modelo. Devolve a textura nova e quanto dela mudou.
+ */
+const tinted = new Map<string, { tex: THREE.Texture; share: number }>();
+function tintTexture(t: THREE.Texture, hex: string): { tex: THREE.Texture; share: number } {
+  const key = t.uuid + hex;
+  const hit = tinted.get(key);
+  if (hit) return hit;
+  const img = t.image as CanvasImageSource & { width: number; height: number };
+  const c = document.createElement('canvas'); c.width = img.width; c.height = img.height;
+  const ctx = c.getContext('2d', { willReadFrequently: true })!;
+  ctx.drawImage(img, 0, 0);
+  const data = ctx.getImageData(0, 0, c.width, c.height), d = data.data;
+  const to = new THREE.Color(hex), hsl = { h: 0, s: 0, l: 0 }; to.getHSL(hsl);
+  const px = new THREE.Color(), p = { h: 0, s: 0, l: 0 };
+  let changed = 0;
+  for (let i = 0; i < d.length; i += 4) {
+    px.setRGB(d[i] / 255, d[i + 1] / 255, d[i + 2] / 255).getHSL(p);
+    // azul/ciano saturado: é runa ou cristal
+    if (p.h < 0.47 || p.h > 0.72 || p.s < 0.3 || p.l < 0.12) continue;
+    // cor nova com a luz do pixel (prata: quase sem saturação)
+    px.setHSL(hsl.h, Math.min(1, hsl.s * (0.6 + p.s * 0.6)), Math.min(0.95, p.l * (0.55 + hsl.l)));
+    d[i] = px.r * 255; d[i + 1] = px.g * 255; d[i + 2] = px.b * 255;
+    changed++;
+  }
+  ctx.putImageData(data, 0, 0);
+  const tex = t.clone(); tex.source = new THREE.Source(c); tex.needsUpdate = true;
+  const out = { tex, share: changed / (d.length / 4) };
+  tinted.set(key, out);
+  return out;
+}
 /** Até onde o modelo detalhado aparece; mais longe, o desenho simples (bem mais leve). */
 export const PARTED_NEAR = 22;
 
@@ -30,7 +68,7 @@ const prepared = new Map<string, Prepared>();
 
 /** Modelo normalizado (tamanho, pé no chão, centrado) e a ordem em que as partes saem. Uma vez por arquivo. */
 function prepare(scene: THREE.Object3D, spec: PartedSpec): Prepared {
-  const key = spec.url + '|' + spec.size;
+  const key = spec.url + '|' + spec.size + '|' + (spec.tint ?? '');
   const hit = prepared.get(key);
   if (hit) return hit;
   const root = new THREE.Group();
@@ -43,6 +81,16 @@ function prepare(scene: THREE.Object3D, spec: PartedSpec): Prepared {
   root.updateWorldMatrix(true, true);
   const meshes: THREE.Mesh[] = [];
   obj.traverse((o) => { if ((o as THREE.Mesh).isMesh) meshes.push(o as THREE.Mesh); });
+  // runas e cristais na cor deste recurso; as partes que são quase só cristal ganham um brilho leve
+  if (spec.tint) for (const m of meshes) {
+    const mat = m.material as THREE.MeshStandardMaterial;
+    if (!mat.map) continue;
+    const { tex, share } = tintTexture(mat.map, spec.tint);
+    if (share === 0) continue;
+    const next = mat.clone(); next.map = tex;
+    if (share > 0.35) { next.emissive = new THREE.Color(spec.tint); next.emissiveMap = tex; next.emissiveIntensity = 0.35; }
+    m.material = next;
+  }
   const H = spec.size;
   const info = meshes.map((m, i) => {
     const b = new THREE.Box3().setFromObject(m), sz = b.getSize(new THREE.Vector3()), c = b.getCenter(new THREE.Vector3());

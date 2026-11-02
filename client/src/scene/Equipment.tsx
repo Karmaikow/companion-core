@@ -183,14 +183,14 @@ export function EquipmentLayer({ items, slots, bones, root, charge, modelKey, sh
 }
 
 /**
- * Ferramenta na mão durante a coleta. O machado tem modelo próprio; picareta, foice e cinzel usam por enquanto o
- * desenho de uma arma parecida (maça e faca) até chegarem os modelos.
+ * Ferramenta na mão durante a coleta: machado, foice (Scythe do pacote Quaternius) e, no lugar da picareta, o martelo
+ * pequeno do mesmo pacote até chegar um modelo próprio. O cinzel ainda usa o desenho de uma faca.
  */
 const like = (type: string) => DEFAULT_ITEMS.find((i) => i.type === type) ?? DEFAULT_ITEMS[0];
 const TOOL_VISUAL: Record<ToolKey, ItemDef> = {
   machado: { ...like('maca'), slug: 'gathering-axe-visual', model: { url: '/ecos_machado.glb' }, grip: { pos: [0, 0, 0], rot: [0, 0, 0], scale: 1 } },
-  picareta: { ...like('maca'), slug: 'gathering-pick-visual' },
-  faca: { ...like('faca'), slug: 'gathering-sickle-visual' },
+  picareta: { ...like('maca'), slug: 'gathering-pick-visual', model: { url: '/ecos_picareta.glb' }, grip: { pos: [0, 0, 0], rot: [0, 0, 0], scale: 1 } },
+  faca: { ...like('faca'), slug: 'gathering-sickle-visual', model: { url: '/ecos_foice.glb' }, grip: { pos: [0, 0, 0], rot: [0, 0, 0], scale: 1 } },
   cinzel: { ...like('faca'), slug: 'gathering-chisel-visual' },
 };
 export function GatheringTool({ tool, bones, root }: { tool: ToolKey; bones: GearBones | null; root: React.RefObject<THREE.Group | null> }) {

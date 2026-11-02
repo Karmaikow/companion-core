@@ -182,7 +182,7 @@ export const insideVale = (x: number, z: number, pad = 2) => Math.hypot(x - VALE
 export type Zone = 'bosque' | 'riacho' | 'afloramento' | 'margem-leste';
 export type ToolKey = 'faca' | 'machado' | 'picareta' | 'cinzel';
 export const TOOLS: Record<ToolKey, { label: string; icon: string }> = {
-  faca: { label: 'Faca de colheita', icon: '🔪' }, machado: { label: 'Machado', icon: '🪓' }, picareta: { label: 'Picareta', icon: '⛏️' }, cinzel: { label: 'Cinzel de Cobre', icon: '🛠️' },
+  faca: { label: 'Foice de colheita', icon: '🌾' }, machado: { label: 'Machado', icon: '🪓' }, picareta: { label: 'Picareta', icon: '⛏️' }, cinzel: { label: 'Cinzel de Cobre', icon: '🛠️' },
 };
 /** Kit inicial do explorador (o cinzel se fabrica). */
 /**
@@ -334,6 +334,14 @@ export const NODE_KINDS: Record<string, ResourceNodeKind> = {
     ],
   },
 };
+
+/**
+ * Toda coleta pede a sua ferramenta (equipada no cinto): a escrita na abordagem vence; sem ela, a do tipo de material.
+ * Os mágicos (a água do Remanso, a lágrima da Nascente) se colhem com as mãos. O líquen é fibra: vai na foice.
+ */
+export const CATEGORY_TOOL: Partial<Record<ResCategory, ToolKey>> = { madeira: 'machado', planta: 'faca', pedra: 'picareta', minerio: 'picareta', gema: 'picareta', caca: 'faca' };
+const KIND_TOOL: Record<string, ToolKey> = { 'liquen-dos-ventos': 'faca' };
+for (const k of Object.values(NODE_KINDS)) for (const a of k.approaches) if (!a.tool) a.tool = KIND_TOOL[k.kind] ?? CATEGORY_TOOL[k.category] ?? null;
 
 /** Viés de cada abordagem nas propriedades (escavar o veio dá cobre mais puro; lascas soltas são mais fracas). */
 const APPROACH_BIAS: Record<string, Partial<Record<PropKey, number>>> = {

@@ -335,6 +335,14 @@ export const NODE_KINDS: Record<string, ResourceNodeKind> = {
   },
 };
 
+/**
+ * Toda coleta pede a sua ferramenta (equipada no cinto): a escrita na abordagem vence; sem ela, a do tipo de material.
+ * Os mágicos (a água do Remanso, a lágrima da Nascente) se colhem com as mãos. O líquen é fibra: vai na foice.
+ */
+export const CATEGORY_TOOL: Partial<Record<ResCategory, ToolKey>> = { madeira: 'machado', planta: 'faca', pedra: 'picareta', minerio: 'picareta', gema: 'picareta', caca: 'faca' };
+const KIND_TOOL: Record<string, ToolKey> = { 'liquen-dos-ventos': 'faca' };
+for (const k of Object.values(NODE_KINDS)) for (const a of k.approaches) if (!a.tool) a.tool = KIND_TOOL[k.kind] ?? CATEGORY_TOOL[k.category] ?? null;
+
 /** Viés de cada abordagem nas propriedades (escavar o veio dá cobre mais puro; lascas soltas são mais fracas). */
 const APPROACH_BIAS: Record<string, Partial<Record<PropKey, number>>> = {
   'cobre/escavar': { pureza: 22 }, 'cobre/garimpar': { pureza: -12 }, 'cascalho/peneirar': { pureza: -18 },

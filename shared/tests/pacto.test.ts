@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   OFFICES, SOURCE_CLASS, canCompleteEquipment, canExtractSuperior, TRANSFORMATIONS, transformationById, checkTransformation, componentKey, parseComponentKey,
   BLUEPRINTS, blueprintById, forgePreview, assistPlan, recycleReturn, meetsRequirements, cancelSettlement, payout, DEFAULT_PACTO, resolvePacto, coreCost,
-  NODE_KINDS, VALE_NODES, essenceApplies, ESSENCE_CRAFT, DEFAULT_BARRIER, repairWithKit, lineageOf, officesOf, canGainForm, canGainEssence, LINEAGE_LIMITS,
+  NODE_KINDS, SHOP_GOODS, VALE_NODES, essenceApplies, ESSENCE_CRAFT, DEFAULT_BARRIER, repairWithKit, lineageOf, officesOf, canGainForm, canGainEssence, LINEAGE_LIMITS,
   type SpeciesKey, type SourceKind,
 } from '../rules/index.ts';
 
@@ -106,14 +106,18 @@ describe('Pacto: Forja (Corpo, Trama, Marca)', () => {
     expect(a.stats.defesa!).toBeGreaterThan(b.stats.defesa!);
     expect(['leve', 'medio', 'pesado'].indexOf(a.weight)).toBeGreaterThanOrEqual(['leve', 'medio', 'pesado'].indexOf(b.weight));
   });
-  it('projeto básico acessível só com coleta sem ferramenta (madeira de galhos + cobre garimpado)', () => {
+  it('projeto básico acessível com as ferramentas da loja (madeira de galhos + cobre garimpado)', () => {
     const bp = blueprintById('faca-de-colheita')!;
     const basic = [{ key: 'madeira-salgueiro|flexibilidade:media,resistencia:baixa', qty: 1 }, { key: 'minerio-cobre|pureza:baixa', qty: 1 }];
     expect(forgePreview(assistPlan(bp.id, basic)!, basic).ok).toBe(true);
-    // e esses materiais saem de abordagens sem ferramenta
-    const noTool = Object.values(NODE_KINDS).flatMap((k) => k.approaches.filter((a) => !a.tool && !k.source)).flatMap((a) => a.yields.map((y) => y.material));
-    expect(noTool).toContain('madeira-salgueiro');
-    expect(noTool).toContain('minerio-cobre');
+    // toda coleta pede ferramenta; esses materiais saem com as que a Loja de Equipamentos vende (sem precisar da Forja)
+    const shopTools = new Set(SHOP_GOODS.filter((g) => g.tool).map((g) => g.tool));
+    const fromShop = Object.values(NODE_KINDS).flatMap((k) => k.approaches.filter((a) => a.tool && shopTools.has(a.tool) && !k.source)).flatMap((a) => a.yields.map((y) => y.material));
+    expect(fromShop).toContain('madeira-salgueiro');
+    expect(fromShop).toContain('minerio-cobre');
+    // e nenhuma coleta comum fica sem ferramenta (só os mágicos, colhidos com as mãos)
+    const loose = Object.values(NODE_KINDS).filter((k) => k.category !== 'magico').flatMap((k) => k.approaches.filter((a) => !a.tool));
+    expect(loose).toEqual([]);
   });
   it('Guardião não depende de nenhuma fonte superior (alternativas comuns em todas as preparações)', () => {
     for (const t of TRANSFORMATIONS) {

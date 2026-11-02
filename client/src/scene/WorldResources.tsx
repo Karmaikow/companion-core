@@ -181,7 +181,7 @@ function ResourceTag({ node, amount, height }: { node: ResourceNode; amount: num
         <span className="res-pips" aria-label={`Resta ${left} de ${k.capacity}`}>
           {Array.from({ length: k.capacity }, (_, i) => <i key={i} className={i < left ? 'on' : ''} />)}
         </span>
-        <small>{left}/{k.capacity}{back ? ` · ${back}` : ''}</small>
+        {left < min && back && <small>{back}</small>}
       </div>
     </Html>
   );
