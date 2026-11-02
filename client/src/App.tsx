@@ -46,7 +46,7 @@ import { useHud } from './ui/hudLayout';
 import { VitalsBars, TouchMoves, FaintCounter } from './ui/VitalsHud';
 import { useSkillSync } from './ui/skillState';
 import { pressAttack, releaseAttack } from './scene/Combat';
-import { ownsItem } from './ui/EquipmentPanel';
+import { ownsItem, EquipmentPanel } from './ui/EquipmentPanel';
 import { useCarry } from './ui/bag';
 import { useToolBelt } from './ui/toolBelt';
 import { WeatherOverlay } from './ui/WeatherOverlay';
@@ -404,7 +404,7 @@ export function App() {
   const Panel = tab ? panel[tab] : null;
 
   return (
-    <div className={'app game-ui' + (tab && !minimized ? ' has-panel' : '') + (place === 'world' ? ' in-world' : '') + (model ? ' with-vitals' : '') + (touchLand ? ' touch-land' : '') + (hudEditing ? ' hud-editing' : '') + (railOpen ? ' rail-open' : '') + (chatOpen ? ' chat-open' : '')}>
+    <div className={'app game-ui' + (tab && tab !== 'inventory' && !minimized ? ' has-panel' : '') + (place === 'world' ? ' in-world' : '') + (model ? ' with-vitals' : '') + (touchLand ? ' touch-land' : '') + (hudEditing ? ' hud-editing' : '') + (railOpen ? ' rail-open' : '') + (chatOpen ? ' chat-open' : '')}>
       <div className="stage">
         <SafeStage>
         <Suspense fallback={null}>
@@ -539,7 +539,8 @@ export function App() {
             {model && !hudEditing && <div className="rail-group" role="group" aria-label="Administrador"><GodButton /></div>}
           </nav>
 
-          {Panel && tab && (
+          {tab === 'inventory' && <EquipmentPanel onClose={() => setTab(null)} />}
+          {Panel && tab && tab !== 'inventory' && (
             <section className={'panel deco panel-' + tab + (minimized ? ' is-minimized' : '')} aria-label={TABS.find((t) => t.key === tab)?.label}>
               <header>
                 <h2>{TABS.find((t) => t.key === tab)?.label}</h2>

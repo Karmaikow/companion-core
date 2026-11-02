@@ -1,8 +1,9 @@
 /**
- * Inventário: carga no topo; o que está equipado (os oito espaços e o golpe que eles dão); o cinto de ferramentas
- * (machado, picareta, foice e cinzel, que a coleta usa); e a bolsa com busca e filtro por categoria. Tocar num espaço
- * filtra a bolsa pelo que entra nele; tocar num item abre o detalhe com as ações (equipar, tirar, jogar fora).
- * A Taurina vê também a aba da Forja (que leva à Oficina do Pacto).
+ * Inventário como um livro aberto de pergaminho. Aba Sacola: na página da esquerda o retrato no centro com os oito
+ * espaços de equipamento em volta, a carga, o golpe e o cinto de ferramentas; na da direita a bolsa em grade (busca e
+ * filtro por categoria) e o detalhe do item tocado. Aba Ficha: o personagem e os números da build. Tocar num espaço
+ * filtra a bolsa pelo que entra nele. A Taurina vê também a aba Forja (leva à Oficina do Pacto). No celular, uma
+ * página por vez.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import './inventory.css';
@@ -10,9 +11,12 @@ import {
   TIERS, tierOf, tierBlock,
   ITEM_TYPES, ITEM_CATEGORIES, RARITIES, SLOTS_EQ, EQUIP_SLOTS, ELEMENTS, ELEMENT_SETS, SET_TIERS, QUEST_REWARDS, LOAD_LABEL, TOOLS,
   equip, unequip, equipmentBonus, elementSets, slotsFor, isWearable, canForge, basicAttack, itemWeight, categoryOf,
+  SPECIES, STAT_KEYS, STATS,
   type EquipSlot, type Equipped, type ItemCategory, type ItemDef, type ItemType, type BagEntry, type Element, type ToolKey,
 } from '@rules';
 import { useGame } from '../store';
+import { useBuild } from '../build/buildStore';
+import { combat } from '../build/combatStats';
 import { supabase } from '../backend/online';
 import { offhandMark, usePacto } from '../pacto/pactoStore';
 import { markSource } from '../scene/vitals';
@@ -44,7 +48,8 @@ interface Row { key: string; label: string; icon: string; qty: number; unitWeigh
 /** O que está aberto no detalhe: um item da bolsa ou uma ferramenta do cinto. */
 type Pick = { kind: 'item'; key: string } | { kind: 'tool'; tool: ToolKey } | null;
 
-export function EquipmentPanel() {
+/** Inventário em forma de livro aberto (pergaminho): `onClose` fecha o livro. */
+export function EquipmentPanel({ onClose }: { onClose?: () => void } = {}) {
   const items = useGame((s) => s.items);
   const equipped = useGame((s) => s.equipped);
   const setEquipped = useGame((s) => s.setEquipped);
@@ -59,7 +64,8 @@ export function EquipmentPanel() {
   const [query, setQuery] = useState('');
   const [slotFilter, setSlotFilter] = useState<EquipSlot | null>(null);
   const [pick, setPick] = useState<Pick>(null);
-  const [mode, setMode] = useState<'bolsa' | 'forja'>('bolsa');
+  const [book, setBook] = useState<'sacola' | 'ficha'>('sacola');
+  const [page, setPage] = useState<'esq' | 'dir'>('dir');
   const [msg, setMsg] = useState<string | null>(null);
   const detail = useRef<HTMLElement>(null);
   const awakened = c?.stage === 'awakened';
@@ -71,6 +77,7 @@ export function EquipmentPanel() {
   }, [awakened]);
   useEffect(() => { if (c?.id) useToolBelt.getState().load(c.id); }, [c?.id]);
   useEffect(() => { if (pick) detail.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }, [pick]);
+  useEffect(() => { if (!onClose) return; const k = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [onClose]);
 
   async function save(next: Equipped) {
     setEquipped(next);
@@ -175,92 +182,8 @@ export function EquipmentPanel() {
     );
   };
 
-  return (
-    <div className="bag-panel inv">
-      {canForge(species) && (
-        <nav className="st-tabs" aria-label="Bolsa ou Forja">
-          <button className={mode === 'bolsa' ? 'on' : ''} onClick={() => setMode('bolsa')}>Bolsa e equipamento</button>
-          <button className={mode === 'forja' ? 'on' : ''} onClick={() => setMode('forja')}>Forja</button>
-        </nav>
-      )}
-      {mode === 'forja' ? (
-        <div className="forge">
-          <p className="hint">A forja acontece na <b>Oficina do Pacto das Cinco</b>: só Taurinas concluem equipamentos, com componentes que as outras classes preparam nos seus ofícios. As peças forjadas aparecem aqui para equipar.</p>
-          <button className="primary" onClick={() => useGame.getState().setTab('pacto')}>Abrir a Oficina do Pacto</button>
-        </div>
-      ) : (
-        <>
-          <div className={'inv-carry ' + carry.load.level} title={LOAD_LABEL[carry.load.level]}>
-            <span><b>Carga</b> {kg(carry.carried)} / {kg(carry.capacity)}</span>
-            <div className="bar" role="progressbar" aria-label="Carga" aria-valuemin={0} aria-valuemax={carry.capacity} aria-valuenow={carry.carried}><i style={{ width: `${Math.min(100, carry.load.ratio * 100)}%` }} /></div>
-            {carry.load.level !== 'leve' && <small>{LOAD_LABEL[carry.load.level]}</small>}
-          </div>
-
-          <section className="inv-card" aria-labelledby="inv-eq">
-            <h4 id="inv-eq">Equipado</h4>
-            <div className="inv-slots">{EQUIP_SLOTS.map(slotCell)}</div>
-            <div className="inv-atk">
-              <span className="atk"><b>{atk.label}</b> · alcance {String(atk.range).replace('.', ',')} m{atk.affinity > 1 ? ' · afinidade +5%' : ''}{atk.ranged === 'charged' ? ' · segure para carregar' : ''}</span>
-              <span className="chips">
-                {Object.entries(bonus).filter(([, v]) => v).map(([k, v]) => <em key={k}>{ATTR[k]} {pct(v!)}</em>)}
-                {!Object.values(bonus).some(Boolean) && <em className="none">Sem bônus de atributo</em>}
-              </span>
-              {sets.length > 0 && (
-                <ul className="inv-sets">
-                  {sets.map((s) => (
-                    <li key={s.element} className={s.tier ? 'on' : ''} title={ELEMENT_SETS[s.element].note}>
-                      <i style={{ background: ELEMENTS[s.element].glow }} aria-hidden /> {ELEMENT_SETS[s.element].label} {s.pieces}/{s.next ?? SET_TIERS[SET_TIERS.length - 1].pieces}
-                      {s.tier ? <small> · {Object.entries(s.bonus).map(([k, v]) => `${ATTR[k]} +${String(v).replace('.', ',')}%`).join(' · ')}</small> : <small> · bônus com {SET_TIERS[0].pieces} peças</small>}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </section>
-
-          <section className="inv-card" aria-labelledby="inv-tools">
-            <h4 id="inv-tools">Ferramentas <small>para a coleta</small></h4>
-            <div className="inv-tools">{TOOL_ORDER.map(toolCell)}</div>
-          </section>
-          {pick?.kind === 'tool' && toolDetail(pick.tool)}
-
-          <section className="inv-card inv-bag" aria-labelledby="inv-bag">
-            <h4 id="inv-bag">Bolsa</h4>
-            <div className="inv-tools-bar">
-              <input type="search" className="inv-search" placeholder="Buscar na bolsa…" value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Buscar na bolsa" />
-            </div>
-            <nav className="inv-filters" role="tablist" aria-label="Categorias da bolsa">
-              {FILTERS.map((k) => (
-                <button key={k} type="button" role="tab" aria-selected={filter === k} className={filter === k ? 'on' : ''} onClick={() => { setFilter(k); setSlotFilter(null); }} title={k === 'tudo' ? 'Tudo o que está na bolsa' : ITEM_CATEGORIES[k].hint}>
-                  {FILTER_LABEL[k]} <em>{count(k)}</em>
-                </button>
-              ))}
-            </nav>
-            {slotFilter && <p className="hint">Mostrando o que entra em <b>{SLOTS_EQ[slotFilter].label}</b>. <button className="link" onClick={() => setSlotFilter(null)}>Ver tudo</button></p>}
-            {msg && <p className="msg err" role="alert">{msg}</p>}
-            <ul className="inv-grid">
-              {shown.map((r) => {
-                const on = r.item ? !!slotOf(r.item.slug) : false, open = pick?.kind === 'item' && pick.key === r.key;
-                return (
-                  <li key={r.key}>
-                    <button type="button" className={'inv-item' + (open ? ' sel' : '') + (on ? ' on' : '')} onClick={() => setPick(open ? null : { kind: 'item', key: r.key })}
-                      style={r.rarity ? { ['--r' as string]: RARITIES[r.rarity].color } : undefined} title={r.label}>
-                      <span className="ic" aria-hidden>{r.icon}</span>
-                      {r.qty > 1 && <em className="qty">{r.qty}</em>}
-                      {on && <em className="worn" aria-label="equipado">E</em>}
-                      {r.item && isWearable(r.item.type) && <em className="tier" style={{ ['--t' as string]: TIERS[tierOf(r.item)].color }} aria-label={`tier ${tierOf(r.item)}`}>T{tierOf(r.item)}</em>}
-                      {r.essence && <i className="el" style={{ background: ELEMENTS[r.essence].glow }} aria-hidden />}
-                      <small>{r.label}</small>
-                    </button>
-                  </li>
-                );
-              })}
-              {!shown.length && <li className="empty">{q ? 'Nada com esse nome.' : filter === 'material' ? 'Nada ainda. Monstros soltam materiais, e a coleta pelo mundo dá madeira, pedra e minério.' : filter === 'diversos' ? 'Nada ainda. Comida, chaves e lembranças aparecem aqui.' : slotFilter ? 'Nenhuma peça sua entra neste espaço.' : filter === 'tudo' ? 'A bolsa está vazia.' : 'Nenhuma peça ainda. Peças nascem na Forja (Taurinas) ou caem de monstros.'}</li>}
-            </ul>
-          </section>
-
-          {sel && (
-            <article className="inv-detail" ref={detail} aria-label={sel.label}>
+  const itemDetail = (sel: Row) => (
+            <article className="inv-detail ib-detail" ref={detail} aria-label={sel.label}>
               <header>
                 <span className="ic" aria-hidden>{sel.icon}</span>
                 <div>
@@ -296,11 +219,164 @@ export function EquipmentPanel() {
                 )}
               </div>
             </article>
-          )}
+  );
 
-          {(filter === 'diversos' || filter === 'tudo') && <Collection inv={inv} />}
-        </>
-      )}
+  // livro: página da esquerda (personagem) e da direita (sacola ou ficha); no celular, uma página por vez
+  const art = useGame((s) => s.snap?.visualJob?.artUrl ?? null);
+  const glow = c?.discoveries.color ?? '#9fc9ff';
+  const name = c?.discoveries.name ?? 'Companion';
+  const SIDE_L: EquipSlot[] = ['head', 'cape', 'armor', 'feet'], SIDE_R: EquipSlot[] = ['mainhand', 'offhand', 'acc1', 'acc2'];
+  const MIN_CELLS = 25;
+  const empties = Math.max(MIN_CELLS - shown.length, (5 - (shown.length % 5)) % 5);
+  const figure = (
+    <div className="ib-figure">
+      <div className="ib-col">{SIDE_L.map(slotCell)}</div>
+      <div className="ib-portrait" style={{ ['--glow' as string]: glow }}>
+        <span className="ib-emblem" aria-hidden />
+        {art ? <img src={art} alt={`Retrato de ${name}`} /> : <span className="ib-orb" aria-hidden />}
+      </div>
+      <div className="ib-col">{SIDE_R.map(slotCell)}</div>
+    </div>
+  );
+  const nameplate = (
+    <div className="ib-name">
+      <b>{name}</b>
+      <small>{species ? SPECIES[species]?.label ?? species : 'Sem classe'}{c?.discoveries.element ? ` · ${ELEMENTS[c.discoveries.element as Element]?.label ?? ''}` : ''} · vínculo {bond}</small>
+    </div>
+  );
+
+  return (
+    <div className="ib-back" onClick={onClose}>
+      <div className={'ib-book page-' + page} role="dialog" aria-modal="true" aria-label="Inventário" onClick={(e) => e.stopPropagation()}>
+        <div className="ib-ribbon" aria-hidden><span>{book === 'sacola' ? '🎒' : '📜'}</span>{book === 'sacola' ? 'Sacola' : 'Ficha'}</div>
+        {onClose && <button type="button" className="ib-close" onClick={onClose} aria-label="Fechar inventário">✕</button>}
+        <nav className="ib-tabs" role="tablist" aria-label="Seções do inventário">
+          <button type="button" role="tab" aria-selected={book === 'sacola'} className={book === 'sacola' ? 'on' : ''} onClick={() => setBook('sacola')}><span aria-hidden>🎒</span>Sacola</button>
+          <button type="button" role="tab" aria-selected={book === 'ficha'} className={book === 'ficha' ? 'on' : ''} onClick={() => setBook('ficha')}><span aria-hidden>📜</span>Ficha</button>
+          {canForge(species) && <button type="button" role="tab" aria-selected={false} onClick={() => { onClose?.(); useGame.getState().setTab('pacto'); }}><span aria-hidden>🔨</span>Forja</button>}
+        </nav>
+        <nav className="ib-switch" aria-label="Página">
+          <button type="button" className={page === 'esq' ? 'on' : ''} onClick={() => setPage('esq')}>{book === 'sacola' ? 'Equipado' : 'Personagem'}</button>
+          <button type="button" className={page === 'dir' ? 'on' : ''} onClick={() => setPage('dir')}>{book === 'sacola' ? 'Bolsa' : 'Atributos'}</button>
+        </nav>
+
+        {book === 'sacola' ? (
+          <>
+            <section className="ib-page ib-left" aria-label="Equipado">
+              <div className={'ib-carry ' + carry.load.level} title={LOAD_LABEL[carry.load.level]}>
+                <span>Carga <b>{kg(carry.carried)}</b> / {kg(carry.capacity)}</span>
+                <div className="bar" role="progressbar" aria-label="Carga" aria-valuemin={0} aria-valuemax={carry.capacity} aria-valuenow={carry.carried}><i style={{ width: `${Math.min(100, carry.load.ratio * 100)}%` }} /></div>
+              </div>
+              {figure}
+              <div className="ib-atk">
+                <span className="atk"><b>{atk.label}</b> · alcance {String(atk.range).replace('.', ',')} m{atk.affinity > 1 ? ' · afinidade +5%' : ''}{atk.ranged === 'charged' ? ' · segure para carregar' : ''}</span>
+                <span className="chips">
+                  {Object.entries(bonus).filter(([, v]) => v).map(([k, v]) => <em key={k}>{ATTR[k]} {pct(v!)}</em>)}
+                  {!Object.values(bonus).some(Boolean) && <em className="none">Sem bônus de atributo</em>}
+                </span>
+                {sets.length > 0 && (
+                  <ul className="inv-sets">
+                    {sets.map((s) => (
+                      <li key={s.element} className={s.tier ? 'on' : ''} title={ELEMENT_SETS[s.element].note}>
+                        <i style={{ background: ELEMENTS[s.element].glow }} aria-hidden /> {ELEMENT_SETS[s.element].label} {s.pieces}/{s.next ?? SET_TIERS[SET_TIERS.length - 1].pieces}
+                        {s.tier ? <small> · {Object.entries(s.bonus).map(([k, v]) => `${ATTR[k]} +${String(v).replace('.', ',')}%`).join(' · ')}</small> : <small> · bônus com {SET_TIERS[0].pieces} peças</small>}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <div className="ib-belt" aria-labelledby="ib-belt-t">
+                <h4 id="ib-belt-t">Cinto de ferramentas</h4>
+                <div className="inv-tools">{TOOL_ORDER.map(toolCell)}</div>
+              </div>
+              {pick?.kind === 'tool' && toolDetail(pick.tool)}
+            </section>
+
+            <section className="ib-page ib-right" aria-label="Bolsa">
+              <div className="ib-bar">
+                <nav className="inv-filters" role="tablist" aria-label="Categorias da bolsa">
+                  {FILTERS.map((k) => (
+                    <button key={k} type="button" role="tab" aria-selected={filter === k} className={filter === k ? 'on' : ''} onClick={() => { setFilter(k); setSlotFilter(null); }} title={k === 'tudo' ? 'Tudo o que está na bolsa' : ITEM_CATEGORIES[k].hint}>
+                      {FILTER_LABEL[k]} <em>{count(k)}</em>
+                    </button>
+                  ))}
+                </nav>
+                <input type="search" className="inv-search" placeholder="Buscar…" value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Buscar na bolsa" />
+              </div>
+              {slotFilter && <p className="hint">Mostrando o que entra em <b>{SLOTS_EQ[slotFilter].label}</b>. <button className="link" onClick={() => setSlotFilter(null)}>Ver tudo</button></p>}
+              {msg && <p className="msg err" role="alert">{msg}</p>}
+              <ul className="ib-grid">
+                {shown.map((r) => {
+                  const on = r.item ? !!slotOf(r.item.slug) : false, open = pick?.kind === 'item' && pick.key === r.key;
+                  return (
+                    <li key={r.key}>
+                      <button type="button" className={'inv-item' + (open ? ' sel' : '') + (on ? ' on' : '')} onClick={() => setPick(open ? null : { kind: 'item', key: r.key })}
+                        style={r.rarity ? { ['--r' as string]: RARITIES[r.rarity].color } : undefined} title={r.label} aria-label={`${r.label}${r.qty > 1 ? `, ${r.qty}` : ''}${on ? ', equipado' : ''}`}>
+                        <span className="ic" aria-hidden>{r.icon}</span>
+                        {r.qty > 1 && <em className="qty">{r.qty}</em>}
+                        {on && <em className="worn" aria-hidden>E</em>}
+                        {r.item && isWearable(r.item.type) && <em className="tier" style={{ ['--t' as string]: TIERS[tierOf(r.item)].color }} aria-hidden>T{tierOf(r.item)}</em>}
+                        {r.essence && <i className="el" style={{ background: ELEMENTS[r.essence].glow }} aria-hidden />}
+                      </button>
+                    </li>
+                  );
+                })}
+                {Array.from({ length: empties }, (_, i) => <li key={'v' + i} className="ib-empty" aria-hidden><span /></li>)}
+              </ul>
+              {!shown.length && <p className="hint ib-none">{q ? 'Nada com esse nome.' : filter === 'material' ? 'Nada ainda. Monstros soltam materiais, e a coleta pelo mundo dá madeira, pedra e minério.' : filter === 'diversos' ? 'Nada ainda. Comida, chaves e lembranças aparecem aqui.' : slotFilter ? 'Nenhuma peça sua entra neste espaço.' : filter === 'tudo' ? 'A bolsa está vazia.' : 'Nenhuma peça ainda. Peças nascem na Forja (Taurinas) ou caem de monstros.'}</p>}
+              {(filter === 'diversos' || filter === 'tudo') && <Collection inv={inv} />}
+              {sel && itemDetail(sel)}
+            </section>
+          </>
+        ) : (
+          <>
+            <section className="ib-page ib-left ib-sheet-left" aria-label="Personagem">
+              <div className="ib-figure solo">
+                <div className="ib-portrait big" style={{ ['--glow' as string]: glow }}>
+                  <span className="ib-emblem" aria-hidden />
+                  {art ? <img src={art} alt={`Retrato de ${name}`} /> : <span className="ib-orb" aria-hidden />}
+                </div>
+              </div>
+              {nameplate}
+            </section>
+            <section className="ib-page ib-right" aria-label="Atributos">
+              <Sheet name={name} bond={bond} />
+            </section>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Ficha do personagem: números de combate da build ativa e os pontos de atributo (como a "folha" do RPG). */
+function Sheet({ name, bond }: { name: string; bond: number }) {
+  const alloc = useBuild((s) => s.view?.active.alloc);
+  const d = combat.d;
+  const row = (a: string, av: string, b: string, bv: string) => (
+    <div className="ib-stat"><span>{a}</span><b>{av}</b><span>{b}</span><b>{bv}</b></div>
+  );
+  const x = (n: number) => '×' + (Math.round(n * 100) / 100).toString().replace('.', ',');
+  return (
+    <div className="ib-sheet">
+      <header>
+        <div><small>Companion</small><b>{name}</b></div>
+        <div><small>Vínculo</small><b>Nível {bond}</b></div>
+      </header>
+      <div className="ib-stats">
+        {row('HP', String(Math.round(d.hpMax)), 'SP', String(Math.round(d.spMax)))}
+        {row('Potência física', Math.round(d.physPower) + '%', 'Potência mágica', Math.round(d.magPower) + '%')}
+        {row('Defesa física', String(Math.round(d.physDefense)), 'Resist. mágica', String(Math.round(d.magResist)))}
+        {row('Vel. de ataque', x(d.attackSpeed), 'Movimento', x(d.moveSpeed))}
+        {row('Precisão', Math.round(d.precision * 100) + '%', 'SP por segundo', (Math.round(d.spRegen * 10) / 10).toString().replace('.', ','))}
+      </div>
+      <h4>Atributos</h4>
+      <div className="ib-attrs">
+        {STAT_KEYS.map((k) => <div key={k} title={STATS[k].does}><span aria-hidden>{STATS[k].icon}</span><small>{STATS[k].short}</small><b>{alloc?.[k] ?? 0}</b></div>)}
+      </div>
+      <div className="row">
+        <button type="button" className="primary" onClick={() => useGame.getState().setTab('skills')}>Distribuir pontos</button>
+      </div>
     </div>
   );
 }
