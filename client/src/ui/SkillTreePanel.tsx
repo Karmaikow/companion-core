@@ -13,7 +13,7 @@ import {
 } from '@rules';
 import { useSkillData, useSkills, persistAlloc } from './skillState';
 import { useGame } from '../store';
-import { WeaponArts } from './WeaponArts';
+import { WeaponTrails } from './WeaponTrails';
 
 const ATTR_LABEL: Record<string, string> = { vida: 'Vida', energia: 'Energia', poder: 'Poder', defesa: 'Defesa', agilidade: 'Agilidade', sintonia: 'Sintonia' };
 const KIND_LABEL: Record<TreeNode['kind'], string> = { skill: 'Habilidade', rank: 'Nível', passive: 'Passiva', boost: 'Buff' };
@@ -77,6 +77,8 @@ function SkillTreeContent({ large = false }: { large?: boolean }) {
   const [sel, setSel] = useState<string | null>(null);
   const [focus, setFocus] = useState<{ branch: TreeBranch; at: number } | null>(null);
   const [notice, setNotice] = useState<{ text: string; tone: 'ok' | 'warn' } | null>(null);
+  // galho "Armas": as trilhas das técnicas de cada arma (no lugar do gráfico)
+  const [arms, setArms] = useState(false);
   useEffect(() => setNotice(null), [sel]);
   const persist = (next: Allocation) => (c ? persistAlloc(c.id, next) : Promise.resolve());
 
@@ -122,8 +124,9 @@ function SkillTreeContent({ large = false }: { large?: boolean }) {
     <nav className="st-tabs" aria-label="Ir para o galho">
       {BRANCHES.map((b) => {
         const used = tree.nodes.filter((n) => n.branch === b).reduce((t, n) => t + (alloc[n.id] ?? 0), 0);
-        return <button key={b} style={{ ['--branch' as string]: BRANCH_COLOR[b] }} onClick={() => setFocus({ branch: b, at: Date.now() })}>{tree.branches[b].label}{used > 0 && <em>{used}</em>}</button>;
+        return <button key={b} style={{ ['--branch' as string]: BRANCH_COLOR[b] }} className={!arms && focus?.branch === b ? 'on' : ''} onClick={() => { setArms(false); setFocus({ branch: b, at: Date.now() }); }}>{tree.branches[b].label}{used > 0 && <em>{used}</em>}</button>;
       })}
+      <button style={{ ['--branch' as string]: '#e8a35a' }} className={arms ? 'on' : ''} aria-pressed={arms} onClick={() => setArms(true)}>Armas</button>
     </nav>
   );
 
@@ -147,12 +150,11 @@ function SkillTreeContent({ large = false }: { large?: boolean }) {
         <div className="st-screen-left">
           {head}
           {tabs}
-          {graph}
+          {arms ? <WeaponTrails /> : graph}
         </div>
         <div className="st-screen-right">
-          {detail ?? <p className="hint st-no-sel">Clique num nó para ver o caminho até ele. Duplo clique conquista o caminho inteiro.</p>}
+          {!arms && (detail ?? <p className="hint st-no-sel">Clique num nó para ver o caminho até ele. Duplo clique conquista o caminho inteiro.</p>)}
           {summary}
-          <WeaponArts />
         </div>
       </div>
     );
@@ -162,10 +164,8 @@ function SkillTreeContent({ large = false }: { large?: boolean }) {
     <>
       {head}
       {tabs}
-      {graph}
-      {detail}
+      {arms ? <WeaponTrails /> : <>{graph}{detail}</>}
       {summary}
-      <WeaponArts />
     </>
   );
 }
