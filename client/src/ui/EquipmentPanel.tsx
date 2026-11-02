@@ -5,18 +5,21 @@
  * filtra a bolsa pelo que entra nele. A Taurina vê também a aba Forja (leva à Oficina do Pacto). No celular, uma
  * página por vez.
  */
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
 import './inventory.css';
 import {
   TIERS, tierOf, tierBlock,
   ITEM_TYPES, ITEM_CATEGORIES, RARITIES, SLOTS_EQ, EQUIP_SLOTS, ELEMENTS, ELEMENT_SETS, SET_TIERS, QUEST_REWARDS, LOAD_LABEL, TOOLS,
-  equip, unequip, equipmentBonus, elementSets, slotsFor, isWearable, canForge, basicAttack, itemWeight, categoryOf,
+  equip, unequip, equippedItems, equipmentBonus, elementSets, slotsFor, isWearable, canForge, basicAttack, itemWeight, categoryOf,
   SPECIES, STAT_KEYS, STATS,
   type EquipSlot, type Equipped, type ItemCategory, type ItemDef, type ItemType, type BagEntry, type Element, type ToolKey,
 } from '@rules';
 import { useGame } from '../store';
 import { useBuild } from '../build/buildStore';
 import { combat } from '../build/combatStats';
+import { MenuBook, type BookMenu } from './MenuBook';
+
+const CompanionStage = lazy(() => import('../scene/CompanionStage'));
 import { supabase } from '../backend/online';
 import { offhandMark, usePacto } from '../pacto/pactoStore';
 import { markSource } from '../scene/vitals';
@@ -49,7 +52,7 @@ interface Row { key: string; label: string; icon: string; qty: number; unitWeigh
 type Pick = { kind: 'item'; key: string } | { kind: 'tool'; tool: ToolKey } | null;
 
 /** Inventário em forma de livro aberto (pergaminho): `onClose` fecha o livro. */
-export function EquipmentPanel({ onClose }: { onClose?: () => void } = {}) {
+export function EquipmentPanel({ onClose, menu }: { onClose?: () => void; menu?: BookMenu } = {}) {
   const items = useGame((s) => s.items);
   const equipped = useGame((s) => s.equipped);
   const setEquipped = useGame((s) => s.setEquipped);
@@ -77,7 +80,6 @@ export function EquipmentPanel({ onClose }: { onClose?: () => void } = {}) {
   }, [awakened]);
   useEffect(() => { if (c?.id) useToolBelt.getState().load(c.id); }, [c?.id]);
   useEffect(() => { if (pick) detail.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }, [pick]);
-  useEffect(() => { if (!onClose) return; const k = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [onClose]);
 
   async function save(next: Equipped) {
     setEquipped(next);
@@ -223,6 +225,16 @@ export function EquipmentPanel({ onClose }: { onClose?: () => void } = {}) {
 
   // livro: página da esquerda (personagem) e da direita (sacola ou ficha); no celular, uma página por vez
   const art = useGame((s) => s.snap?.visualJob?.artUrl ?? null);
+  const model = useGame((s) => s.snap?.visualJob?.model ?? null);
+  const worn = useMemo(() => equippedItems(equipped, items).map((w) => w.item), [equipped, items]);
+  const stage = (big = false) => (
+    <div className={'ib-portrait' + (big ? ' big' : '') + (model ? ' live' : '')} style={{ ['--glow' as string]: glow }}>
+      <span className="ib-emblem" aria-hidden />
+      {model && c ? <Suspense fallback={<span className="ib-orb" aria-hidden />}><CompanionStage url={model.url} companionId={c.id} items={worn} /></Suspense>
+        : art ? <img src={art} alt={`Retrato de ${name}`} /> : <span className="ib-orb" aria-hidden />}
+      {model && <small className="ib-drag" aria-hidden>arraste para girar</small>}
+    </div>
+  );
   const glow = c?.discoveries.color ?? '#9fc9ff';
   const name = c?.discoveries.name ?? 'Companion';
   const SIDE_L: EquipSlot[] = ['head', 'cape', 'armor', 'feet'], SIDE_R: EquipSlot[] = ['mainhand', 'offhand', 'acc1', 'acc2'];
@@ -231,10 +243,7 @@ export function EquipmentPanel({ onClose }: { onClose?: () => void } = {}) {
   const figure = (
     <div className="ib-figure">
       <div className="ib-col">{SIDE_L.map(slotCell)}</div>
-      <div className="ib-portrait" style={{ ['--glow' as string]: glow }}>
-        <span className="ib-emblem" aria-hidden />
-        {art ? <img src={art} alt={`Retrato de ${name}`} /> : <span className="ib-orb" aria-hidden />}
-      </div>
+      {stage()}
       <div className="ib-col">{SIDE_R.map(slotCell)}</div>
     </div>
   );
@@ -246,15 +255,13 @@ export function EquipmentPanel({ onClose }: { onClose?: () => void } = {}) {
   );
 
   return (
-    <div className="ib-back" onClick={onClose}>
-      <div className={'ib-book page-' + page} role="dialog" aria-modal="true" aria-label="Inventário" onClick={(e) => e.stopPropagation()}>
-        <div className="ib-ribbon" aria-hidden><span>{book === 'sacola' ? '🎒' : '📜'}</span>{book === 'sacola' ? 'Sacola' : 'Ficha'}</div>
-        {onClose && <button type="button" className="ib-close" onClick={onClose} aria-label="Fechar inventário">✕</button>}
-        <nav className="ib-tabs" role="tablist" aria-label="Seções do inventário">
+    <MenuBook title={book === 'sacola' ? 'Sacola' : 'Ficha'} icon={book === 'sacola' ? '🎒' : '📜'} menu={menu} onClose={onClose} className={'double page-' + page}
+      sub={
+        <nav className="ib-subtabs" role="tablist" aria-label="Seções do inventário">
           <button type="button" role="tab" aria-selected={book === 'sacola'} className={book === 'sacola' ? 'on' : ''} onClick={() => setBook('sacola')}><span aria-hidden>🎒</span>Sacola</button>
           <button type="button" role="tab" aria-selected={book === 'ficha'} className={book === 'ficha' ? 'on' : ''} onClick={() => setBook('ficha')}><span aria-hidden>📜</span>Ficha</button>
-          {canForge(species) && <button type="button" role="tab" aria-selected={false} onClick={() => { onClose?.(); useGame.getState().setTab('pacto'); }}><span aria-hidden>🔨</span>Forja</button>}
         </nav>
+      }>
         <nav className="ib-switch" aria-label="Página">
           <button type="button" className={page === 'esq' ? 'on' : ''} onClick={() => setPage('esq')}>{book === 'sacola' ? 'Equipado' : 'Personagem'}</button>
           <button type="button" className={page === 'dir' ? 'on' : ''} onClick={() => setPage('dir')}>{book === 'sacola' ? 'Bolsa' : 'Atributos'}</button>
@@ -332,10 +339,7 @@ export function EquipmentPanel({ onClose }: { onClose?: () => void } = {}) {
           <>
             <section className="ib-page ib-left ib-sheet-left" aria-label="Personagem">
               <div className="ib-figure solo">
-                <div className="ib-portrait big" style={{ ['--glow' as string]: glow }}>
-                  <span className="ib-emblem" aria-hidden />
-                  {art ? <img src={art} alt={`Retrato de ${name}`} /> : <span className="ib-orb" aria-hidden />}
-                </div>
+                {stage(true)}
               </div>
               {nameplate}
             </section>
@@ -344,8 +348,7 @@ export function EquipmentPanel({ onClose }: { onClose?: () => void } = {}) {
             </section>
           </>
         )}
-      </div>
-    </div>
+    </MenuBook>
   );
 }
 

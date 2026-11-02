@@ -229,3 +229,64 @@
   .ib-attrs { grid-template-columns: repeat(3, 1fr); }
 }
 @media (prefers-reduced-motion: reduce) { .ib-grid .inv-item:hover { transform: none; } }
+
+/* ======================================================================================================
+   Livro dos menus: página única, marcadores de todos os menus, marcadores Sacola/Ficha e palco 3D
+   ====================================================================================================== */
+.ib-book.single { grid-template-columns: 1fr; width: min(980px, 100%); }
+.ib-page.single { border-radius: 8px; box-shadow: inset 0 0 26px rgba(120, 80, 40, .18); padding: 24px 26px 22px; }
+.ib-ribbon span { color: #fff6e0; }
+.ib-ribbon span svg { display: block; }
+
+/* marcadores de todos os menus na lateral direita */
+.ib-tabs { top: 22px; bottom: 16px; right: 4px; width: 60px; display: flex; flex-direction: column; gap: 4px; overflow-y: auto; scrollbar-width: none; }
+.ib-tabs::-webkit-scrollbar { display: none; }
+.ib-tabs button { flex: none; display: grid; justify-items: center; align-content: center; gap: 2px; min-height: 48px; padding: 6px 2px; }
+.ib-tabs button small { font: 700 .58rem/1.05 var(--serif); text-align: center; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.ib-tabs button svg { color: #fff3dc; }
+.ib-tabs button.on svg { color: var(--accent); }
+
+/* Sacola / Ficha: marcadores no alto da página da direita */
+.ib-subtabs { position: absolute; top: -14px; left: calc(50% - 14px); z-index: 2; display: flex; gap: 6px; }
+.ib-subtabs button { display: flex; align-items: center; gap: 6px; min-height: 36px; padding: 4px 14px; border-radius: 10px 10px 4px 4px; border: 2px solid var(--edge);
+  font: 700 .86rem var(--serif); color: #fff3dc; background: linear-gradient(180deg, #c46c40, #a95a34); box-shadow: 0 3px 8px rgba(0, 0, 0, .3); cursor: var(--cur-apontar, pointer); }
+.ib-subtabs button.on { color: var(--ink); background: linear-gradient(180deg, #fbf1dc, #ecd9b2); }
+
+/* palco 3D do Companion */
+.ib-portrait.live canvas { position: relative; width: 100% !important; height: 100% !important; touch-action: none; cursor: var(--cur-pegar, grab); }
+.ib-portrait.live canvas:active { cursor: var(--cur-segurar, grabbing); }
+.ib-drag { position: absolute; bottom: 2px; left: 0; right: 0; text-align: center; font-size: .66rem; color: var(--ink2); opacity: .8; pointer-events: none; }
+
+/* ---------- tema pergaminho para o conteúdo dos menus (os painéis foram feitos para o fundo escuro) ---------- */
+.ib-page.menu {
+  --parchment: #4a3424; --mist: #7d5e40; --brass: #a4472a; --brass-dim: #a8774a; --rose: #c2456b;
+  --night: #f6ecd6; --night-2: #efe2c4; --night-3: #e6d3ab; --panel: #fff6e2;
+  --hud-gold: #a8774a; --hud-gold-2: #b5602f; --hud-line: #cdb184; --hud-ink: #fff6e2; --hud-ink-2: #efe2c4; --hud-violet: #efe2c4; --hud-soft: #7d5e40;
+  --ecos-moss: #a8774a; --ecos-moss-2: #7a5230; --ecos-moss-bg: #fff6e2; --ecos-silver: #4a3424; --ecos-silver-dim: #7d5e40;
+  --ecos-ok: #3f8a35; --ecos-warn: #b5761a; --ecos-off: #a35656;
+  color: var(--ink); display: flex; flex-direction: column;
+}
+.ib-page.menu .hint, .ib-page.menu .empty, .ib-page.menu small { color: var(--ink2); }
+.ib-page.menu h2, .ib-page.menu h3, .ib-page.menu h4 { color: var(--ink); }
+.ib-page.menu .primary, .ib-page.menu button.primary { background: linear-gradient(180deg, #e0794a, #b9502c); color: #fff6e0; border: 1px solid #8a3e22; }
+.ib-page.menu .ghost, .ib-page.menu button.ghost { background: #fff6e2; color: var(--ink); border: 1px solid var(--cell-b); }
+.ib-page.menu button.link, .ib-page.menu .link { color: #a4472a; }
+.ib-page.menu input:not([type=checkbox]):not([type=radio]):not([type=range]), .ib-page.menu textarea, .ib-page.menu select { background: #fffaf0; color: var(--ink); border: 1px solid var(--cell-b); }
+.ib-page.menu input::placeholder, .ib-page.menu textarea::placeholder { color: #a8916f; }
+.ib-page.menu .msg.err { color: #b33a2a; }
+.ib-page.menu .msg.ok { color: #3f7a30; }
+
+/* celular: os marcadores dos menus viram uma faixa rolável no topo */
+@media (max-width: 760px) {
+  .ib-book.single { grid-template-rows: auto 1fr; }
+  .ib-tabs { position: static; flex-direction: row; width: auto; overflow-x: auto; overflow-y: hidden; margin: 0 0 6px; padding-bottom: 2px; }
+  .ib-tabs button { min-width: 64px; min-height: 48px; grid-auto-flow: row; border-radius: 8px; }
+  .ib-subtabs { position: static; margin: 0 0 6px; }
+  .ib-subtabs button { flex: 1; justify-content: center; border-radius: 8px; }
+  .ib-book.double { grid-template-rows: auto auto auto 1fr; }
+  .ib-page.single { padding: 16px 14px; }
+}
+
+/* ajustes de contraste no pergaminho */
+.ib-page.menu .pacto-lumes { background: #fff6e2; border-color: var(--cell-b); color: #8a5a10; }
+.ib-page.menu .soc-leave, .ib-page.menu .soc-kick { background: #fbe5dc; border-color: #d9907f; color: #a3362a; }

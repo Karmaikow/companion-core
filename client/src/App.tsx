@@ -47,6 +47,7 @@ import { VitalsBars, TouchMoves, FaintCounter } from './ui/VitalsHud';
 import { useSkillSync } from './ui/skillState';
 import { pressAttack, releaseAttack } from './scene/Combat';
 import { ownsItem, EquipmentPanel } from './ui/EquipmentPanel';
+import { MenuBook, type BookMenu } from './ui/MenuBook';
 import { useCarry } from './ui/bag';
 import { useToolBelt } from './ui/toolBelt';
 import { WeatherOverlay } from './ui/WeatherOverlay';
@@ -402,9 +403,10 @@ export function App() {
   useEffect(() => { if ((tab === 'forja' && !taurina) || (tab === 'pacto' && taurina)) setTab(taurina ? 'forja' : 'pacto'); }, [tab, taurina]); // eslint-disable-line react-hooks/exhaustive-deps
   const panel = { chat: ChatPanel, memories: MemoriesPanel, diary: DiaryPanel, quests: QuestsPanel, missoes: MissionsPanel, inventory: InventoryPanel, recipes: RecipesPanel, skills: SkillsTab, bond: BondPanel, ecos: EcosPanel, pacto: PactoPanel, forja: PactoPanel, social: SocialPanel, settings: SettingsPanel };
   const Panel = tab ? panel[tab] : null;
+  const bookMenu: BookMenu = { tabs: TABS.filter((t) => t.key !== 'chat' && !hiddenTab(t.key)), current: tab ?? 'inventory', go: (t) => setTab(t) };
 
   return (
-    <div className={'app game-ui' + (tab && tab !== 'inventory' && !minimized ? ' has-panel' : '') + (place === 'world' ? ' in-world' : '') + (model ? ' with-vitals' : '') + (touchLand ? ' touch-land' : '') + (hudEditing ? ' hud-editing' : '') + (railOpen ? ' rail-open' : '') + (chatOpen ? ' chat-open' : '')}>
+    <div className={'app game-ui' + (tab === 'chat' && !minimized ? ' has-panel' : '') + (place === 'world' ? ' in-world' : '') + (model ? ' with-vitals' : '') + (touchLand ? ' touch-land' : '') + (hudEditing ? ' hud-editing' : '') + (railOpen ? ' rail-open' : '') + (chatOpen ? ' chat-open' : '')}>
       <div className="stage">
         <SafeStage>
         <Suspense fallback={null}>
@@ -539,8 +541,14 @@ export function App() {
             {model && !hudEditing && <div className="rail-group" role="group" aria-label="Administrador"><GodButton /></div>}
           </nav>
 
-          {tab === 'inventory' && <EquipmentPanel onClose={() => setTab(null)} />}
-          {Panel && tab && tab !== 'inventory' && (
+          {/* menus em livro de pergaminho (a Conversa continua por cima do mundo); os marcadores trocam de menu */}
+          {tab === 'inventory' && <EquipmentPanel onClose={() => setTab(null)} menu={bookMenu} />}
+          {Panel && tab && tab !== 'inventory' && tab !== 'chat' && (
+            <MenuBook title={TABS.find((t) => t.key === tab)?.label ?? ''} menu={bookMenu} onClose={() => setTab(null)} className={'single book-' + tab}>
+              <section className={'ib-page single menu panel-' + tab}><Panel /></section>
+            </MenuBook>
+          )}
+          {Panel && tab === 'chat' && (
             <section className={'panel deco panel-' + tab + (minimized ? ' is-minimized' : '')} aria-label={TABS.find((t) => t.key === tab)?.label}>
               <header>
                 <h2>{TABS.find((t) => t.key === tab)?.label}</h2>
