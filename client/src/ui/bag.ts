@@ -33,6 +33,9 @@ export interface Carry {
   load: ReturnType<typeof loadState>;
 }
 
+/** Carga de agora, para quem decide fora do React (o baú: o que ainda cabe na bolsa). O App mantém via useCarry. */
+export const carryNow = { carried: 0, capacity: 1 };
+
 export function useCarry(): Carry {
   const inv = useGame((s) => s.snap?.inventory);
   const items = useGame((s) => s.items);
@@ -52,6 +55,7 @@ export function useCarry(): Carry {
       + vale.reduce((t, v) => t + v.qty * v.unitWeight, 0)
     ) * 10) / 10;
     const capacity = carryCapacity(alloc ?? {}, equipped, items);
+    carryNow.carried = carried; carryNow.capacity = capacity;
     return { entries, forged, vale, carried, capacity, load: loadState(carried, capacity) };
   }, [inv, items, equipped, ecosView, alloc]);
 }

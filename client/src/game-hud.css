@@ -636,16 +636,6 @@ canvas.cursor-attack { cursor: none !important; }
 .game-ui.touch-land .touch-moves button { background: radial-gradient(circle at 40% 30%, #22305ce6, #0b1330e6); border: 1.5px solid #c9ab6c; box-shadow: inset 0 0 0 2px #0b1330, 0 4px 10px #0008; color: #f6dfa8; }
 .game-ui.touch-land .touch-moves button:active { scale: calc(var(--ui-s, 1) * 0.9); background: radial-gradient(circle at 40% 30%, #3a4c86, #142050); }
 
-/* cursor de "entrar": portinha dourada sobre os prédios que abrem um painel */
-canvas.cursor-enter { cursor: none !important; }
-.enter-cursor .ec-door { position: absolute; left: -1px; top: -1px; overflow: visible; filter: drop-shadow(0 0 4px #ffcf6a88) drop-shadow(0 1px 1px #000c); }
-.enter-cursor .ec-tip { fill: #fff4cf; stroke: #6b4f25; stroke-width: 0.8; stroke-linejoin: round; }
-.enter-cursor .ec-frame { fill: #6b4a24; stroke: #ffd77a; stroke-width: 1.6; stroke-linejoin: round; }
-.enter-cursor .ec-glow { fill: #ffe7a0; animation: ec-glow 1.1s ease-in-out infinite alternate; }
-.enter-cursor .ec-knob { fill: #6b4a24; }
-.enter-cursor .ec-step { stroke: #ffd77a; stroke-width: 1.6; stroke-linecap: round; }
-@keyframes ec-glow { from { fill: #f3c860; opacity: 0.75; } to { fill: #fff3c4; opacity: 1; } }
-@media (prefers-reduced-motion: reduce) { .enter-cursor .ec-glow { animation: none; } }
 
 /* recurso de coleta: só o nome e os pontinhos de quanto resta (sem balão) */
 .res-tag { display: grid; justify-items: center; gap: 3px; color: #f4ead2; font: 700 0.72rem var(--serif); white-space: nowrap; text-shadow: 0 1px 2px #000, 0 0 6px #000a; opacity: 0.92; }
@@ -662,16 +652,6 @@ canvas.cursor-enter { cursor: none !important; }
 .game-ui.touch-land .touch-moves button { background: radial-gradient(circle at 40% 30%, #22305ce6, #0b1330e6); border: 1.5px solid #c9ab6c; box-shadow: inset 0 0 0 2px #0b1330, 0 4px 10px #0008; color: #f6dfa8; }
 .game-ui.touch-land .touch-moves button:active { scale: calc(var(--ui-s, 1) * 0.9); background: radial-gradient(circle at 40% 30%, #3a4c86, #142050); }
 
-/* cursor de "entrar": portinha dourada sobre os prédios que abrem um painel */
-canvas.cursor-enter { cursor: none !important; }
-.enter-cursor .ec-door { position: absolute; left: -1px; top: -1px; overflow: visible; filter: drop-shadow(0 0 4px #ffcf6a88) drop-shadow(0 1px 1px #000c); }
-.enter-cursor .ec-tip { fill: #fff4cf; stroke: #6b4f25; stroke-width: 0.8; stroke-linejoin: round; }
-.enter-cursor .ec-frame { fill: #6b4a24; stroke: #ffd77a; stroke-width: 1.6; stroke-linejoin: round; }
-.enter-cursor .ec-glow { fill: #ffe7a0; animation: ec-glow 1.1s ease-in-out infinite alternate; }
-.enter-cursor .ec-knob { fill: #6b4a24; }
-.enter-cursor .ec-step { stroke: #ffd77a; stroke-width: 1.6; stroke-linecap: round; }
-@keyframes ec-glow { from { fill: #f3c860; opacity: 0.75; } to { fill: #fff3c4; opacity: 1; } }
-@media (prefers-reduced-motion: reduce) { .enter-cursor .ec-glow { animation: none; } }
 
 /* recurso de coleta: quanto ainda dá para coletar */
 .res-tag { display: grid; justify-items: center; gap: 3px; padding: 5px 10px 6px; border-radius: 4px 12px 4px 12px; background: #0d1638e0; border: 1px solid #b79d61; color: #f4ead2; font: 600 0.78rem var(--serif); white-space: nowrap; box-shadow: 0 3px 10px #0008; }
@@ -682,3 +662,27 @@ canvas.cursor-enter { cursor: none !important; }
 .res-pips i.on { background: linear-gradient(#bfe89a, #6fb85a); box-shadow: inset 0 0 0 1px #d8f5b8, 0 0 4px #9fe07a88; }
 .res-tag.empty { border-color: #6a6f80; }
 .res-tag.empty b { color: #c9ccd6; }
+
+/* cursor de pegar (baús e prédios que abrem painel): luva clara com contorno dourado; fecha no clique */
+canvas.cursor-enter { cursor: none !important; }
+.grab-cursor .gc-hand { position: absolute; left: -6px; top: -4px; overflow: visible; filter: drop-shadow(0 0 4px #ffcf6a77) drop-shadow(0 1px 1px #000c); transform-origin: 12px 14px; animation: gc-bob 1.2s ease-in-out infinite; }
+.grab-cursor .gc-glove { fill: #fff3dc; stroke: #8a5a24; stroke-width: 1.3; stroke-linejoin: round; }
+.grab-cursor .gc-cuff { fill: #ffd77a; stroke: #8a5a24; stroke-width: 1.2; stroke-linejoin: round; }
+.grab-cursor .gc-line { fill: none; stroke: #c99a5a; stroke-width: 0.9; stroke-linecap: round; }
+.grab-cursor .gc-closed { display: none; }
+.grab-cursor.grab .gc-open { display: none; }
+.grab-cursor.grab .gc-closed { display: inline; }
+.grab-cursor.grab .gc-hand { animation: gc-squeeze 0.26s ease-out; }
+@keyframes gc-bob { 50% { transform: translateY(1.5px) rotate(-4deg); } }
+@keyframes gc-squeeze { 0% { transform: scale(1.12); } 60% { transform: scale(0.86); } 100% { transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .grab-cursor .gc-hand, .grab-cursor.grab .gc-hand { animation: none; } }
+
+/* baú: o que saiu dele e o que ficou dentro */
+.chest-reveal { display: grid; justify-items: center; gap: 3px; pointer-events: none; }
+.chest-reveal span { font: 700 0.8rem var(--serif); color: #fff2d8; white-space: nowrap; text-shadow: 0 1px 2px #000, 0 0 8px #000b; animation: chest-rise 4.4s ease-out both; }
+.chest-reveal span.lumes { color: #ffe08a; }
+.chest-reveal span.crystal { color: #d4c4ff; }
+.chest-reveal span.kept { color: #ffb38a; }
+@keyframes chest-rise { 0% { opacity: 0; transform: translateY(10px) scale(0.8); } 10% { opacity: 1; transform: translateY(0) scale(1.06); } 18% { transform: scale(1); } 80% { opacity: 1; } 100% { opacity: 0; transform: translateY(-14px); } }
+.chest-left { display: grid; justify-items: center; gap: 1px; font: 700 0.72rem var(--serif); color: #ffe7a8; white-space: nowrap; text-shadow: 0 1px 2px #000, 0 0 6px #000a; }
+.chest-left small { font: 500 0.62rem var(--sans); color: #d6dbe8; }

@@ -2,8 +2,9 @@
  * Baús de drop e a reconstrução de Áster.
  *
  * Baús: o monstro derrotado deixa um baú no chão, com o que ele soltou (sorteado no servidor), os Lumes e, às vezes,
- * Cristais Ápice. Abrir põe tudo na bolsa. Elites e chefes deixam baú raro; o MVP, baú lendário. Baú esquecido
- * não se perde: depois de um tempo ele se abre sozinho.
+ * Cristais Ápice. Abrir revela o conteúdo (Lumes e cristais vão na hora) e
+ * os itens vão para a bolsa no que couber; o que não couber fica no baú aberto por um tempo. Elites e chefes deixam
+ * baú raro; o MVP, baú lendário. Baú que some leva o que ficou dentro.
  *
  * Reconstrução: quando Áster cai (fim da defesa; por enquanto o ADM derruba), a Torre Central pede uma meta do
  * servidor inteiro: Cristais Ápice, materiais da coleta (refinados) e Lumes. Quando a meta fecha, a cidade volta ao
@@ -20,8 +21,16 @@ export const CHEST_TIERS: Record<ChestTier, { label: string; color: string }> = 
 export const CRYSTAL_KEY = 'cristal-apice';
 export const CRYSTAL_LABEL = 'Cristal Ápice';
 export const CRYSTALS_LABEL = 'Cristais Ápice';
-/** baú esquecido se abre sozinho depois disto (o conteúdo vai para a bolsa) */
-export const CHEST_TTL_MS = 30 * 60_000;
+/**
+ * Tempo de cada estado do baú: fechado (some com o que tinha dentro), aberto com itens que ainda não couberam na bolsa,
+ * e vazio (só a animação de sumir, no cliente).
+ */
+export const CHEST_TTL_MS = 3 * 60_000;
+export const CHEST_OPEN_TTL_MS = 2 * 60_000;
+export const CHEST_EMPTY_MS = 10_000;
+/** carga máxima para ainda pegar itens do baú (vezes a capacidade): acima disso, o resto fica no baú */
+export const CHEST_CARRY_LIMIT = 2;
+export type ChestState = 'fechado' | 'aberto' | 'vazio';
 /** distância máxima para abrir (m) */
 export const CHEST_REACH = 5;
 
