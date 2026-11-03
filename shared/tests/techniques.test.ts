@@ -2,10 +2,11 @@ import { describe, it, expect } from 'vitest';
 import { WEAPON_TECHNIQUES, INFUSIONS, ELEMENTS, infuse, techniquesFor, lockedTechniques, sanitizeSkill, skillFits, kitFor, DEFAULT_SKILLS, type Element } from '../rules/index';
 
 describe('técnicas de arma', () => {
-  it('espada e arco têm 4 técnicas cada, físicas e com slugs únicos', () => {
-    for (const w of ['espada', 'arco'] as const) expect(WEAPON_TECHNIQUES.filter((t) => t.weapon === w)).toHaveLength(4);
+  it('espada, faca, maça, lança, arco, varinha têm 4 técnicas cada; cajado tem 3; físicas exceto cajado e varinha; slugs únicos', () => {
+    for (const w of ['espada', 'faca', 'maca', 'lanca', 'arco', 'varinha'] as const) expect(WEAPON_TECHNIQUES.filter((t) => t.weapon === w)).toHaveLength(4);
+    expect(WEAPON_TECHNIQUES.filter((t) => t.weapon === 'cajado')).toHaveLength(3);
     expect(new Set(WEAPON_TECHNIQUES.map((t) => t.slug)).size).toBe(WEAPON_TECHNIQUES.length);
-    for (const t of WEAPON_TECHNIQUES) { expect(t.slot).toBe('technique'); expect(t.modality).toBe(t.weapon === 'cajado' ? 'magica' : 'fisica'); expect(t.essence).toBeNull(); }
+    for (const t of WEAPON_TECHNIQUES) { expect(t.slot).toBe('technique'); expect(t.modality).toBe((t.weapon === 'cajado' || t.weapon === 'varinha') ? 'magica' : 'fisica'); expect(t.essence).toBeNull(); }
   });
 
   it('toda essência tem infusão', () => {
@@ -26,7 +27,10 @@ describe('técnicas de arma', () => {
 
   it('só aparecem com a arma do tipo na mão, abertas pelo vínculo', () => {
     expect(techniquesFor([], null, 'fogo', 20)).toEqual([]);
-    expect(techniquesFor([], 'maca', 'fogo', 20)).toEqual([]);
+    // maca agora tem técnicas
+    const macaTecs = techniquesFor([], 'maca', 'fogo', 20);
+    expect(macaTecs.length).toBe(4);
+    expect(macaTecs[0].weapon).toBe('maca');
     const cedo = techniquesFor([], 'espada', 'gelo', 1);
     expect(cedo.map((t) => t.slug)).toEqual(['espada-corte-giratorio']);
     expect(cedo[0].essence).toBe('gelo');

@@ -43,13 +43,28 @@ const T = (slug: string, name: string, weapon: WeaponKind, shape: SkillShape, o:
   modality: 'fisica', ...o,
 });
 
-/** Técnicas que vêm com o jogo (a Forja pode sobrescrever pelo slug): espada, arco e cajado (Escola Arcana). */
+/** Técnicas que vêm com o jogo (a Forja pode sobrescrever pelo slug): espada, faca, maça, lança, arco, cajado, varinha (Escola Arcana). */
 export const WEAPON_TECHNIQUES: SkillDef[] = [
   // espada: versátil, corpo a corpo
   T('espada-corte-giratorio', 'Corte Giratório', 'espada', 'aura', { description: 'Gira com a lâmina estendida e corta todos em volta.', power: 55, energy: 18, cooldown: 5, windup: 0.25, radius: 2.2, vfx: { style: 'impacto', color: 'essence', ground: true } }),
   T('espada-estocada', 'Estocada', 'espada', 'line', { description: 'Avança o peso do corpo numa estocada reta que atravessa quem estiver na frente.', power: 70, energy: 15, cooldown: 4, windup: 0.2, range: 3.2, radius: 0.5, unlockBond: 3 }),
   T('espada-golpe-ascendente', 'Golpe Ascendente', 'espada', 'melee', { description: 'Um corte de baixo para cima, pesado, que pode desequilibrar o alvo.', power: 85, energy: 20, cooldown: 7, windup: 0.3, range: 2, status: { key: 'atordoado', chance: 0.35, seconds: 1 }, unlockBond: 6 }),
   T('espada-investida-da-lamina', 'Investida da Lâmina', 'espada', 'dash', { description: 'Dispara para a frente com a espada em riste, cortando tudo no caminho.', power: 65, energy: 22, cooldown: 8, windup: 0.3, range: 5, radius: 0.8, anim: 'run', unlockBond: 9 }),
+  // faca: curto alcance, rápido, crítico e sangramento
+  T('faca-golpe-rapido', 'Golpe Rápido', 'faca', 'melee', { description: 'Uma estocada veloz que acerta primeiro.', power: 35, energy: 8, cooldown: 2, windup: 0.1, range: 1.4, radius: 0.3 }),
+  T('faca-corte-cruzado', 'Corte Cruzado', 'faca', 'melee', { description: 'Dois cortes em X que sangram o alvo.', power: 50, energy: 14, cooldown: 4, windup: 0.2, range: 1.5, radius: 0.4, status: { key: 'sombreado', chance: 0.4, seconds: 3 }, unlockBond: 3 }),
+  T('faca-emboscada', 'Emboscada', 'faca', 'dash', { description: 'Some por um instante e reaparece atrás do alvo com um golpe certeiro.', power: 75, energy: 20, cooldown: 7, windup: 0.3, range: 3.5, radius: 0.3, anim: 'run', unlockBond: 6 }),
+  T('faca-danca-das-laminas', 'Dança das Lâminas', 'faca', 'aura', { description: 'Gira num redemoinho de cortes rápidos em volta de si.', power: 40, energy: 22, cooldown: 8, windup: 0.25, radius: 1.8, repeat: 3, unlockBond: 9 }),
+  // maça: pesada, atordoa, empurra, quebra defesa
+  T('maca-pancada', 'Pancada', 'maca', 'melee', { description: 'Um golpe pesado e direto que abala o alvo.', power: 65, energy: 16, cooldown: 4, windup: 0.3, range: 1.7, radius: 0.5, status: { key: 'atordoado', chance: 0.3, seconds: 1 } }),
+  T('maca-golpe-terrestre', 'Golpe Terrestre', 'maca', 'aura', { description: 'Bate a maça no chão; uma onda de choque atordoa quem está perto.', power: 50, energy: 18, cooldown: 5, windup: 0.4, radius: 2.2, status: { key: 'atordoado', chance: 0.5, seconds: 1.5 }, unlockBond: 3 }),
+  T('maca-esmagar', 'Esmagar', 'maca', 'melee', { description: 'Um golpe de cima para baixo que esmaga a guarda e deixa lento.', power: 90, energy: 22, cooldown: 7, windup: 0.45, range: 1.8, status: { key: 'lento', chance: 0.45, seconds: 2.5 }, unlockBond: 6 }),
+  T('maca-investida-pesada', 'Investida Pesada', 'maca', 'dash', { description: 'Avança com a maça erguida e a deixa cair com todo o peso.', power: 80, energy: 26, cooldown: 9, windup: 0.4, range: 4, radius: 1, anim: 'run', unlockBond: 9 }),
+  // lança: longo alcance, controle de espaço, perfuração
+  T('lanca-estocada-longa', 'Estocada Longa', 'lanca', 'line', { description: 'Estende a lança ao máximo numa estocada que atravessa fileiras.', power: 60, energy: 14, cooldown: 3.5, windup: 0.25, range: 3.5, radius: 0.4 }),
+  T('lanca-varredura', 'Varredura', 'lanca', 'cone', { description: 'Gira a lança num arco largo, empurrando todos para trás.', power: 50, energy: 16, cooldown: 5, windup: 0.3, range: 2.8, angle: 80, status: { key: 'atordoado', chance: 0.25, seconds: 1 }, unlockBond: 3 }),
+  T('lanca-perfurante', 'Perfurante', 'lanca', 'line', { description: 'Uma estocada tão forte que ignora armadura e atravessa vários alvos.', power: 80, energy: 20, cooldown: 6, windup: 0.35, range: 3.2, radius: 0.5, unlockBond: 6 }),
+  T('lanca-ceu-e-terra', 'Céu e Terra', 'lanca', 'dash', { description: 'Salta alto e crava a lança no chão, criando uma onda de choque.', power: 95, energy: 28, cooldown: 10, windup: 0.5, range: 5, radius: 2.5, anim: 'jump', unlockBond: 9 }),
   // arco: distância, mira
   T('arco-tiro-preciso', 'Tiro Preciso', 'arco', 'projectile', { description: 'Respira, mira e solta uma flecha certeira de longe.', power: 65, energy: 12, cooldown: 3, windup: 0.35, range: 14, radius: 0.35 }),
   T('arco-flecha-perfurante', 'Flecha Perfurante', 'arco', 'line', { description: 'Uma flecha tão forte que atravessa todos em linha reta.', power: 60, energy: 18, cooldown: 5, windup: 0.45, range: 12, radius: 0.4, unlockBond: 3 }),
@@ -58,6 +73,11 @@ export const WEAPON_TECHNIQUES: SkillDef[] = [
   T('cajado-seta-arcana', 'Seta Arcana', 'cajado', 'projectile', { description: 'Uma seta de energia pura disparada da ponta do cajado.', power: 75, energy: 14, cooldown: 3, windup: 0.3, range: 12, radius: 0.4, modality: 'magica', anim: 'attack', vfx: { style: 'luz', color: 'essence', ground: false } }),
   T('cajado-selo-runico', 'Selo Rúnico', 'cajado', 'circle', { description: 'Grava um selo no chão que explode e prende quem estiver em cima.', power: 85, energy: 22, cooldown: 7, windup: 0.6, range: 9, radius: 2.2, status: { key: 'enraizado', chance: 0.5, seconds: 1.5 }, modality: 'magica', anim: 'attack', vfx: { style: 'luz', color: 'essence', ground: true }, unlockBond: 3 }),
   T('cajado-explosao-arcana', 'Explosão Arcana', 'cajado', 'aura', { description: 'Bate o cajado no chão e libera uma onda arcana em volta.', power: 100, energy: 26, cooldown: 9, windup: 0.4, radius: 2.8, modality: 'magica', anim: 'attack', vfx: { style: 'luz', color: 'essence', ground: true }, unlockBond: 6 }),
+  // varinha: magia rápida, curto alcance, utilidade
+  T('varinha-disparo-magico', 'Disparo Mágico', 'varinha', 'projectile', { description: 'Um projétil rápido de energia pura.', power: 45, energy: 10, cooldown: 2.5, windup: 0.15, range: 8, radius: 0.3, modality: 'magica', anim: 'attack', vfx: { style: 'luz', color: 'essence', ground: false } }),
+  T('varinha-raio-encadeado', 'Raio Encadeado', 'varinha', 'line', { description: 'Um raio que salta entre até 3 alvos próximos.', power: 55, energy: 16, cooldown: 4, windup: 0.25, range: 7, radius: 0.4, modality: 'magica', anim: 'attack', vfx: { style: 'raios', color: 'essence', ground: false }, unlockBond: 3 }),
+  T('varinha-bolha-protetora', 'Bolha Protetora', 'varinha', 'aura', { description: 'Cria uma bolha que absorve dano e cura quem está dentro.', heal: 40, energy: 18, cooldown: 8, windup: 0.2, radius: 2, modality: 'magica', anim: 'happy', vfx: { style: 'luz', color: 'essence', ground: true }, unlockBond: 6 }),
+  T('varinha-explosao-caotica', 'Explosão Caótica', 'varinha', 'circle', { description: 'Libera energia instável numa área; o elemento muda a cada uso.', power: 85, energy: 24, cooldown: 9, windup: 0.5, range: 6, radius: 2.5, modality: 'magica', anim: 'attack', vfx: { style: 'luz', color: 'essence', ground: true }, unlockBond: 9 }),
   T('arco-chuva-de-flechas', 'Chuva de Flechas', 'arco', 'circle', { description: 'Atira para o alto e as flechas caem sobre uma área.', power: 50, energy: 28, cooldown: 10, windup: 0.9, range: 12, radius: 2.4, vfx: { style: 'impacto', color: 'essence', ground: true }, unlockBond: 9 }),
 ];
 
@@ -82,7 +102,7 @@ export function infuse(sk: SkillDef, essence: Element | null): SkillDef {
 // do caminho. O slug não muda (a barra e os combos continuam valendo); muda o nome e os números.
 // ---------------------------------------------------------------------------
 
-export interface TechPatch { name: string; power?: number; range?: number; radius?: number; angle?: number; cooldown?: number; repeat?: number; status?: SkillDef['status'] }
+export interface TechPatch { name: string; power?: number; range?: number; radius?: number; angle?: number; cooldown?: number; repeat?: number; status?: SkillDef['status']; heal?: number }
 export interface TechPath { id: 'a' | 'b'; label: string; t3: TechPatch; t5: TechPatch }
 
 const P = (id: 'a' | 'b', label: string, t3: TechPatch, t5: TechPatch): TechPath => ({ id, label, t3, t5 });
@@ -132,6 +152,74 @@ export const TECH_EVOLUTIONS: Record<string, [TechPath, TechPath]> = {
     P('a', 'Área', { name: 'Tempestade', radius: 3.4 }, { name: 'Tempestade de Aço', radius: 4.4, power: 1.25 }),
     P('b', 'Golpes', { name: 'Saraivada', repeat: 3, power: 0.5 }, { name: 'Saraivada Sem Fim', repeat: 4, power: 0.48 }),
   ],
+  // faca
+  'faca-golpe-rapido': [
+    P('a', 'Velocidade', { name: 'Golpe Relâmpago', cooldown: 0.7 }, { name: 'Toque do Vento', cooldown: 0.5, power: 1.2 }),
+    P('b', 'Sangramento', { name: 'Corte Fundo', status: { key: 'sombreado', chance: 0.7, seconds: 4 } }, { name: 'Hemorragia', status: { key: 'sombreado', chance: 1, seconds: 6 }, power: 1.25 }),
+  ],
+  'faca-corte-cruzado': [
+    P('a', 'Alcance', { name: 'Corte Amplo', radius: 0.7 }, { name: 'Corte Circular', radius: 1, power: 1.3 }),
+    P('b', 'Golpes', { name: 'Corte Triplo', repeat: 3, power: 0.6 }, { name: 'Corte Quíntuplo', repeat: 5, power: 0.55 }),
+  ],
+  'faca-emboscada': [
+    P('a', 'Alcance', { name: 'Emboscada Longa', range: 5 }, { name: 'Emboscada Sombria', range: 7, power: 1.3 }),
+    P('b', 'Controle', { name: 'Emboscada Cegante', status: { key: 'ofuscado', chance: 0.6, seconds: 2 } }, { name: 'Golpe do Vazio', status: { key: 'ofuscado', chance: 0.9, seconds: 3 }, power: 1.25 }),
+  ],
+  'faca-danca-das-laminas': [
+    P('a', 'Área', { name: 'Redemoinho Cortante', radius: 2.4 }, { name: 'Tempestade de Aço', radius: 3, power: 1.25 }),
+    P('b', 'Golpes', { name: 'Dança Infinita', repeat: 5, power: 0.5 }, { name: 'Valsa das Lâminas', repeat: 7, power: 0.45 }),
+  ],
+  // maça
+  'maca-pancada': [
+    P('a', 'Força', { name: 'Pancada Brutal', power: 1.3 }, { name: 'Golpe do Titã', power: 1.6 }),
+    P('b', 'Atordoamento', { name: 'Pancada Certeira', status: { key: 'atordoado', chance: 0.6, seconds: 1.5 } }, { name: 'Impacto Sísmico', status: { key: 'atordoado', chance: 0.9, seconds: 2 }, power: 1.25 }),
+  ],
+  'maca-golpe-terrestre': [
+    P('a', 'Área', { name: 'Onda Sísmica', radius: 3 }, { name: 'Terremoto', radius: 4, power: 1.3 }),
+    P('b', 'Controle', { name: 'Solo Instável', status: { key: 'enraizado', chance: 0.4, seconds: 2 } }, { name: 'Prisão de Terra', status: { key: 'enraizado', chance: 0.7, seconds: 3 }, power: 1.2 }),
+  ],
+  'maca-esmagar': [
+    P('a', 'Controle', { name: 'Esmagar Definitivo', status: { key: 'lento', chance: 0.8, seconds: 3.5 } }, { name: 'Peso do Mundo', status: { key: 'lento', chance: 1, seconds: 5 }, power: 1.25 }),
+    P('b', 'Quebra', { name: 'Esmagar Armadura', status: { key: 'sombreado', chance: 0.6, seconds: 5 } }, { name: 'Quebra Total', status: { key: 'sombreado', chance: 1, seconds: 8 }, power: 1.2 }),
+  ],
+  'maca-investida-pesada': [
+    P('a', 'Alcance', { name: 'Investida do Colosso', range: 6 }, { name: 'Investida da Montanha', range: 8, power: 1.3 }),
+    P('b', 'Área', { name: 'Queda do Meteoro', radius: 1.8 }, { name: 'Impacto Catastrófico', radius: 2.5, repeat: 2, power: 0.7 }),
+  ],
+  // lança
+  'lanca-estocada-longa': [
+    P('a', 'Alcance', { name: 'Estocada Infinita', range: 5.5 }, { name: 'Estocada do Horizonte', range: 7.5, power: 1.3 }),
+    P('b', 'Perfuração', { name: 'Perfuração Múltipla', repeat: 2, power: 0.65 }, { name: 'Perfuração em Cadeia', repeat: 3, power: 0.6 }),
+  ],
+  'lanca-varredura': [
+    P('a', 'Área', { name: 'Varredura Ampla', angle: 120, range: 3.2 }, { name: 'Círculo de Lâminas', angle: 160, range: 3.6, power: 1.25 }),
+    P('b', 'Empurrão', { name: 'Varredura Poderosa', status: { key: 'atordoado', chance: 0.5, seconds: 1.5 } }, { name: 'Varre-Tudo', status: { key: 'atordoado', chance: 0.8, seconds: 2 }, power: 1.2 }),
+  ],
+  'lanca-perfurante': [
+    P('a', 'Força', { name: 'Perfurante Supremo', power: 1.3, range: 4 }, { name: 'Perfuração Absoluta', power: 1.6, range: 5 }),
+    P('b', 'Multi', { name: 'Perfuração Dupla', repeat: 2, power: 0.65 }, { name: 'Perfuração Tripla', repeat: 3, power: 0.6 }),
+  ],
+  'lanca-ceu-e-terra': [
+    P('a', 'Alcance', { name: 'Queda da Estrela', range: 7 }, { name: 'Meteoro Perfurante', range: 9, power: 1.3 }),
+    P('b', 'Área', { name: 'Onda Sísmica', radius: 3.2 }, { name: 'Cataclismo', radius: 4.2, power: 1.25 }),
+  ],
+  // varinha
+  'varinha-disparo-magico': [
+    P('a', 'Força', { name: 'Disparo Arcano', power: 1.3, range: 10 }, { name: 'Disparo do Mago', power: 1.6, range: 12 }),
+    P('b', 'Ritmo', { name: 'Disparo Rápido', cooldown: 0.6 }, { name: 'Rajada Mágica', cooldown: 0.4, repeat: 2, power: 0.7 }),
+  ],
+  'varinha-raio-encadeado': [
+    P('a', 'Alvos', { name: 'Raio Múltiplo', radius: 0.8 }, { name: 'Cadeia de Raios', radius: 1.2, power: 1.3 }),
+    P('b', 'Saltos', { name: 'Encadeamento Longo', range: 9 }, { name: 'Tempestade Encadeada', range: 11, repeat: 2, power: 0.7 }),
+  ],
+  'varinha-bolha-protetora': [
+    P('a', 'Cura', { name: 'Bolha Curativa', heal: 1.5 }, { name: 'Bolha da Vida', heal: 2, radius: 2.8 }),
+    P('b', 'Proteção', { name: 'Bolha Fortificada', status: { key: 'protegido', chance: 1, seconds: 3 } }, { name: 'Santitário', status: { key: 'protegido', chance: 1, seconds: 5 }, radius: 3.2 }),
+  ],
+  'varinha-explosao-caotica': [
+    P('a', 'Área', { name: 'Explosão Primordial', radius: 3.2 }, { name: 'Caos Absoluto', radius: 4.2, power: 1.25 }),
+    P('b', 'Instabilidade', { name: 'Explosão Múltipla', repeat: 2, power: 0.65 }, { name: 'Anomalia', repeat: 3, power: 0.6, status: { key: 'ofuscado', chance: 0.5, seconds: 3 } }),
+  ],
 };
 
 /** Técnicas ensinadas por uma escola de Áster: só aparecem para quem estuda lá. */
@@ -154,6 +242,7 @@ export function evolve(sk: SkillDef, tier: Tier, path: 'a' | 'b' | null | undefi
     ...(p.angle !== undefined ? { angle: p.angle, shape: sk.shape === 'melee' ? 'cone' : sk.shape } : {}),
     ...(p.repeat !== undefined ? { repeat: p.repeat } : {}),
     ...(p.status !== undefined ? { status: p.status } : {}),
+    ...(p.heal !== undefined ? { heal: Math.round(sk.heal * (p.heal ?? 1)) } : {}),
   };
 }
 
