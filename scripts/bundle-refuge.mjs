@@ -1,8 +1,9 @@
-// Empacota a Edge Function `refuge`.
-// Uso: npm run sync:rules && node scripts/bundle-refuge.mjs
+// Empacota a Edge Function `refuge` (sincronizando `shared/rules` automaticamente antes).
+// Uso: npm run bundle:fn (ou node scripts/bundle-refuge.mjs)
 //  -> dist-fn/refuge/index.js        (arquivo único, para publicar inteiro via MCP/API)
 //  -> client/public/fn/refuge.<hash>.js + dist-fn/refuge-stub/ (publicação leve: o stub baixa o código servido pelo
 //     site em produção ao iniciar, confere o SHA-256 fixado e o executa; o Supabase não aceita importar desse domínio)
+import './sync-rules.mjs';
 import { build } from 'esbuild';
 import { createHash } from 'node:crypto';
 import { mkdirSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';

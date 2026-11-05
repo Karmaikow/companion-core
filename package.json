@@ -8,7 +8,8 @@
     "build": "tsc -p client/tsconfig.json --noEmit && vite build --config client/vite.config.ts",
     "preview": "vite preview --config client/vite.config.ts",
     "test": "vitest run",
-    "sync:rules": "node scripts/sync-rules.mjs"
+    "sync:rules": "node scripts/sync-rules.mjs",
+    "bundle:fn": "node scripts/sync-rules.mjs && node scripts/bundle-refuge.mjs"
   },
   "devDependencies": {
     "@types/react": "^19.3.0",

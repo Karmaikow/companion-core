@@ -379,8 +379,9 @@ function moatColliders(edgeR: number, side: 'fora' | 'dentro', reach: number): C
   return out;
 }
 
-/** Modelos de ponte na cena (o piso sai deles). */
+/** Modelos de ponte na cena (o piso sai deles) + cache espacial em grade de 25 cm para evitar raycast repetido por quadro. */
 const bridgeObjs = new Map<string, THREE.Object3D>();
+const bridgeHeightCache = new Map<string, number>();
 const deckRay = new THREE.Raycaster(), DOWN = new THREE.Vector3(0, -1, 0), rayFrom = new THREE.Vector3();
 
 /**
@@ -389,10 +390,12 @@ const deckRay = new THREE.Raycaster(), DOWN = new THREE.Vector3(0, -1, 0), rayFr
  */
 function useBridgeDecks(deck: number, side: 'fora' | 'dentro') {
   useEffect(() => {
-    let last = { x: NaN, z: NaN, y: deck };
+    bridgeHeightCache.clear();
     decks.at = (x, z) => {
       if (!onBridge(x, z, side)) return null;
-      if (Math.abs(x - last.x) < 0.15 && Math.abs(z - last.z) < 0.15) return last.y;
+      const cellKey = `${side}:${Math.round(x * 4)},${Math.round(z * 4)}`;
+      const cached = bridgeHeightCache.get(cellKey);
+      if (cached !== undefined) return cached;
       let y = deck;
       if (bridgeObjs.size) {
         rayFrom.set(x, 30, z); deckRay.set(rayFrom, DOWN); deckRay.far = 40;
@@ -400,7 +403,8 @@ function useBridgeDecks(deck: number, side: 'fora' | 'dentro') {
         const hit = deckRay.intersectObjects([...bridgeObjs.values()], true).find((h) => h.point.y < WATER_Y + 6);
         if (hit) y = hit.point.y;
       }
-      last = { x, z, y };
+      if (bridgeHeightCache.size > 4096) bridgeHeightCache.clear();
+      bridgeHeightCache.set(cellKey, y);
       return y;
     };
     return () => { decks.at = null; };
@@ -577,7 +581,12 @@ export function Piece({ p, onPick, walkable = false }: { p: CityPiece; onPick?: 
   useMemo(() => fitTextures(scene, 1024), [scene]);
   const box = useRef<THREE.Object3D | null>(null);
   // pontes e portões: o piso por onde se anda sai do próprio modelo (ver useBridgeDecks)
-  const reg = (o: THREE.Object3D | null) => { box.current = o; if (p.wall !== 'ponte' && p.wall !== 'portao') return; if (o) bridgeObjs.set(p.id, o); else bridgeObjs.delete(p.id); };
+  const reg = (o: THREE.Object3D | null) => {
+    box.current = o;
+    if (p.wall !== 'ponte' && p.wall !== 'portao') return;
+    if (o) bridgeObjs.set(p.id, o); else bridgeObjs.delete(p.id);
+    bridgeHeightCache.clear();
+  };
   const mesh = walkable && meshSolid(p);
   useEffect(() => {
     if (!mesh || !box.current) return;

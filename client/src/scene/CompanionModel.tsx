@@ -7,10 +7,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { releaseClone } from './fitTextures';
 import * as THREE from 'three';
-import { GLTFLoader, type GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
-import { clipAnimKind, animKind, attackVariant, strideSpeed, gameTime, COMPANION_ANIM_SLOTS, parseAnimRef, gatherSlot, type AnimKind } from '@rules';
+import { attackVariant, strideSpeed, gameTime, COMPANION_ANIM_SLOTS, parseAnimRef, gatherSlot } from '@rules';
 import type { CompanionModelFiles } from '../backend/types';
 import { CLEAR_R, companionFocus, companionPose, socialHold, moveRequest, attackRequest, attackPick, teleport, resolveCollisions, platformHeight, BODY_R, type WorldShape } from './world';
 import { slideFields } from './meshField';
@@ -31,104 +29,30 @@ import { Shield } from './vfx/recipes';
 import { basicAttack, bowShot, ELEMENTS, RANK_POWER, NODE_KINDS, type WeaponKind, type EquipSlot, type ItemDef, type SpeciesKey, type ToolKey } from '@rules';
 import { basicHit, castSkill, combat } from '../build/combatStats';
 import { markPlayerAct, playerFighting, styleNow, timeScale, tryCombo } from './comboState';
+import {
+  facingYaw,
+  inPlace,
+  loadCompanionBundle,
+  loadGltf,
+  restBox,
+  sanitizeSkins,
+  type LoadedCompanion,
+} from './companionGltf';
+
+export { facingYaw, inPlace, loadGltf, restBox, sanitizeSkins };
 
 /** O que o Companion carrega: itens visíveis, a arma (escolhe o ataque) e o que muda o dano. */
 export interface Gear { items: ItemDef[]; /** espaço de cada peça (slug → espaço) */ slots?: Record<string, EquipSlot>; weapon: ItemDef | null; species: SpeciesKey | null; color: string; poder: number; /** id do Companion: pegada ajustada para este modelo */ modelKey?: string | null }
-
-const loader = new GLTFLoader();
-loader.setMeshoptDecoder(MeshoptDecoder);
-export const loadGltf = (url: string) => new Promise<GLTF>((ok, bad) => loader.load(url, ok, undefined, bad));
-/**
- * Modelo e animações do Companion, uma vez por arquivo (o endereço assinado muda, o arquivo não). Sem isto, cada vez que
- * a cena montava de novo o .glb inteiro era baixado e ia de novo para a placa — 4 texturas de 2048 (~88 MB) que nunca
- * eram liberadas, até o navegador derrubar o 3D.
- */
-const companionFiles = new Map<string, Promise<GLTF>>();
-const load = (url: string) => {
-  const k = url.split('?')[0];
-  let p = companionFiles.get(k);
-  if (!p) { p = loadGltf(url); companionFiles.set(k, p); p.catch(() => companionFiles.delete(k)); }
-  return p;
-};
-
-interface Loaded { gltf: GLTF; clips: { clip: THREE.AnimationClip; kind: AnimKind | string; stride: number; /** arquivo de onde veio: "corpo" ou o nome do .GLB de animação */ src: string }[] }
-
-/** Tira o deslocamento horizontal da raiz (quem move é o jogo) e devolve quanto ela andava por ciclo. */
-export function inPlace(clip: THREE.AnimationClip): number {
-  let best: THREE.KeyframeTrack | null = null, dist = 0;
-  for (const t of clip.tracks) {
-    if (!t.name.endsWith('.position') || t.values.length < 6) continue;
-    const v = t.values, n = v.length;
-    const d = Math.hypot(v[n - 3] - v[0], v[n - 1] - v[2]);
-    if (d > dist) { dist = d; best = t; }
-  }
-  if (best && dist > 0.001) {
-    const v = best.values, x0 = v[0], z0 = v[2];
-    for (let i = 0; i < v.length; i += 3) { v[i] = x0; v[i + 2] = z0; }
-  }
-  return dist;
-}
-
-/** Rig com índice de osso inexistente derrubaria a renderização: esse vínculo vira peso zero no osso 0. */
-export function sanitizeSkins(root: THREE.Object3D) {
-  root.traverse((o) => {
-    const m = o as THREE.SkinnedMesh;
-    if (!m.isSkinnedMesh) return;
-    const idx = m.geometry.getAttribute('skinIndex') as THREE.BufferAttribute, w = m.geometry.getAttribute('skinWeight') as THREE.BufferAttribute;
-    const n = m.skeleton.bones.length;
-    if (!idx || !w || !m.skeleton.bones.every(Boolean)) return;
-    let fixed = false;
-    for (let i = 0; i < idx.count; i++) for (let k = 0; k < 4; k++) {
-      if (idx.getComponent(i, k) < n) continue;
-      idx.setComponent(i, k, 0); w.setComponent(i, k, 0); fixed = true;
-    }
-    if (fixed) { idx.needsUpdate = true; w.needsUpdate = true; m.normalizeSkinWeights(); }
-  });
-}
-
-/**
- * Caixa do modelo como ele aparece de verdade: com os ossos aplicados (a malha "crua" de alguns rigs do Tripo vem em
- * outra escala — a Mayuna humana media 2 m crua e 0,98 m com os ossos, e encolhia para metade). Se a conta precisa
- * falhar, cai para a geometria em pose de descanso.
- */
-export function restBox(root: THREE.Object3D) {
-  root.updateMatrixWorld(true);
-  try {
-    const precise = new THREE.Box3().setFromObject(root, true);
-    const sz = precise.getSize(new THREE.Vector3());
-    if (!precise.isEmpty() && Number.isFinite(sz.y) && sz.y > 1e-4) return precise;
-  } catch { /* cai para a geometria */ }
-  const box = new THREE.Box3(), tmp = new THREE.Box3();
-  root.traverse((o) => {
-    const m = o as THREE.Mesh;
-    if (!m.isMesh || !m.geometry) return;
-    if (!m.geometry.boundingBox) m.geometry.computeBoundingBox();
-    box.union(tmp.copy(m.geometry.boundingBox!).applyMatrix4(m.matrixWorld));
-  });
-  return box;
-}
-
-/**
- * Para onde o modelo olha (o jogo anda com a frente em +Z). Humanoide em pé (mais alto que largo) segue a convenção
- * do glTF/Tripo/Mixamo: frente em +Z — de braços abertos ele é mais largo que fundo, e a regra de quadrúpede o
- * girava 90° (andava de lado). Corpo deitado: pela cabeça ou pelo comprimento.
- */
-export function facingYaw(root: THREE.Object3D): number {
-  const box = restBox(root), c = box.getCenter(new THREE.Vector3()), size = box.getSize(new THREE.Vector3());
-  if (size.y > 1.1 * Math.max(size.x, size.z)) return 0;
-  let head: THREE.Object3D | null = null;
-  root.traverse((o) => { if (!head && o.name && /head|cabe[cç]a/i.test(o.name)) head = o; });
-  if (head) {
-    const p = (head as THREE.Object3D).getWorldPosition(new THREE.Vector3()).sub(c);
-    if (Math.hypot(p.x, p.z) > 0.08 * Math.max(size.x, size.z)) return Math.atan2(p.x, p.z);
-  }
-  return size.x > size.z * 1.3 ? Math.PI / 2 : 0;
-}
 
 /** Pedido: o Companion andava devagar demais; o passo natural da animação vezes 2. */
 const SPEED_BOOST = 2;
 
 const ONCE = new Set(['happy', 'jump', 'attack', 'hurt', 'eat', 'cast', 'shoot', 'dodge', 'wave', 'getup', 'fidget']);
+
+/** Vetores reutilizáveis no loop de quadro para evitar alocações por frame no Garbage Collector. */
+const tmpTo = new THREE.Vector3();
+const tmpFv = new THREE.Vector3();
+const tmpAim = new THREE.Vector3();
 
 /** Onde o Companion pode andar. No Refúgio: a clareira em volta do altar. No mundo aberto: longe, com passeios perto de onde está. */
 export interface Roam {
@@ -144,7 +68,7 @@ const REFUGE_ROAM: Roam = {
 };
 
 export function CompanionModel({ files, world, burstKey, speech, onFail, roam = REFUGE_ROAM, appendages, speed = 1, gear }: { /** armas e equipamentos */ gear?: Gear | null; /** velocidade da classe (1 = padrão) */ speed?: number; files: CompanionModelFiles; world: WorldShape; burstKey: number; speech: string | null; onFail: () => void; roam?: Roam; /** cauda e asas da classe, desenhadas por código */ appendages?: AppendageSpec | null }) {
-  const [loaded, setLoaded] = useState<Loaded | null>(null);
+  const [loaded, setLoaded] = useState<LoadedCompanion | null>(null);
   // O objeto `files` é recriado a cada atualização do servidor (mesmos arquivos): recarregar por identidade trocava o
   // modelo no meio da corrida e ele deslizava sem animar. Só recarrega quando os endereços mudam.
   const filesKey = files.url.split('?')[0] + '|' + files.anims.map((a) => a.url.split('?')[0] + ':' + a.kind).join(',');
@@ -152,29 +76,17 @@ export function CompanionModel({ files, world, burstKey, speech, onFail, roam = 
   // quem chama passa uma função nova a cada desenho: ela não pode recarregar o modelo
   const failRef = useRef(onFail); failRef.current = onFail;
   useEffect(() => {
-    const files = filesRef.current;
     let alive = true;
-    (async () => {
-      const gltf = await load(files.url);
-      const clips: Loaded['clips'] = [];
-      const add = (list: THREE.AnimationClip[], kindHint: string | null, name: string) =>
-        // "special" vindo do servidor (tipo que a função ainda não conhece): tenta pelo nome do arquivo/clipe
-        list.forEach((clip) => clips.push({ clip, kind: clipAnimKind(clip.name, name, kindHint) ?? 'special', stride: inPlace(clip) / Math.max(0.01, clip.duration), src: name }));
-      // várias animações num arquivo só: o tipo vem do nome de cada clipe; uma só: do nome do arquivo
-      add(gltf.animations, gltf.animations.length > 1 ? null : animKind(files.url.split('?')[0]), 'corpo');
-      for (const a of files.anims) {
-        if (a.url === files.url) continue;
-        try { const g = await load(a.url); add(g.animations, g.animations.length > 1 ? null : a.kind, a.name); } catch { /* animação que falhou só fica de fora */ }
-      }
-      if (alive) setLoaded({ gltf, clips });
-    })().catch(() => alive && failRef.current());
+    loadCompanionBundle(filesRef.current)
+      .then((res) => { if (alive) setLoaded(res); })
+      .catch(() => alive && failRef.current());
     return () => { alive = false; };
   }, [filesKey]);
   if (!loaded) return null;
   return <Walker loaded={loaded} world={world} burstKey={burstKey} speech={speech} roam={roam} appendages={appendages ?? null} speed={speed} gear={gear ?? null} />;
 }
 
-function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear }: { loaded: Loaded; world: WorldShape; burstKey: number; speech: string | null; roam: Roam; appendages: AppendageSpec | null; speed: number; gear: Gear | null }) {
+function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear }: { loaded: LoadedCompanion; world: WorldShape; burstKey: number; speech: string | null; roam: Roam; appendages: AppendageSpec | null; speed: number; gear: Gear | null }) {
   const root = useRef<THREE.Group>(null);
   const pose = useRef<THREE.Group>(null);
   const animMap = useSkills((s) => s.animMap);
@@ -189,7 +101,7 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
     const orient = new THREE.Group(); orient.rotation.y = -facingYaw(model); orient.add(model);
     const mixer = new THREE.AnimationMixer(model);
     const actions = new Map<string, THREE.AnimationAction>();
-    let stride = 0, runPick: Loaded['clips'][number] | null = null;
+    let stride = 0, runPick: LoadedCompanion['clips'][number] | null = null;
     // "Parado" que na verdade anda: o Tripo às vezes exporta o rig do corpo já com a animação de andar.
     // Se o clipe de parado desloca o corpo ou é igual ao de andar, ele não serve como parado (fica a respiração procedural).
     const sig = (c: THREE.AnimationClip) => c.duration.toFixed(3) + ':' + c.tracks.length + ':' + c.tracks.slice(0, 3).map((t) => Array.from(t.values.slice(0, 8)).map((v) => v.toFixed(3)).join(',')).join('|');
@@ -480,7 +392,8 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
       const fin = prof.ranged === 'none' ? tryCombo('basic', (gear?.weapon?.type ?? null) as WeaponKind | null, combat.essence) : null;
       if (fin) {
         const fz = castSkill(fin.skill, styleNow().damage * fin.mult);
-        fxQueue.push({ kind: 'skill', pos, yaw: s.yaw, target: pos.clone().add(new THREE.Vector3(Math.sin(s.yaw), 0, Math.cos(s.yaw)).multiplyScalar(1.5)), skill: { ...fin.skill, windup: fz.windup }, damage: fz.damage, heal: 0, color: fin.skill.essence ? ELEMENTS[fin.skill.essence].glow : fxColor, info: fz.info });
+        tmpFv.set(Math.sin(s.yaw), 0, Math.cos(s.yaw));
+        fxQueue.push({ kind: 'skill', pos, yaw: s.yaw, target: pos.clone().addScaledVector(tmpFv, 1.5), skill: { ...fin.skill, windup: fz.windup }, damage: fz.damage, heal: 0, color: fin.skill.essence ? ELEMENTS[fin.skill.essence].glow : fxColor, info: fz.info });
       } else fxQueue.push(prof.ranged === 'magic'
         ? { kind: 'magic', pos: pos.setY(0), yaw: s.yaw, range: prof.range, damage: damageOf(), color: fxColor, style: gear?.weapon?.essence ? ESSENCE_FX[gear.weapon.essence] : 'luz', info: basic().info }
         : { kind: 'slash', pos, yaw: s.yaw, range: prof.range, damage: damageOf(), color: fxColor, heavy: prof.power > 1.2, info: basic().info });
@@ -531,20 +444,20 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
         let best: { x: number; z: number } | null = null, bd = Math.max(sk.range, sk.radius) + 1.5;
         targets.forEach((tg) => { const dd = Math.hypot(tg.x - r.position.x, tg.z - r.position.z); if (dd < bd && dd > 0.3) { bd = dd; best = tg; } });
         const b = best as { x: number; z: number } | null;
-        const mg = q.aimAt ? new THREE.Vector3(q.aimAt.x, r.position.y, q.aimAt.z) : mouseGround(state, r.position, 'skill');
+        const mg = q.aimAt ? tmpAim.set(q.aimAt.x, r.position.y, q.aimAt.z) : mouseGround(state, r.position, 'skill');
         if (mg && sk.shape !== 'aura') { s.yaw = Math.atan2(mg.x - r.position.x, mg.z - r.position.z); r.rotation.y = s.yaw; }
         else if (b && sk.shape !== 'aura') { s.yaw = Math.atan2(b.x - r.position.x, b.z - r.position.z); r.rotation.y = s.yaw; }
-        const fv = new THREE.Vector3(Math.sin(s.yaw), 0, Math.cos(s.yaw));
+        tmpFv.set(Math.sin(s.yaw), 0, Math.cos(s.yaw));
         const aimed = (sk.shape === 'circle' || sk.shape === 'leap') && b && bd <= sk.range + 0.5;
         // no PC, área e salto caem onde o mouse aponta (até o alcance)
-        const mouseTgt = mg ? (() => { const d = Math.min(sk.range, Math.hypot(mg.x - r.position.x, mg.z - r.position.z)); return r.position.clone().setY(0).addScaledVector(fv, d); })() : null;
-        const tgt = mouseTgt ?? (aimed ? new THREE.Vector3(b!.x, 0, b!.z) : r.position.clone().setY(0).addScaledVector(fv, sk.shape === 'leap' ? sk.range : Math.min(sk.range, 3.5)));
+        const mouseTgt = mg ? (() => { const d = Math.min(sk.range, Math.hypot(mg.x - r.position.x, mg.z - r.position.z)); return r.position.clone().setY(0).addScaledVector(tmpFv, d); })() : null;
+        const tgt = mouseTgt ?? (aimed ? new THREE.Vector3(b!.x, 0, b!.z) : r.position.clone().setY(0).addScaledVector(tmpFv, sk.shape === 'leap' ? sk.range : Math.min(sk.range, 3.5)));
         const travel = sk.shape === 'dash' ? 0.3 : sk.shape === 'leap' ? 0.45 : 0;
         const kind = chosen(sk.slug) ?? (sk.anim === 'attack' && sk.shape !== 'melee' && actions.has('cast') ? 'cast' : actions.has(sk.anim) ? sk.anim : actions.has('attack') ? 'attack' : null);
         if (kind) { const a = actions.get(kind)!, ts = 1.5; play(kind, 0.06); a.timeScale = ts; s.act = ''; s.once = Math.max(fz.windup + travel + 0.15, Math.min(0.9, (a.getClip().duration / ts) * 0.8)); } else { s.once = fz.windup + travel + 0.3; cs.lunge = 0.35; }
         s.target.copy(r.position); s.player = false; s.wait = Math.max(s.wait, 1.6);
         fxQueue.push({ kind: 'skill', pos: r.position.clone(), yaw: s.yaw, target: tgt, skill: { ...sk, windup: fz.windup }, damage: fz.damage, heal: fz.heal, color: q.color, info: fz.info });
-        if (travel) cs.move = { from: r.position.clone(), to: sk.shape === 'dash' ? r.position.clone().addScaledVector(fv, sk.range) : tgt.clone(), t: -fz.windup, dur: travel, arc: sk.shape === 'leap' ? 1.3 : 0 };
+        if (travel) cs.move = { from: r.position.clone(), to: sk.shape === 'dash' ? r.position.clone().addScaledVector(tmpFv, sk.range) : tgt.clone(), t: -fz.windup, dur: travel, arc: sk.shape === 'leap' ? 1.3 : 0 };
       }
     }
     if (cs.move) {
@@ -589,19 +502,19 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
       s.player = true; s.running = stickOn ? Math.hypot(js.x, js.y) > 0.6 : !k.has('shift'); s.wait = 12; s.sitting = false; // passeio sozinho só depois de um tempo parado
     } else if (s.player) { s.player = false; s.running = false; s.target.copy(r.position); }
 
-    const to = new THREE.Vector3(s.target.x - r.position.x, 0, s.target.z - r.position.z);
-    const d = to.length();
+    tmpTo.set(s.target.x - r.position.x, 0, s.target.z - r.position.z);
+    const d = tmpTo.length();
     if (d > 0.08) {
-      to.normalize();
+      tmpTo.normalize();
       const step = Math.min(d, (guard ? walkSpeed * combat.d.guard.move : s.running ? runSpeed : walkSpeed) * dt);
-      const before = { x: r.position.x, z: r.position.z }, next = { x: r.position.x + to.x * step, z: r.position.z + to.z * step };
+      const before = { x: r.position.x, z: r.position.z }, next = { x: r.position.x + tmpTo.x * step, z: r.position.z + tmpTo.z * step };
       // colisão: desliza em volta de pedras, troncos e da fogueira; se ficar travado contra algo, desiste do destino
       // prédios: paredes e degraus altos medidos na malha (o nível é o piso em que ele está agora)
       const level = world.heightAt(before.x, before.z) + platformHeight(before.x, before.z, world.heightAt(before.x, before.z));
       const touched = resolveCollisions(next), walled = slideFields(before, next, level, BODY_R);
       if ((touched || walled) && Math.hypot(next.x - before.x, next.z - before.z) < step * 0.25) { s.blocked += dt; if (s.blocked > 0.6 && !s.player) { s.target.set(next.x, 0, next.z); s.blocked = 0; s.stuck = true; s.click = false; } } else s.blocked = 0;
       r.position.x = next.x; r.position.z = next.z;
-      const want = Math.atan2(to.x, to.z); let dy = want - s.yaw; while (dy > Math.PI) dy -= 2 * Math.PI; while (dy < -Math.PI) dy += 2 * Math.PI;
+      const want = Math.atan2(tmpTo.x, tmpTo.z); let dy = want - s.yaw; while (dy > Math.PI) dy -= 2 * Math.PI; while (dy < -Math.PI) dy += 2 * Math.PI;
       s.yaw += dy * Math.min(1, dt * (s.player ? 9 : 5));
       if (s.jumpT >= 0 && actions.has('jump')) { /* o pulo segue tocando */ } else play(guard && actions.has('block') ? 'block' : s.running && actions.has('run') ? 'run' : actions.has('walk') ? 'walk' : 'idle');
     } else {
