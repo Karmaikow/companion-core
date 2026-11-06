@@ -17,7 +17,7 @@ import type { AnimKind } from './anim.ts';
 import { sanitizeLook, type ModelLook } from './look.ts';
 import { TIERS, cleanTier, tierOf, tierBlock, type Tier } from './tiers.ts';
 
-export type Rarity = 'comum' | 'incomum' | 'rara' | 'lendaria';
+export type Rarity = 'comum' | 'incomum' | 'rara' | 'epica' | 'lendaria' | 'mitica';
 export type Bone = 'mao_direita' | 'mao_esquerda' | 'cabeca' | 'peito' | 'nenhum';
 
 /** Os quatro tipos de item da bolsa. */
@@ -116,7 +116,9 @@ export const RARITIES: Record<Rarity, { label: string; color: string; statMul: n
   comum: { label: 'Comum', color: '#c9c3b6', statMul: 1 },
   incomum: { label: 'Incomum', color: '#7be36b', statMul: 1.5 },
   rara: { label: 'Rara', color: '#5aa8ff', statMul: 2.2 },
+  epica: { label: 'Épica', color: '#c58cff', statMul: 2.7 },
   lendaria: { label: 'Lendária', color: '#ffb347', statMul: 3.2 },
+  mitica: { label: 'Mítica', color: '#ff738f', statMul: 3.8 },
 };
 
 /** Armas afins de cada classe (+5% no dano da arma): bônus pequeno, nenhuma proibida. */
@@ -125,6 +127,8 @@ export const CLASS_WEAPONS: Record<SpeciesKey, ItemType[]> = {
 };
 
 export interface ItemDef {
+  /** Número da carta no lote original do Arsenal de Áster. */
+  cardNumber?: number;
   slug: string;
   name: string;
   description: string;
@@ -430,6 +434,7 @@ export function sanitizeItem(input: unknown): ItemDef | null {
   for (const k of ATTRS) { const v = Number((s.stats as Record<string, unknown> | undefined)?.[k]); if (Number.isFinite(v) && v !== 0) stats[k] = Math.max(-20, Math.min(40, Math.round(v))); }
   return {
     slug: s.slug,
+    ...(typeof s.cardNumber === 'number' && Number.isInteger(s.cardNumber) && s.cardNumber >= 1 && s.cardNumber <= 200 ? { cardNumber: s.cardNumber } : {}),
     name: typeof s.name === 'string' && s.name.trim() ? s.name.trim().slice(0, 40) : s.slug,
     description: typeof s.description === 'string' ? s.description.slice(0, 200) : '',
     type,
