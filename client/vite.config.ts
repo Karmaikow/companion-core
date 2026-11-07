@@ -11,6 +11,7 @@ export default defineConfig({
       input: {
         main: fileURLToPath(new URL('./index.html', import.meta.url)),
         gallery: fileURLToPath(new URL('./vfx-gallery.html', import.meta.url)),
+        wiki: fileURLToPath(new URL('./wiki/index.html', import.meta.url)),
       },
       output: {
         manualChunks(id) {

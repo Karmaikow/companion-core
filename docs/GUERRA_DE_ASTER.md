@@ -133,7 +133,7 @@ Marcado com 🖥 o que **precisa do servidor** (Supabase); o resto dá para faze
 - [ ] Buff do servidor, títulos, MVP, baús, Lágrima da Rainha
 - [ ] Reconstrução com ranking de entregas
 
-### Fase G — Wiki
+### Fase G — Wiki (feita, faltam a foto do catálogo e o link no jogo)
 - [ ] Ver seção 6
 
 ## 5. Perguntas em aberto (para decidir)
@@ -150,4 +150,6 @@ Site estático dentro do próprio jogo (rota `/wiki`, no mesmo Vercel, sem custo
   recompensas, dicas por portão).
 - **Dados gerados no build**, a partir do código (`shared/rules`) e de uma *foto* do que está publicado no banco
   (lida **uma vez** no build, para não gastar a cota do Supabase).
-- [ ] Gerador de dados · [ ] Páginas de itens e monstros · [ ] Mecânicas · [ ] Guerra · [ ] Busca
+- [x] Dados direto das regras (`shared/rules`) · [x] Itens e monstros · [x] Mecânicas · [x] Guerra · [x] Busca (rota `/wiki/`, `client/src/wiki`)
+- [ ] Foto do catálogo publicado (`/wiki-data.json`: `{ items, creatures, at }`), gerada uma vez depois do reset do Supabase
+- [ ] Link da wiki dentro do jogo (menu) · [ ] páginas de lugares e missões
