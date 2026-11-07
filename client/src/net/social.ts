@@ -6,6 +6,7 @@
  * - painel: amigos, pedidos de amizade (a pessoa aceita ou recusa), grupo, convites e trocas (`social.state`,
  *   revisto a cada 20 s), com avisos quando chega algo novo.
  */
+import { pollWhenVisible } from './pollWhenVisible';
 import { useEffect } from 'react';
 import { create } from 'zustand';
 import { useGame } from '../store';
@@ -108,7 +109,7 @@ function playMeeting(m: MeetingView, me: string) {
 }
 
 /**
- * Laço social: estado a cada 20 s (online, depois do despertar) e, no mundo, os encontros com quem está perto.
+ * Laço social: estado a cada 60 s com a aba à vista (online, depois do despertar; antes era a cada 12 s, o que gastava a cota da função) e, no mundo, os encontros com quem está perto.
  */
 export function useSocialLoop(opts: { on: boolean; inWorld: boolean; me: string | null }) {
   const { on, inWorld, me } = opts;
@@ -118,10 +119,11 @@ export function useSocialLoop(opts: { on: boolean; inWorld: boolean; me: string 
     void socialCall('social.state');
     let pending = 0;
     const refresh = () => { window.clearTimeout(pending); pending = window.setTimeout(() => void socialCall('social.state'), 300); };
-    const t = window.setInterval(() => void socialCall('social.state'), 12_000);
+    // novidades chegam pelo canal em tempo real (onPoke); o relógio é só uma rede de segurança
+    const stop = pollWhenVisible(() => void socialCall('social.state'), 60_000);
     const offPoke = onPoke(refresh);
     window.addEventListener('focus', refresh);
-    return () => { window.clearInterval(t); offPoke(); window.removeEventListener('focus', refresh); window.clearTimeout(pending); };
+    return () => { stop(); offPoke(); window.removeEventListener('focus', refresh); window.clearTimeout(pending); };
   }, [on]);
   useEffect(() => {
     if (!on || !inWorld || !me) return;

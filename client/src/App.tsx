@@ -40,6 +40,7 @@ import { SchoolPanel } from './ui/SchoolPanel';
 import { EcosHouse } from './ui/EcosHouse';
 import { TowerPanel } from './ui/TowerPanel';
 import { useChests } from './chests/chestStore';
+import { pollWhenVisible } from './net/pollWhenVisible';
 import { useGod } from './ui/godMode';
 import { SafeStage, glLostBefore } from './scene/SafeStage';
 import { useHud } from './ui/hudLayout';
@@ -235,8 +236,10 @@ export function App() {
   useEffect(() => {
     const load = () => supabase().from('game_config').select('values').eq('id', 1).maybeSingle().then(({ data }) => { const w = (data?.values as { weather?: unknown } | null)?.weather; if (w) setWeatherCfg(sanitizeWeather(w)); }, () => {});
     load();
-    const t = setInterval(() => { setClock(Date.now()); load(); }, 30_000);
-    return () => clearInterval(t);
+    // o relógio do clima anda a cada 30 s; a configuração do ADM só é lida de novo a cada 5 min (e com a aba à vista)
+    const t = setInterval(() => setClock(Date.now()), 30_000);
+    const stop = pollWhenVisible(load, 300_000);
+    return () => { clearInterval(t); stop(); };
   }, []);
   const weather = useMemo(() => {
     const test = new URLSearchParams(location.search).get('clima');
@@ -266,7 +269,7 @@ export function App() {
   // Áster: normal ou destruída (lido do banco; ?destruida força a cidade caída para teste)
   const forcedDown = useMemo(() => new URLSearchParams(location.search).has('destruida'), []);
   const realCity = useChests((s) => s.city?.state);
-  useEffect(() => { void useChests.getState().loadCity(); const t = setInterval(() => void useChests.getState().loadCity(), 60_000); return () => clearInterval(t); }, []);
+  useEffect(() => { void useChests.getState().loadCity(); return pollWhenVisible(() => void useChests.getState().loadCity(), 300_000); }, []);
   const cityState: CityState = forcedDown ? 'destruida' : realCity ?? 'normal';
   const godAdmin = useGod((g) => g.admin);
   useEffect(() => {
