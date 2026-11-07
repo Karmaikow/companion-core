@@ -246,7 +246,7 @@ export function CityStudio() {
         const safe = f.name.replace(/\.[^.]+$/, '').normalize('NFD').replace(/[^\w-]+/g, '_').slice(0, 40);
         const path = `${FOLDER}/${Date.now()}-${safe}.glb`;
         // o navegador não informa tipo para .glb; sem isso o bucket recusa
-        const { error } = await supabase().storage.from('world-assets').upload(path, new Blob([f], { type: 'model/gltf-binary' }), { contentType: 'model/gltf-binary', upsert: false });
+        const { error } = await supabase().storage.from('world-assets').upload(path, new Blob([f], { type: 'model/gltf-binary' }), { contentType: 'model/gltf-binary', upsert: false, cacheControl: '31536000' });
         if (error) throw new Error(`${f.name}: ${error.message}`);
         added.push({ name: safe, url: supabase().storage.from('world-assets').getPublicUrl(path).data.publicUrl });
         if (f.size > (asExterior ? 12 : 3) * 1024 * 1024) heavy.push(`${f.name} (${(f.size / 1048576).toFixed(1)} MB)`);

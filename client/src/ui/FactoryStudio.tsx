@@ -26,7 +26,7 @@ export async function putJobFile(job: Job, file: File, folder: string, type: str
   const path = `companions/${job.companionId}/${folder}/v${job.contractVersion}-${Date.now()}-${safe}.${ext}`;
   // o navegador não informa tipo para .glb (vira application/octet-stream, que o bucket recusa): reembala com o tipo certo
   const body = file.type === type ? file : new Blob([file], { type });
-  const { error } = await supabase().storage.from('companion-studio').upload(path, body, { contentType: type, upsert: false });
+  const { error } = await supabase().storage.from('companion-studio').upload(path, body, { contentType: type, upsert: false, cacheControl: '31536000' });
   if (error) throw new Error('Falha no envio de ' + file.name + ': ' + error.message);
   return path;
 }

@@ -115,7 +115,7 @@ export function BiomeStudio() {
         const safe = f.name.replace(/\.[^.]+$/, '').normalize('NFD').replace(/[^\w-]+/g, '_').slice(0, 40);
         const path = `biomes/${draft.slug}/${Date.now()}-${safe}.glb`;
         // o navegador não informa tipo para .glb; sem isso o bucket recusa
-        const { error } = await supabase().storage.from('world-assets').upload(path, new Blob([f], { type: 'model/gltf-binary' }), { contentType: 'model/gltf-binary', upsert: false });
+        const { error } = await supabase().storage.from('world-assets').upload(path, new Blob([f], { type: 'model/gltf-binary' }), { contentType: 'model/gltf-binary', upsert: false, cacheControl: '31536000' });
         if (error) throw new Error(`${f.name}: ${error.message}`);
         const url = supabase().storage.from('world-assets').getPublicUrl(path).data.publicUrl;
         const role = guessRole(f.name), def = BIOME_ROLES[role];

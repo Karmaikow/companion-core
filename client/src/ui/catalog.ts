@@ -49,7 +49,7 @@ export function useCatalog<T extends { slug: string; name: string }>(table: 'ski
 /** Envia um arquivo para o bucket público world-assets e devolve a URL pública. */
 export async function uploadWorldAsset(path: string, file: File): Promise<{ url: string; path: string }> {
   const type = /\.glb$/i.test(file.name) ? 'model/gltf-binary' : file.type || 'application/octet-stream';
-  const { error } = await supabase().storage.from('world-assets').upload(path, new Blob([file], { type }), { contentType: type, upsert: false });
+  const { error } = await supabase().storage.from('world-assets').upload(path, new Blob([file], { type }), { contentType: type, upsert: false, cacheControl: '31536000' });
   if (error) throw new Error(`${file.name}: ${error.message}`);
   return { url: supabase().storage.from('world-assets').getPublicUrl(path).data.publicUrl, path };
 }

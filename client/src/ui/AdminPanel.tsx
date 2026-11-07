@@ -176,7 +176,7 @@ export function AdminPanel() {
     setBusy(true); setMsg(null);
     const ext = file.type === 'image/webp' ? 'webp' : file.type === 'image/jpeg' ? 'jpg' : 'png';
     const path = `companions/${job.companionId}/v${job.contractVersion}-${Date.now()}.${ext}`;
-    const { error } = await supabase().storage.from('companion-studio').upload(path, file, { contentType: file.type, upsert: false });
+    const { error } = await supabase().storage.from('companion-studio').upload(path, file, { contentType: file.type, upsert: false, cacheControl: '31536000' });
     if (error) { setBusy(false); setMsg('Falha no envio: ' + error.message); return; }
     await update(job, 'review', { artPath: path });
   }
