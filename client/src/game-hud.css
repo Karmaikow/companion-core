@@ -663,7 +663,8 @@
 .game-ui .skill-bar .sb-slot.combo.cd { opacity: 1; filter: none; }
 
 /* Estilo: nota grande, nome, barra até a próxima nota e o contador de golpes */
-.combo-hud { position: fixed; right: 18px; top: max(34%, 230px); z-index: 20; display: grid; justify-items: end; gap: 2px; pointer-events: none; color: var(--rk); text-shadow: 0 2px 0 #0008, 0 0 12px #000a; }
+/* ao lado esquerdo do minimapa (156 px + a bússola), no alto */
+.combo-hud { position: fixed; right: calc(var(--hud-edge) + 156px + 28px); top: calc(var(--hud-top) + 54px); z-index: 20; display: grid; justify-items: end; gap: 2px; pointer-events: none; color: var(--rk); text-shadow: 0 2px 0 #0008, 0 0 12px #000a; }
 .combo-hud .ch-letter { font: 900 3.4rem/0.9 var(--serif); letter-spacing: -0.02em; -webkit-text-stroke: 1px #2a1c0e; animation: ch-pop 0.32s cubic-bezier(.2, 1.6, .4, 1); }
 .combo-hud .ch-label { font: 700 0.86rem var(--serif); text-transform: uppercase; letter-spacing: 0.14em; }
 .combo-hud .ch-bar { display: block; width: 92px; height: 4px; border-radius: 2px; background: #0b133099; overflow: hidden; }
@@ -673,5 +674,5 @@
 .combo-flash { position: fixed; left: 50%; top: 26%; translate: -50% 0; z-index: 20; pointer-events: none; font: 800 1.7rem var(--serif); color: #fff3dc; white-space: nowrap; text-shadow: 0 2px 0 #000a, 0 0 14px #000c; animation: cf-rise 1.3s ease-out both; }
 .combo-flash.perfect { color: #ffd84d; text-shadow: 0 2px 0 #000a, 0 0 18px #ffb34799; }
 @keyframes cf-rise { 0% { opacity: 0; transform: scale(1.6); } 12% { opacity: 1; transform: scale(1); } 75% { opacity: 1; } 100% { opacity: 0; transform: translateY(-14px); } }
-@media (max-width: 700px) { .combo-hud { top: 22%; right: 10px; } .combo-hud .ch-letter { font-size: 2.6rem; } .combo-flash { font-size: 1.3rem; } }
+@media (max-width: 700px) { .combo-hud .ch-letter { font-size: 2.4rem; } .combo-hud .ch-bar { width: 72px; } .combo-flash { font-size: 1.3rem; } }
 @media (prefers-reduced-motion: reduce) { .combo-hud .ch-letter, .combo-hud .ch-hits, .game-ui .skill-bar .sb-slot.combo { animation: none; } .combo-flash { animation-duration: 0.01s; animation-fill-mode: none; } }
