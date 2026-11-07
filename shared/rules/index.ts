@@ -41,6 +41,7 @@ export * from './escolas.ts';
 export * from './missions.ts';
 export * from './refine.ts';
 export * from './chests.ts';
+export * from './war.ts';
 export * from './trade.ts';
 export * from './constellation.ts';
 export * from './social.ts';
