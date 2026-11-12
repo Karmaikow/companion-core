@@ -7,8 +7,8 @@
  * (duas abas do mesmo site se veem), para testar sem servidor.
  *
  * Mensagens:
- * - `hello` (ficha): id, nome, cor, modelo — na entrada, a cada ~10 s e quando alguém novo aparece;
- * - `pose`: id, x, z, yaw, caído — ~4×/s (só quando mudou, ou a cada 2 s parado);
+ * - `hello` (ficha): id, nome, cor, modelo — na entrada, a cada ~30 s e quando alguém novo aparece ou pede;
+ * - `pose`: id, x, z, yaw, caído — ~4×/s (só quando mudou; parado, a cada 3 s, ou 5 s com a aba oculta);
  * - `bye`: ao sair do mundo.
  * Quem fica 8 s sem mandar nada some.
  */
@@ -53,7 +53,10 @@ const pokeHandlers = new Set<() => void>();
 export function pokeOthers(to: string[] | '*' = '*') { if (current) current.t.send({ type: 'poke', from: current.id, to }); }
 export function onPoke(cb: () => void) { pokeHandlers.add(cb); return () => { pokeHandlers.delete(cb); }; }
 const POSE_MS = 250;
-const HELLO_MS = 10000;
+/** Parado, a posição vai só como sinal de vida: bem abaixo dos 8 s em que quem se cala some. */
+const IDLE_MS = 3000, IDLE_HIDDEN_MS = 5000;
+/** A ficha completa (com os endereços do modelo) é a mensagem mais pesada; quem chega ou não conhece alguém já a pede na hora. */
+const HELLO_MS = 30000;
 
 function supabaseTransport(onMsg: (m: Msg) => void): Transport {
   const ch = supabase().channel('mundo', { config: { broadcast: { self: false } } });
@@ -149,7 +152,7 @@ function connect(info: RemoteInfo | null, local: boolean, map: PresenceMap | nul
       const x = +companionFocus.x.toFixed(2), z = +companionFocus.z.toFixed(2), yaw = +companionPose.yaw.toFixed(2), down = companionPose.down;
       const hp = +(vitals.hp / Math.max(1, vitals.hpMax)).toFixed(2);
       const moved = Math.hypot(x - last.x, z - last.z) > 0.03 || Math.abs(yaw - last.yaw) > 0.05 || down !== last.down || Math.abs(hp - last.hp) > 0.02;
-      if (moved || now - last.at > 2000) { t.send({ type: 'pose', id: info.id, x, z, yaw, down, hp, map: map! }); last = { x, z, yaw, down, at: now, hp }; }
+      if (moved || now - last.at > (document.hidden ? IDLE_HIDDEN_MS : IDLE_MS)) { t.send({ type: 'pose', id: info.id, x, z, yaw, down, hp, map: map! }); last = { x, z, yaw, down, at: now, hp }; }
     }
     // some quem parou de mandar
     let gone = false;
