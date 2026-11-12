@@ -7,6 +7,7 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { EffectComposer, Bloom, Vignette, ToneMapping, SMAA } from '@react-three/postprocessing';
+import { AdaptiveResolution } from './AdaptiveResolution';
 import { ToneMappingMode } from 'postprocessing';
 import * as THREE from 'three';
 import { gameTime, REFUGE_BIOME, type BiomeConfig, type IdentityContractV1, type RefugeFeatures } from '@rules';
@@ -198,6 +199,7 @@ export function Refuge(props: RefugeProps) {
           <FocusAltar />
         </>
       )}
+      <AdaptiveResolution high={high} />
       <EffectComposer multisampling={0} enableNormalPass={false}>
         <Bloom mipmapBlur intensity={0.55 + night * 0.45} luminanceThreshold={0.78 - night * 0.12} luminanceSmoothing={0.2} />
         <Vignette offset={0.3} darkness={0.35} />

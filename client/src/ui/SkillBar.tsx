@@ -7,14 +7,14 @@ import { SkillIcon } from './SkillIcon';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTouchLandscape } from './TouchControls';
-import { ELEMENTS, RANK_COOLDOWN, SHAPES, SKILL_CHARGE_MAX, skillCharge, skillChargeMultiplier, type SkillDef } from '@rules';
+import { ELEMENTS, RANK_COOLDOWN, SHAPES, SKILL_CHARGE_MAX, cadenceTokenOfSlot, skillCharge, skillChargeMultiplier, type SkillDef } from '@rules';
 import { castSkill } from '../build/combatStats';
 import { useGame } from '../store';
 import { requestSkill, skillChargeState, skillInput } from '../scene/combatInput';
 import { BAR_SIZE, saveBar, useSkillData, useSkills } from './skillState';
 import { canAct, spendSp, useVitals } from '../scene/vitals';
 import { godFlags } from '../scene/god';
-import { comboGlow, markPlayerAct, styleNow, tryCombo } from '../scene/comboState';
+import { cadenceFired, cadencePress, cadenceView, markPlayerAct, styleNow, timingNow } from '../scene/comboState';
 
 
 function colorOf(s: SkillDef, companion: string): string {
@@ -26,7 +26,7 @@ function colorOf(s: SkillDef, companion: string): string {
 const cooldownOf = (s: SkillDef, level: number) => Math.max(0.3, s.cooldown * (1 - RANK_COOLDOWN * (level - 1)));
 
 export function SkillBar({ color }: { color: string }) {
-  const { companion, unlocked, weapon, essence } = useSkillData();
+  const { companion, unlocked, weapon } = useSkillData();
   const bar = useSkills((s) => s.bar), removed = useSkills((s) => s.removed), ready = useSkills((s) => s.ready);
   const [pick, setPick] = useState<number | null>(null);
   const [now, setNow] = useState(() => performance.now());
@@ -47,18 +47,22 @@ export function SkillBar({ color }: { color: string }) {
     return () => cancelAnimationFrame(raf);
   }, [waiting]);
 
-  // janela de combo aberta: os botões que continuam a sequência acendem (dourado no ponto perfeito)
-  const [glow, setGlow] = useState<{ press: Set<string>; perfect: boolean } | null>(null);
+  // Cadência em andamento: os espaços (1–3) que continuam a sequência acendem (dourado no ponto perfeito)
+  const [glow, setGlow] = useState<{ slots: string; perfect: boolean } | null>(null);
   useEffect(() => {
     let raf = 0;
     const tick = () => {
-      const g = comboGlow(weapon);
-      setGlow((old) => (!g && !old) || (g && old && g.perfect === old.perfect && [...g.press].join() === [...old.press].join()) ? old : g);
+      // só a partir do segundo toque: depois de um golpe básico solto, tudo "continua" e a barra piscaria sem parar
+      const cv = cadenceView();
+      const next = cv.tokens.length >= 2 ? cv.next.map((n) => n.token).filter((t) => t !== 'B') : [];
+      const g = next.length ? { slots: [...new Set(next)].sort().join(), perfect: timingNow() === 'perfeita' } : null;
+      setGlow((old) => (!g && !old) || (g && old && g.perfect === old.perfect && g.slots === old.slots) ? old : g);
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
   }, [weapon]);
+  const glowing = (i: number) => { const t = cadenceTokenOfSlot(i); return !!t && !!glow && glow.slots.split(',').includes(t); };
 
   const info = (slug: string | null) => (slug ? unlocked.find((u) => u.skill.slug === slug) ?? null : null);
 
@@ -71,15 +75,6 @@ export function SkillBar({ color }: { color: string }) {
     if (!skillInput.body) { toast('As habilidades precisam do corpo 3D do Companion (a Fábrica cria o modelo).', 'warn'); return; }
     if (!canAct()) return;
     markPlayerAct();
-    // dentro da janela do combo, a técnica certa vira finalizador (mesmo recarregando)
-    const fin = tryCombo(u.skill.slug, weapon, essence);
-    if (fin) {
-      const fz = castSkill(fin.skill, u.mult * fin.mult * styleNow().damage);
-      if (!spendSp(fz.cost)) { setShort(i); window.setTimeout(() => setShort((f) => (f === i ? null : f)), 500); return; }
-      requestSkill({ skill: fin.skill, level: u.level, color: colorOf(fin.skill, color), frozen: fz });
-      setNow(t); setFlash(i); window.setTimeout(() => setFlash((f) => (f === i ? null : f)), 180);
-      return;
-    }
     if (at > t) return;
     // Constelação Viva: custo (afinidade, Canal Profundo) e preparação (Agilidade, Ressonância) congelados agora
     const frozen = castSkill(u.skill, u.mult * styleNow().damage);
@@ -88,6 +83,17 @@ export function SkillBar({ color }: { color: string }) {
     if (!spendSp(frozen.cost)) { setShort(i); window.setTimeout(() => setShort((f) => (f === i ? null : f)), 500); return; }
     requestSkill({ skill: u.skill, level: u.level, color: colorOf(u.skill, color), frozen });
     useSkills.getState().setReady(u.skill.slug, godFlags.on ? 0 : t + (cooldownOf(u.skill, u.level) + frozen.windup) * 1000);
+    // Cadência: as habilidades dos espaços 1–3 contam como toque; se esta fechou a sequência, a técnica sai logo depois dela
+    const token = cadenceTokenOfSlot(i), cad = token ? cadencePress(token) : null;
+    if (cad) {
+      window.setTimeout(() => {
+        if (!canAct()) return;
+        const fz = castSkill(cad.skill, cad.mult * styleNow().damage);
+        if (!spendSp(fz.cost)) return;
+        cadenceFired(cad.skill, cad.perfect);
+        requestSkill({ skill: cad.skill, level: 1, color: colorOf(cad.skill, color), frozen: fz });
+      }, Math.round((frozen.windup + 0.45) * 1000));
+    }
     setNow(t); setFlash(i); window.setTimeout(() => setFlash((f) => (f === i ? null : f)), 180);
   };
   const castRef = useRef(cast); castRef.current = cast;
@@ -183,7 +189,7 @@ export function SkillBar({ color }: { color: string }) {
         const total = u ? (cooldownOf(u.skill, u.level) + u.skill.windup) * 1000 : 1;
         const frac = Math.min(1, left / total);
         return (
-          <button key={i} className={'sb-slot' + (u ? '' : ' empty') + (left > 0 ? ' cd' : '') + (flash === i ? ' fire' : '') + (pick === i ? ' sel' : '') + (short === i ? ' short' : '') + (chargingView?.slot === i ? ' charging' : '') + (u && u.skill.energy > sp ? ' nosp' : '') + (u && glow?.press.has(u.skill.slug) ? (glow.perfect ? ' combo perfect' : ' combo') : '')}
+          <button key={i} className={'sb-slot' + (u ? '' : ' empty') + (left > 0 ? ' cd' : '') + (flash === i ? ' fire' : '') + (pick === i ? ' sel' : '') + (short === i ? ' short' : '') + (chargingView?.slot === i ? ' charging' : '') + (u && u.skill.energy > sp ? ' nosp' : '') + (u && glowing(i) ? (glow!.perfect ? ' combo perfect' : ' combo') : '')}
             title={u ? `${u.skill.name} — ${u.skill.description} (SP ${castSkill(u.skill, 1).cost})` : free.length ? 'Escolher habilidade' : 'Espaço livre'}
             aria-label={u ? `${i + 1}: ${u.skill.name}${left > 0 ? `, recarregando ${Math.ceil(left / 1000)} s` : ''}` : `${i + 1}: vazio`}
             style={u ? { ['--sk' as string]: colorOf(u.skill, color) } : undefined}

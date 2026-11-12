@@ -10,6 +10,7 @@ import { createContext, Suspense, useContext, useEffect, useMemo, useRef, useSta
 import { Canvas, useFrame, type ThreeEvent } from '@react-three/fiber';
 import { Clone, Html, useGLTF } from '@react-three/drei';
 import { EffectComposer, Bloom, Vignette, ToneMapping, SMAA } from '@react-three/postprocessing';
+import { AdaptiveResolution } from './AdaptiveResolution';
 import { ToneMappingMode } from 'postprocessing';
 import { fitTextures } from './fitTextures';
 import * as THREE from 'three';
@@ -724,6 +725,7 @@ export function AsterScene(props: AsterSceneProps) {
       </Suspense>
       <RemoteCompanions world={shape} />
       <AsterLogic map={props.map} layout={props.layout} state={props.state} onTravel={props.onTravel} onPlace={props.onPlace} />
+      <AdaptiveResolution high={high} />
       <EffectComposer multisampling={0} enableNormalPass={false}>
         <Bloom mipmapBlur intensity={0.55 + night * 0.45} luminanceThreshold={0.78 - night * 0.12} luminanceSmoothing={0.2} />
         <Vignette offset={0.3} darkness={0.3} />

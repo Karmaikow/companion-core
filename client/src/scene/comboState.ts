@@ -4,8 +4,8 @@
  * Também guarda o "peso" do golpe: pausa de impacto e tremida de câmera.
  */
 import {
-  COMBO_CHAIN_GAP, COMBO_PERFECT_BONUS, COMBO_WINDOW, STYLE_GAIN, comboNext, comboTiming, findComboLink, finisherBySlug, infuse,
-  styleAdd, styleDecay, styleHurt, styleRank, type ComboTiming, type Element, type SkillDef, type WeaponKind,
+  CADENCE_GAP, COMBO_CHAIN_GAP, COMBO_PERFECT_BONUS, COMBO_WINDOW, STYLE_GAIN, cadenceAdvance, cadenceNext, comboNext, comboTiming, findComboLink, finisherBySlug, infuse,
+  styleAdd, styleDecay, styleHurt, styleRank, type Cadence, type CadenceToken, type ComboTiming, type Element, type SkillDef, type WeaponKind,
 } from '@rules';
 
 export const combo = {
@@ -85,6 +85,53 @@ export function tickStyle(dt: number) {
 }
 
 export const styleNow = () => styleRank(combo.points);
+
+// ---------------------------------------------------------------------------
+// Cadências: as técnicas de arma saem de sequências de golpe básico (B) e das habilidades 1–3 da barra (H1–H3)
+// ---------------------------------------------------------------------------
+
+export interface CadenceTech { skill: SkillDef; mult: number }
+export const cadence = {
+  /** toques que ainda contam e quando foi o último (performance.now) */
+  tokens: [] as CadenceToken[], at: 0,
+  /** cadências que valem agora (arma na mão, técnicas abertas) e a técnica pronta de cada uma */
+  list: [] as Cadence[], skills: new Map<string, CadenceTech>(),
+};
+
+/** Trocou de arma, de essência ou abriu técnica: as cadências que valem daqui em diante. */
+export function setCadences(list: Cadence[], skills: Map<string, CadenceTech>) {
+  cadence.list = list; cadence.skills = skills; cadence.tokens = []; combo.ver++;
+}
+
+const cadenceAlive = () => performance.now() - cadence.at < CADENCE_GAP * 1000;
+
+/**
+ * Um toque (golpe básico que saiu ou habilidade 1–3 lançada). Se fechou uma cadência, devolve a técnica e o
+ * multiplicador (com o Perfeito, se o toque caiu no ponto certo depois do último acerto). Quem chama decide se a
+ * técnica sai (SP) e então chama cadenceFired.
+ */
+export function cadencePress(token: CadenceToken): (CadenceTech & { perfect: boolean }) | null {
+  if (!cadence.list.length) return null;
+  const step = cadenceAdvance(cadenceAlive() ? cadence.tokens : [], token, cadence.list);
+  cadence.tokens = step.history; cadence.at = performance.now(); combo.ver++;
+  const tech = step.done ? cadence.skills.get(step.done.slug) : undefined;
+  if (!tech) return null;
+  const perfect = timingNow() === 'perfeita';
+  return { skill: tech.skill, mult: tech.mult * (perfect ? COMBO_PERFECT_BONUS : 1), perfect };
+}
+
+/** A técnica da cadência saiu de verdade: pisca o nome e soma no Estilo. */
+export function cadenceFired(skill: SkillDef, perfect: boolean) {
+  combo.flash = { text: perfect ? `${skill.name} · Perfeito!` : skill.name, at: performance.now(), perfect };
+  if (perfect) combo.points = styleAdd(combo.points, STYLE_GAIN.perfect);
+  combo.basics = 0; combo.ver++;
+}
+
+/** Os toques dados e o que continua daqui (para o HUD e para acender os botões). */
+export function cadenceView(): { tokens: CadenceToken[]; next: { token: CadenceToken; name: string }[] } {
+  if (!cadence.tokens.length || !cadenceAlive()) return { tokens: [], next: [] };
+  return { tokens: cadence.tokens, next: cadenceNext(cadence.tokens, cadence.list).map((n) => ({ token: n.token, name: cadence.skills.get(n.cadence.slug)?.skill.name ?? '' })) };
+}
 
 /** A pessoa agiu (barra ou ataque): a Companion para de lançar habilidades sozinha por um tempo, para não atropelar o combo. */
 export const playerAct = { at: -1e9 };

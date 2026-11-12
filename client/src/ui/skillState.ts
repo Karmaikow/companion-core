@@ -10,13 +10,14 @@ import { fetchCatalog } from '../backend/catalog';
 import { create } from 'zustand';
 import {
   DEFAULT_SKILLS, ELEMENTS, RANK_COOLDOWN, buildSkillTree, validateAllocation, treeEffects, skillPoints, sanitizeSkill, skillPowerMult,
-  companionElement, studiesAt, schoolSkills, techniquesFor, equippedItems, ITEM_TYPES, WEAPON_KINDS, TIERS, tierOf, type Tier, type WeaponKind, type Allocation, type SkillDef, type SkillTree, type CitySchool,
+  companionElement, studiesAt, schoolSkills, techniquesFor, cadencesFor, usableCadences, infuse, COMBO_FINISHERS, CADENCE_SEED, equippedItems, ITEM_TYPES, WEAPON_KINDS, TIERS, tierOf, type Tier, type WeaponKind, type Allocation, type SkillDef, type SkillTree, type CitySchool,
 } from '@rules';
 import { usePacto } from '../pacto/pactoStore';
 import { useGame } from '../store';
 import { castSkill } from '../build/combatStats';
 import { supabase } from '../backend/online';
 import { useGod } from './godMode';
+import { setCadences } from '../scene/comboState';
 
 export const BAR_SIZE = 9;
 const allocKey = (id: string) => 'companion-core:skill-alloc:' + id;
@@ -104,7 +105,6 @@ export function useSkillData() {
     for (const sk of schoolSkills(catalog, schoolKey ? (schoolKey.split(',') as CitySchool[]) : [])) {
       if (sk.unlockBond <= bond && !base.some((b) => b.skill.slug === sk.slug)) base.push({ skill: sk, level: 1, mult: skillPowerMult(fx, sk, 1) });
     }
-    for (const sk of techniques) if (!base.some((b) => b.skill.slug === sk.slug)) base.push({ skill: sk, level: 1, mult: skillPowerMult(fx, sk, 1) * TIERS[weaponTier].power });
     // Modo GOD: habilidades dadas pelo painel do Administrador (valem mesmo fora da árvore)
     for (const [slug, level] of Object.entries(granted)) {
       const sk = known.find((x) => x.slug === slug), at = base.findIndex((b) => b.skill.slug === slug);
@@ -114,7 +114,9 @@ export function useSkillData() {
     }
     return base;
   }, [fx, known, granted, catalog, schoolKey, bond, techniques, weaponTier]);
-  return { companion: c ?? null, species, essence, bond, points, secrets, tree, fx, unlocked, catalog: known, alloc, testing, testKey, weapon, weaponTier, schools: schoolKey ? schoolKey.split(',') : [] };
+  // técnicas de arma: não vão para a barra — saem pelas Cadências (sequências de golpe básico + habilidades 1–3)
+  const techs = useMemo<Unlocked[]>(() => techniques.map((sk) => ({ skill: sk, level: 1, mult: skillPowerMult(fx, sk, 1) * TIERS[weaponTier].power })), [techniques, fx, weaponTier]);
+  return { companion: c ?? null, species, essence, bond, points, secrets, tree, fx, unlocked, techniques: techs, catalog: known, alloc, testing, testKey, weapon, weaponTier, schools: schoolKey ? schoolKey.split(',') : [] };
 }
 
 /** Grava a distribuição (online ou neste navegador). */
@@ -150,7 +152,15 @@ export function useSkillSync() {
   const visualModel = useGame(s => s.snap?.visualJob?.model);
   // Signed URL refreshes do not change the model; a new model/package does.
   const visualKey = [visualModel?.url.split('?')[0] ?? '', ...(visualModel?.anims ?? []).map(a => a.url.split('?')[0])].join('|');
-  const { companion: c, tree, bond, points, unlocked, testing, testKey } = useSkillData();
+  const { companion: c, tree, bond, points, unlocked, testing, testKey, techniques, weapon, weaponTier, essence, catalog: known } = useSkillData();
+  // Cadências da arma na mão: as técnicas abertas e, com duas ou mais, os finalizadores da arma
+  const techKey = techniques.map((t) => t.skill.slug + ':' + t.skill.name + ':' + t.mult).join(',');
+  useEffect(() => {
+    const skills = new Map<string, { skill: SkillDef; mult: number }>();
+    for (const t of techniques) skills.set(t.skill.slug, { skill: t.skill, mult: t.mult });
+    if (weapon && techniques.length >= 2) for (const f of COMBO_FINISHERS) if (f.weapon === weapon && !skills.has(f.slug)) skills.set(f.slug, { skill: infuse(f, essence), mult: TIERS[weaponTier].power });
+    setCadences(usableCadences(cadencesFor(weapon, known, CADENCE_SEED), new Set(skills.keys())), skills);
+  }, [techKey, weapon, weaponTier, essence]); // eslint-disable-line react-hooks/exhaustive-deps
   // matrículas das escolas (técnicas de escola) chegam com o estado do Pacto
   useEffect(() => { if (c?.stage === 'awakened' && !usePacto.getState().view) void usePacto.getState().refresh(); }, [c?.id, c?.stage]); // eslint-disable-line react-hooks/exhaustive-deps
 

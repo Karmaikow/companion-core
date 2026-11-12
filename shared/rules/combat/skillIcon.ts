@@ -12,12 +12,14 @@ export type IconMotif =
   | 'spear' | 'flame' | 'shard' | 'bolt' | 'swirl' | 'rock' | 'leaf' | 'drop' | 'poison' | 'moon' | 'sun' | 'claw'
   | 'fist' | 'shield' | 'cross' | 'hourglass' | 'rune' | 'meteor' | 'chain' | 'cage' | 'blood' | 'gear' | 'web'
   | 'hive' | 'feather' | 'echo' | 'prism' | 'portal' | 'wave' | 'resonance' | 'whip' | 'breath' | 'leap' | 'blade'
-  | 'spark' | 'bubble';
+  | 'spark' | 'bubble'
+  // símbolos das técnicas de arma (o golpe, não o elemento)
+  | 'thrust' | 'spin' | 'uppercut' | 'arrow' | 'volley' | 'hammer' | 'dagger' | 'staff';
 
 /** como a habilidade chega ao alvo: vira um detalhe atrás do símbolo */
 export type IconMod = 'trail' | 'beam' | 'ground' | 'halo' | 'fan' | 'speed' | 'arc' | 'slash';
 
-export interface SkillIconSpec { motif: IconMotif; accent: string; mod: IconMod; heal: boolean; seed: number }
+export interface SkillIconSpec { motif: IconMotif; accent: string; mod: IconMod; heal: boolean; seed: number; /** técnica de arma: ganha a moldura dourada */ technique: boolean }
 
 const fold = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
@@ -61,6 +63,19 @@ const WORDS: [RegExp, IconMotif][] = [
   [/faisca|spark|estrela|star/, 'spark'],
 ];
 
+// Técnicas de arma: o símbolo é o golpe. A ordem importa (o slug começa pela arma: "lanca-varredura" é giro, não estocada).
+const TECH_WORDS: [RegExp, IconMotif][] = [
+  [/cajado|varinha/, 'staff'],
+  [/chuva|leque|tiro duplo|rajada|cruzada/, 'volley'],
+  [/tiro|flecha|arco|disparo/, 'arrow'],
+  [/ascendente|lancador|trovejante|martelo do ceu|lunar|meia lua/, 'uppercut'],
+  [/giratorio|redemoinho|ciclone|giro|danca|varredura|varre/, 'spin'],
+  [/pancada|esmagar|terrestre|maca|sismic|cataclismo/, 'hammer'],
+  [/faca|emboscada|cruzado|golpe rapido/, 'dagger'],
+  [/cajado|varinha|arcan|runic|selo|caotic|magico|encadeado/, 'staff'],
+  [/estocada|perfura|investida|lanca|ceu e terra|rastro|cometa/, 'thrust'],
+];
+
 const BY_STYLE: Record<VfxStyle, IconMotif> = {
   impacto: 'fist', chamas: 'flame', gotas: 'drop', folhas: 'leaf', pedras: 'rock', gelo: 'shard',
   raios: 'bolt', vento: 'swirl', luz: 'sun', sombra: 'moon', faiscas: 'spark', veneno: 'poison',
@@ -82,13 +97,14 @@ export function iconSeed(slug: string): number {
   return h >>> 0;
 }
 
-export function skillIconSpec(skill: Pick<SkillDef, 'slug' | 'name' | 'shape' | 'essence' | 'heal' | 'status' | 'vfx'>, fallbackColor = '#9fc9ff'): SkillIconSpec {
+export function skillIconSpec(skill: Pick<SkillDef, 'slug' | 'name' | 'shape' | 'essence' | 'heal' | 'status' | 'vfx'> & { slot?: SkillDef['slot'] }, fallbackColor = '#9fc9ff'): SkillIconSpec {
   const cat = skill.vfx.catalogue ? SPELL_CATALOGUE.find((c) => c.id === skill.vfx.catalogue) : undefined;
   const text = fold(`${skill.name} ${skill.slug.replace(/-/g, ' ')} ${cat ? `${cat.id} ${cat.label}` : ''}`);
-  let motif = WORDS.find(([re]) => re.test(text))?.[1] ?? BY_STYLE[skill.vfx.style] ?? 'spark';
+  const technique = skill.slot === 'technique';
+  let motif = (technique ? TECH_WORDS.find(([re]) => re.test(text))?.[1] : undefined) ?? WORDS.find(([re]) => re.test(text))?.[1] ?? BY_STYLE[skill.vfx.style] ?? 'spark';
   // proteção de verdade (escudo) vence a palavra; cura sem outro símbolo vira a cruz
   if (skill.status?.key === 'protegido' && motif !== 'bubble') motif = 'shield';
   if (skill.heal > 0 && skill.vfx.style !== 'folhas' && motif !== 'bubble' && motif !== 'shield' && !WORDS.some(([re]) => re.test(text))) motif = 'cross';
   const accent = cat?.accent ?? (skill.essence ? ELEMENTS[skill.essence].glow : skill.vfx.color.startsWith('#') ? skill.vfx.color : skill.vfx.color === 'companion' ? fallbackColor : STYLE_ACCENT[skill.vfx.style] ?? fallbackColor);
-  return { motif, accent, mod: BY_SHAPE[skill.shape] ?? 'slash', heal: skill.heal > 0, seed: iconSeed(skill.slug) };
+  return { motif, accent, mod: BY_SHAPE[skill.shape] ?? 'slash', heal: skill.heal > 0, seed: iconSeed(skill.slug), technique };
 }

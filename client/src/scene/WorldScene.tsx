@@ -6,6 +6,7 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, type ThreeEvent } from '@react-three/fiber';
 import { EffectComposer, Bloom, Vignette, ToneMapping, SMAA } from '@react-three/postprocessing';
+import { AdaptiveResolution } from './AdaptiveResolution';
 import { ToneMappingMode } from 'postprocessing';
 import * as THREE from 'three';
 import { gameTime, CHUNK, WORLD_WALK_R, WORLD_ROLE, layerRole, type CompanionWorld, type WorldSite, type BiomePalette, type CreatureDef } from '@rules';
@@ -367,6 +368,7 @@ export function WorldScene(props: WorldSceneProps) {
       <CombatFx world={shape} />
       </Suspense>
       <WorldLogic cw={cw} discovered={props.discovered} explore={props.explore} goal={goal} onCenter={setCenter} onRegion={(s) => { setRegion(s); props.onRegion(s); }} onDiscover={props.onDiscover} onHome={props.onHome} onAster={props.onAster} />
+      <AdaptiveResolution high={high} />
       <EffectComposer multisampling={0} enableNormalPass={false}>
         <Bloom mipmapBlur intensity={0.5 + night * 0.45} luminanceThreshold={0.8 - night * 0.12} luminanceSmoothing={0.2} />
         <Vignette offset={0.3} darkness={0.32} />

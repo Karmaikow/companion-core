@@ -6,10 +6,11 @@
  */
 import { useState } from 'react';
 import {
-  COMBO_LINKS, TIERS, WEAPON_TECHNIQUES, TECHNIQUE_SCHOOL, CITY_SCHOOLS, ITEM_TYPES, evolutionsOf, finisherBySlug,
+  COMBO_LINKS, TIERS, WEAPON_TECHNIQUES, TECHNIQUE_SCHOOL, CITY_SCHOOLS, ITEM_TYPES, cadenceLabel, cadencesFor, evolutionsOf, finisherBySlug,
   type CitySchool, type SkillDef, type WeaponKind,
 } from '@rules';
 import { setTechPath, useSkillData, useSkills } from './skillState';
+import { SkillIcon } from './SkillIcon';
 
 const ICON: Partial<Record<WeaponKind, string>> = { espada: '🗡', arco: '🏹', cajado: '🪄', lanca: '🔱', maca: '🔨', faca: '🔪', varinha: '✨' };
 const KINDS = [...new Set(WEAPON_TECHNIQUES.map((t) => t.weapon!))] as WeaponKind[];
@@ -24,6 +25,7 @@ export function WeaponTrails() {
   const tier = inHand ? weaponTier : null;
   const techs = WEAPON_TECHNIQUES.filter((t) => t.weapon === pick);
   const combos = COMBO_LINKS.filter((l) => l.weapon === pick);
+  const cadences = cadencesFor(pick);
 
   const lock = (t: SkillDef) => {
     const sc = TECHNIQUE_SCHOOL[t.slug];
@@ -84,15 +86,26 @@ export function WeaponTrails() {
         })}
       </ol>
 
-      {combos.length > 0 && (
-        <div className="wt-combos">
-          <h4>Combos da {ITEM_TYPES[pick].label.toLowerCase()}</h4>
-          <ul>
-            {combos.map((l) => <li key={l.becomes}><span>{l.basics ? `${nameOf('basic')} ×${l.basics + 1}` : `${nameOf(l.from)} → ${nameOf(l.press)}`}</span><b>{finisherBySlug(l.becomes)?.name}</b></li>)}
-          </ul>
-          <small>Aperte a segunda técnica quando o botão acender; no dourado sai o Perfeito (+30%).</small>
-        </div>
-      )}
+      <div className="wt-combos wt-cadences">
+        <h4>Cadências da {ITEM_TYPES[pick].label.toLowerCase()}</h4>
+        <ul>
+          {cadences.map((cd) => {
+            const sk = WEAPON_TECHNIQUES.find((t) => t.slug === cd.slug) ?? finisherBySlug(cd.slug);
+            if (!sk) return null;
+            const why = WEAPON_TECHNIQUES.some((t) => t.slug === cd.slug) ? lock(sk) : null;
+            return (
+              <li key={cd.slug} className={why ? 'locked' : ''} title={sk.description}>
+                <span className="wt-cad-icon" aria-hidden><SkillIcon skill={sk} size={30} color="#ffd77a" /></span>
+                <b>{sk.name}</b>
+                <span className="wt-seq" aria-label={cadenceLabel(cd.seq)}>{cd.seq.map((t, i) => <i key={i} className={t === 'B' ? 'b' : 'h'}>{t === 'B' ? '⚔' : t.slice(1)}</i>)}</span>
+                {why && <small>{why}</small>}
+              </li>
+            );
+          })}
+          {combos.filter((l) => l.basics).map((l) => <li key={l.becomes}><span className="wt-cad-icon" aria-hidden /><b>{finisherBySlug(l.becomes)?.name}</b><span className="wt-seq">{Array.from({ length: l.basics! + 1 }, (_, i) => <i key={i} className="b">⚔</i>)}</span></li>)}
+        </ul>
+        <small>⚔ é o golpe básico; 1, 2 e 3 são as habilidades dos três primeiros espaços da barra. A técnica sai no último toque. Dá para emendar uma cadência na continuação dela, e tocar no ritmo certo dá o Perfeito (+30%).</small>
+      </div>
     </div>
   );
 }
