@@ -10,7 +10,7 @@ import { useTouchLandscape } from './TouchControls';
 import { ELEMENTS, RANK_COOLDOWN, SHAPES, SKILL_CHARGE_MAX, skillCharge, skillChargeMultiplier, type SkillDef } from '@rules';
 import { castSkill } from '../build/combatStats';
 import { useGame } from '../store';
-import { requestSkill, skillChargeState, skillInput } from '../scene/Combat';
+import { requestSkill, skillChargeState, skillInput } from '../scene/combatInput';
 import { BAR_SIZE, saveBar, useSkillData, useSkills } from './skillState';
 import { canAct, spendSp, useVitals } from '../scene/vitals';
 import { godFlags } from '../scene/god';

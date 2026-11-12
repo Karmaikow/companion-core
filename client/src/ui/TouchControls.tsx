@@ -4,7 +4,7 @@
  * iPhone o navegador não deixa travar, então só pede para girar).
  */
 import { useEffect, useRef, useState } from 'react';
-import { moveInput } from '../scene/Combat';
+import { moveInput } from '../scene/combatInput';
 
 /** Celular/tablet com toque deitado (layout de jogo com joystick). */
 export function useTouchLandscape() {

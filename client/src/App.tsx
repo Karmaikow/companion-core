@@ -1,10 +1,8 @@
-import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
 import { fetchCatalog, fetchGameConfig } from './backend/catalog';
 import { canCompleteEquipment, masculinize, ELEMENTS, derivePalette, refugeFeatures, animKind, sanitizeBiome, sanitizeCreature, makeCompanionWorld, worldBiomeList, characterSheet, sanitizeItem, DEFAULT_ITEMS, isWearable, validateEquipped, equipmentBonus, equippedItems, ITEM_TYPES, sanitizeWeather, weatherAt, WEATHERS, DEFAULT_WEATHER, DEFAULT_BIOME_WEATHER, type ItemDef, type WeatherConfig, WORLD_SEED, DEFAULT_CREATURES, type BiomeConfig, type CreatureDef, type WorldSite,
   ASTER_GATE, DEFAULT_CITY_LAYOUT, OUT_ARRIVAL, OUT_GATE_ARRIVE, cityArrival, outskirtsGatePoint, sanitizeCityLayout, type CityLayout, type CityState } from '@rules';
-import { Refuge } from './scene/Refuge';
-import { WorldScene } from './scene/WorldScene';
-import { AsterScene, type AsterTravel } from './scene/AsterScene';
+import type { AsterTravel } from './scene/AsterScene';
 import { WorldMap } from './ui/WorldMap';
 import { stableSeed, teleport } from './scene/world';
 import { useGame, type Tab } from './store';
@@ -47,7 +45,7 @@ import { SafeStage, glLostBefore } from './scene/SafeStage';
 import { useHud } from './ui/hudLayout';
 import { VitalsBars, TouchMoves, FaintCounter } from './ui/VitalsHud';
 import { useSkillSync } from './ui/skillState';
-import { pressAttack, releaseAttack } from './scene/Combat';
+import { pressAttack, releaseAttack } from './scene/combatInput';
 import { ownsItem, EquipmentPanel } from './ui/EquipmentPanel';
 import { MenuBook, type BookMenu } from './ui/MenuBook';
 import { useCarry } from './ui/bag';
@@ -73,6 +71,11 @@ function quality(): 'high' | 'low' {
   const mobile = matchMedia('(pointer: coarse)').matches;
   return mobile && (navigator.hardwareConcurrency ?? 8) <= 6 ? 'low' : 'high';
 }
+
+// As cenas 3D (e, com elas, three + r3f) carregam em paralelo: a tela de entrada aparece sem esperar por ~1,5 MB de script.
+const Refuge = lazy(() => import('./scene/Refuge').then((m) => ({ default: m.Refuge })));
+const WorldScene = lazy(() => import('./scene/WorldScene').then((m) => ({ default: m.WorldScene })));
+const AsterScene = lazy(() => import('./scene/AsterScene').then((m) => ({ default: m.AsterScene })));
 
 const SkillsTab = () => <SkillsPanel Tree={SkillTreePanel} />;
 /** onde o Companion está: o Refúgio, o Companion World ou os dois mapas de Áster */
