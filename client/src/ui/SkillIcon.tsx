@@ -8,7 +8,16 @@
 import { useId, type ReactNode } from 'react';
 import { skillIconSpec, type IconMod, type IconMotif, type SkillDef } from '@rules';
 
-type IconSkill = Pick<SkillDef, 'slug' | 'name' | 'shape' | 'essence' | 'heal' | 'status' | 'vfx'> & { iconUrl?: string };
+type IconSkill = Pick<SkillDef, 'slug' | 'name' | 'shape' | 'essence' | 'heal' | 'status' | 'vfx'> & { iconUrl?: string; slot?: SkillDef['slot'] };
+
+/**
+ * Arte própria das técnicas: qualquer imagem em client/src/assets/tecnicas/<slug>.webp (ou .png) vale no lugar do
+ * desenho vetorial, sem tocar no código. A lista de slugs está no LEIA-ME dessa pasta.
+ */
+const TECH_ART: Record<string, string> = Object.fromEntries(
+  Object.entries(import.meta.glob('../assets/tecnicas/*.{webp,png}', { eager: true, query: '?url', import: 'default' }))
+    .map(([path, url]) => [path.split('/').pop()!.replace(/\.\w+$/, ''), url as string]),
+);
 
 /* ---------- cores ---------- */
 const hex = (c: string) => { const h = c.replace('#', ''); const n = parseInt(h.length === 3 ? h.split('').map((x) => x + x).join('') : h.slice(0, 6), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
@@ -169,6 +178,51 @@ const G: Record<IconMotif, (f: string, s: string, a: string) => ReactNode> = {
     <path d="M36 40 A18 18 0 0 1 52 30" stroke="#ffffff" strokeOpacity=".85" strokeWidth="4" fill="none" strokeLinecap="round" />
     <circle cx="76" cy="26" r="6" fill={f} fillOpacity=".6" stroke={s} strokeWidth="1.4" /><circle cx="24" cy="78" r="4" fill={f} fillOpacity=".6" stroke={s} strokeWidth="1.2" />
   </g>,
+  /* ---- técnicas de arma: o símbolo é o golpe ---- */
+  thrust: (f, s) => <g transform="rotate(45 50 50)">
+    <path d="M50 6 L58 30 L55 68 L45 68 L42 30 Z" fill={f} stroke={s} strokeWidth="1.6" strokeLinejoin="round" />
+    <path d="M50 14 V64" stroke="#ffffff" strokeOpacity=".65" strokeWidth="1.4" />
+    <rect x="37" y="68" width="26" height="5" rx="2.5" fill="#c9a24a" stroke="#2a1a0c" strokeWidth="1.2" />
+    <rect x="47" y="73" width="6" height="16" rx="2.5" fill="#6b4a2c" stroke="#2a1a0c" strokeWidth="1.2" />
+  </g>,
+  spin: (f) => <g fill="none" strokeLinecap="round">
+    <path d="M50 16 A34 34 0 0 1 84 50" stroke={f} strokeWidth="9" />
+    <path d="M50 84 A34 34 0 0 1 16 50" stroke={f} strokeWidth="9" />
+    <path d="M30 22 A34 34 0 0 1 42 17 M70 78 A34 34 0 0 1 58 83" stroke={f} strokeWidth="4" opacity=".6" />
+    <circle cx="50" cy="50" r="7" fill={f} stroke="none" />
+  </g>,
+  uppercut: (f, s) => <g>
+    <path d="M20 84 C22 46 44 22 80 14 C60 32 48 54 46 86 Z" fill={f} stroke={s} strokeWidth="1.8" strokeLinejoin="round" />
+    <path d="M30 76 C34 52 48 34 68 22" stroke="#ffffff" strokeOpacity=".65" strokeWidth="2" fill="none" strokeLinecap="round" />
+    <path d="M64 62 L75 46 L86 62" fill="none" stroke={f} strokeWidth="5.5" strokeLinecap="round" strokeLinejoin="round" />
+  </g>,
+  arrow: (f, s) => <g transform="rotate(45 50 50)">
+    <path d="M50 8 L61 28 L53 26 V72 H47 V26 L39 28 Z" fill={f} stroke={s} strokeWidth="1.6" strokeLinejoin="round" />
+    <path d="M47 70 L37 88 L47 82 Z M53 70 L63 88 L53 82 Z" fill={f} stroke={s} strokeWidth="1.4" strokeLinejoin="round" />
+  </g>,
+  volley: (f, s) => <g>
+    {[-26, 0, 26].map((r) => <g key={r} transform={`rotate(${r} 50 92)`} opacity={r ? 0.85 : 1}>
+      <path d="M50 12 L57 26 L52.5 25 V72 H47.5 V25 L43 26 Z" fill={f} stroke={s} strokeWidth="1.3" strokeLinejoin="round" />
+    </g>)}
+  </g>,
+  hammer: (f, s) => <g transform="rotate(-35 50 50)">
+    <rect x="46" y="38" width="8" height="52" rx="3" fill="#6b4a2c" stroke="#2a1a0c" strokeWidth="1.2" />
+    <rect x="24" y="12" width="52" height="30" rx="7" fill={f} stroke={s} strokeWidth="1.8" />
+    <path d="M32 21 H68" stroke="#ffffff" strokeOpacity=".65" strokeWidth="2.4" strokeLinecap="round" />
+  </g>,
+  dagger: (f, s) => <g>
+    {[-34, 34].map((r) => <g key={r} transform={`rotate(${r} 50 54)`}>
+      <path d="M50 10 L57 42 L50 60 L43 42 Z" fill={f} stroke={s} strokeWidth="1.5" strokeLinejoin="round" />
+      <rect x="40" y="60" width="20" height="4.5" rx="2" fill="#c9a24a" stroke="#2a1a0c" strokeWidth="1" />
+      <rect x="47.2" y="64" width="5.6" height="17" rx="2.4" fill="#6b4a2c" stroke="#2a1a0c" strokeWidth="1" />
+    </g>)}
+  </g>,
+  staff: (f, s) => <g transform="rotate(28 50 50)">
+    <rect x="47.5" y="34" width="5" height="56" rx="2.5" fill="#6b4a2c" stroke="#2a1a0c" strokeWidth="1.2" />
+    <path d="M38 36 C32 22 40 10 50 10 C60 10 68 22 62 36" fill="none" stroke="#c9a24a" strokeWidth="3.5" strokeLinecap="round" />
+    <circle cx="50" cy="25" r="11" fill={f} stroke={s} strokeWidth="1.8" />
+    <circle cx="46.5" cy="21.5" r="3.6" fill="#ffffff" fillOpacity=".75" />
+  </g>,
 };
 
 /* ---------- forma de uso: o detalhe atrás do símbolo ---------- */
@@ -184,14 +238,15 @@ const MOD: Record<IconMod, (a: string) => ReactNode> = {
 };
 
 /** símbolos desenhados só em traço (sem preenchimento): ganham o gradiente no traço */
-const STROKED = new Set<IconMotif>(['swirl', 'claw', 'rune', 'chain', 'cage', 'web', 'resonance', 'whip', 'leap', 'portal']);
+const STROKED = new Set<IconMotif>(['swirl', 'claw', 'rune', 'chain', 'cage', 'web', 'resonance', 'whip', 'leap', 'portal', 'spin']);
 
 export function SkillIcon({ skill, size = 44, x, y, color, title, className }: { skill: IconSkill; size?: number; x?: number; y?: number; color?: string; title?: string; className?: string }) {
   const uid = useId().replace(/[^a-zA-Z0-9]/g, '');
-  if (skill.iconUrl) {
+  const art = skill.iconUrl ?? TECH_ART[skill.slug];
+  if (art) {
     return x !== undefined
-      ? <image href={skill.iconUrl} x={x} y={y} width={size} height={size} preserveAspectRatio="xMidYMid meet" className={className} />
-      : <img src={skill.iconUrl} alt={title ?? ''} width={size} height={size} className={className} style={{ objectFit: 'contain', display: 'block' }} />;
+      ? <image href={art} x={x} y={y} width={size} height={size} preserveAspectRatio="xMidYMid meet" className={className} />
+      : <img src={art} alt={title ?? ''} width={size} height={size} className={className} style={{ objectFit: 'contain', display: 'block' }} />;
   }
   const spec = skillIconSpec(skill, color);
   const a = spec.accent;
@@ -224,8 +279,12 @@ export function SkillIcon({ skill, size = 44, x, y, color, title, className }: {
           <path d="M16 12 h5 v6 h6 v5 h-6 v6 h-5 v-6 h-6 v-5 h6 Z" /><path d="M76 70 h5 v6 h6 v5 h-6 v6 h-5 v-6 h-6 v-5 h6 Z" />
         </g>}
       </g>
-      <rect x="4" y="4" width="92" height="92" rx="19" fill="none" stroke="#ffffff" strokeOpacity=".7" strokeWidth="2.2" />
+      <rect x="4" y="4" width="92" height="92" rx="19" fill="none" stroke={spec.technique ? '#ffd77a' : '#ffffff'} strokeOpacity={spec.technique ? 0.95 : 0.7} strokeWidth={spec.technique ? 3 : 2.2} />
       <rect x="7" y="7" width="86" height="86" rx="16" fill="none" stroke="#000000" strokeOpacity=".25" strokeWidth="1" />
+      {/* técnica de arma: cantoneiras douradas, para não se confundir com habilidade de essência */}
+      {spec.technique && <g fill="none" stroke="#fff3c4" strokeWidth="3.4" strokeLinecap="round">
+        <path d="M5 30 V19 Q5 5 19 5 H30" /><path d="M95 70 V81 Q95 95 81 95 H70" />
+      </g>}
     </svg>
   );
 }

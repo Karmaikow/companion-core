@@ -673,6 +673,16 @@
 @keyframes ch-pop { from { transform: scale(1.5); opacity: 0.4; } to { transform: scale(1); opacity: 1; } }
 .combo-flash { position: fixed; left: 50%; top: 26%; translate: -50% 0; z-index: 20; pointer-events: none; font: 800 1.7rem var(--serif); color: #fff3dc; white-space: nowrap; text-shadow: 0 2px 0 #000a, 0 0 14px #000c; animation: cf-rise 1.3s ease-out both; }
 .combo-flash.perfect { color: #ffd84d; text-shadow: 0 2px 0 #000a, 0 0 18px #ffb34799; }
+/* Cadência em andamento: os toques dados e o que continua */
+.cadence-hud { position: fixed; left: 50%; top: calc(26% + 2.6rem); translate: -50% 0; z-index: 20; pointer-events: none; display: flex; align-items: center; gap: 10px; padding: 4px 10px; border-radius: 999px; background: #0b1330cc; border: 1px solid #ffffff22; font: 600 0.78rem var(--serif); color: #fff3dc; white-space: nowrap; max-width: 92vw; overflow: hidden; }
+.cadence-hud .cd-done, .cadence-hud .cd-next { display: flex; align-items: center; gap: 4px; }
+.cadence-hud b { display: grid; place-items: center; min-width: 22px; height: 22px; padding: 0 4px; border-radius: 6px; font: 800 0.8rem var(--serif); }
+.cadence-hud b.b { background: #f1dcb1; color: #3a2814; }
+.cadence-hud b.h { background: #7fb7ff; color: #0b1330; }
+.cadence-hud .cd-next { padding-left: 10px; border-left: 1px solid #ffffff33; gap: 10px; color: #ffe9b8; }
+.cadence-hud .cd-next i { display: flex; align-items: center; gap: 5px; font-style: normal; }
+.cadence-hud .cd-next b { outline: 2px solid #ffd77a; outline-offset: 1px; }
+@media (max-width: 720px) { .cadence-hud { font-size: 0.7rem; gap: 6px; padding: 3px 8px; } .cadence-hud .cd-next i:nth-child(n+3) { display: none; } }
 @keyframes cf-rise { 0% { opacity: 0; transform: scale(1.6); } 12% { opacity: 1; transform: scale(1); } 75% { opacity: 1; } 100% { opacity: 0; transform: translateY(-14px); } }
 @media (max-width: 700px) { .combo-hud .ch-letter { font-size: 2.4rem; } .combo-hud .ch-bar { width: 72px; } .combo-flash { font-size: 1.3rem; } }
 @media (prefers-reduced-motion: reduce) { .combo-hud .ch-letter, .combo-hud .ch-hits, .game-ui .skill-bar .sb-slot.combo { animation: none; } .combo-flash { animation-duration: 0.01s; animation-fill-mode: none; } }

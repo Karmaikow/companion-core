@@ -114,6 +114,14 @@ button.wt-star:disabled { cursor: var(--cur-proibido, not-allowed); }
 .wt-combos li span { color: #7d5e40; }
 .wt-combos li b { color: #a4472a; font-family: var(--serif); }
 .wt-combos small { color: #7d5e40; }
+.wt-cadences li { justify-content: flex-start; align-items: center; }
+.wt-cadences li b { flex: 1; min-width: 0; }
+.wt-cadences li.locked { opacity: .55; }
+.wt-cad-icon { flex: none; width: 30px; height: 30px; border-radius: 7px; overflow: hidden; background: #2a1c3a; }
+.wt-seq { display: flex; gap: 3px; flex-wrap: wrap; justify-content: flex-end; }
+.wt-seq i { display: grid; place-items: center; min-width: 22px; height: 22px; border-radius: 6px; font: 800 .78rem var(--serif); font-style: normal; }
+.wt-seq i.b { background: #4a3424; color: #f6e7c8; }
+.wt-seq i.h { background: #2f5d9c; color: #fff; }
 
 @media (max-width: 640px) {
   .wt-row { grid-template-columns: 1fr; gap: 6px; }

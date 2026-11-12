@@ -28,7 +28,7 @@ import { gameVfx } from './vfx/engine';
 import { Shield } from './vfx/recipes';
 import { basicAttack, bowShot, ELEMENTS, RANK_POWER, NODE_KINDS, type WeaponKind, type EquipSlot, type ItemDef, type SpeciesKey, type ToolKey } from '@rules';
 import { basicHit, castSkill, combat } from '../build/combatStats';
-import { markPlayerAct, playerFighting, styleNow, timeScale, tryCombo } from './comboState';
+import { cadenceFired, cadencePress, markPlayerAct, playerFighting, styleNow, timeScale, tryCombo } from './comboState';
 import {
   facingYaw,
   inPlace,
@@ -218,6 +218,16 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
   const basic = () => basicHit(prof.ranged, gear?.weapon?.essence ?? null);
   const damageOf = (mul = 1) => Math.max(1, Math.round(20 * prof.power * basic().power * mul * styleNow().damage));
   const cadence = () => prof.cadence * combat.d.attackSpeed; // velocidade de ataque = frequência
+  /** O golpe básico que acabou de sair conta como toque da Cadência; se fechou a sequência e há SP, sai a técnica. */
+  const fireCadence = (): boolean => {
+    const cad = cadencePress('B');
+    if (!cad) return false;
+    const fz = castSkill(cad.skill, styleNow().damage * cad.mult);
+    if (!spendSp(fz.cost)) return false;
+    cadenceFired(cad.skill, cad.perfect);
+    requestSkill({ skill: cad.skill, level: 1, color: cad.skill.essence ? ELEMENTS[cad.skill.essence].glow : fxColor, frozen: fz });
+    return true;
+  };
   // mira do mouse (PC): o ponto do chão sob o cursor, na altura do Companion
   const aimRay = useMemo(() => ({ ray: new THREE.Raycaster(), plane: new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), hit: new THREE.Vector3() }), []);
   const mouseGround = (state: { camera: THREE.Camera; pointer: THREE.Vector2 }, at: THREE.Vector3, use: 'attack' | 'skill' = 'attack') => {
@@ -371,6 +381,9 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
       s.sitting = false;
       cs.want = 0;
       cs.cd = 1 / cadence();
+      // Cadência: se este golpe básico fecha a sequência (B → Hab. → B...), sai a técnica no lugar dele
+      const cadTech = fireCadence();
+      if (!cadTech) {
       const wt = gear?.weapon?.type ?? '';
       const kind = (wt ? null : chosen('__basic')) ?? (actions.has('attack:' + wt) ? 'attack:' + wt : prof.ranged === 'magic' && actions.has('attack:magia') ? 'attack:magia' : wt === 'lanca' && actions.has('attack:espada') ? 'attack:espada' : actions.has(prof.anim) ? prof.anim : actions.has('attack') ? 'attack' : null);
       if (kind) {
@@ -397,6 +410,7 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
       } else fxQueue.push(prof.ranged === 'magic'
         ? { kind: 'magic', pos: pos.setY(0), yaw: s.yaw, range: prof.range, damage: damageOf(), color: fxColor, style: gear?.weapon?.essence ? ESSENCE_FX[gear.weapon.essence] : 'luz', info: basic().info }
         : { kind: 'slash', pos, yaw: s.yaw, range: prof.range, damage: damageOf(), color: fxColor, heavy: prof.power > 1.2, info: basic().info });
+      }
     }
     if (cs.charging) {
       cs.held += dt;
@@ -428,7 +442,8 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
         const shot = bowShot(cs.held, prof.range, prof.power);
         cs.charging = false; charge.current = 0; chargeState.active = false;
         const a = actions.get('shoot'); if (a) a.timeScale = 1;
-        fxQueue.push({ kind: 'arrow', pos: r.position.clone(), yaw: s.yaw, range: shot.range, speed: shot.speed, damage: damageOf(shot.power), color: shot.perfect ? '#ffe68a' : fxColor, perfect: shot.perfect, info: basic().info });
+        // Cadência no arco: o tiro que fecha a sequência vira a técnica
+        if (!fireCadence()) fxQueue.push({ kind: 'arrow', pos: r.position.clone(), yaw: s.yaw, range: shot.range, speed: shot.speed, damage: damageOf(shot.power), color: shot.perfect ? '#ffe68a' : fxColor, perfect: shot.perfect, info: basic().info });
         s.once = 0.35; s.act = '';
       }
     }
