@@ -1,6 +1,6 @@
 /** Barras de HP, SP, Stamina e Vínculo sob o nome do Companion, e os botões de pulo/defesa/sentar no celular. */
 import { reviveCompanion, useVitals, INVULN_SECONDS } from '../scene/vitals';
-import { moveInput } from '../scene/Combat';
+import { moveInput } from '../scene/combatInput';
 
 export function VitalsBars({ bondRatio, bondLevel }: { bondRatio: number; bondLevel: number }) {
   const v = useVitals();

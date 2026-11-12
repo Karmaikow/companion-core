@@ -9,6 +9,7 @@ import * as THREE from 'three';
 import type { WeatherKind } from '@rules';
 import { companionFocus, mulberry32, type WorldShape } from './world';
 import { softDot } from './textures';
+import { weatherNow } from './weatherNow';
 
 const LOOK: Record<WeatherKind, { fog: string | null; fogNear: number; fogFar: number; sky: string | null; amt: number }> = {
   limpo: { fog: null, fogNear: 1, fogFar: 1, sky: null, amt: 0 },
@@ -22,7 +23,7 @@ const LOOK: Record<WeatherKind, { fog: string | null; fogNear: number; fogFar: n
 
 const N = 1400;
 /** Força atual do clima (0..1), compartilhada com o overlay do DOM (relâmpago). */
-export const weatherNow = { kind: 'limpo' as WeatherKind, k: 0, flash: 0 };
+export { weatherNow };
 
 export function WeatherFx({ kind, intensity, world }: { kind: WeatherKind; intensity: number; world: WorldShape }) {
   const { scene } = useThree();

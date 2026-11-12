@@ -14,7 +14,7 @@ import { create } from 'zustand';
 import { useGame } from '../store';
 import { settings } from '../settings';
 import { handleCommand } from '../scene/brain';
-import { skillInput } from '../scene/Combat';
+import { skillInput } from '../scene/combatInput';
 
 // ---- ouvir (leitura em voz alta)
 

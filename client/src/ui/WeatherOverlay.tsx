@@ -1,6 +1,6 @@
 /** Tinta de tela do clima (escurece na chuva, alaranja na areia, aquece no sol) e o clarão do relâmpago. */
 import { useEffect, useRef } from 'react';
-import { weatherNow } from '../scene/Weather';
+import { weatherNow } from '../scene/weatherNow';
 
 const TINT: Record<string, [number, number, number, number]> = {
   limpo: [0, 0, 0, 0], sol: [255, 205, 130, 0.2], chuva: [35, 45, 65, 0.36], tempestade: [20, 25, 45, 0.52],
