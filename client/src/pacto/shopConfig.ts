@@ -4,6 +4,7 @@
  * de novo na compra — aqui é só para mostrar.
  */
 import { create } from 'zustand';
+import { fetchGameConfig } from '../backend/catalog';
 import { DEFAULT_SHOP, resolveShop, shopDay, type ShopConfig } from '@rules';
 import { supabase } from '../backend/online';
 import { useGame } from '../store';
@@ -23,8 +24,8 @@ export const useShopConfig = create<ShopCfgState>((set) => ({
     const day = shopDay();
     let cfg = DEFAULT_SHOP, sold: Record<string, number> = {};
     try {
-      const { data } = await supabase().from('game_config').select('values').eq('id', 1).maybeSingle();
-      cfg = resolveShop((data?.values as Record<string, unknown> | undefined)?.shop);
+      const values = await fetchGameConfig();
+      cfg = resolveShop(values?.shop);
     } catch { /* fica o padrão */ }
     if (useGame.getState().backend?.kind === 'online') {
       try { const { data } = await supabase().from('shop_stock').select('entry,sold').eq('day', day); sold = Object.fromEntries((data ?? []).map((r) => [r.entry as string, Number(r.sold)])); } catch { /* sem estoque lido */ }
