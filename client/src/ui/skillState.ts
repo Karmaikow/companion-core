@@ -6,6 +6,7 @@
  *   é respeitado (não volta sozinha).
  */
 import { useEffect, useMemo, useRef } from 'react';
+import { fetchCatalog } from '../backend/catalog';
 import { create } from 'zustand';
 import {
   DEFAULT_SKILLS, ELEMENTS, RANK_COOLDOWN, buildSkillTree, validateAllocation, treeEffects, skillPoints, sanitizeSkill, skillPowerMult,
@@ -155,7 +156,7 @@ export function useSkillSync() {
 
   useEffect(() => {
     let alive = true;
-    supabase().from('skills').select('slug,name,data').eq('status', 'published').then(({ data }) => {
+    fetchCatalog<{ slug: string; name: string; data: unknown }>('skills').then((data) => {
       const list = (data ?? []).map((r) => sanitizeSkill({ ...(r.data as object), slug: r.slug, name: r.name })).filter((x): x is SkillDef => !!x);
       if (alive && list.length) useSkills.getState().setCatalog(list);
     }, () => {});

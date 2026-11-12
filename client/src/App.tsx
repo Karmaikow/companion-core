@@ -1,4 +1,5 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { fetchCatalog, fetchGameConfig } from './backend/catalog';
 import { canCompleteEquipment, masculinize, ELEMENTS, derivePalette, refugeFeatures, animKind, sanitizeBiome, sanitizeCreature, makeCompanionWorld, worldBiomeList, characterSheet, sanitizeItem, DEFAULT_ITEMS, isWearable, validateEquipped, equipmentBonus, equippedItems, ITEM_TYPES, sanitizeWeather, weatherAt, WEATHERS, DEFAULT_WEATHER, DEFAULT_BIOME_WEATHER, type ItemDef, type WeatherConfig, WORLD_SEED, DEFAULT_CREATURES, type BiomeConfig, type CreatureDef, type WorldSite,
   ASTER_GATE, DEFAULT_CITY_LAYOUT, OUT_ARRIVAL, OUT_GATE_ARRIVE, cityArrival, outskirtsGatePoint, sanitizeCityLayout, type CityLayout, type CityState } from '@rules';
 import { Refuge } from './scene/Refuge';
@@ -167,7 +168,7 @@ export function App() {
       try {
         const sb = supabase();
         const own = c?.id && backend?.kind === 'online' ? (await sb.from('companion_biomes').select('biome_slug').eq('companion_id', c.id).maybeSingle()).data?.biome_slug : null;
-        const { data } = await sb.from('biomes').select('slug,name,description,palette,settings,assets,status').eq('status', 'published');
+        const data = await fetchCatalog<Record<string, unknown>>('biomes');
         if (!alive || !data) return;
         const all = data.map(sanitizeBiome);
         setBiome(all.find((b) => b.slug === own) ?? all.find((b) => b.slug === 'refugio'));
@@ -208,7 +209,7 @@ export function App() {
     let alive = true;
     (async () => {
       try {
-        const { data } = await supabase().from('creatures').select('slug,name,data').eq('status', 'published');
+        const data = await fetchCatalog<{ slug: string; name: string; data: unknown }>('creatures');
         const list = (data ?? []).map((r) => sanitizeCreature({ ...(r.data as object), slug: r.slug, name: r.name })).filter((x): x is CreatureDef => !!x);
         if (alive && list.length) setCreatures(list);
       } catch { /* sem rede: as de reserva */ }
@@ -234,7 +235,7 @@ export function App() {
   const [regionBiome, setRegionBiome] = useState<string | null>(null);
   const [clock, setClock] = useState(() => Date.now());
   useEffect(() => {
-    const load = () => supabase().from('game_config').select('values').eq('id', 1).maybeSingle().then(({ data }) => { const w = (data?.values as { weather?: unknown } | null)?.weather; if (w) setWeatherCfg(sanitizeWeather(w)); }, () => {});
+    const load = () => fetchGameConfig().then((values) => { const w = (values as { weather?: unknown } | null)?.weather; if (w) setWeatherCfg(sanitizeWeather(w)); }, () => {});
     load();
     // o relógio do clima anda a cada 30 s; a configuração do ADM só é lida de novo a cada 5 min (e com a aba à vista)
     const t = setInterval(() => setClock(Date.now()), 30_000);
@@ -275,8 +276,8 @@ export function App() {
   useEffect(() => {
     if (!inAster && !godAdmin) return; // o Administrador precisa dos lugares da cidade para o teleporte
     let alive = true;
-    supabase().from('city_layouts').select('data').eq('slug', 'aster').eq('status', 'published').maybeSingle()
-      .then(({ data }) => { if (alive && data?.data) setCityLayout(sanitizeCityLayout(data.data)); }, () => {});
+    fetchCatalog<{ data: unknown }>('city')
+      .then((rows) => { const d = rows[0]?.data; if (alive && d) setCityLayout(sanitizeCityLayout(d)); }, () => {});
     return () => { alive = false; };
   }, [inAster, godAdmin]);
   const goAster = () => { setArrive({ x: OUT_ARRIVAL.x, z: OUT_ARRIVAL.z - 6 }); setTravelKey((k) => k + 1); setPlace('arredores'); setExplore(false); toast('Arredores de Áster, a Cidade-Farol.', 'gold'); };
@@ -341,7 +342,7 @@ export function App() {
   const items = useGame((s) => s.items);
   const equipped = useGame((s) => s.equipped);
   useEffect(() => {
-    supabase().from('items').select('slug,name,data').eq('status', 'published').then(({ data }) => {
+    fetchCatalog<{ slug: string; name: string; data: unknown }>('items').then((data) => {
       const list = (data ?? []).map((r) => sanitizeItem({ ...(r.data as object), slug: r.slug, name: r.name })).filter((x): x is ItemDef => !!x);
       // materiais e diversos de reserva continuam valendo (são os drops dos monstros de exemplo)
       if (list.length) useGame.getState().setItems([...list, ...DEFAULT_ITEMS.filter((d) => !isWearable(d.type) && !list.some((x) => x.slug === d.slug))]);

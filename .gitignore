@@ -6,3 +6,4 @@ client/public/m2m-test/
 .env
 .env.*
 !.env.example
+scripts/out/

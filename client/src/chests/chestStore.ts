@@ -5,6 +5,7 @@
  *  - cidade: o estado de Áster (normal/destruída) e o progresso da reconstrução, lidos do banco (todos veem igual).
  */
 import { create } from 'zustand';
+import { fetchGameConfig } from '../backend/catalog';
 import { CHEST_REACH, CHEST_EMPTY_MS, CHEST_OPEN_TTL_MS, CHEST_CARRY_LIMIT, CRYSTAL_LABEL, resolveAster, cleanProgress, DEFAULT_ASTER, bagEntries, type AsterConfig, type ChestContents, type ChestState, type ChestTier, type CityRebuild } from '@rules';
 import { carryNow } from '../ui/bag';
 import { useGame } from '../store';
@@ -80,10 +81,10 @@ export const useChests = create<Store>((set, get) => ({
     try {
       const [cr, gc] = await Promise.all([
         supabase().from('city_rebuild').select('state,round,progress,destroyed_at,rebuilt_at').eq('city', 'aster').maybeSingle(),
-        supabase().from('game_config').select('values').eq('id', 1).maybeSingle(),
+        fetchGameConfig(),
       ]);
       if (cr.data) set({ city: { state: cr.data.state === 'destruida' ? 'destruida' : 'normal', round: Number(cr.data.round) || 0, progress: cleanProgress(cr.data.progress), destroyedAt: cr.data.destroyed_at ?? null, rebuiltAt: cr.data.rebuilt_at ?? null } });
-      set({ aster: resolveAster((gc.data?.values as { aster?: unknown } | null)?.aster) });
+      set({ aster: resolveAster((gc as { aster?: unknown } | null)?.aster) });
     } catch { /* sem rede: fica como está */ }
   },
 }));
