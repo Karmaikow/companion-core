@@ -3,13 +3,20 @@
  *
  * Antes, cada jogador abrindo o jogo fazia essas leituras direto no Supabase. Agora a primeira leitura a cada ~5 min
  * vai ao Supabase e todos os demais recebem a cópia em cache (stale-while-revalidate). As edições do ADM aparecem
- * em até ~5 min, sem novo deploy. Usa só a chave publicável: a RLS vale exatamente como valia para o navegador.
+ * em até ~5 min, sem novo deploy.
+ *
+ * Chave: as políticas de leitura dessas tabelas chamam is_studio_admin(), que o visitante anônimo não pode executar;
+ * com a chave publicável o Supabase responde 401 mesmo para o que está publicado. Por isso a rota usa a chave de
+ * servidor (variável SUPABASE_SERVICE_ROLE_KEY ou SUPABASE_SECRET_KEY na Vercel, nunca no cliente). Ela ignora a RLS,
+ * então a proteção é a lista fechada abaixo: só colunas públicas e só linhas publicadas. Sem a variável, cai na
+ * chave publicável, como antes.
  *
  * GET /api/catalog?t=creatures|items|skills|biomes|city|config
  */
 
 const URL_BASE = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL ?? 'https://rqdukyenuecrshzmofdo.supabase.co';
-const KEY = process.env.SUPABASE_PUBLISHABLE_KEY ?? process.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? 'sb_publishable_fIg0d4DQ3aUpLL6541ZSaA_iYyRY7BW';
+const PUBLIC_KEY = process.env.SUPABASE_PUBLISHABLE_KEY ?? process.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? 'sb_publishable_fIg0d4DQ3aUpLL6541ZSaA_iYyRY7BW';
+const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || PUBLIC_KEY;
 
 /** Só estas leituras são possíveis (lista fechada: a rota não é um proxy genérico do banco). */
 const QUERIES: Record<string, string> = {
