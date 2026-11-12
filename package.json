@@ -10,7 +10,8 @@
     "test": "vitest run",
     "sync:rules": "node scripts/sync-rules.mjs",
     "bundle:fn": "node scripts/sync-rules.mjs && node scripts/bundle-refuge.mjs",
-    "assets:migrate": "node scripts/migrate-world-assets.mjs"
+    "assets:migrate": "node scripts/migrate-world-assets.mjs",
+    "storage:cleanup": "node scripts/cleanup-supabase-storage.mjs"
   },
   "devDependencies": {
     "@types/react": "^19.3.0",
