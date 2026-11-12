@@ -164,6 +164,10 @@ export class ParticleSystem {
 
     this._ranges = [];
     this._dirty = false;
+    // Companion Core: um sistema sem partícula viva não é desenhado. Sem isso, cada sistema já criado custava um
+    // draw call com a capacidade inteira (milhares de quadrados mortos) em todo quadro, para sempre.
+    this._liveUntil = -Infinity;
+    this.mesh.visible = false;
   }
 
   get object3D() {
@@ -221,6 +225,9 @@ export class ParticleSystem {
     } = p;
 
     const d = this.data;
+    // até quando pode haver partícula viva (com folga: escala de vida e regiões de tempo esticam a vida)
+    const lifeSpan = Math.max(1, this.uniforms?.uLifeScale?.value ?? 1) * 2;
+    this.mesh.visible = true;
 
     for (let n = 0; n < count; n++) {
       const i = this.cursor;
@@ -274,6 +281,7 @@ export class ParticleSystem {
       // --- scalars --------------------------------------------------
       d.spawn[i] = time;
       d.life[i] = Math.max(0.05, life * (1 + (Math.random() - 0.5) * 2 * lifeVariance));
+      if (time + d.life[i] * lifeSpan + 1 > this._liveUntil) this._liveUntil = time + d.life[i] * lifeSpan + 1;
       d.size[i] = Math.max(0.001, size * (1 + (Math.random() - 0.5) * 2 * sizeVariance));
       d.seed[i] = Math.random();
       d.spin[i] = (Math.random() - 0.5) * 2 * spin;
@@ -324,7 +332,12 @@ export class ParticleSystem {
 
   /** Upload only the slots that changed this frame. */
   flush() {
-    if (!this._dirty) return;
+    if (!this._dirty) {
+      // nada emitido neste quadro e já passou a vida da última partícula: dorme até a próxima emissão
+      const u = this.uniforms;
+      if (this.mesh.visible && u?.uTime && u.uTime.value > this._liveUntil && !(u.uTimeRegionCount?.value > 0)) this.mesh.visible = false;
+      return;
+    }
     for (const [key, itemSize] of Object.entries(FLOATS)) {
       const attribute = this.attributes[key];
       attribute.needsUpdate = true;
@@ -353,6 +366,8 @@ export class ParticleSystem {
     this._ranges.length = 0;
     this._dirty = false;
     this.cursor = 0;
+    this._liveUntil = -Infinity;
+    this.mesh.visible = false;
   }
 
   dispose() {
