@@ -20,7 +20,7 @@ import { aim, combatInput, chargeState, fxQueue, moveInput, requestSkill, skillI
 import { canAct, spendStamina, tickVitals, vitals } from './vitals';
 import { useSkills, aiCast } from '../ui/skillState';
 import { settings } from '../settings';
-import { brain, idleChatter, say } from './brain';
+import { brain, idleChatter, say, tickClear } from './brain';
 import { weatherNow } from './Weather';
 import { spendSp } from './vitals';
 import type { Target } from './Combat';
@@ -28,7 +28,7 @@ import { gameVfx } from './vfx/engine';
 import { Shield } from './vfx/recipes';
 import { basicAttack, bowShot, ELEMENTS, RANK_POWER, NODE_KINDS, type WeaponKind, type EquipSlot, type ItemDef, type SpeciesKey, type ToolKey } from '@rules';
 import { basicHit, castSkill, combat } from '../build/combatStats';
-import { cadenceFired, cadencePress, markPlayerAct, playerFighting, styleNow, timeScale, tryCombo } from './comboState';
+import { cadenceFired, cadencePress, markPlayerAct, playerFighting, playerHolding, styleNow, timeScale, tryCombo } from './comboState';
 import {
   facingYaw,
   inPlace,
@@ -164,7 +164,7 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
   }, [actions, mul]);
 
   const start = roam.start ?? [1.6, 1.4];
-  const st = useRef({ target: new THREE.Vector3(start[0], 0, start[1]), wait: 2, act: '' as string, yaw: 0, burst: burstKey, once: 0, player: false, running: false, req: moveRequest.id, tp: teleport.id, blocked: 0, lift: 0, stuck: false, jumpT: -1, jumpId: moveInput.jumpId, sitId: moveInput.sitId, sitting: false, guarding: false, click: false, idleT: 0, fidgetAt: 10 });
+  const st = useRef({ target: new THREE.Vector3(start[0], 0, start[1]), wait: 2, act: '' as string, yaw: 0, burst: burstKey, once: 0, player: false, running: false, req: moveRequest.id, tp: teleport.id, blocked: 0, lift: 0, stuck: false, jumpT: -1, jumpId: moveInput.jumpId, sitId: moveInput.sitId, sitting: false, guarding: false, click: false, clickUser: false, idleT: 0, fidgetAt: 10 });
   // WASD / setas: a pessoa conduz o Companion (relativo à câmera); corre por padrão, Shift anda devagar. Digitando no chat, as teclas são ignoradas.
   const keys = useRef(new Set<string>());
   useEffect(() => {
@@ -278,7 +278,7 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
     if (guard) { s.sitting = false; shield.update(r.position, s.yaw, '#9fd8ff', dt); } else shield.stop();
     // pulo (Espaço)
     if (moveInput.jumpId !== s.jumpId) {
-      s.jumpId = moveInput.jumpId;
+      s.jumpId = moveInput.jumpId; markPlayerAct();
       if (s.jumpT < 0 && !guard && s.once <= 0 && spendStamina(15)) { s.jumpT = 0; s.sitting = false; const ja = actions.get('jump'); if (ja) { play('jump', 0.08); ja.timeScale = Math.max(1, ja.getClip().duration / 0.62); s.act = 'jump'; } }
     }
     // ---- cérebro: agir sozinha (explorando, com uma ordem, ou se defendendo). O teclado do jogador manda mais.
@@ -286,6 +286,13 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
     if (order0 && 'until' in order0 && performance.now() > order0.until) brain.order = null;
     const order = brain.order;
     const driving = [...keys.current].some((k2) => k2 !== 'shift') || s.click || moveInput.stick.on; // andando por clique: a ordem do jogador vale até chegar
+    // Controle manual: teclado, joystick, clique no chão feito pela pessoa, defesa ou o arco carregando (atacar, a
+    // barra e o pulo marcam nos próprios lugares). Enquanto isso durar, e por `aiWait` segundos depois do último
+    // comando, a Companion não decide nada sozinha — era aí que as duas vontades brigavam: a pessoa soltava a tecla
+    // e, no quarto de segundo seguinte, ela já corria para outro alvo, fugia ou voltava a explorar.
+    const manual = [...keys.current].some((k2) => k2 !== 'shift') || moveInput.stick.on || (s.click && s.clickUser) || guard || cs.charging || combatInput.holding;
+    if (manual) markPlayerAct();
+    const hold = playerHolding(conf.aiWait);
     ai.think -= dt; ai.skillT -= dt;
     if (vitals.hitId !== ai.hitSeen) { ai.hitSeen = vitals.hitId; say('hurt', {}, { chance: 0.35 }); }
     const hpR = vitals.hp / Math.max(1, vitals.hpMax);
@@ -295,15 +302,25 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
     if (focusT && (focusT.r < 0 || (focusT.creature && focusT.creature.hp() <= 0) || Math.hypot(focusT.x - r.position.x, focusT.z - r.position.z) > 30)) { attackPick.focus = null; focusT = null; }
     if (ai.think <= 0) {
       ai.think = 0.25; ai.target = null; ai.fleeFrom = null;
+      // "limpe a área": o andamento da ordem (lutar → recolher → próxima área) só anda quando ela está por conta própria
+      const clear = order?.kind === 'clear' ? order : null;
+      if (clear && !hold && !manual) {
+        let inArea = 0;
+        targets.forEach((tg) => { const c = tg.creature; if (c && tg.r >= 0 && c.hp() > 0 && Math.hypot(tg.x - clear.x, tg.z - clear.z) <= clear.radius + tg.r) inArea++; });
+        tickClear(clear, r.position, inArea, 0.25);
+      }
       if (focusT && !cs.charging && order?.kind !== 'flee') ai.target = focusT;
-      else if (!driving && !cs.charging) {
+      else if (!driving && !cs.charging && !hold) {
         let threat: Target | null = null, td = Infinity, prey: Target | null = null, pd = Infinity;
-        const huntR = order?.kind === 'hunt' ? 18 : socialHold.group?.activity === 'cacar' ? 16 : 12;
+        // com uma ordem de caça ela procura longe (antes: 18 m, e sem nada perto ficava passeando)
+        const huntR = order?.kind === 'hunt' ? 40 : clear ? 80 : socialHold.group?.activity === 'cacar' ? 16 : 12;
         targets.forEach((tg) => {
           const c = tg.creature; if (!c || tg.r < 0 || c.hp() <= 0) return;
           const dd = Math.hypot(tg.x - r.position.x, tg.z - r.position.z);
           if (c.hostile() && dd < 10 && dd < td) { td = dd; threat = tg; }
-          const fits = order?.kind === 'hunt' ? order.arrived && (!order.creature || order.creature === c.slug) : true;
+          const fits = order?.kind === 'hunt' ? order.arrived && (!order.creature || order.creature === c.slug)
+            : clear ? clear.phase === 'fight' && Math.hypot(tg.x - clear.x, tg.z - clear.z) <= clear.radius + tg.r
+            : true;
           if (fits && dd < huntR && dd < pd) { pd = dd; prey = tg; }
         });
         const lowHp = conf.fleeAt > 0 && hpR < conf.fleeAt && !!threat && td < 9;
@@ -313,7 +330,7 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
         } else {
           const exploring = !!roam.goal?.current;
           // em grupo (seguindo o líder) também caça o que aparecer perto, junto com ele
-          const hunting = order?.kind === 'attack' || order?.kind === 'hunt' || (exploring && conf.posture === 'cacadora') || (socialHold.group?.activity === 'cacar' && conf.posture !== 'pacifica');
+          const hunting = order?.kind === 'attack' || order?.kind === 'hunt' || clear?.phase === 'fight' || (exploring && conf.posture === 'cacadora') || (socialHold.group?.activity === 'cacar' && conf.posture !== 'pacifica');
           if (hunting && prey) ai.target = prey;
           else if (conf.posture !== 'pacifica' && threat && td < 7) ai.target = threat; // se defende de quem vem brigar
         }
@@ -356,7 +373,7 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
     // A pessoa manda mais: andar (teclado, joystick, clique) cancela.
     if (driving) { socialHold.until = 0; socialHold.pausedUntil = performance.now() + 15_000; } // a pessoa mexeu: o grupo espera um pouco
     let holdYaw: number | null = null;
-    if (!driving && !ai.target && !ai.fleeing && !cs.charging) {
+    if (!driving && !hold && !ai.target && !ai.fleeing && !cs.charging) {
       const nowMs = performance.now();
       if (socialHold.until > nowMs) {
         s.target.copy(r.position); s.player = false; s.sitting = false; s.wait = Math.max(s.wait, 1.2);
@@ -500,6 +517,7 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
       const rr = Math.hypot(s.target.x, s.target.z);
       if (rr > roam.limit) s.target.multiplyScalar(roam.limit / rr);
       s.wait = 10; s.running = !keys.current.has('shift'); s.sitting = false; s.click = true; s.blocked = 0;
+      s.clickUser = moveRequest.user === moveRequest.id; // clique da pessoa (controle manual) ou passo da própria Companion (coleta, baú)
     }
     // controle pelo teclado
     const k = keys.current;
@@ -564,9 +582,17 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
       if (s.sitting || guard) s.wait = Math.max(s.wait, 1);
       if (!ai.target && !ai.fleeing) idleChatter({ raining: weatherNow.kind === 'chuva' || weatherNow.kind === 'tempestade', night });
       const goal = roam.goal?.current;
-      if (goal && !s.player && s.wait > 0.4) s.wait = 0.4; // explorando: pausa curta entre os trechos
-      if (s.wait <= 0 && !(night && actions.has('sleep'))) {
-        if (goal) {
+      // caçada sem presa à vista: procura em trechos mais longos e correndo (antes ela só passeava devagar)
+      const seeking = order?.kind === 'hunt' && order.arrived && !ai.target;
+      if ((goal || seeking) && !s.player && !hold && s.wait > 0.4) s.wait = 0.4; // explorando: pausa curta entre os trechos
+      // a pessoa controlou há pouco: fica onde foi deixada (nem explora, nem passeia)
+      if (s.wait <= 0 && !hold && !(night && actions.has('sleep') && !order)) {
+        if (seeking && !goal) {
+          const a = Math.random() * Math.PI * 2, d = 9 + Math.random() * 7;
+          s.target.set(r.position.x + Math.cos(a) * d, 0, r.position.z + Math.sin(a) * d);
+          const rr2 = Math.hypot(s.target.x, s.target.z); if (rr2 > roam.limit) s.target.multiplyScalar(roam.limit / rr2);
+          s.wait = 0.4; s.running = true;
+        } else if (goal) {
           // explorar sozinho: trechos de ~6 m na direção da pedra-guia, com um desvio (contorna o que travou)
           const gx = goal.x - r.position.x, gz = goal.z - r.position.z, gd = Math.hypot(gx, gz) || 1, step = Math.min(gd, 6);
           const side = s.stuck || Math.random() < 0.15 ? (Math.random() < 0.5 ? -1 : 1) * (3 + Math.random() * 4) : (Math.random() - 0.5) * 1.5;

@@ -13,6 +13,8 @@ export type Command =
   | { kind: 'stop' }
   | { kind: 'calm' }
   | { kind: 'hunt'; count: number; creature: string | null; place: string | null }
+  /** "limpe a área": derrota todos os monstros por perto, recolhe tudo e segue para a próxima área, até mandar parar */
+  | { kind: 'clear' }
   | { kind: 'goto'; place: string; call: boolean }
   | { kind: 'gather'; count: number; what: GatherKind };
 
@@ -62,6 +64,9 @@ export function parseCommand(text: string, opts: { places?: string[]; creatures?
   if (/\b(fuja|foge|fugir|fuga|recua|recue|recuar|deu ruim|sai dai|sai de ai|vaza|socorro)\b/.test(t)) return { kind: 'flee' };
   if (/\b(pare|parar|para tudo|para de|chega|stop|desista|deixa pra la|deixa quieto)\b/.test(t)) return { kind: 'stop' };
   if (/\b(nao ataque|nao lute|fique calma|fique calmo|fica calma|fica calmo|sem lutar|modo pacifico)\b/.test(t)) return { kind: 'calm' };
+
+  // "limpe a área", "limpa tudo por aqui", "faz a faxina": antes de caçar e de colher (é os dois, e em sequência)
+  if (/\b(limpe|limpa|limpar|limpem)\b.*\b(area|areas|regiao|mapa|tudo|aqui|lugar|geral|terreno|redondeza|redondezas)\b/.test(t) || /\bfaxina\b/.test(t)) return { kind: 'clear' };
 
   const gather = /\b(colha|colher|colete|coletar|recolha|junte|juntar|pegue|pega|busque|busca|traga|traz)\b/.test(t) ? GATHER.find(([re]) => re.test(t)) : undefined;
   if (gather) return { kind: 'gather', count: Math.max(1, Math.min(999, n ?? 10)), what: gather[1] };

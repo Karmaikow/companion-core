@@ -3,16 +3,35 @@
  * espontâneas (com intervalo mínimo e a frequência dos Ajustes) e o que ela já viu. O laço do Companion
  * (CompanionModel) lê as ordens; as criaturas e o mundo avisam o que acontece (`notify`).
  */
-import { BANK_EVENTS, bark, fillBark, normalize, parseCommand, type BarkEvent, type BarkVars, type Command, type CreatureDef } from '@rules';
+import { BANK_EVENTS, DEFAULT_INTENT, bark, fillBark, normalize, parseCommand, type BarkEvent, type BarkVars, type Command, type CreatureDef } from '@rules';
 import { useGame } from '../store';
 import { settings } from '../settings';
 import { useEcos, intentFromCommand } from '../ecos/ecosStore';
+import { useChests } from '../chests/chestStore';
+import { companionFocus } from './world';
+import { releaseControl } from './comboState';
 
 export type Order =
   | { kind: 'attack'; until: number }
   | { kind: 'flee'; until: number }
   | { kind: 'hunt'; count: number; done: number; creature: string | null; creatureName: string | null; place: { name: string; x: number; z: number } | null; arrived: boolean }
-  | { kind: 'goto'; name: string; x: number; z: number; call: boolean };
+  | { kind: 'goto'; name: string; x: number; z: number; call: boolean }
+  | ClearOrder;
+
+/**
+ * "Limpe a área": luta até não sobrar monstro dentro do raio, recolhe (baús e recursos) e segue para a próxima área.
+ * Repete até a pessoa mandar parar. `x,z` é o centro da área atual.
+ */
+export interface ClearOrder {
+  kind: 'clear'; phase: 'fight' | 'gather' | 'move';
+  x: number; z: number; radius: number;
+  /** segundos sem nenhum monstro vivo na área (só passa para a coleta depois de um instante de calma) */
+  calm: number;
+  /** há quanto tempo está na fase de coleta, e os baús que já tentou abrir */
+  gatherT: number; chests: string[]; gathering: boolean;
+  next: Place | null; visited: string[]; areas: number; kills: number;
+}
+export const CLEAR_RADIUS = 22;
 
 export interface Place { name: string; x: number; z: number }
 
@@ -147,10 +166,17 @@ export function handleCommand(text: string): Command | null {
   const cmd = parseCommand(text, { places: brain.places.map((p) => p.name), creatures: names });
   if (!cmd) return null;
   const now = performance.now();
+  // uma ordem é para agora: não espera o tempo de "a pessoa está no controle"
+  releaseControl();
   switch (cmd.kind) {
     case 'attack': brain.order = { kind: 'attack', until: now + 60_000 }; say('order-attack', {}, { force: true }); break;
     case 'flee': brain.order = { kind: 'flee', until: now + 7_000 }; say('order-flee', {}, { force: true }); break;
-    case 'stop': brain.order = null; say('order-stop', {}, { force: true }); break;
+    case 'stop': brain.order = null; if (useEcos.getState().auto.on) useEcos.getState().stopIntent(); say('order-stop', {}, { force: true }); break;
+    case 'clear': {
+      brain.order = { kind: 'clear', phase: 'fight', x: companionFocus.x, z: companionFocus.z, radius: CLEAR_RADIUS, calm: 0, gatherT: 0, chests: [], gathering: false, next: null, visited: [], areas: 0, kills: 0 };
+      emitNow('Deixa comigo! Vou limpar esta área: derrubo o que tiver, recolho tudo e sigo para a próxima. É só dizer "pare".');
+      break;
+    }
     case 'calm': brain.order = null; useSettingsPosture('pacifica'); say('order-calm', {}, { force: true }); break;
     case 'gather': {
       // Ecos da Terra: no mundo, com corpo, ela coleta por intenção (abastecer) com o que estiver por perto
@@ -183,9 +209,61 @@ export function handleCommand(text: string): Command | null {
 
 function useSettingsPosture(p: 'pacifica' | 'defensiva' | 'cacadora') { settings().set({ posture: p }); }
 
+/**
+ * Um passo da ordem "limpe a área" (chamado pelo laço da Companion a cada decisão, só quando ela está agindo
+ * sozinha). `inArea`: monstros vivos dentro do raio da área atual. Devolve o que ela deve fazer agora.
+ */
+export function tickClear(o: ClearOrder, me: { x: number; z: number }, inArea: number, dt: number): void {
+  // a pessoa a levou para longe enquanto controlava: a área passa a ser onde ela está agora
+  if (o.phase !== 'move' && Math.hypot(me.x - o.x, me.z - o.z) > o.radius + 12) { o.x = me.x; o.z = me.z; o.phase = 'fight'; o.calm = 0; }
+  if (o.phase === 'fight') {
+    o.calm = inArea > 0 ? 0 : o.calm + dt;
+    if (o.calm >= 1.5) { o.phase = 'gather'; o.gatherT = 0; o.gathering = false; }
+    return;
+  }
+  if (o.phase === 'gather') {
+    // apareceu monstro de novo: volta a lutar (a coleta espera)
+    if (inArea > 0) { if (useEcos.getState().auto.on) useEcos.getState().stopIntent(); o.phase = 'fight'; o.calm = 0; return; }
+    o.gatherT += dt;
+    // 1) baús da área, um de cada vez (o que não couber na bolsa fica: não insiste no mesmo)
+    const ch = useChests.getState();
+    if (ch.going || ch.opening) return;
+    const chest = ch.chests.find((c) => c.state !== 'vazio' && c.expiresAt > Date.now() && !o.chests.includes(c.id) && Math.hypot(c.x - o.x, c.z - o.z) <= o.radius + 4);
+    if (chest) { o.chests.push(chest.id); ch.open(chest.id); return; }
+    // 2) recursos por perto (Ecos da Terra), no modo "explorar": pega o que serve e para sozinha
+    const eco = useEcos.getState(), g = useGame.getState();
+    const canGather = !!g.backend?.ecos && g.snap?.companion?.stage === 'awakened';
+    if (canGather && !o.gathering) { o.gathering = true; eco.startIntent({ ...DEFAULT_INTENT, mode: 'explorar', target: null }); return; }
+    // terminou (ou passou do tempo procurando sem achar): próxima área
+    if (o.gathering && eco.auto.on && o.gatherT < 20) return;
+    if (eco.auto.on) eco.stopIntent();
+    o.areas++; o.visited.push(`${Math.round(o.x / 20)},${Math.round(o.z / 20)}`);
+    o.next = nextArea(o, me);
+    o.phase = 'move';
+    emitNow(o.next.name ? `Área limpa! Agora vou para ${o.next.name}.` : 'Área limpa! Vou para a próxima.');
+    return;
+  }
+  // move: o WorldScene leva até `next`; chegou → a área nova começa
+  if (o.next && Math.hypot(me.x - o.next.x, me.z - o.next.z) < 7) { o.x = o.next.x; o.z = o.next.z; o.next = null; o.phase = 'fight'; o.calm = 0; }
+}
+
+/** A próxima área: o lugar conhecido mais perto ainda não limpo; sem lugar, um trecho adiante (em espiral). */
+function nextArea(o: ClearOrder, me: { x: number; z: number }): Place {
+  const seen = (x: number, z: number) => o.visited.includes(`${Math.round(x / 20)},${Math.round(z / 20)}`);
+  let best: Place | null = null, bd = Infinity;
+  for (const p of brain.places) {
+    const d = Math.hypot(p.x - me.x, p.z - me.z);
+    if (d > o.radius * 1.2 && d < 160 && d < bd && !seen(p.x, p.z)) { bd = d; best = p; }
+  }
+  if (best) return best;
+  const a = o.areas * 2.399963, step = o.radius * 2;
+  return { name: '', x: o.x + Math.cos(a) * step, z: o.z + Math.sin(a) * step };
+}
+
 /** Uma criatura foi derrotada pela Companion: conta para a caçada. */
 export function onKill(slug: string, name: string) {
   const o = brain.order;
+  if (o?.kind === 'clear') o.kills++;
   if (o?.kind === 'hunt' && (!o.creature || o.creature === slug)) {
     o.done++;
     if (o.done >= o.count) {

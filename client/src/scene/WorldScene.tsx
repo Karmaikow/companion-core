@@ -289,7 +289,8 @@ function WorldLogic(p: { cw: CompanionWorld; discovered: Set<string>; explore: b
     }
     // ordens: ir até um lugar (e avisar ao chegar) ou caçar num lugar (vai até lá primeiro)
     const o = brain.order;
-    const dest = o?.kind === 'goto' ? { name: o.name, x: o.x, z: o.z } : o?.kind === 'hunt' && o.place && !o.arrived ? o.place : null;
+    const dest = o?.kind === 'goto' ? { name: o.name, x: o.x, z: o.z } : o?.kind === 'hunt' && o.place && !o.arrived ? o.place
+      : o?.kind === 'clear' && o.phase === 'move' && o.next ? o.next : null; // "limpe a área": a caminho da próxima (a chegada é do tickClear)
     if (dest) {
       if (Math.hypot(dest.x - f.x, dest.z - f.z) < 6) {
         if (o?.kind === 'goto') {
@@ -302,8 +303,9 @@ function WorldLogic(p: { cw: CompanionWorld; discovered: Set<string>; explore: b
       } else { if (!P.goal.current) P.goal.current = new THREE.Vector3(); P.goal.current.set(dest.x, 0, dest.z); }
       return;
     }
-    // explorar sozinho: a pedra-guia ainda não descoberta mais perto
-    if (P.explore) {
+    // explorar sozinho: a pedra-guia ainda não descoberta mais perto. Com uma ordem em andamento (caçar, atacar,
+    // limpar a área) ela NÃO explora: era isso que a fazia largar a luta e sair correndo para a pedra-guia.
+    if (P.explore && !o) {
       let best: WorldSite | null = null, bd = Infinity;
       for (const site of P.cw.sites) {
         if (site.home || P.discovered.has(site.name) || s.asked.has(site.name)) continue;

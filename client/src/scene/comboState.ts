@@ -137,6 +137,14 @@ export function cadenceView(): { tokens: CadenceToken[]; next: { token: CadenceT
 export const playerAct = { at: -1e9 };
 export const markPlayerAct = () => { playerAct.at = performance.now(); };
 export const playerFighting = () => performance.now() - playerAct.at < 4000;
+/**
+ * A pessoa controlou há pouco (andou, atacou, usou a barra, pulou, defendeu)? Enquanto isso valer, a Companion não
+ * decide nada sozinha: não escolhe alvo, não foge por conta própria, não sai explorando nem retoma a ordem em
+ * andamento. Ela só volta a agir depois de `seconds` sem nenhum comando manual (Ajustes → "Ela espera…").
+ */
+export const playerHolding = (seconds: number) => performance.now() - playerAct.at < seconds * 1000;
+/** Uma ordem dada agora ("limpe a área", "cace 5", clique no monstro) libera a espera: é para ela agir já. */
+export const releaseControl = () => { playerAct.at = -1e9; };
 
 // ---------------------------------------------------------------------------
 // Peso do golpe

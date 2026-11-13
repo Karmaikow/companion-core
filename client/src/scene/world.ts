@@ -86,7 +86,8 @@ export const companionPose = { yaw: 0, down: false };
 export const socialHold = { until: 0, x: 0, z: 0, follow: null as null | { x: number; z: number; t: number }, /** grupo no piloto automático */ group: null as null | { role: 'leader' | 'member'; activity: 'cacar' | 'explorar' | 'conversar' }, /** a pessoa mexeu: o grupo espera até aqui (performance.now) */ pausedUntil: 0 };
 
 /** Pedido de "anda até aqui" (clique/toque no chão). O id muda a cada clique. */
-export const moveRequest = { id: 0, point: new THREE.Vector3() };
+/** `user`: o id do último pedido feito pela pessoa (clique no chão); os outros são da própria Companion (coleta, baú) */
+export const moveRequest = { id: 0, point: new THREE.Vector3(), user: -1 };
 /**
  * Clique/toque no chão para andar, com troca de destino no meio do caminho:
  * - clique curto (sem arrastar): anda até o ponto; um clique novo antes de chegar troca o destino na hora;
@@ -105,7 +106,7 @@ export const attackPick = { pick: null as null | ((clientX: number, clientY: num
 export const attackRequest = { id: 0, key: '' };
 export function requestAttackOn(key: string) { attackRequest.key = key; attackRequest.id++; attackPick.focus = key; }
 const DRAG_PX = 8, HOLD_MS = 300;
-export function requestMove(p: THREE.Vector3) { moveRequest.point.set(p.x, 0, p.z); moveRequest.id++; attackPick.focus = null; }
+export function requestMove(p: THREE.Vector3) { moveRequest.point.set(p.x, 0, p.z); moveRequest.id++; moveRequest.user = moveRequest.id; attackPick.focus = null; }
 function endGround(e: PointerEvent) {
   const d = groundPointer.down;
   if (!d || e.pointerId !== d.id) return;

@@ -15,6 +15,8 @@ export interface Settings {
   posture: 'pacifica' | 'defensiva' | 'cacadora';
   /** foge quando o HP cai abaixo disto (0 = nunca) */
   fleeAt: number;
+  /** segundos que ela espera, depois do último comando manual, antes de voltar a agir sozinha */
+  aiWait: number;
   /** quanto ela comenta sozinha (ao ver monstros, lutando, passeando) */
   chatter: 'muito' | 'normal' | 'pouco' | 'nunca';
   /** falas dela no jogo: escritas pela IA no jeito dela (online) ou as prontas */
@@ -33,7 +35,7 @@ export interface Settings {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
-  click: 'andar', attackAim: 'mouse', skillAim: 'mouse', posture: 'defensiva', fleeAt: 0.3, chatter: 'normal', barkSource: 'ia',
+  click: 'andar', attackAim: 'mouse', skillAim: 'mouse', posture: 'defensiva', fleeAt: 0.3, aiWait: 6, chatter: 'normal', barkSource: 'ia',
   voiceOut: false, voiceName: '', voiceAutoSend: true, micMode: 'sempre', ordersToChat: true, damageNumbers: true,
 };
 

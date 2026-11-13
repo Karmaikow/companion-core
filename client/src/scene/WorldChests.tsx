@@ -20,18 +20,24 @@ const SHOW_R = 70;
 const MODEL = { fechado: '/assets/baus/Chest_Closed.glb', aberto: '/assets/baus/Chest_Ingots.glb', vazio: '/assets/baus/Chest_Open.glb' } as const;
 const COIN = '/assets/baus/Coin.glb';
 const OPEN_MS = 900;
+/** largura ÷ altura do modelo aberto (Chest_Open: 0,95 × 1,15): mantém o baú aberto do tamanho que sempre teve */
+const OPEN_WIDTH_PER_HEIGHT = 0.95 / 1.15;
 
-/** Modelo do baú no tamanho do jogo (~0,4 m de altura), pé no chão. */
-function useChestModel(url: string, height: number) {
+/**
+ * Modelo do baú no tamanho do jogo, pé no chão. A medida é a LARGURA do corpo, que é a mesma nos três estados.
+ * Antes era a altura: o baú aberto é mais alto (a tampa levantada), então o corpo dele saía menor e o fechado
+ * parecia bem maior — o baú "encolhia" ao abrir.
+ */
+function useChestModel(url: string, width: number) {
   const { scene } = useGLTF(url);
   return useMemo(() => {
     const o = scene.clone(true);
     const b = new THREE.Box3().setFromObject(o), s = b.getSize(new THREE.Vector3()), c = b.getCenter(new THREE.Vector3());
-    const k = height / Math.max(1e-3, s.y);
+    const k = width / Math.max(1e-3, s.x);
     o.scale.setScalar(k); o.position.set(-c.x * k, -b.min.y * k, -c.z * k);
     o.traverse((m) => { if ((m as THREE.Mesh).isMesh) { m.castShadow = true; m.receiveShadow = true; } });
     return o;
-  }, [scene, height]);
+  }, [scene, width]);
 }
 
 /** Moedas saltando do baú quando ele abre (1,2 s). */
@@ -55,7 +61,8 @@ function Coins({ start }: { start: number }) {
 }
 
 function ChestBody({ c, opening }: { c: ChestView; opening: number | null }) {
-  const size = c.tier === 'lendario' ? 0.48 : c.tier === 'raro' ? 0.41 : 0.36;
+  // largura do corpo: o tamanho que o baú aberto (o menor) já tinha — os três estados ficam iguais a ele
+  const size = (c.tier === 'lendario' ? 0.48 : c.tier === 'raro' ? 0.41 : 0.36) * OPEN_WIDTH_PER_HEIGHT;
   const closed = useChestModel(MODEL.fechado, size), gold = useChestModel(MODEL.aberto, size), empty = useChestModel(MODEL.vazio, size);
   const body = useRef<THREE.Group>(null);
   const popAt = useRef(0);
