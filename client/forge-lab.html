@@ -4,7 +4,7 @@
 // Lab da Forja e do Invocador (só no dev): prévias de habilidades e criaturas sem login. node scripts/forge-lab.mjs
 import { createElement as h } from 'react';
 import { createRoot } from 'react-dom/client';
-import { DEFAULT_SKILLS, DEFAULT_CREATURES } from '@rules';
+import { DEFAULT_SKILLS, DEFAULT_CREATURES, WEAPON_TECHNIQUES, COMBO_FINISHERS } from '@rules';
 import { SkillPreview } from './src/scene/SkillFx';
 import { CreaturePreview } from './src/scene/CreaturePreview';
 import { AppendageLab } from './src/scene/AppendageLab';
@@ -23,6 +23,11 @@ const apps = q.has('cauda') ? [['scaly', null, false], ['scaly', 'dragon', true]
   h('div', { key: 'ap' + i, style: { position: 'relative', width: 400, height: 300 } }, h(AppendageLab, { spec: { tail, wings, palette: pal }, walk }), h('b', { style: { position: 'absolute', left: 8, bottom: 6, color: '#222' } }, [tail, wings, walk ? 'andando' : 'parado'].filter(Boolean).join(' · ')))) : [];
 const itens = q.has('itens') ? DEFAULT_ITEMS.slice(Number(q.get('itens') || 0), Number(q.get('itens') || 0) + 9).map((it) => h('div', { key: it.slug, style: { position: 'relative', width: 400, height: 300 } }, h(ItemPreview, { item: it, charge: it.type === 'arco' ? 0.8 : 0 }), h('b', { style: { position: 'absolute', left: 8, bottom: 6, color: '#222' } }, it.name))) : [];
 const vfx = q.get('vfx') ? (q.get('so') ? q.get('so').split(',') : VFX_STYLES).map((st) => h('div', { key: 'vfx' + st, style: { position: 'relative', width: 400, height: 300 } }, h(VfxLab, { style: st, mode: q.get('vfx') }), h('b', { style: { position: 'absolute', left: 8, bottom: 6, color: '#222' } }, st))) : [];
+// técnicas de arma: ?tec=<slug>,<slug> (ou ?tec=espada para todas da arma) &estilo=chamas &congela=0.15
+const tecArg = q.get('tec'), tecStyle = q.get('estilo') ?? 'impacto';
+const tecAll = [...WEAPON_TECHNIQUES, ...COMBO_FINISHERS];
+const tecList = tecArg ? (tecAll.some((t) => t.weapon === tecArg) ? tecAll.filter((t) => t.weapon === tecArg) : tecArg.split(',').map((s) => tecAll.find((t) => t.slug === s)).filter(Boolean)) : [];
+const tecs = tecList.map((t) => h('div', { key: 'tec' + t.slug, style: { position: 'relative', width: 400, height: 300 } }, h(VfxLab, { style: tecStyle, mode: 'tec:' + t.slug }), h('b', { style: { position: 'absolute', left: 8, bottom: 6, color: '#222' } }, t.name)));
 const treino = q.get('treino');
 const train = treino ? [
   ...['sopro-de-chamas', 'brasas', 'golpe'].map((slug) => DEFAULT_SKILLS.find((k) => k.slug === slug)).filter(Boolean).map((s) => h('div', { key: 'tr' + s.slug, style: { position: 'relative', width: 400, height: 300 } }, h(SkillPreview, { skill: s, companionColor: '#9fc9ff', defenderEssence: null, body: { url: treino, anim: null } }), h('b', { style: { position: 'absolute', left: 8, bottom: 6, color: '#fff' } }, 'treino · ' + s.name))),
@@ -30,9 +35,9 @@ const train = treino ? [
 ] : [];
 const semrig = q.get('semrig');
 const sr = semrig ? ['saltitar', 'gingar', 'flutuar', 'rastejar'].map((m) => h('div', { key: 'sr' + m, style: { position: 'relative', width: 400, height: 300 } }, h(CreaturePreview, { def: { ...DEFAULT_CREATURES[0], slug: 'sr-' + m, size: 0.8, motion: m, model: { url: semrig, anims: [] } }, act: q.get('acao') ?? 'walk' }), h('b', { style: { position: 'absolute', left: 8, bottom: 6, color: '#222' } }, m + ' · ' + (q.get('acao') ?? 'walk')))) : [];
-const cells = [...sr, ...train, ...vfx, ...itens, ...apps, ...slimes,
-  ...(q.has('slimes') || q.has('cauda') || q.has('itens') || q.has('vfx') || treino || semrig ? [] : skills).map((s) => h('div', { key: s.slug, style: { position: 'relative', width: 400, height: 300 } }, h(SkillPreview, { skill: s, companionColor: '#9fc9ff', defenderEssence: 'natureza' }), h('b', { style: { position: 'absolute', left: 8, bottom: 6, color: '#fff' } }, s.name))),
-  ...(q.has('slimes') || q.has('cauda') || q.has('itens') || q.has('vfx') || treino || semrig ? [] : DEFAULT_CREATURES).map((c) => h('div', { key: c.slug, style: { position: 'relative', width: 400, height: 300 } }, h(CreaturePreview, { def: c, act: 'walk' }), h('b', { style: { position: 'absolute', left: 8, bottom: 6, color: '#222' } }, c.name))),
+const cells = [...sr, ...train, ...vfx, ...tecs, ...itens, ...apps, ...slimes,
+  ...(q.has('slimes') || q.has('cauda') || q.has('itens') || q.has('vfx') || tecArg || treino || semrig ? [] : skills).map((s) => h('div', { key: s.slug, style: { position: 'relative', width: 400, height: 300 } }, h(SkillPreview, { skill: s, companionColor: '#9fc9ff', defenderEssence: 'natureza' }), h('b', { style: { position: 'absolute', left: 8, bottom: 6, color: '#fff' } }, s.name))),
+  ...(q.has('slimes') || q.has('cauda') || q.has('itens') || q.has('vfx') || tecArg || treino || semrig ? [] : DEFAULT_CREATURES).map((c) => h('div', { key: c.slug, style: { position: 'relative', width: 400, height: 300 } }, h(CreaturePreview, { def: c, act: 'walk' }), h('b', { style: { position: 'absolute', left: 8, bottom: 6, color: '#222' } }, c.name))),
   q.get('glb') && h('div', { key: 'glb', style: { position: 'relative', width: 400, height: 300 } }, h(CreaturePreview, { def: { ...DEFAULT_CREATURES[2], slug: 'glb', look, model: { url: q.get('glb'), anims: [{ url: q.get('glb'), kind: 'walk', name: 'andando' }] } }, act: 'walk' })),
 ];
 createRoot(document.getElementById('root')).render(h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(3, 400px)', gap: 6, padding: 6 } }, cells));

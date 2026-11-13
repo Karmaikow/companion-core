@@ -11,6 +11,7 @@ import { TrainingModel, type Cue } from './TrainingModel';
 import { AssetBoundary } from './Biome';
 import * as THREE from 'three';
 import { playVfxLayers } from './vfx/layers';
+import { techniqueFx } from './vfx/techniques';
 import { VfxStore } from './vfx/engine';
 import { VfxLayer } from './vfx/VfxLayer';
 import { area, aura, beam, burst, cone, missile, slash, Missile } from './vfx/recipes';
@@ -98,6 +99,9 @@ function Scene({ skill, color, onHit, body, timeScale, dark }: { skill: SkillDef
     const s = skill, o = new THREE.Vector3(0, 0.6, 0), chest = (d: THREE.Vector3) => new THREE.Vector3(d.x, 0.7, d.z);
     const hitFx = (delay: number) => hitIdx.forEach((i) => store.after(delay, () => burst(store, style, chest(L.dummies[i]), color, 0.55, 0)));
     if(s.vfx.catalogue){store.catalogue(s.vfx.catalogue,new THREE.Vector3(),0,Math.max(1,L.target.z));return;}
+    // técnica de arma com efeito próprio: a prévia mostra o mesmo que o combate
+    const own = techniqueFx(store, s.slug, { feet: new THREE.Vector3(), chest: o, target: L.target, yaw: 0, range: s.range, radius: s.radius, angle: s.angle, style, color, ground: () => 0 });
+    if (own && !own.generic) { hitFx(own.hit); return; }
     switch (s.shape) {
       case 'melee': slash(store, o, 0, s.range, color, s.power >= 40); hitFx(0.07); break;
       case 'cone': cone(store, style, o, 0, s.angle, s.range, color); hitFx(0.2); break;
