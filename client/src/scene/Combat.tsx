@@ -11,6 +11,7 @@ import { settings } from '../settings';
 import { Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { playVfxLayers } from './vfx/layers';
+import { techniqueFx } from './vfx/techniques';
 import { gameVfx } from './vfx/engine';
 import { VfxLayer } from './vfx/VfxLayer';
 import { area, aura, beam, burst, Charge, cone, Missile, missile, slash } from './vfx/recipes';
@@ -363,7 +364,11 @@ function runSkill(ev: Extract<FxEvent, { kind: 'skill' }>, world: WorldShape, po
         targets.forEach(t => {const dx=t.x-feet.x,dz=t.z-feet.z,f=dx*fw.x+dz*fw.z,l=Math.abs(dx*fw.z-dz*fw.x);if(f>0&&f<distance&&l<=s.radius+t.r+0.2){best=t;distance=f;}});
         if(best) strike([best],Math.max(0.15,distance/14));
       } else strike(inside(),s.shape==='leap'?0.4:s.shape==='circle'?0.3:0.1);
-    } else switch (s.shape) {
+    } else {
+    // técnica de arma com efeito próprio: o desenho é dela; o acerto continua sendo o do formato
+    const own = techniqueFx(V, s.slug, { feet, chest, target: tp, yaw, range: s.range, radius: s.radius, angle: s.angle, style: st, color: col, ground: gy });
+    if (own && !own.generic) strike(inside(), own.hit);
+    else switch (s.shape) {
       case 'melee': slash(V, chest, yaw, s.range, col, s.power >= 40); strike(inside(), 0.07); break;
       case 'cone': cone(V, st, chest.clone().addScaledVector(fw, 0.3), yaw, s.angle, s.range, col); strike(inside(), 0.2); break;
       case 'line': beam(V, st, chest, chest.clone().addScaledVector(fw, s.range), s.radius, col); strike(inside(), 0.05); break;
@@ -387,6 +392,7 @@ function runSkill(ev: Extract<FxEvent, { kind: 'skill' }>, world: WorldShape, po
       }
       case 'leap': V.after(0.4, () => { area(V, st, tp, s.radius, col, tp.y); strike(inside(), 0); }); break;
       case 'aura': aura(V, st, feet, s.radius, col, feet.y); strike(inside(), 0.1); break;
+    }
     }
     // cura: soma no HP do Companion (antes só mostrava o número verde)
     if (ev.heal > 0) V.after(0.15, () => { healCompanion(ev.heal); pop(chest.clone().setY(chest.y + 0.7), '+' + ev.heal, 'heal'); });
