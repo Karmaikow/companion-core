@@ -39,7 +39,8 @@ export function SettingsPanel() {
 
       <h3>Ela sozinha</h3>
       <Choice k="posture" label="Explorando sozinha, ela…" options={[['pacifica', 'Só passeia'], ['defensiva', 'Se defende'], ['cacadora', 'Caça monstros']]} hint="Ela sempre obedece às ordens no chat: “ataque!”, “fuja!”, “mate 10 monstros na Floresta Densa”, “vá até a Montanha Azul e me chame quando chegar”." />
-      <Choice k="fleeAt" label="Foge quando a vida cai abaixo de" options={[[0, 'Nunca'], [0.2, '20%'], [0.3, '30%'], [0.5, '50%']]} />
+      <Choice k="fleeAt" label="Foge quando a vida cai abaixo de" options={[[0, 'Nunca'], [0.2, '20%'], [0.3, '30%'], [0.5, '50%']]} hint="Só vale quando ela está agindo sozinha. Enquanto você controla, ela não foge por conta própria." />
+      <Choice k="aiWait" label="Depois que você controla, ela espera" options={[[3, '3 s'], [6, '6 s'], [10, '10 s'], [20, '20 s']]} hint="Andar, atacar, usar a barra, pular ou defender é você no controle. Ela só volta a agir sozinha (ou a retomar a ordem que você deu) depois desse tempo sem nenhum comando seu. Uma ordem nova ou um clique num monstro vale na hora." />
       <Choice k="barkSource" label="As falas dela no jogo" options={[['ia', 'Escritas pela IA, no jeito dela'], ['prontas', 'Frases prontas']]} hint="Com a IA, ela varia as falas e comenta cada criatura nova, a análise e as missões com o que sabe. Precisa estar online; sem conexão, usa as prontas." />
       <Choice k="chatter" label="Quanto ela comenta sozinha" options={[['muito', 'Muito'], ['normal', 'Normal'], ['pouco', 'Pouco'], ['nunca', 'Nunca']]} />
       <Choice k="ordersToChat" label="Ordens no chat também vão para a conversa" options={[[true, 'Sim (ela responde do jeito dela)'], [false, 'Não (só obedece)']]} />
