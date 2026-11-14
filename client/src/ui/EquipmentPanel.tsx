@@ -25,6 +25,7 @@ import { offhandMark, usePacto } from '../pacto/pactoStore';
 import { markSource } from '../scene/vitals';
 import { useEcos } from '../ecos/ecosStore';
 import { ownsItem, useCarry } from './bag';
+import { arsenalCard } from './arsenalCard';
 import { ItemIcon } from './itemIcons';
 import { TOOL_INFO, TOOL_ORDER, ownedToolPieces, useToolBelt } from './toolBelt';
 
@@ -187,7 +188,7 @@ export function EquipmentPanel({ onClose, menu }: { onClose?: () => void; menu?:
   const itemDetail = (sel: Row) => (
             <article className="inv-detail ib-detail" ref={detail} aria-label={sel.label}>
               <header>
-                <span className="ic" aria-hidden>{sel.icon}</span>
+                {arsenalCard(sel.item) ? <img src={arsenalCard(sel.item)} width={56} alt="" /> : <span className="ic" aria-hidden>{sel.icon}</span>}
                 <div>
                   <strong>{sel.label}</strong>
                   <small>
