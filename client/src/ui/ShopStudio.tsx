@@ -6,7 +6,7 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import {
-  DEFAULT_SHOP, DEFAULT_ITEMS, SHOP_GOODS, SHOP_KINDS, SHOP_KIND_IDS, CITY_SCHOOLS, CITY_SCHOOL_IDS, MATERIALS, MAX_SHOP_ENTRIES,
+  DEFAULT_SHOP, ALL_CATALOG_ITEMS, SHOP_GOODS, SHOP_KINDS, SHOP_KIND_IDS, CITY_SCHOOLS, CITY_SCHOOL_IDS, MATERIALS, MAX_SHOP_ENTRIES,
   resolveShop, sanitizeItem, entryInfo, shopListing, shopDay, isWearable,
   type ShopConfig, type ShopEntry, type ShopKind, type ItemDef, type CitySchool,
 } from '@rules';
@@ -19,7 +19,7 @@ export function ShopStudio() {
   const [values, setValues] = useState<Record<string, unknown> | null>(null);
   const [cfg, setCfg] = useState<ShopConfig>(DEFAULT_SHOP);
   const [saved, setSaved] = useState<string>('');
-  const [items, setItems] = useState<ItemDef[]>(DEFAULT_ITEMS);
+  const [items, setItems] = useState<ItemDef[]>(ALL_CATALOG_ITEMS);
   const [sold, setSold] = useState<Record<string, number>>({});
   const [tab, setTab] = useState<Tab>('pocoes');
   const [msg, setMsg] = useState<{ text: string; ok?: boolean } | null>(null);
@@ -34,7 +34,7 @@ export function ShopStudio() {
     });
     void supabase().from('items').select('slug,name,data').eq('status', 'published').then(({ data }) => {
       const list = (data ?? []).map((r) => sanitizeItem({ ...(r.data as object), slug: r.slug, name: r.name })).filter((x): x is ItemDef => !!x);
-      if (list.length) setItems([...list, ...DEFAULT_ITEMS.filter((d) => !isWearable(d.type) && !list.some((x) => x.slug === d.slug))]);
+      if (list.length) setItems([...list, ...ALL_CATALOG_ITEMS.filter((d) => !list.some((x) => x.slug === d.slug))]);
     });
     void supabase().from('shop_stock').select('entry,sold').eq('day', day).then(({ data }) => setSold(Object.fromEntries((data ?? []).map((r) => [r.entry as string, Number(r.sold)]))));
   }, [day]);

@@ -82,7 +82,7 @@ export function buyCheck(good: ShopGood | null, qty: number, lumes: number): str
 export const SELL_RATE = 0.4;
 const VALE_PRICE: Record<1 | 2 | 3, number> = { 1: 3, 2: 8, 3: 20 };
 const QUALITY_MUL = [0.8, 1, 1.3];
-const DROP_PRICE: Record<Rarity, number> = { comum: 2, incomum: 5, rara: 12, lendaria: 30 };
+const DROP_PRICE: Record<Rarity, number> = { comum: 2, incomum: 5, rara: 12, epica: 20, lendaria: 30, mitica: 45 };
 
 /** Lote da mochila do Vale: raridade do material × qualidade média das faixas. */
 export function valeSellPrice(batchKey: string): number | null {

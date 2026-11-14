@@ -11,6 +11,7 @@ import {
   TIERS, tierOf, tierBlock,
   ITEM_TYPES, ITEM_CATEGORIES, RARITIES, SLOTS_EQ, EQUIP_SLOTS, ELEMENTS, ELEMENT_SETS, SET_TIERS, QUEST_REWARDS, LOAD_LABEL, TOOLS,
   equip, unequip, equippedItems, equipmentBonus, elementSets, slotsFor, isWearable, canForge, basicAttack, itemWeight, categoryOf,
+  itemIconUrl, itemCardUrl, findItem,
   SPECIES, STAT_KEYS, STATS,
   type EquipSlot, type Equipped, type ItemCategory, type ItemDef, type ItemType, type BagEntry, type Element, type ToolKey,
 } from '@rules';
@@ -47,7 +48,7 @@ const kg = (n: number) => `${Math.round(n * 10) / 10}`.replace('.', ',') + ' kg'
 const pct = (v: number) => `${v > 0 ? '+' : ''}${String(v).replace('.', ',')}%`;
 
 /** Uma linha da bolsa para mostrar: item da bolsa, peça forjada ou material da coleta. */
-interface Row { key: string; label: string; icon: string; qty: number; unitWeight: number; category: ItemCategory; item: ItemDef | null; entry: BagEntry | null; vale?: boolean; rarity?: ItemDef['rarity']; essence?: Element | null; description: string }
+interface Row { key: string; label: string; icon: string; iconUrl?: string | null; cardUrl?: string | null; qty: number; unitWeight: number; category: ItemCategory; item: ItemDef | null; entry: BagEntry | null; vale?: boolean; rarity?: ItemDef['rarity']; essence?: Element | null; description: string }
 /** O que está aberto no detalhe: um item da bolsa ou uma ferramenta do cinto. */
 type Pick = { kind: 'item'; key: string } | { kind: 'tool'; tool: ToolKey } | null;
 
@@ -97,14 +98,33 @@ export function EquipmentPanel({ onClose, menu }: { onClose?: () => void; menu?:
 
   // todas as linhas da bolsa
   const rows = useMemo<Row[]>(() => {
-    const out: Row[] = carry.entries.map((e) => ({
-      key: e.key, label: e.label, icon: e.item ? TYPE_ICON[e.item.type] : e.category === 'material' ? '🧩' : '🎁', qty: e.qty, unitWeight: e.unitWeight,
-      category: e.category, item: e.item, entry: e, rarity: e.rarity, essence: e.essence, description: e.description,
-    }));
-    for (const f of carry.forged) out.push({ key: f.slug, label: f.name, icon: TYPE_ICON[f.type], qty: 1, unitWeight: itemWeight(f), category: categoryOf(f.type), item: f, entry: null, rarity: f.rarity, essence: f.essence, description: f.description });
+    const out: Row[] = carry.entries.map((e) => {
+      const it = e.item ?? findItem(e.label, items);
+      const iconUrl = itemIconUrl(it);
+      const cardUrl = itemCardUrl(it);
+      const emoji = it?.icon && !iconUrl ? it.icon : it ? TYPE_ICON[it.type] : e.category === 'material' ? '🧩' : '🎁';
+      return {
+        key: e.key, label: e.label, icon: emoji, iconUrl, cardUrl, qty: e.qty, unitWeight: e.unitWeight,
+        category: e.category, item: it, entry: e, rarity: it?.rarity ?? e.rarity, essence: it?.essence ?? e.essence, description: e.description || it?.description || '',
+      };
+    });
+    for (const f of carry.forged) {
+      const iconUrl = itemIconUrl(f);
+      const cardUrl = itemCardUrl(f);
+      out.push({ key: f.slug, label: f.name, icon: f.icon && !iconUrl ? f.icon : TYPE_ICON[f.type], iconUrl, cardUrl, qty: 1, unitWeight: itemWeight(f), category: categoryOf(f.type), item: f, entry: null, rarity: f.rarity, essence: f.essence, description: f.description });
+    }
     // peças de evento ou do modo de teste que não estão na bolsa
-    for (const it of items) if (isWearable(it.type) && !out.some((r) => r.key === it.slug) && ownsItem(it.slug)) out.push({ key: it.slug, label: it.name, icon: TYPE_ICON[it.type], qty: 1, unitWeight: itemWeight(it), category: categoryOf(it.type), item: it, entry: null, rarity: it.rarity, essence: it.essence, description: it.description });
-    for (const v of carry.vale) out.push({ key: 'vale:' + v.key, label: v.label, icon: v.icon, qty: v.qty, unitWeight: v.unitWeight, category: 'material', item: null, entry: null, vale: true, description: 'Da mochila de coleta (vai para receitas, para a Oficina e para o refino na Casa dos Ecos).' });
+    for (const it of items) if (isWearable(it.type) && !out.some((r) => r.key === it.slug) && ownsItem(it.slug)) {
+      const iconUrl = itemIconUrl(it);
+      const cardUrl = itemCardUrl(it);
+      out.push({ key: it.slug, label: it.name, icon: it.icon && !iconUrl ? it.icon : TYPE_ICON[it.type], iconUrl, cardUrl, qty: 1, unitWeight: itemWeight(it), category: categoryOf(it.type), item: it, entry: null, rarity: it.rarity, essence: it.essence, description: it.description });
+    }
+    for (const v of carry.vale) {
+      const matched = findItem(v.label, items);
+      const iconUrl = itemIconUrl(matched);
+      const cardUrl = itemCardUrl(matched);
+      out.push({ key: 'vale:' + v.key, label: v.label, icon: v.icon, iconUrl, cardUrl, qty: v.qty, unitWeight: v.unitWeight, category: 'material', item: matched, entry: null, vale: true, rarity: matched?.rarity, essence: matched?.essence, description: matched?.description || 'Da mochila de coleta (vai para receitas, para a Oficina e para o refino na Casa dos Ecos).' });
+    }
     return out;
   }, [carry, items]);
   const q = query.trim().toLowerCase();
@@ -135,10 +155,11 @@ export function EquipmentPanel({ onClose, menu }: { onClose?: () => void; menu?:
 
   const slotCell = (s: EquipSlot) => {
     const it = bySlug(equipped[s]);
+    const iconUrl = itemIconUrl(it);
     return (
       <button key={s} type="button" className={'inv-slot' + (slotFilter === s ? ' on' : '') + (it ? ' has' : '')} onClick={() => clickSlot(s)}
         style={it ? { ['--r' as string]: RARITIES[it.rarity].color } : undefined} aria-label={`${SLOTS_EQ[s].label}: ${it ? it.name : 'vazio'}`} title={it ? `${SLOTS_EQ[s].label}: ${it.name}` : SLOTS_EQ[s].label}>
-        <span className="ic" aria-hidden>{it ? TYPE_ICON[it.type] : SLOT_ICON[s]}</span>
+        {iconUrl ? <img className="inv-slot-img" src={iconUrl} alt="" loading="lazy" /> : <span className="ic" aria-hidden>{it ? (it.icon && !iconUrl ? it.icon : TYPE_ICON[it.type]) : SLOT_ICON[s]}</span>}
         <small>{it ? it.name : SLOTS_EQ[s].short}</small>
         {it?.essence && <i className="el" style={{ background: ELEMENTS[it.essence].glow }} aria-hidden />}
       </button>
@@ -185,40 +206,49 @@ export function EquipmentPanel({ onClose, menu }: { onClose?: () => void; menu?:
   };
 
   const itemDetail = (sel: Row) => (
-            <article className="inv-detail ib-detail" ref={detail} aria-label={sel.label}>
-              <header>
-                <span className="ic" aria-hidden>{sel.icon}</span>
-                <div>
-                  <strong>{sel.label}</strong>
-                  <small>
-                    {sel.item ? ITEM_TYPES[sel.item.type].label : ITEM_CATEGORIES[sel.category].label}
-                    {sel.rarity && <> · <span style={{ color: RARITIES[sel.rarity].color }}>{RARITIES[sel.rarity].label}</span></>}
-                    {sel.item && isWearable(sel.item.type) && <> · <span style={{ color: TIERS[tierOf(sel.item)].color }}>{TIERS[tierOf(sel.item)].label} {TIERS[tierOf(sel.item)].material}</span></>}
-                    {sel.essence && <> · {ELEMENTS[sel.essence].label}</>}
-                    {' · '}{kg(sel.unitWeight)}{sel.qty > 1 ? ` cada (${kg(sel.unitWeight * sel.qty)})` : ''}
-                  </small>
-                </div>
-                <button type="button" className="close" aria-label="Fechar" onClick={() => setPick(null)}>×</button>
-              </header>
-              {sel.description && <p>{sel.description}</p>}
-              {sel.item && Object.keys(sel.item.stats).length > 0 && <p className="stats">{Object.entries(sel.item.stats).map(([k, v]) => `${ATTR[k]} ${v! > 0 ? '+' : ''}${Math.round(v! * RARITIES[sel.item!.rarity].statMul * TIERS[tierOf(sel.item!)].stat * 10) / 10}%`).join(' · ')}</p>}
-              {sel.item && ITEM_TYPES[sel.item.type].weapon && (() => { const w = basicAttack(sel.item); return <p className="stats">Golpe: alcance {String(w.range).replace('.', ',')} m · {String(w.cadence).replace('.', ',')}/s · dano ×{String(w.power).replace('.', ',')}{ITEM_TYPES[sel.item.type].weapon!.twoHanded ? ' · duas mãos' : ' · uma mão (também vai na mão esquerda)'}</p>; })()}
-              {sel.item && isWearable(sel.item.type) && tierBlock(sel.item, bond) && <p className="msg err">{tierBlock(sel.item, bond)}</p>}
-              {sel.item && ITEM_TYPES[sel.item.type].weapon && tierOf(sel.item) >= 3 && <p className="hint">{tierOf(sel.item) >= 5 ? 'T5: as técnicas desta arma estão na forma final.' : 'T3+: as técnicas desta arma evoluem (escolha o caminho em Habilidades).'}</p>}
-              <div className="row">
-                {sel.item && isWearable(sel.item.type) && (() => {
-                  const it = sel.item!, cur = slotOf(it.slug), opts = slotsFor(it.type);
-                  if (cur) return <button className="ghost" onClick={() => doUnequip(cur)}>Tirar ({SLOTS_EQ[cur].short})</button>;
-                  return opts.length > 1
-                    ? opts.map((s) => <button key={s} className="primary" onClick={() => doEquip(it, s)}>Equipar: {SLOTS_EQ[s].short}</button>)
-                    : <button className="primary" onClick={() => doEquip(it, opts[0])}>Equipar</button>;
-                })()}
-                {sel.entry && !sel.entry.item?.slug.startsWith('inst-') && sel.category !== 'diversos' && !(sel.item && slotOf(sel.item.slug) && sel.qty <= 1) && (
-                  <>
-                    <button className="ghost" onClick={() => void discard(sel, 1)}>Jogar fora 1</button>
-                    {sel.qty > 1 && !(sel.item && slotOf(sel.item.slug)) && <button className="ghost" onClick={() => void discard(sel, sel.qty)}>Jogar fora todos</button>}
-                  </>
+            <article className={'inv-detail ib-detail' + (sel.cardUrl ? ' has-card' : '')} ref={detail} aria-label={sel.label}>
+              <div className="ib-detail-body">
+                {sel.cardUrl && (
+                  <figure className="ib-detail-card">
+                    <img src={sel.cardUrl} alt={sel.label} loading="lazy" />
+                  </figure>
                 )}
+                <div className="ib-detail-info">
+                  <header>
+                    {sel.iconUrl ? <img className="inv-detail-icon" src={sel.iconUrl} alt="" loading="lazy" /> : <span className="ic" aria-hidden>{sel.icon}</span>}
+                    <div>
+                      <strong>{sel.label}</strong>
+                      <small>
+                        {sel.item ? ITEM_TYPES[sel.item.type].label : ITEM_CATEGORIES[sel.category].label}
+                        {sel.rarity && <> · <span style={{ color: RARITIES[sel.rarity].color }}>{RARITIES[sel.rarity].label}</span></>}
+                        {sel.item && isWearable(sel.item.type) && <> · <span style={{ color: TIERS[tierOf(sel.item)].color }}>{TIERS[tierOf(sel.item)].label} {TIERS[tierOf(sel.item)].material}</span></>}
+                        {sel.essence && <> · {ELEMENTS[sel.essence].label}</>}
+                        {' · '}{kg(sel.unitWeight)}{sel.qty > 1 ? ` cada (${kg(sel.unitWeight * sel.qty)})` : ''}
+                      </small>
+                    </div>
+                    <button type="button" className="close" aria-label="Fechar" onClick={() => setPick(null)}>×</button>
+                  </header>
+                  {sel.description && <p className="ib-detail-desc">{sel.description}</p>}
+                  {sel.item && Object.keys(sel.item.stats).length > 0 && <p className="stats">{Object.entries(sel.item.stats).map(([k, v]) => `${ATTR[k]} ${v! > 0 ? '+' : ''}${Math.round(v! * RARITIES[sel.item!.rarity].statMul * TIERS[tierOf(sel.item!)].stat * 10) / 10}%`).join(' · ')}</p>}
+                  {sel.item && ITEM_TYPES[sel.item.type].weapon && (() => { const w = basicAttack(sel.item); return <p className="stats">Golpe: alcance {String(w.range).replace('.', ',')} m · {String(w.cadence).replace('.', ',')}/s · dano ×{String(w.power).replace('.', ',')}{ITEM_TYPES[sel.item.type].weapon!.twoHanded ? ' · duas mãos' : ' · uma mão (também vai na mão esquerda)'}</p>; })()}
+                  {sel.item && isWearable(sel.item.type) && tierBlock(sel.item, bond) && <p className="msg err">{tierBlock(sel.item, bond)}</p>}
+                  {sel.item && ITEM_TYPES[sel.item.type].weapon && tierOf(sel.item) >= 3 && <p className="hint">{tierOf(sel.item) >= 5 ? 'T5: as técnicas desta arma estão na forma final.' : 'T3+: as técnicas desta arma evoluem (escolha o caminho em Habilidades).'}</p>}
+                  <div className="row">
+                    {sel.item && isWearable(sel.item.type) && (() => {
+                      const it = sel.item!, cur = slotOf(it.slug), opts = slotsFor(it.type);
+                      if (cur) return <button className="ghost" onClick={() => doUnequip(cur)}>Tirar ({SLOTS_EQ[cur].short})</button>;
+                      return opts.length > 1
+                        ? opts.map((s) => <button key={s} className="primary" onClick={() => doEquip(it, s)}>Equipar: {SLOTS_EQ[s].short}</button>)
+                        : <button className="primary" onClick={() => doEquip(it, opts[0])}>Equipar</button>;
+                    })()}
+                    {sel.entry && !sel.entry.item?.slug.startsWith('inst-') && sel.category !== 'diversos' && !(sel.item && slotOf(sel.item.slug) && sel.qty <= 1) && (
+                      <>
+                        <button className="ghost" onClick={() => void discard(sel, 1)}>Jogar fora 1</button>
+                        {sel.qty > 1 && !(sel.item && slotOf(sel.item.slug)) && <button className="ghost" onClick={() => void discard(sel, sel.qty)}>Jogar fora todos</button>}
+                      </>
+                    )}
+                  </div>
+                </div>
               </div>
             </article>
   );
@@ -317,9 +347,9 @@ export function EquipmentPanel({ onClose, menu }: { onClose?: () => void; menu?:
                   const on = r.item ? !!slotOf(r.item.slug) : false, open = pick?.kind === 'item' && pick.key === r.key;
                   return (
                     <li key={r.key}>
-                      <button type="button" className={'inv-item' + (open ? ' sel' : '') + (on ? ' on' : '')} onClick={() => setPick(open ? null : { kind: 'item', key: r.key })}
+                      <button type="button" className={'inv-item' + (open ? ' sel' : '') + (on ? ' on' : '') + (r.iconUrl ? ' has-icon-img' : '')} onClick={() => setPick(open ? null : { kind: 'item', key: r.key })}
                         style={r.rarity ? { ['--r' as string]: RARITIES[r.rarity].color } : undefined} title={r.label} aria-label={`${r.label}${r.qty > 1 ? `, ${r.qty}` : ''}${on ? ', equipado' : ''}`}>
-                        <span className="ic" aria-hidden>{r.icon}</span>
+                        {r.iconUrl ? <img className="inv-icon-img" src={r.iconUrl} alt="" loading="lazy" /> : <span className="ic" aria-hidden>{r.icon}</span>}
                         {r.qty > 1 && <em className="qty">{r.qty}</em>}
                         {on && <em className="worn" aria-hidden>E</em>}
                         {r.item && isWearable(r.item.type) && <em className="tier" style={{ ['--t' as string]: TIERS[tierOf(r.item)].color }} aria-hidden>T{tierOf(r.item)}</em>}

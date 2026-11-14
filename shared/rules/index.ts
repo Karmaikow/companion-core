@@ -27,6 +27,7 @@ export * from './families.ts';
 export * from './species.ts';
 export * from './combat/tree.ts';
 export * from './equipment.ts';
+export * from './arsenalDeAster.ts';
 export * from './tiers.ts';
 export * from './weather.ts';
 export * from './bestiary.ts';

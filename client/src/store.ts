@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { DEFAULT_ITEMS, type Equipped, type ItemDef } from '@rules';
+import { ALL_CATALOG_ITEMS, type Equipped, type ItemDef } from '@rules';
 import { QUESTS, QUEST_REWARDS, SECRET_BY_KEY, SECRET_XP, SECRET_BOOST_TURNS, ELEMENTS, type QuestKey, type SecretKey } from '@rules';
 import type { Backend, Snapshot } from './backend/types';
 
@@ -69,7 +69,7 @@ export const useGame = create<State>((set, get) => ({
   sayBark: (text, ms) => set({ bark: { id: ++seq, text, ms } }),
   celebrations: [],
   awakenCall: false,
-  items: DEFAULT_ITEMS,
+  items: ALL_CATALOG_ITEMS,
   equipped: {},
   setItems: (items) => set((s) => ({ items: [...items.filter((i) => !i.slug.startsWith('inst-')), ...s.items.filter((i) => i.slug.startsWith('inst-'))] })),
   setEquipped: (equipped) => set({ equipped }),
