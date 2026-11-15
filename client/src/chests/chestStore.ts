@@ -6,7 +6,8 @@
  */
 import { create } from 'zustand';
 import { fetchGameConfig } from '../backend/catalog';
-import { CHEST_REACH, CHEST_EMPTY_MS, CHEST_OPEN_TTL_MS, CHEST_CARRY_LIMIT, CRYSTAL_LABEL, resolveAster, cleanProgress, DEFAULT_ASTER, bagEntries, type AsterConfig, type ChestContents, type ChestState, type ChestTier, type CityRebuild } from '@rules';
+import { onExtra, sendExtra } from '../net/presence';
+import { CHEST_REACH, CHEST_EMPTY_MS, CHEST_OPEN_TTL_MS, CHEST_CARRY_LIMIT, CRYSTAL_LABEL, resolveAster, cleanProgress, DEFAULT_ASTER, bagEntries, readChestOpened, readSharedChest, type AsterConfig, type ChestContents, type ChestState, type ChestTier, type CityRebuild } from '@rules';
 import { carryNow } from '../ui/bag';
 import { useGame } from '../store';
 import { supabase } from '../backend/online';
@@ -59,7 +60,8 @@ export const useChests = create<Store>((set, get) => ({
     } catch (e) { set({ error: e instanceof Error ? e.message : 'Não deu certo.' }); return null; } finally { set({ busy: false }); }
   },
   add(c) { set({ chests: [c, ...get().chests.filter((x) => x.id !== c.id)].slice(0, 30) }); },
-  async refresh() { await get().call('chest.list'); },
+  // com a posição, o servidor devolve os baús de todos os jogadores por perto (um baú para todos)
+  async refresh() { await get().call('chest.list', { x: companionFocus.x, z: companionFocus.z }); },
   open(id) {
     const c = get().chests.find((x) => x.id === id); if (!c || c.state === 'vazio' || get().opening?.id === id) return;
     if (Math.hypot(companionFocus.x - c.x, companionFocus.z - c.z) <= CHEST_REACH - 1) { void openNow(c); return; }
@@ -119,6 +121,7 @@ async function takeNow(c: ChestView, drops: ChestDrop[]): Promise<ChestDrop[]> {
   if (!items.length) { useGame.getState().toast('Sem espaço: a bolsa está pesada demais. O que ficou espera no baú por 2 min.', 'warn'); return drops; }
   const r = await useChests.getState().call('chest.take', { id: c.id, items, x: companionFocus.x, z: companionFocus.z });
   const left = r?.took?.left ?? drops;
+  if (r?.took) sendExtra('chest-open', { id: c.id, left: left.length > 0 }); // os outros jogadores veem o que sobrou (ou o baú sumir)
   if (!left.length) setChest(c, { state: 'vazio', drops: [], expiresAt: Date.now() + CHEST_EMPTY_MS });
   else { setChest(c, { state: 'aberto', drops: left }); useGame.getState().toast(`Sem espaço para tudo: ${left.map((d) => `${d.qty}× ${d.label}`).join(', ')} ficou no baú (2 min).`, 'warn'); }
   if (r?.took?.taken.length) void useGame.getState().run((b) => b.state());
@@ -131,7 +134,14 @@ async function openNow(c: ChestView) {
   useChests.setState({ opening: { id: c.id, at: performance.now() } });
   const r = await useChests.getState().call('chest.open', { id: c.id, x: companionFocus.x, z: companionFocus.z });
   const got = r?.opened;
-  if (!got) { useChests.setState({ opening: null }); if (useChests.getState().error) useGame.getState().toast(useChests.getState().error!, 'warn'); return; }
+  if (!got) {
+    useChests.setState({ opening: null });
+    if (useChests.getState().error) useGame.getState().toast(useChests.getState().error!, 'warn');
+    // outro Companion abriu primeiro: a lista que voltou já traz o baú aberto (com o que sobrou) ou sem ele
+    else if (r?.chests && !r.chests.some((x) => x.id === c.id)) useGame.getState().toast('Outro Companion abriu este baú primeiro.', 'soft');
+    return;
+  }
+  sendExtra('chest-open', { id: c.id, left: got.drops.length > 0 });
   // a animação de abrir dura ~0,9 s: os itens aparecem quando a tampa "estoura"
   const wait = Math.max(0, 900 - (performance.now() - (useChests.getState().opening?.at ?? 0)));
   await new Promise((ok) => setTimeout(ok, wait));
@@ -142,6 +152,30 @@ async function openNow(c: ChestView) {
   if (got.crystals) useGame.getState().celebrate({ kind: 'secret', eyebrow: 'Cristal Ápice', title: `+${got.crystals} ${CRYSTAL_LABEL}`, subtitle: 'Leve à Torre Central de Áster quando a cidade precisar ser reconstruída.' });
   void useGame.getState().run((b) => b.state());
 }
+
+// ---------------------------------------------------------------------------
+// Um baú para todos (mundo compartilhado)
+// ---------------------------------------------------------------------------
+
+/** Este jogo criou o baú (simulava o monstro que caiu): avisa os outros jogadores do mapa para desenharem o mesmo. */
+export function shareChest(c: ChestView) {
+  sendExtra('chest', { id: c.id, tier: c.tier, x: c.x, z: c.z, expiresAt: c.expiresAt, crystals: c.crystals });
+}
+
+// Avisos dos outros jogadores. Servem só para desenhar: abrir e pegar são conferidos no servidor.
+onExtra('chest', (d) => {
+  const c = readSharedChest(d, Date.now());
+  if (c && !useChests.getState().chests.some((x) => x.id === c.id)) useChests.getState().add(c);
+});
+let refreshAt = 0;
+onExtra('chest-open', (d) => {
+  const o = readChestOpened(d), S = useChests.getState();
+  const c = o ? S.chests.find((x) => x.id === o.id) : null;
+  if (!o || !c || S.opening?.id === o.id) return;
+  if (!o.left) { setChest(c, { state: 'vazio', drops: [], expiresAt: Date.now() + CHEST_EMPTY_MS }); return; }
+  // sobrou coisa dentro: pede ao servidor o que ficou (no máximo uma consulta a cada 2 s)
+  if (performance.now() - refreshAt > 2000) { refreshAt = performance.now(); void S.refresh(); }
+});
 
 // testes no navegador (só no dev)
 if (import.meta.env.DEV && typeof window !== 'undefined') (window as unknown as { __chests: unknown }).__chests = useChests;

@@ -6,7 +6,7 @@ export interface InventoryRow { item_key: string; qty: number; meta: { label?: s
 export interface RecipeRow { id: number; name: string; description: string; ingredients: { name: string; where?: string }[]; created_at: string }
 export interface TimelineRow { id: number; actor: string; kind: string; payload: Record<string, unknown>; created_at: string }
 
-export interface CombatResult { entry: BestiaryEntry; first: boolean; analyzed: boolean; analyzedCount: number; milestone: number | null; xp?: number; levelUp?: number | null; /** o que caiu e foi para a bolsa */ drops?: { key: string; label: string; qty: number }[]; /** Lumes que caíram */ lumes?: number; /** o baú que o monstro deixou no chão (online) */ chest?: import('../chests/chestStore').ChestView | null }
+export interface CombatResult { /** só o baú foi criado (este jogo simulava o monstro, mas o Companion não bateu): sem bestiário nem vínculo */ lootOnly?: boolean; entry: BestiaryEntry; first: boolean; analyzed: boolean; analyzedCount: number; milestone: number | null; xp?: number; levelUp?: number | null; /** o que caiu e foi para a bolsa */ drops?: { key: string; label: string; qty: number }[]; /** Lumes que caíram */ lumes?: number; /** o baú que o monstro deixou no chão (online) */ chest?: import('../chests/chestStore').ChestView | null }
 
 export interface Snapshot {
   companion: null | {
@@ -50,7 +50,8 @@ export interface Backend {
   /** O Companion puxa assunto após um silêncio. */
   muse?(): Promise<Snapshot>;
   /** Uma criatura derrotada no mundo: bestiário, partículas e Memórias de Combate. */
-  combatKill?(slug: string, level: number, pos?: { x: number; z: number }): Promise<Snapshot>;
+  /** `loot` (mundo compartilhado): `none` só conta a derrota, `only` só deixa o baú; sem ele, os dois (como sempre) */
+  combatKill?(slug: string, level: number, pos?: { x: number; z: number }, loot?: 'own' | 'none' | 'only'): Promise<Snapshot>;
   /** baús de drop e a reconstrução de Áster (só online) */
   chests?(action: string, body?: Record<string, unknown>): Promise<import('../chests/chestStore').ChestsReply>;
   /** Bolsa: jogar fora (`inventory.discard`) ou, só ADM, pôr um item do catálogo (`inventory.grant`). */

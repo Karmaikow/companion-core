@@ -19,6 +19,8 @@ export * from './look.ts';
 export * from './combat/skills.ts';
 export * from './combat/techniques.ts';
 export * from './combat/combos.ts';
+export * from './combat/cadences.ts';
+export * from './creatureSync.ts';
 export * from './combat/skillIcon.ts';
 export * from './combat/vfx.ts';
 export * from './creatures.ts';

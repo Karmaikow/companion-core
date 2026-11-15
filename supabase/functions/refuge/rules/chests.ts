@@ -42,6 +42,43 @@ export function chestTierFor(def: Pick<CreatureDef, 'family'> | null): ChestTier
 export interface ChestContents { drops: { key: string; label: string; qty: number; category: string }[]; lumes: number; crystals: number }
 
 // ---------------------------------------------------------------------------
+// Um baú para todos (mundo compartilhado): quem simulava o monstro cria o baú no servidor e avisa os outros jogadores
+// pelo canal; quem abrir primeiro leva. O aviso vem de outro jogador, então nada nele é de confiança: serve só para
+// DESENHAR o baú — abrir e pegar continuam conferidos no servidor (um baú inventado simplesmente não abre).
+// ---------------------------------------------------------------------------
+
+/** Quem pede a recompensa da derrota: `own` conta e deixa o baú; `none` só conta; `only` só deixa o baú. */
+export type KillLoot = 'own' | 'none' | 'only';
+/**
+ * O que cada jogo pede ao servidor quando o monstro cai. `owner`: este jogo simulava o monstro (ou está sozinho);
+ * `hit`: este Companion bateu nele há pouco. Devolve null quando não há nada a pedir.
+ */
+export function killLoot(owner: boolean, hit: boolean): KillLoot | null {
+  if (owner) return hit ? 'own' : 'only';
+  return hit ? 'none' : null;
+}
+
+export interface SharedChest { id: string; tier: ChestTier; x: number; z: number; expiresAt: number; crystals: number; state: 'fechado'; drops: [] }
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** Aviso "nasceu um baú aqui". `now` em ms. O prazo nunca passa do tempo de um baú fechado. */
+export function readSharedChest(d: unknown, now: number): SharedChest | null {
+  if (!d || typeof d !== 'object') return null;
+  const c = d as Record<string, unknown>;
+  if (typeof c.id !== 'string' || !UUID.test(c.id)) return null;
+  if (c.tier !== 'comum' && c.tier !== 'raro' && c.tier !== 'lendario') return null;
+  const x = Number(c.x), z = Number(c.z), exp = Number(c.expiresAt);
+  if (!Number.isFinite(x) || !Number.isFinite(z) || Math.abs(x) >= 1000 || Math.abs(z) >= 1000 || !Number.isFinite(exp) || exp <= now) return null;
+  return { id: c.id, tier: c.tier, x, z, expiresAt: Math.min(exp, now + CHEST_TTL_MS), crystals: Math.min(20, Math.max(0, Math.round(Number(c.crystals) || 0))), state: 'fechado', drops: [] };
+}
+
+/** Aviso "este baú foi aberto": `left` = ainda tem itens dentro (os outros podem pegar o que sobrou). */
+export function readChestOpened(d: unknown): { id: string; left: boolean } | null {
+  if (!d || typeof d !== 'object') return null;
+  const c = d as Record<string, unknown>;
+  return typeof c.id === 'string' && UUID.test(c.id) ? { id: c.id, left: c.left === true } : null;
+}
+
+// ---------------------------------------------------------------------------
 // Configuração (Admin → Servidor → Áster)
 // ---------------------------------------------------------------------------
 
