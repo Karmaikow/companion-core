@@ -41,7 +41,7 @@ interface State {
   /** `ms`: quanto tempo o balão fica (nos encontros, só até a próxima fala) */
   sayBark(text: string, ms?: number): void;
   /** Criatura derrotada: registra no bestiário (sem travar a conversa) e comemora o que for novo. */
-  recordKill(slug: string, level: number, pos?: { x: number; z: number }): Promise<import('./backend/types').CombatResult | null>;
+  recordKill(slug: string, level: number, pos?: { x: number; z: number }, loot?: 'own' | 'none' | 'only'): Promise<import('./backend/types').CombatResult | null>;
   /** Bolsa: jogar fora um item ou (ADM) pôr um item do catálogo. Devolve a mensagem de erro, se houver. */
   bagAction(action: 'inventory.discard' | 'inventory.grant', body: Record<string, unknown>): Promise<string | null>;
   dismissCelebration(): void;
@@ -81,11 +81,11 @@ export const useGame = create<State>((set, get) => ({
     setTimeout(() => set({ toasts: get().toasts.filter((x) => x.id !== t.id) }), 4200);
   },
   celebrate: (c) => set({ celebrations: [...get().celebrations, { ...c, id: ++seq }] }),
-  recordKill: async (slug, level, pos) => {
+  recordKill: async (slug, level, pos, loot) => {
     const b = get().backend;
     if (!b?.combatKill || !get().snap?.companion) return null;
     try {
-      const snap = await b.combatKill(slug, level, pos);
+      const snap = await b.combatKill(slug, level, pos, loot);
       // mantém a resposta da conversa em andamento; só troca bestiário e memórias
       const cur = get().snap;
       // mantém a conversa; troca bestiário, memórias, vínculo (XP da luta) e o progresso do despertar
@@ -93,6 +93,7 @@ export const useGame = create<State>((set, get) => ({
       const r = snap.combat ?? null;
       if (r?.lumes) get().toast(`+${r.lumes} ✧ Lumes`, 'gold');
       if (r?.levelUp) get().toast(`Vínculo nível ${r.levelUp}`, 'gold');
+      if (r?.lootOnly) return r; // só o baú: não houve derrota contada para este Companion
       if (r?.first) get().toast(`Memória de Combate: ${r.entry.name}`, 'soft');
       if (r?.analyzed) get().celebrate({ kind: 'quest', eyebrow: 'Análise de Partículas', title: r.entry.name, subtitle: 'Análise completa: fraquezas, atributos e o que solta estão no Bestiário (Memórias).' });
       if (r?.milestone) get().celebrate({ kind: 'secret', eyebrow: 'Quest: Análise de Partículas', title: `${r.milestone} espécie${r.milestone > 1 ? 's' : ''} analisada${r.milestone > 1 ? 's' : ''}`, subtitle: 'As partículas da Bruma contam quem são as criaturas do mundo.' });

@@ -35,8 +35,10 @@ export async function createChest(db: SupabaseClient, cid: string, creature: str
  */
 async function reveal(db: SupabaseClient, cid: string, id: string, addToBag: AddToBag): Promise<ChestContents | null> {
   const now = Date.now();
+  // Um baú para todos: abre quem chegar primeiro, não só quem derrubou o monstro. A troca de "fechado" para "aberto"
+  // é uma gravação só, com a condição de ainda estar fechado — dois abrindo ao mesmo tempo, só um leva.
   const { data } = await db.from('companion_chests').update({ opened_at: new Date(now).toISOString(), expires_at: new Date(now + CHEST_OPEN_TTL_MS).toISOString() })
-    .eq('id', id).eq('companion_id', cid).is('opened_at', null).gt('expires_at', new Date(now).toISOString()).select('contents,creature').maybeSingle();
+    .eq('id', id).is('opened_at', null).gt('expires_at', new Date(now).toISOString()).select('contents,creature').maybeSingle();
   if (!data) return null;
   const c = data.contents as ChestContents;
   if (c.crystals) await addToBag(cid, [{ key: CRYSTAL_KEY, qty: c.crystals, label: CRYSTAL_LABEL, category: 'material' }]);
@@ -46,7 +48,7 @@ async function reveal(db: SupabaseClient, cid: string, id: string, addToBag: Add
 
 /** Leva itens do baú aberto para a bolsa (só o que ainda está lá); o resto continua no baú. */
 async function take(db: SupabaseClient, cid: string, id: string, want: { key: string; qty: number }[], addToBag: AddToBag) {
-  const { data } = await db.from('companion_chests').select('contents,opened_at,expires_at').eq('id', id).eq('companion_id', cid).maybeSingle();
+  const { data } = await db.from('companion_chests').select('contents,opened_at,expires_at').eq('id', id).maybeSingle();
   if (!data?.opened_at || Date.parse(data.expires_at as string) <= Date.now()) return null;
   const c = data.contents as ChestContents;
   const left = (c.drops ?? []).map((d) => ({ ...d }));
@@ -60,15 +62,23 @@ async function take(db: SupabaseClient, cid: string, id: string, want: { key: st
   const rest = left.filter((d) => d.qty > 0);
   // só grava se o baú ainda estava como lido (outro pedido no meio não duplica)
   const { data: ok } = await db.from('companion_chests').update({ contents: { ...c, drops: rest }, ...(rest.length ? {} : { expires_at: new Date().toISOString() }) })
-    .eq('id', id).eq('companion_id', cid).eq('contents', JSON.stringify(c)).select('id').maybeSingle();
+    .eq('id', id).eq('contents', JSON.stringify(c)).select('id').maybeSingle();
   if (!ok) return null;
   if (adds.length) await addToBag(cid, adds);
   return { taken: adds.map(({ key, qty, label }) => ({ key, qty, label })), left: rest };
 }
 
-/** Baús à vista: fechados e abertos que ainda têm itens (os vencidos somem com o que tinha dentro). */
-async function chestList(db: SupabaseClient, cid: string) {
-  const { data } = await db.from('companion_chests').select('id,tier,x,z,expires_at,opened_at,contents').eq('companion_id', cid).gt('expires_at', new Date().toISOString()).order('created_at', { ascending: false }).limit(30);
+/** raio (m) em volta do Companion em que os baús de qualquer jogador aparecem (o mesmo em que são desenhados) */
+const CHEST_SEE = 80;
+
+/**
+ * Baús à vista: fechados e abertos que ainda têm itens (os vencidos somem com o que tinha dentro). Com a posição do
+ * Companion, são os de TODOS os jogadores por perto (um baú para todos); sem ela (cliente antigo), só os dele.
+ */
+async function chestList(db: SupabaseClient, cid: string, at?: { x: number; z: number } | null) {
+  const base = db.from('companion_chests').select('id,tier,x,z,expires_at,opened_at,contents').gt('expires_at', new Date().toISOString());
+  const scoped = at ? base.gte('x', at.x - CHEST_SEE).lte('x', at.x + CHEST_SEE).gte('z', at.z - CHEST_SEE).lte('z', at.z + CHEST_SEE) : base.eq('companion_id', cid);
+  const { data } = await scoped.order('created_at', { ascending: false }).limit(30);
   return (data ?? []).filter((r) => !r.opened_at || ((r.contents as ChestContents)?.drops ?? []).length > 0).map((r) => {
     const c = r.contents as ChestContents;
     return { id: r.id as string, tier: r.tier as ChestTier, x: Number(r.x), z: Number(r.z), expiresAt: Date.parse(r.expires_at as string), crystals: Number(c?.crystals) || 0,
@@ -91,30 +101,35 @@ export async function chestAction(action: string, body: Record<string, unknown>,
   const { db, c } = ctx, cid = c.id as string;
   if (c.stage !== 'awakened') throw new ChestError(409, 'Só depois do despertar.');
 
-  if (action === 'chest.list') return { chests: await chestList(db, cid) };
+  // onde o Companion está (para listar os baús de todos por perto); pedido sem posição só vê os próprios
+  const bx = Number(body.x), bz = Number(body.z);
+  const at = Number.isFinite(bx) && Number.isFinite(bz) && Math.abs(bx) < 1000 && Math.abs(bz) < 1000 ? { x: bx, z: bz } : null;
+
+  if (action === 'chest.list') return { chests: await chestList(db, cid, at) };
 
   if (action === 'chest.open') {
     const id = cleanRequestId(body.id); if (!id) throw new ChestError(400, 'Baú inválido.');
-    const { data: ch } = await db.from('companion_chests').select('x,z,opened_at').eq('id', id).eq('companion_id', cid).maybeSingle();
+    const { data: ch } = await db.from('companion_chests').select('x,z,opened_at').eq('id', id).maybeSingle();
     if (!ch) throw new ChestError(404, 'Esse baú não existe.');
-    if (ch.opened_at) return { opened: null, chests: await chestList(db, cid) };
+    // outro jogador abriu primeiro: nada para revelar (o que sobrou nele aparece na lista e ainda dá para pegar)
+    if (ch.opened_at) return { opened: null, chests: await chestList(db, cid, at) };
     const x = Number(body.x), z = Number(body.z);
     if (!Number.isFinite(x) || !Number.isFinite(z) || Math.hypot(x - Number(ch.x), z - Number(ch.z)) > CHEST_REACH) throw new ChestError(409, 'Chegue mais perto do baú.');
     const got = await reveal(db, cid, id, ctx.addToBag);
-    if (!got) throw new ChestError(409, 'Esse baú já sumiu.');
-    return { opened: got, chests: await chestList(db, cid) };
+    if (!got) throw new ChestError(409, 'Outro Companion abriu este baú primeiro.');
+    return { opened: got, chests: await chestList(db, cid, at) };
   }
 
   if (action === 'chest.take') {
     const id = cleanRequestId(body.id); if (!id) throw new ChestError(400, 'Baú inválido.');
     const want = Array.isArray(body.items) ? (body.items as { key: unknown; qty: unknown }[]).slice(0, 40).map((w) => ({ key: String(w?.key ?? ''), qty: Number(w?.qty) || 0 })) : [];
-    const { data: ch } = await db.from('companion_chests').select('x,z').eq('id', id).eq('companion_id', cid).maybeSingle();
+    const { data: ch } = await db.from('companion_chests').select('x,z').eq('id', id).maybeSingle();
     if (!ch) throw new ChestError(404, 'Esse baú não existe.');
     const x = Number(body.x), z = Number(body.z);
     if (!Number.isFinite(x) || !Number.isFinite(z) || Math.hypot(x - Number(ch.x), z - Number(ch.z)) > CHEST_REACH + 2) throw new ChestError(409, 'Chegue mais perto do baú.');
     const got = await take(db, cid, id, want, ctx.addToBag);
     if (!got) throw new ChestError(409, 'Esse baú já sumiu.');
-    return { took: got, chests: await chestList(db, cid) };
+    return { took: got, chests: await chestList(db, cid, at) };
   }
 
   if (action === 'city.give') {

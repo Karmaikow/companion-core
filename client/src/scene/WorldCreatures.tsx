@@ -10,13 +10,13 @@ import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 import * as THREE from 'three';
-import { chunkSpawns, CHUNK, ARCHETYPES, creatureStatsAt, creatureSkillsAt, pickCreatureSkill, mitigate, resolveHit, affinity, readCreatureHit, DEFAULT_SKILLS, ELEMENTS, type CompanionWorld, type CreatureDef, type Spawn, type SkillDef, type SyncAct } from '@rules';
+import { chunkSpawns, CHUNK, ARCHETYPES, creatureStatsAt, creatureSkillsAt, pickCreatureSkill, mitigate, resolveHit, affinity, readCreatureHit, killLoot, DEFAULT_SKILLS, ELEMENTS, type CompanionWorld, type CreatureDef, type KillLoot, type Spawn, type SkillDef, type SyncAct } from '@rules';
 import { creatureOwner, onCreatureHit, publishCreature, releaseCreature, sendCreatureHit } from '../net/creatureSync';
 import { companionFocus, resolveCollisions } from './world';
 import { CreatureBody, type CreatureAct } from './Creature';
 import { AssetBoundary } from './Biome';
 import { castCreatureSkill, numQueue, skillInput, targets } from './Combat';
-import { useChests } from '../chests/chestStore';
+import { shareChest, useChests } from '../chests/chestStore';
 import { useSkills } from '../ui/skillState';
 import { gameVfx } from './vfx/engine';
 import { burst } from './vfx/recipes';
@@ -92,7 +92,7 @@ function WorldCreature({ cw, def, spawn, local = false }: { cw: CompanionWorld; 
   const hurt = useRef(0);
   // mundo compartilhado: quando bati nela por último (para a recompensa) e a vida que mostrei por último
   const net = useRef({ hitAt: -1e9, shownHp: 1 });
-  const killRef = useRef<(credit: boolean) => void>(() => {});
+  const killRef = useRef<(loot: KillLoot | null) => void>(() => {});
   useEffect(() => {
     const id = 'creature:' + spawn.id;
     targets.set(id, {
@@ -143,12 +143,15 @@ function WorldCreature({ cw, def, spawn, local = false }: { cw: CompanionWorld; 
         }
         L.hp -= marked; L.provoked = true;
         setHpPct(Math.max(0, L.hp / stats.vida));
-        if (L.hp <= 0) kill(true);
+        if (L.hp <= 0) kill('own');
         return marked;
       },
     });
-    /** Derrotada: o estouro e o sumiço valem para todos; a recompensa (bestiário, caçada, baú) só para quem bateu. */
-    const kill = (credit: boolean) => {
+    /**
+     * Derrotada: o estouro e o sumiço valem para todos. A recompensa depende de quem é este jogo: quem bateu conta a
+     * derrota (bestiário, caçada, vínculo); o baú é UM só, criado por quem simulava o monstro e avisado aos outros.
+     */
+    const kill = (loot: KillLoot | null) => {
       const L = life.current;
       const st2 = st.current, gy = cw.heightAt(st2.x, st2.z), at = new THREE.Vector3(st2.x, gy + def.size * 0.5, st2.z);
       const style = def.essence ? ESSENCE_STYLE[def.essence] : 'impacto';
@@ -157,12 +160,13 @@ function WorldCreature({ cw, def, spawn, local = false }: { cw: CompanionWorld; 
       gameVfx.after(0.12, () => burst(gameVfx, 'sombra', at.clone().setY(at.y + 0.2), def.color, 0.9, gy));
       L.dead = def.respawn; setDead(true);
       const tg = targets.get(id); if (tg) tg.r = -99; // fora do alcance enquanto não volta
-      if (!credit) return;
-      // bestiário (Análise de Partículas), caçada e fala
-      onKill(def.slug, def.name);
-      void useGame.getState().recordKill(def.slug, spawn.level, { x: st2.x, z: st2.z }).then((r) => {
+      if (!loot) return;
+      // bestiário (Análise de Partículas), caçada e fala — só para quem bateu
+      if (loot !== 'only') onKill(def.slug, def.name);
+      void useGame.getState().recordKill(def.slug, spawn.level, { x: st2.x, z: st2.z }, loot).then((r) => {
         // o que caiu foi sorteado no servidor: num baú no chão (online) ou direto na bolsa (offline)
-        if (r?.chest) { useChests.getState().add(r.chest); numQueue.push({ pos: at.clone().setY(at.y + 0.6), text: r.chest.crystals ? 'Baú com cristal!' : 'Baú!', kind: 'drop' }); }
+        if (r?.chest) { useChests.getState().add(r.chest); shareChest(r.chest); numQueue.push({ pos: at.clone().setY(at.y + 0.6), text: r.chest.crystals ? 'Baú com cristal!' : 'Baú!', kind: 'drop' }); }
+        if (loot === 'only') return;
         (r?.drops ?? []).forEach((d, i) => numQueue.push({ pos: at.clone().setY(at.y + 0.6 + i * 0.32), text: `+${d.qty} ${d.label}`, kind: 'drop' }));
         if (r?.xp) numQueue.push({ pos: at.clone().setY(at.y + 0.6 + (r.drops?.length ?? 0) * 0.32 + 0.2), text: `+${r.xp} vínculo`, kind: 'drop' });
         if (r?.analyzed) sayMoment('analyzed', { m: def.name }, def.slug);
@@ -180,7 +184,7 @@ function WorldCreature({ cw, def, spawn, local = false }: { cw: CompanionWorld; 
       if (h.dmg <= 0) return;
       L.hp -= h.dmg; L.provoked = true; hurt.current = 0.45;
       setHpPct(Math.max(0, L.hp / stats.vida));
-      if (L.hp <= 0) kill(performance.now() - net.current.hitAt < CREDIT_MS);
+      if (L.hp <= 0) kill(killLoot(true, performance.now() - net.current.hitAt < CREDIT_MS));
     });
     return () => { targets.delete(id); offHit(); releaseCreature(spawn.id); };
   }, [spawn.id, spawn.x, spawn.z, def, stats, cw]);
@@ -197,7 +201,7 @@ function WorldCreature({ cw, def, spawn, local = false }: { cw: CompanionWorld; 
       if (rs) {
         if (rs.dead) {
           // caiu na tela do dono: o estouro aparece aqui também; a recompensa só vem se eu bati nela há pouco
-          if (L.dead <= 0) killRef.current(performance.now() - net.current.hitAt < CREDIT_MS);
+          if (L.dead <= 0) killRef.current(killLoot(false, performance.now() - net.current.hitAt < CREDIT_MS));
           L.dead = 1e6;
           return;
         }
