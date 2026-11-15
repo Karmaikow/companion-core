@@ -5,7 +5,7 @@ import {
   resolveConfig, levelForXp, levelProgress, initialQuests, applyTurn, parseModelTurn, buildChatSystemPrompt,
   offlineTurn, assistDiscoveries, buildDreamPrompt, parseDream, checkAwakening, buildIdentityContract, gameTime, companionDay, clampText,
   QUESTS, QUEST_REWARDS, validateSetup, evaluateSecrets, isQuestionAboutCompanion, buildMusePrompt,
-  SECRET_BY_KEY, SECRET_XP, SECRET_BOOST_TURNS, buildArtPrompt, ANIM_KINDS, SPECIES, DEFAULT_CREATURES, sanitizeCreature, recordKill, rollDrops, rollLumes, QUEST_LUMES, resolveShop, type ShopConfig, DEFAULT_ITEMS, sanitizeItem, findItem, dropKey, categoryOf, isWearable, type ItemDef, combatMemoryLines, combatMemoryText,
+  SECRET_BY_KEY, SECRET_XP, SECRET_BOOST_TURNS, buildArtPrompt, ANIM_KINDS, SPECIES, DEFAULT_CREATURES, sanitizeCreature, recordKill, rollDrops, rollLumes, QUEST_LUMES, resolveShop, type ShopConfig, DEFAULT_ITEMS, ALL_CATALOG_ITEMS, sanitizeItem, findItem, dropKey, categoryOf, isWearable, type ItemDef, combatMemoryLines, combatMemoryText,
   masculinize, secretBonus, resolveBalance, type BalanceConfig, budget, deriveStats, progressionStage,
   BANK_EVENTS, MOMENT_EVENTS, withXpMultiplier, combatXp, resolveEcos, type EcosConfig, resolveAster, chestTierFor, rollCrystals, type AsterConfig, CRYSTAL_KEY, CRYSTAL_LABEL, resolvePacto, type PactoConfig, buildBarkBankPrompt, parseBarkBank, buildMomentPrompt, parseMoment, dossier, type BarkEvent,
   type BestiaryEntry, type CreatureDef, type SecretKey, type GameConfig, type IdentityContractV1, type QuestState, type Discoveries, type MemoryLite, type ChatLine,
@@ -347,9 +347,9 @@ async function creatureDefs(db: SupabaseClient): Promise<CreatureDef[]> {
 async function itemDefs(db: SupabaseClient): Promise<ItemDef[]> {
   const { data } = await db.from('items').select('slug,name,data').eq('status', 'published');
   const list = (data ?? []).map((r) => sanitizeItem({ ...(r.data as object), slug: r.slug, name: r.name })).filter((x): x is ItemDef => !!x);
-  if (!list.length) return DEFAULT_ITEMS;
-  // como no jogo: com o Arsenal publicado, os materiais e diversos de reserva continuam (drops dos monstros de exemplo)
-  return [...list, ...DEFAULT_ITEMS.filter((d) => !isWearable(d.type) && !list.some((x) => x.slug === d.slug))];
+  if (!list.length) return ALL_CATALOG_ITEMS;
+  // como no jogo: com o Arsenal publicado, os itens do catálogo base que ainda não estão no banco continuam disponíveis
+  return [...list, ...ALL_CATALOG_ITEMS.filter((d) => !list.some((x) => x.slug === d.slug))];
 }
 
 /** Soma (ou tira) itens da bolsa do Companion. Devolve as quantidades novas. */

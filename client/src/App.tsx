@@ -1,6 +1,6 @@
 import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
 import { fetchCatalog, fetchGameConfig } from './backend/catalog';
-import { canCompleteEquipment, masculinize, ELEMENTS, derivePalette, refugeFeatures, animKind, sanitizeBiome, sanitizeCreature, makeCompanionWorld, worldBiomeList, characterSheet, sanitizeItem, DEFAULT_ITEMS, isWearable, validateEquipped, equipmentBonus, equippedItems, ITEM_TYPES, sanitizeWeather, weatherAt, WEATHERS, DEFAULT_WEATHER, DEFAULT_BIOME_WEATHER, type ItemDef, type WeatherConfig, WORLD_SEED, DEFAULT_CREATURES, type BiomeConfig, type CreatureDef, type WorldSite,
+import { canCompleteEquipment, masculinize, ELEMENTS, derivePalette, refugeFeatures, animKind, sanitizeBiome, sanitizeCreature, makeCompanionWorld, worldBiomeList, characterSheet, sanitizeItem, DEFAULT_ITEMS, ALL_CATALOG_ITEMS, isWearable, validateEquipped, equipmentBonus, equippedItems, ITEM_TYPES, sanitizeWeather, weatherAt, WEATHERS, DEFAULT_WEATHER, DEFAULT_BIOME_WEATHER, type ItemDef, type WeatherConfig, WORLD_SEED, DEFAULT_CREATURES, type BiomeConfig, type CreatureDef, type WorldSite,
   ASTER_GATE, DEFAULT_CITY_LAYOUT, OUT_ARRIVAL, OUT_GATE_ARRIVE, cityArrival, outskirtsGatePoint, sanitizeCityLayout, type CityLayout, type CityState } from '@rules';
 import type { AsterTravel } from './scene/AsterScene';
 import { WorldMap } from './ui/WorldMap';
@@ -348,7 +348,7 @@ export function App() {
     fetchCatalog<{ slug: string; name: string; data: unknown }>('items').then((data) => {
       const list = (data ?? []).map((r) => sanitizeItem({ ...(r.data as object), slug: r.slug, name: r.name })).filter((x): x is ItemDef => !!x);
       // materiais e diversos de reserva continuam valendo (são os drops dos monstros de exemplo)
-      if (list.length) useGame.getState().setItems([...list, ...DEFAULT_ITEMS.filter((d) => !isWearable(d.type) && !list.some((x) => x.slug === d.slug))]);
+      if (list.length) useGame.getState().setItems([...list, ...ALL_CATALOG_ITEMS.filter((d) => !list.some((x) => x.slug === d.slug))]);
     }, () => {});
   }, []);
   useEffect(() => {

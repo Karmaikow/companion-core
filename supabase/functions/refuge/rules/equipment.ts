@@ -16,6 +16,9 @@ import type { SpeciesKey, AttrKey } from './species.ts';
 import type { AnimKind } from './anim.ts';
 import { sanitizeLook, type ModelLook } from './look.ts';
 import { TIERS, cleanTier, tierOf, tierBlock, type Tier } from './tiers.ts';
+import { ARSENAL_200_ITEMS, itemIconUrl, itemCardUrl } from './arsenalDeAster.ts';
+
+export { ARSENAL_200_ITEMS, itemIconUrl, itemCardUrl };
 
 export type Rarity = 'comum' | 'incomum' | 'rara' | 'epica' | 'lendaria' | 'mitica';
 export type Bone = 'mao_direita' | 'mao_esquerda' | 'cabeca' | 'peito' | 'nenhum';
@@ -127,8 +130,12 @@ export const CLASS_WEAPONS: Record<SpeciesKey, ItemType[]> = {
 };
 
 export interface ItemDef {
-  /** Número da carta no lote original do Arsenal de Áster. */
+  /** Número da carta no lote original do Arsenal de Áster (1 a 200). */
   cardNumber?: number;
+  /** Ícone do item exibido na grade do inventário (URL do recorte do canto da carta ou emoji). */
+  icon?: string;
+  /** Imagem grande (carta ilustrada completa) exibida na descrição ao selecionar o item no inventário. */
+  image?: string;
   slug: string;
   name: string;
   description: string;
@@ -217,6 +224,12 @@ export const DEFAULT_ITEMS: ItemDef[] = [
   I('po-prismatico', 'Pó prismático', 'essencia', { description: 'Brilha nas sete cores e mancha tudo de lilás. Os Distorcidos o soltam quando a fenda fecha.', rarity: 'incomum', essence: 'sombra', recipe: R([], 1, 0), obtain: 'Drop de monstro (Distorcidos)', proc: { primary: '#d9b8ff', secondary: '#9ff0ff', metal: '#d9b8ff', gem: false, variant: 1 } }),
   I('nucleo-fendido', 'Núcleo fendido', 'parte', { description: 'O miolo de um Distorcido crescido. Ainda pulsa, devagar, no ritmo do Cristal Ápice.', rarity: 'rara', essence: 'sombra', recipe: R([], 1, 0), obtain: 'Drop de monstro (Distorcidos adultos e acima)', proc: { primary: '#8457ff', secondary: '#ff9ae6', metal: '#8457ff', gem: true, variant: 2 } }),
   I('coracao-do-cristal-rachado', 'Coração do Cristal Rachado', 'gema', { description: 'Só o Coração Rachado e, muito raramente, a Matriarca carregam um destes. Dizem que encaixa de volta no Cristal Ápice.', rarity: 'lendaria', essence: 'sombra', recipe: R([], 1, 0), obtain: 'Drop de MVP (O Coração Rachado)', proc: { primary: '#ff5ad1', secondary: '#ffffff', metal: '#ff5ad1', gem: true, variant: 0 } }),
+];
+
+/** Catálogo completo unificando os itens iniciais e os 200 itens do Arsenal de Áster. */
+export const ALL_CATALOG_ITEMS: ItemDef[] = [
+  ...DEFAULT_ITEMS,
+  ...ARSENAL_200_ITEMS.filter((a) => !DEFAULT_ITEMS.some((d) => d.slug === a.slug)),
 ];
 
 // ---------------------------------------------------------------------------
@@ -435,6 +448,8 @@ export function sanitizeItem(input: unknown): ItemDef | null {
   return {
     slug: s.slug,
     ...(typeof s.cardNumber === 'number' && Number.isInteger(s.cardNumber) && s.cardNumber >= 1 && s.cardNumber <= 200 ? { cardNumber: s.cardNumber } : {}),
+    ...(typeof s.icon === 'string' && s.icon.trim() && (/^(https:\/\/|\/|data:image\/)/.test(s.icon.trim()) || s.icon.trim().length <= 16) ? { icon: s.icon.trim().slice(0, 500) } : {}),
+    ...(typeof s.image === 'string' && s.image.trim() && /^(https:\/\/|\/|data:image\/)/.test(s.image.trim()) ? { image: s.image.trim().slice(0, 500) } : {}),
     name: typeof s.name === 'string' && s.name.trim() ? s.name.trim().slice(0, 40) : s.slug,
     description: typeof s.description === 'string' ? s.description.slice(0, 200) : '',
     type,

@@ -6,7 +6,7 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import {
   DEFAULT_CREATURES, DEFAULT_SKILLS, CREATURE_FAMILIES, FAMILY_TIERS, WORLD_FALLBACK_BIOMES, ELEMENTS, BODIES, ARCHETYPES, TEMPERAMENTS, BATTLE_STYLES, TIMES, ANIM_KINDS,
-  sanitizeCreature, sanitizeSkill, sanitizeItem, findItem, DEFAULT_ITEMS, ITEM_TYPES, type ItemDef, rigForBody, type CreatureRig, sanitizeBiome, kitFor, MOTIONS, biomeSlug, animKind, creatureStatsAt, creatureSkillsAt, mitigate,
+  sanitizeCreature, sanitizeSkill, sanitizeItem, findItem, ALL_CATALOG_ITEMS, ITEM_TYPES, type ItemDef, rigForBody, type CreatureRig, sanitizeBiome, kitFor, MOTIONS, biomeSlug, animKind, creatureStatsAt, creatureSkillsAt, mitigate,
   type CreatureDef, type Motion, type Archetype, type Temperament, type BattleStyle, type TimeOfDay, type Element, type BodyPlan, type SkillDef,
 } from '@rules';
 import { supabase } from '../backend/online';
@@ -26,7 +26,7 @@ export function SummonerStudio() {
   const skills = useCatalog<SkillDef>('skills', sanitizeSkill);
   // itens para os drops: o nome do drop vira o item do Arsenal (sugestões na digitação)
   const itemCat = useCatalog<ItemDef>('items', sanitizeItem);
-  const dropItems = useMemo(() => { const list = (itemCat.rows ?? []).map((r) => r.data); return [...list, ...DEFAULT_ITEMS.filter((d) => !list.some((x) => x.slug === d.slug))]; }, [itemCat.rows]);
+  const dropItems = useMemo(() => { const list = (itemCat.rows ?? []).map((r) => r.data); return [...list, ...ALL_CATALOG_ITEMS.filter((d) => !list.some((x) => x.slug === d.slug))]; }, [itemCat.rows]);
   const [biomes, setBiomes] = useState<{ slug: string; name: string }[]>([]);
   useEffect(() => {
     void supabase().from('biomes').select('slug,name,settings,status').then(({ data }) => {

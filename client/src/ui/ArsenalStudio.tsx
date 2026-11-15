@@ -6,7 +6,7 @@
  */
 import { lazy, Suspense, useMemo, useState } from 'react';
 import { arsenalCard } from './arsenalCard';
-import { TIERS, TIER_KEYS, tierOf, DEFAULT_ITEMS, ITEM_TYPES, ITEM_CATEGORIES, ELEMENT_SETS, RARITIES, ELEMENTS, SLOTS_EQ, DEFAULT_GRIP, sanitizeItem, biomeSlug, basicAttack, isWearable, slotsFor, type ItemDef, type ItemType, type ItemCategory, type Rarity, type Element } from '@rules';
+import { TIERS, TIER_KEYS, tierOf, DEFAULT_ITEMS, ALL_CATALOG_ITEMS, ITEM_TYPES, ITEM_CATEGORIES, ELEMENT_SETS, RARITIES, ELEMENTS, SLOTS_EQ, DEFAULT_GRIP, sanitizeItem, biomeSlug, basicAttack, isWearable, slotsFor, type ItemDef, type ItemType, type ItemCategory, type Rarity, type Element } from '@rules';
 import { supabase } from '../backend/online';
 import { boneFor } from '../scene/Equipment';
 import { useCatalog, uploadWorldAsset, safeName } from './catalog';
@@ -63,7 +63,7 @@ export function ArsenalStudio() {
   const clean = useMemo(() => (draft ? sanitizeItem(draft) : null), [draft]);
   const found = (cat.rows ?? []).filter((r) => matches(q, r.name, r.slug, ITEM_TYPES[r.data.type].label, RARITIES[r.data.rarity].label));
   const byCat = (c: ItemCategory) => found.filter((r) => ITEM_TYPES[r.data.type].category === c);
-  const missing = DEFAULT_ITEMS.filter((d) => cat.rows && !cat.rows.some((r) => r.slug === d.slug));
+  const missing = ALL_CATALOG_ITEMS.filter((d) => cat.rows && !cat.rows.some((r) => r.slug === d.slug));
   const wear = clean ? isWearable(clean.type) : false;
   const onBone = clean ? wear && boneFor(clean) !== 'nenhum' : false;
   // ADM testa: põe o item publicado na própria bolsa (vai para o Inventário do jogo)
@@ -100,7 +100,7 @@ export function ArsenalStudio() {
         </form>
         <ListSearch value={q} onChange={setQ} label="Buscar item" count={found.length} />
         {cat.error && <p className="msg err">{cat.error}</p>}
-        {cat.rows && !cat.rows.length && <button className="primary" disabled={busy} onClick={() => void run(() => cat.saveMany(DEFAULT_ITEMS, 'published'), `${DEFAULT_ITEMS.length} itens carregados.`)}>Carregar o arsenal inicial ({DEFAULT_ITEMS.length} itens)</button>}
+        {cat.rows && !cat.rows.length && <button className="primary" disabled={busy} onClick={() => void run(() => cat.saveMany(ALL_CATALOG_ITEMS, 'published'), `${ALL_CATALOG_ITEMS.length} itens carregados.`)}>Carregar catálogo completo ({ALL_CATALOG_ITEMS.length} itens)</button>}
         {q.trim() && !found.length && <p className="empty">Nenhum item com “{q.trim()}”.</p>}
         {CATS.map((c) => byCat(c).length > 0 && (
           <div key={c} className="biome-group">
