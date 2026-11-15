@@ -31,7 +31,12 @@ interface Poke { type: 'poke'; from: string; to: string[] | '*' }
 interface Bye { type: 'bye'; id: string }
 /** "quem está aí?": todos respondem com a ficha (quem só observa, sem entrar no mundo) */
 interface Ask { type: 'ask' }
-type Msg = Hello | Pose | Bye | Poke | Ask;
+/**
+ * Mensagem de outro sistema que viaja pelo mesmo canal (ex.: o estado dos monstros compartilhados, `k: 'creatures'`).
+ * Só chega a quem está no mesmo mapa. A presença não olha o conteúdo: entrega a quem se inscreveu com `onExtra`.
+ */
+interface Extra { type: 'x'; k: string; from: string; map?: PresenceMap; d: unknown }
+type Msg = Hello | Pose | Bye | Poke | Ask | Extra;
 
 interface Transport { send(m: Msg): void; close(): void }
 
@@ -47,7 +52,21 @@ export const remotePoses = new Map<string, Tracked>();
 export const farPoses = new Map<string, Tracked>();
 
 const STALE_MS = 8000;
-let current: { t: Transport; id: string } | null = null;
+let current: { t: Transport; id: string; map: PresenceMap } | null = null;
+const extraHandlers = new Map<string, Set<(d: unknown, from: string) => void>>();
+/** Meu id na presença (null fora dos mapas compartilhados). */
+export const presenceId = () => current?.id ?? null;
+/** Manda uma mensagem de outro sistema para quem está no mesmo mapa. Devolve false se não há canal. */
+export function sendExtra(k: string, d: unknown): boolean {
+  if (!current) return false;
+  current.t.send({ type: 'x', k, from: current.id, map: current.map, d });
+  return true;
+}
+export function onExtra(k: string, cb: (d: unknown, from: string) => void) {
+  if (!extraHandlers.has(k)) extraHandlers.set(k, new Set());
+  extraHandlers.get(k)!.add(cb);
+  return () => { extraHandlers.get(k)?.delete(cb); };
+}
 const pokeHandlers = new Set<() => void>();
 /** Avisa os outros jogos (todos ou só alguns Companions) que algo social mudou para eles. */
 export function pokeOthers(to: string[] | '*' = '*') { if (current) current.t.send({ type: 'poke', from: current.id, to }); }
@@ -119,6 +138,11 @@ function connect(info: RemoteInfo | null, local: boolean, map: PresenceMap | nul
   const onMsg = (m: Msg) => {
     if (!m || typeof m !== 'object') return;
     if (m.type === 'ask') { if (info) t.send({ type: 'hello', info, map: map! }); return; }
+    if (m.type === 'x') {
+      // só de quem está no mesmo mapa que eu (e nunca a minha própria)
+      if (info && typeof m.k === 'string' && typeof m.from === 'string' && m.from !== info.id && mapOf(m.map) === map) extraHandlers.get(m.k)?.forEach((f) => f(m.d, m.from));
+      return;
+    }
     if (m.type === 'hello') {
       if (!m.info?.id || m.info.id === info?.id) return;
       const id = m.info.id, moved = setMap(id, mapOf(m.map)), known = infos.has(id);
@@ -143,7 +167,7 @@ function connect(info: RemoteInfo | null, local: boolean, map: PresenceMap | nul
     }
   };
   const t = local ? localTransport(onMsg) : supabaseTransport(onMsg);
-  if (info) current = { t, id: info.id };
+  if (info) current = { t, id: info.id, map: map! };
   t.send(askFor());
   let last = { x: NaN, z: NaN, yaw: NaN, down: false, at: 0, hp: -1 };
   const poseTimer = window.setInterval(() => {

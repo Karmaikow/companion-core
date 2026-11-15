@@ -398,12 +398,29 @@ async function actCombatKill(db: SupabaseClient, c: Record<string, unknown>, bod
   const slug = typeof body.slug === 'string' && /^[a-z0-9][a-z0-9-]{1,40}$/.test(body.slug) ? body.slug : null;
   if (!slug) throw new HttpError(400, 'Criatura inválida.');
   const level = Math.max(1, Math.min(60, Math.round(Number(body.level) || 1)));
-  // freio contra spam: no máximo 40 derrotas por minuto
-  const { count } = await db.from('companion_events').select('id', { count: 'exact', head: true }).eq('companion_id', cid).eq('kind', 'combat.kill').gte('created_at', new Date(Date.now() - 60_000).toISOString());
+  // Mundo compartilhado: o monstro cai uma vez para todos e deixa UM baú (quem abrir primeiro leva).
+  //   'own'  (padrão, sozinho): conta a derrota e deixa o baú — como sempre foi;
+  //   'none' (ajudou a derrubar, mas outro jogo simulava o monstro): conta a derrota e o vínculo, sem sortear nada;
+  //   'only' (simulava o monstro, mas não bateu): só deixa o baú, sem bestiário nem vínculo.
+  const loot = body.loot === 'none' || body.loot === 'only' ? (body.loot as 'none' | 'only') : 'own';
+  // freio contra spam: no máximo 40 derrotas por minuto (os baús sem derrota contam à parte, com o mesmo teto)
+  const spamKind = loot === 'only' ? 'combat.loot' : 'combat.kill';
+  const { count } = await db.from('companion_events').select('id', { count: 'exact', head: true }).eq('companion_id', cid).eq('kind', spamKind).gte('created_at', new Date(Date.now() - 60_000).toISOString());
   if ((count ?? 0) >= 40) throw new HttpError(429, 'Calma! 🌙');
   const defs = await creatureDefs(db);
   const def = defs.find((d) => d.slug === slug) ?? DEFAULT_CREATURES.find((d) => d.slug === slug) ?? null;
   const name = def?.name ?? slug;
+  if (loot === 'only') {
+    const rnd0 = () => crypto.getRandomValues(new Uint32Array(1))[0] / 2 ** 32;
+    const catalog0 = def ? await itemDefs(db) : [];
+    const drops0 = (def ? rollDrops(def, rnd0) : []).map((d) => { const it = findItem(d.item, catalog0); return { key: dropKey(d.item, catalog0), label: it?.name ?? d.item, qty: d.qty, category: it ? categoryOf(it.type) : 'material' }; });
+    const lumes0 = def ? rollLumes(def.lumes, level, rnd0) : 0, tier0 = chestTierFor(def), crystals0 = def ? rollCrystals(tier0, cfg.aster, rnd0) : 0;
+    const x0 = Number(body.x), z0 = Number(body.z);
+    const placed0 = Number.isFinite(x0) && Number.isFinite(z0) && Math.abs(x0) < 1000 && Math.abs(z0) < 1000;
+    const chest0 = placed0 && (drops0.length || lumes0 || crystals0) ? await createChest(db, cid, slug, tier0, { x: x0, z: z0 }, { drops: drops0, lumes: lumes0, crystals: crystals0 }) : null;
+    await event(db, cid, 'system', 'combat.loot', { slug, level, chest: chest0?.id ?? null });
+    return { lootOnly: true, chest: chest0 };
+  }
   const all = await loadBestiary(db, cid);
   const prev = all.find((e) => e.slug === slug) ?? null;
   const now = new Date().toISOString();
@@ -413,11 +430,12 @@ async function actCombatKill(db: SupabaseClient, c: Record<string, unknown>, bod
   // o nome do drop vira o item do catálogo (Arsenal). Sem posição (cliente antigo), vai direto para a bolsa.
   const rnd = () => crypto.getRandomValues(new Uint32Array(1))[0] / 2 ** 32;
   const catalog = def ? await itemDefs(db) : [];
-  const rolled = def ? rollDrops(def, rnd) : [];
+  // 'none': o baú (um só, para todos) é de quem simulava o monstro; aqui não se sorteia nada
+  const rolled = def && loot !== 'none' ? rollDrops(def, rnd) : [];
   const drops = rolled.map((d) => { const it = findItem(d.item, catalog); return { key: dropKey(d.item, catalog), label: it?.name ?? d.item, qty: d.qty, category: it ? categoryOf(it.type) : 'material' }; });
-  const gotLumes = def ? rollLumes(def.lumes, level, rnd) : 0;
+  const gotLumes = def && loot !== 'none' ? rollLumes(def.lumes, level, rnd) : 0;
   const tier = chestTierFor(def);
-  const crystals = def ? rollCrystals(tier, cfg.aster, rnd) : 0;
+  const crystals = def && loot !== 'none' ? rollCrystals(tier, cfg.aster, rnd) : 0;
   const x = Number(body.x), z = Number(body.z);
   const placed = Number.isFinite(x) && Number.isFinite(z) && Math.abs(x) < 1000 && Math.abs(z) < 1000;
   const ev = await event(db, cid, 'system', 'combat.kill', { slug, level, first: r.first, analyzed: r.analyzedNow, drops: drops.map((d) => ({ key: d.key, qty: d.qty })), lumes: gotLumes, crystals });

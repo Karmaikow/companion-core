@@ -5,6 +5,7 @@
  * ou .GLB), aparência; o que se veste tem a pegada (ajuste na mão/osso) e a receita da Forja (só Taurinas forjam).
  */
 import { lazy, Suspense, useMemo, useState } from 'react';
+import { arsenalCard } from './arsenalCard';
 import { TIERS, TIER_KEYS, tierOf, DEFAULT_ITEMS, ALL_CATALOG_ITEMS, ITEM_TYPES, ITEM_CATEGORIES, ELEMENT_SETS, RARITIES, ELEMENTS, SLOTS_EQ, DEFAULT_GRIP, sanitizeItem, biomeSlug, basicAttack, isWearable, slotsFor, type ItemDef, type ItemType, type ItemCategory, type Rarity, type Element } from '@rules';
 import { supabase } from '../backend/online';
 import { boneFor } from '../scene/Equipment';
@@ -124,6 +125,7 @@ export function ArsenalStudio() {
       {!draft || !clean ? <section className="biome-empty"><p>Escolha um item ou crie um novo.</p></section> : (
         <section className="biome-editor">
           <EditorHead name={draft.name} sub={`${ITEM_TYPES[draft.type].label} · ${RARITIES[draft.rarity].label}${draft.essence ? ' · ' + ELEMENTS[draft.essence].label : ''}`} color={RARITIES[draft.rarity].color} status={status} dirty={dirty} />
+          {arsenalCard(clean) && <img src={arsenalCard(clean)} width={160} alt={clean.name} />}
           <div className="biome-preview">
             <Suspense fallback={<div className="art-empty">Carregando prévia…</div>}><ItemPreview item={clean} charge={charge} body={trainerModel ? { url: trainerModel.url, companionId: trainerModel.companionId, swing, socket } : null} /></Suspense>
             <div className="preview-tools">

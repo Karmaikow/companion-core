@@ -10,12 +10,13 @@ import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 import * as THREE from 'three';
-import { chunkSpawns, CHUNK, ARCHETYPES, creatureStatsAt, creatureSkillsAt, pickCreatureSkill, mitigate, resolveHit, affinity, DEFAULT_SKILLS, ELEMENTS, type CompanionWorld, type CreatureDef, type Spawn, type SkillDef } from '@rules';
+import { chunkSpawns, CHUNK, ARCHETYPES, creatureStatsAt, creatureSkillsAt, pickCreatureSkill, mitigate, resolveHit, affinity, readCreatureHit, killLoot, DEFAULT_SKILLS, ELEMENTS, type CompanionWorld, type CreatureDef, type KillLoot, type Spawn, type SkillDef, type SyncAct } from '@rules';
+import { creatureOwner, onCreatureHit, publishCreature, releaseCreature, sendCreatureHit } from '../net/creatureSync';
 import { companionFocus, resolveCollisions } from './world';
 import { CreatureBody, type CreatureAct } from './Creature';
 import { AssetBoundary } from './Biome';
 import { castCreatureSkill, numQueue, skillInput, targets } from './Combat';
-import { useChests } from '../chests/chestStore';
+import { shareChest, useChests } from '../chests/chestStore';
 import { useSkills } from '../ui/skillState';
 import { gameVfx } from './vfx/engine';
 import { burst } from './vfx/recipes';
@@ -53,15 +54,23 @@ export function WorldCreatures({ cw, creatures, center, night, high }: { cw: Com
   const summoned = useGod((g) => g.spawns);
   return (
     <group>
-      {[...spawns, ...summoned].map((s) => {
+      {spawns.map((s) => {
         const def = bySlug.get(s.slug);
         return def ? <AssetBoundary key={s.id + s.slug}><Suspense fallback={null}><WorldCreature cw={cw} def={def} spawn={s} /></Suspense></AssetBoundary> : null;
+      })}
+      {summoned.map((s) => {
+        const def = bySlug.get(s.slug);
+        return def ? <AssetBoundary key={s.id + s.slug}><Suspense fallback={null}><WorldCreature cw={cw} def={def} spawn={s} local /></Suspense></AssetBoundary> : null;
       })}
     </group>
   );
 }
 
-function WorldCreature({ cw, def, spawn }: { cw: CompanionWorld; def: CreatureDef; spawn: Spawn }) {
+/** quem bateu no monstro neste tempo antes de ele cair leva a recompensa (ms) */
+const CREDIT_MS = 15_000;
+const SYNC_ACT: Record<string, SyncAct> = { idle: 'idle', walk: 'walk', run: 'run', attack: 'attack', hurt: 'hurt' };
+
+function WorldCreature({ cw, def, spawn, local = false }: { cw: CompanionWorld; def: CreatureDef; spawn: Spawn; /** invocada pelo Administrador: só existe nesta tela, não é compartilhada */ local?: boolean }) {
   const g = useRef<THREE.Group>(null);
   const [act, setAct] = useState<CreatureAct>('idle');
   const [alert, setAlert] = useState(false);
@@ -81,6 +90,9 @@ function WorldCreature({ cw, def, spawn }: { cw: CompanionWorld; def: CreatureDe
   const [hpPct, setHpPct] = useState(1);
   const [dead, setDead] = useState(false);
   const hurt = useRef(0);
+  // mundo compartilhado: quando bati nela por último (para a recompensa) e a vida que mostrei por último
+  const net = useRef({ hitAt: -1e9, shownHp: 1 });
+  const killRef = useRef<(loot: KillLoot | null) => void>(() => {});
   useEffect(() => {
     const id = 'creature:' + spawn.id;
     targets.set(id, {
@@ -89,6 +101,9 @@ function WorldCreature({ cw, def, spawn }: { cw: CompanionWorld; def: CreatureDe
       // envenenado acumula até 3 doses (renova o tempo); queimando só renova
       afflict: (key, seconds, dps) => {
         const L = life.current; if (L.dead > 0) return;
+        // monstro de outro dono: o estado vai para ele aplicar (um golpe de dano zero com o estado junto)
+        const own = local ? null : creatureOwner(spawn.id, spawn, L.engaged);
+        if (own?.mode === 'remote') { sendCreatureHit(spawn.id, own.owner, 0, { key, seconds, dps }); return; }
         L.provoked = true;
         // controle: só o tempo (renova); um brilho rápido mostra o que pegou
         if (key in L.ctl) {
@@ -115,37 +130,112 @@ function WorldCreature({ cw, def, spawn }: { cw: CompanionWorld; def: CreatureDe
           ? resolveHit(damage, info, { essence: def.essence, physDefense: stats.defesa, magResist: (stats as { resistencia?: number }).resistencia ?? null }, affinity(info.essence, def.essence), Math.random())
           : mitigate(damage, stats.defesa);
         const marked = L.ctl.sombreado > 0 ? Math.round(dealt * 1.15) : dealt;
-        L.hp -= marked; L.provoked = true; hurt.current = 0.45;
-        setHpPct(Math.max(0, L.hp / stats.vida));
-        if (L.hp <= 0) {
-          const st2 = st.current, gy = cw.heightAt(st2.x, st2.z), at = new THREE.Vector3(st2.x, gy + def.size * 0.5, st2.z);
-          const style = def.essence ? ESSENCE_STYLE[def.essence] : 'impacto';
-          // explosão: estouro grande na cor dela + fumaça do estilo + um segundo estouro de névoa
-          burst(gameVfx, style, at, def.color, 1.3 + def.size * 0.4, gy);
-          gameVfx.after(0.12, () => burst(gameVfx, 'sombra', at.clone().setY(at.y + 0.2), def.color, 0.9, gy));
-          L.dead = def.respawn; setDead(true);
-          // bestiário (Análise de Partículas), caçada e fala
-          onKill(def.slug, def.name);
-          void useGame.getState().recordKill(def.slug, spawn.level, { x: st2.x, z: st2.z }).then((r) => {
-            // o que caiu foi sorteado no servidor: num baú no chão (online) ou direto na bolsa (offline)
-            if (r?.chest) { useChests.getState().add(r.chest); numQueue.push({ pos: at.clone().setY(at.y + 0.6), text: r.chest.crystals ? 'Baú com cristal!' : 'Baú!', kind: 'drop' }); }
-            (r?.drops ?? []).forEach((d, i) => numQueue.push({ pos: at.clone().setY(at.y + 0.6 + i * 0.32), text: `+${d.qty} ${d.label}`, kind: 'drop' }));
-            if (r?.xp) numQueue.push({ pos: at.clone().setY(at.y + 0.6 + (r.drops?.length ?? 0) * 0.32 + 0.2), text: `+${r.xp} vínculo`, kind: 'drop' });
-            if (r?.analyzed) sayMoment('analyzed', { m: def.name }, def.slug);
-            else if (r?.first) sayMoment('first-kill', { m: def.name }, def.slug);
-            else say('kill', { m: def.name }, { chance: 0.6 });
-          });
-          const tg = targets.get(id); if (tg) tg.r = -99; // fora do alcance enquanto não volta
+        net.current.hitAt = performance.now();
+        hurt.current = 0.45;
+        // Mundo compartilhado: o monstro é simulado por outro jogador. O golpe vai para ele aplicar; aqui a vida só
+        // é adiantada na tela (nunca a zero: quem decide a morte é o dono).
+        const own = local ? null : creatureOwner(spawn.id, spawn, L.engaged);
+        if (own?.mode === 'remote') {
+          L.hp = Math.max(1, L.hp - marked);
+          setHpPct(Math.max(0, L.hp / stats.vida));
+          sendCreatureHit(spawn.id, own.owner, marked);
+          return marked;
         }
+        L.hp -= marked; L.provoked = true;
+        setHpPct(Math.max(0, L.hp / stats.vida));
+        if (L.hp <= 0) kill('own');
         return marked;
       },
     });
-    return () => { targets.delete(id); };
+    /**
+     * Derrotada: o estouro e o sumiço valem para todos. A recompensa depende de quem é este jogo: quem bateu conta a
+     * derrota (bestiário, caçada, vínculo); o baú é UM só, criado por quem simulava o monstro e avisado aos outros.
+     */
+    const kill = (loot: KillLoot | null) => {
+      const L = life.current;
+      const st2 = st.current, gy = cw.heightAt(st2.x, st2.z), at = new THREE.Vector3(st2.x, gy + def.size * 0.5, st2.z);
+      const style = def.essence ? ESSENCE_STYLE[def.essence] : 'impacto';
+      // explosão: estouro grande na cor dela + fumaça do estilo + um segundo estouro de névoa
+      burst(gameVfx, style, at, def.color, 1.3 + def.size * 0.4, gy);
+      gameVfx.after(0.12, () => burst(gameVfx, 'sombra', at.clone().setY(at.y + 0.2), def.color, 0.9, gy));
+      L.dead = def.respawn; setDead(true);
+      const tg = targets.get(id); if (tg) tg.r = -99; // fora do alcance enquanto não volta
+      if (!loot) return;
+      // bestiário (Análise de Partículas), caçada e fala — só para quem bateu
+      if (loot !== 'only') onKill(def.slug, def.name);
+      void useGame.getState().recordKill(def.slug, spawn.level, { x: st2.x, z: st2.z }, loot).then((r) => {
+        // o que caiu foi sorteado no servidor: num baú no chão (online) ou direto na bolsa (offline)
+        if (r?.chest) { useChests.getState().add(r.chest); shareChest(r.chest); numQueue.push({ pos: at.clone().setY(at.y + 0.6), text: r.chest.crystals ? 'Baú com cristal!' : 'Baú!', kind: 'drop' }); }
+        if (loot === 'only') return;
+        (r?.drops ?? []).forEach((d, i) => numQueue.push({ pos: at.clone().setY(at.y + 0.6 + i * 0.32), text: `+${d.qty} ${d.label}`, kind: 'drop' }));
+        if (r?.xp) numQueue.push({ pos: at.clone().setY(at.y + 0.6 + (r.drops?.length ?? 0) * 0.32 + 0.2), text: `+${r.xp} vínculo`, kind: 'drop' });
+        if (r?.analyzed) sayMoment('analyzed', { m: def.name }, def.slug);
+        else if (r?.first) sayMoment('first-kill', { m: def.name }, def.slug);
+        else say('kill', { m: def.name }, { chance: 0.6 });
+      });
+    };
+    killRef.current = kill;
+    // Sou o dono: os golpes dos outros jogadores chegam aqui. O dano já vem calculado por quem bateu (defesa e
+    // afinidade aplicadas lá); aqui ele é conferido e limitado antes de descontar.
+    const offHit = local ? () => {} : onCreatureHit(spawn.id, (raw) => {
+      const L = life.current, h = readCreatureHit(raw, stats.vida);
+      if (!h || L.dead > 0) return;
+      if (h.status) targets.get(id)?.afflict?.(h.status.key, h.status.seconds, h.status.dps);
+      if (h.dmg <= 0) return;
+      L.hp -= h.dmg; L.provoked = true; hurt.current = 0.45;
+      setHpPct(Math.max(0, L.hp / stats.vida));
+      if (L.hp <= 0) kill(killLoot(true, performance.now() - net.current.hitAt < CREDIT_MS));
+    });
+    return () => { targets.delete(id); offHit(); releaseCreature(spawn.id); };
   }, [spawn.id, spawn.x, spawn.z, def, stats, cw]);
   useFrame((_, dtRaw) => {
     const s = st.current, grp = g.current; if (!grp) return;
     const dt = Math.min(dtRaw, 0.1) * timeScale();
     const L = life.current;
+    // ---- Mundo compartilhado: outro jogador simula este monstro. Aqui ele só é desenhado onde o dono diz que está
+    // (posição suavizada entre os pacotes), com a vida e a animação de lá. Nada de IA nem de ataque nesta tela.
+    const own = local ? null : creatureOwner(spawn.id, spawn, L.engaged);
+    if (own?.mode === 'remote') {
+      const rs = own.state, tg = targets.get('creature:' + spawn.id);
+      L.dots = []; L.engaged = false; L.provoked = false; L.swing = -1; L.casting = 0; L.returning = false;
+      if (rs) {
+        if (rs.dead) {
+          // caiu na tela do dono: o estouro aparece aqui também; a recompensa só vem se eu bati nela há pouco
+          if (L.dead <= 0) killRef.current(killLoot(false, performance.now() - net.current.hitAt < CREDIT_MS));
+          L.dead = 1e6;
+          return;
+        }
+        if (L.dead > 0) {
+          L.dead = 0; s.x = rs.x; s.z = rs.z; setDead(false);
+          if (tg) tg.r = Math.max(0.35, def.size * 0.45);
+          burst(gameVfx, 'luz', new THREE.Vector3(s.x, cw.heightAt(s.x, s.z) + 0.4, s.z), def.color, 0.6, cw.heightAt(s.x, s.z));
+        }
+        // brigando chegam 4 estados por segundo (segue de perto); passeando, um a cada 2 s (desliza devagar até lá)
+        const k = Math.min(1, dt * (rs.engaged || rs.act === 'run' ? 10 : 2));
+        s.x += (rs.x - s.x) * k; s.z += (rs.z - s.z) * k;
+        let dy = rs.yaw - s.yaw; while (dy > Math.PI) dy -= 2 * Math.PI; while (dy < -Math.PI) dy += 2 * Math.PI;
+        s.yaw += dy * Math.min(1, dt * 8);
+        // a vida é a do dono; logo depois de um golpe meu ela não "volta" (o golpe ainda está a caminho de lá)
+        const hp = rs.hp * stats.vida;
+        L.hp = performance.now() - net.current.hitAt < 600 ? Math.min(L.hp, hp) : hp;
+      } else if (L.dead > 0) return;
+      const pct = Math.max(0, L.hp / stats.vida);
+      if (Math.abs(pct - net.current.shownHp) > 0.01) { net.current.shownHp = pct; setHpPct(pct); }
+      grp.position.set(s.x, cw.heightAt(s.x, s.z), s.z);
+      grp.rotation.y = s.yaw;
+      if (tg) { tg.x = s.x; tg.z = s.z; }
+      let wantR: CreatureAct = rs ? rs.act : 'idle';
+      if (hurt.current > 0) { hurt.current -= dt; wantR = 'hurt'; }
+      if (wantR !== s.act) { s.act = wantR; setAct(wantR); }
+      const alR = !!rs?.engaged;
+      if (alR !== s.alert) { s.alert = alR; setAlert(alR); }
+      const nrR = Math.hypot(companionFocus.x - s.x, companionFocus.z - s.z) < 9;
+      if (nrR !== s.near) { s.near = nrR; setNear(nrR); }
+      return;
+    }
+    // passei a ser o dono de um monstro que estava caído na tela do dono anterior: o relógio da volta é o daqui
+    if (L.dead > def.respawn) L.dead = def.respawn;
+    const mineNow = own?.mode === 'me';
     // dano por segundo (veneno, fogo): número na cor do estado e a nuvem saindo do corpo
     if (L.dead <= 0 && L.dots.length) {
       for (const d of L.dots) {
@@ -163,6 +253,7 @@ function WorldCreature({ cw, def, spawn }: { cw: CompanionWorld; def: CreatureDe
     }
     if (L.dead > 0) {
       L.dots = [];
+      if (mineNow) publishCreature({ id: spawn.id, x: s.x, z: s.z, yaw: s.yaw, hp: 0, act: 'idle', dead: true, engaged: false }, false);
       L.dead -= dt;
       if (L.dead <= 0) {
         L.dead = 0; L.hp = stats.vida; L.provoked = false; s.x = spawn.x; s.z = spawn.z; s.tx = spawn.x; s.tz = spawn.z;
@@ -301,6 +392,12 @@ function WorldCreature({ cw, def, spawn }: { cw: CompanionWorld; def: CreatureDe
     if (want !== s.act) { s.act = want; setAct(want); }
     const al = mode === 'chase';
     if (al !== s.alert) { s.alert = al; setAlert(al); }
+    // Sou o dono e há mais alguém no mapa: o estado deste quadro fica pronto para o próximo envio. "Ativo" (4×/s) é
+    // só lutando, fugindo, voltando ou ferido; passeando perto da toca vai um estado a cada 2 s.
+    if (mineNow) publishCreature(
+      { id: spawn.id, x: s.x, z: s.z, yaw: s.yaw, hp: Math.max(0, L.hp / stats.vida), act: SYNC_ACT[s.act] ?? 'idle', dead: false, engaged: al },
+      mode === 'chase' || mode === 'flee' || L.returning || hurt.current > 0 || !!L.kb,
+    );
     const nr = dC < 9;
     // primeira vez que ela vê esta espécie (na sessão): comenta; nunca derrotada = "nunca vi isso"
     if (dC < 7 && !brain.seen.has(def.slug)) {
