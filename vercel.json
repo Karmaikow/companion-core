@@ -13,6 +13,15 @@
       ]
     },
     {
+      "source": "/((?!assets/world/).*\\.glb)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=7776000"
+        }
+      ]
+    },
+    {
       "source": "/assets/world/(.*)",
       "headers": [
         {
