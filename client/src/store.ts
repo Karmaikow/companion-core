@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { ALL_CATALOG_ITEMS, type Equipped, type ItemDef } from '@rules';
 import { QUESTS, QUEST_REWARDS, SECRET_BY_KEY, SECRET_XP, SECRET_BOOST_TURNS, ELEMENTS, type QuestKey, type SecretKey } from '@rules';
 import type { Backend, Snapshot } from './backend/types';
+import { SESSION_EXPIRED_TEXT, sessionEvents } from './backend/online';
 
 export type Tab = 'chat' | 'memories' | 'diary' | 'quests' | 'missoes' | 'inventory' | 'recipes' | 'skills' | 'bond' | 'ecos' | 'pacto' | 'forja' | 'social' | 'settings';
 
@@ -32,6 +33,15 @@ interface State {
   setItems(items: ItemDef[]): void;
   setEquipped(e: Equipped): void;
   setBackend(b: Backend | null): void;
+  /**
+   * A pessoa saiu do jogo por conta própria ou foi tirada (sessão caiu, a conta abriu em outra aba): a tela de entrada
+   * NÃO entra sozinha de novo com a sessão guardada — era isso que prendia o jogo num erro sem saída.
+   */
+  stayOut: boolean;
+  /** por que saiu (mostrado na tela de entrada) */
+  notice: string | null;
+  /** Volta para a tela de entrada e fica lá. */
+  leave(notice?: string | null): void;
   setTab(t: Tab | null): void;
   run(fn: (b: Backend) => Promise<Snapshot>): Promise<void>;
   toast(text: string, tone?: Toast['tone']): void;
@@ -73,7 +83,10 @@ export const useGame = create<State>((set, get) => ({
   equipped: {},
   setItems: (items) => set((s) => ({ items: [...items.filter((i) => !i.slug.startsWith('inst-')), ...s.items.filter((i) => i.slug.startsWith('inst-'))] })),
   setEquipped: (equipped) => set({ equipped }),
-  setBackend: (backend) => set({ backend, snap: null, tab: null, error: null, lastReply: null, playerSpeech: null, celebrations: [], awakenCall: false }),
+  setBackend: (backend) => set({ backend, snap: null, tab: null, error: null, lastReply: null, playerSpeech: null, celebrations: [], awakenCall: false, ...(backend ? { stayOut: false, notice: null } : {}) }),
+  stayOut: false,
+  notice: null,
+  leave: (notice = null) => set({ backend: null, snap: null, tab: null, error: null, lastReply: null, playerSpeech: null, celebrations: [], awakenCall: false, busy: false, stayOut: true, notice }),
   setTab: (tab) => set({ tab }),
   toast: (text, tone = 'soft') => {
     const t = { id: ++seq, text, tone };
@@ -157,9 +170,13 @@ export const useGame = create<State>((set, get) => ({
       }
       if (prevStage === 'particles' && c?.stage === 'awakened') set({ pulse: get().pulse + 1, burst: get().burst + 1, tab: null, awakenCall: false });
     } catch (e) {
-      set({ error: (e as Error).message });
+      // sessão caída: o jogo já voltou para a tela de entrada (com o aviso lá); não deixa um erro pendurado
+      if (get().backend === b) set({ error: (e as Error).message });
     } finally {
       set({ busy: false });
     }
   },
 }));
+
+// A sessão não vale mais e não deu para renovar: sai do jogo para a tela de entrada, com o motivo.
+sessionEvents.expired = () => { if (useGame.getState().backend?.kind === 'online') useGame.getState().leave(SESSION_EXPIRED_TEXT); };
