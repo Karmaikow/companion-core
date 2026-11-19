@@ -10,8 +10,9 @@ import {
   MATERIALS, NODE_KINDS, approachOf, nodeName, parseBatchKey, abundanceNow, atLeast, suggestGather, SEIVA_AZUL, PERCEPTION_R,
   CATEGORIES, BAND_LABEL, PROP_LABEL, superiorBlockFor, TOOLS, type SpeciesKey, type ToolKey,
   type GatheringIntent, type ResourceNode, type MaterialBatch, type Suggestion, type GatherKind, type ResCategory, type PropKey, type Band,
-  pulseTimes, gradeOf, COMPANION_TUNE, TUNE_PULSES, type TuneGrade, type TuneResult,
+  pulseTimes, gradeOf, COMPANION_TUNE, TUNE_PULSES, type TuneGrade, type TuneResult, readSharedNode, newerNode, type SharedNodeState,
 } from '@rules';
+import { onExtra, sendExtra } from '../net/presence';
 import { useGame } from '../store';
 import { companionFocus, moveRequest } from '../scene/world';
 import type { EcosReply, EcosView } from './types';
@@ -318,6 +319,8 @@ async function finish(r: Run) {
     const cur = S.getState().run;
     if (!res) { nextAttempt = performance.now() + 3000; return; } // conexão perdida: tenta de novo com o mesmo pedido
     const g = res.gather!;
+    // o recurso mudou (colhido, ou já estava esgotado): os outros jogadores por perto veem o mesmo
+    if (g.node) sendExtra('node', g.node);
     if (!g.ok && g.reason === 'cedo') { nextAttempt = performance.now() + Math.max(300, (g.wait ?? 0.5) * 1000); if (cur?.request === r.request) S.setState({ run: { ...cur, phase: 'coletando' } }); return; }
     work.on = false;
     if (cur?.request === r.request) S.setState({ run: { ...cur, phase: g.ok ? 'concluido' : 'erro', message: g.ok ? undefined : g.message ?? undefined, result: g.tune } });
@@ -385,6 +388,14 @@ function autoStep() {
 }
 
 /** Para a interface: abundância de um nó agora. */
+/** Um recurso mudou na tela de outro jogador: atualiza este (se o aviso for mais novo que o que já se sabe). */
+export function applySharedNode(n: SharedNodeState) {
+  const v = useEcos.getState().view;
+  if (!v || !newerNode(v.nodes[n.id], n)) return;
+  useEcos.setState({ view: { ...v, nodes: { ...v.nodes, [n.id]: { amount: n.amount, at: n.at } } } });
+}
+onExtra('node', (d) => { const n = readSharedNode(d, Date.now()); if (n) applySharedNode(n); });
+
 export const amountOf = (v: EcosView | null, n: ResourceNode) => abundanceNow(n, v?.nodes[n.id] ?? null, Date.now());
 
 // testes no navegador (só no dev)
