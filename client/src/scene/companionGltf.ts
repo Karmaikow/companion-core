@@ -10,6 +10,7 @@ import { GLTFLoader, type GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { animKind, clipAnimKind, type AnimKind } from '@rules';
 import type { CompanionModelFiles } from '../backend/types';
+import { cachedModelUrl } from './modelCache';
 
 const loader = new GLTFLoader();
 loader.setMeshoptDecoder(MeshoptDecoder);
@@ -25,7 +26,8 @@ export const loadCompanionGltf = (url: string) => {
   const k = url.split('?')[0];
   let p = companionFiles.get(k);
   if (!p) {
-    p = loadGltf(url);
+    // o arquivo vem por endereço assinado (muda a cada sessão): passa pelo cache do aparelho, que o guarda por 90 dias
+    p = cachedModelUrl(url).then(({ url: from, release }) => loadGltf(from).finally(release));
     companionFiles.set(k, p);
     p.catch(() => companionFiles.delete(k));
   }
