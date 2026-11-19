@@ -373,3 +373,23 @@ export const PERCEPTION_R = 14;
 export function perceivedNodes(pos: { x: number; z: number }[], seen: string[], bridgeDone: boolean, radius = PERCEPTION_R): ResourceNode[] {
   return VALE_NODES.filter((n) => (!n.needs || (n.needs === 'ponte' && bridgeDone)) && (seen.includes(n.id) || pos.some((p) => Math.hypot(p.x - n.x, p.z - n.z) <= radius)));
 }
+
+// ---------------------------------------------------------------------------
+// Mundo compartilhado: um recurso para todos. Quem colhe recebe do servidor o que sobrou no recurso e avisa os outros
+// jogadores por perto, para o recurso esvaziar na tela deles também. O aviso vem de outro jogador: só serve para
+// DESENHAR — colher continua conferido no servidor, que tem a quantidade de verdade.
+// ---------------------------------------------------------------------------
+
+export interface SharedNodeState { id: string; amount: number; at: number }
+/** Aviso "este recurso ficou assim". `now` em ms. Descarta o que não tem a forma certa e prende os números. */
+export function readSharedNode(d: unknown, now: number): SharedNodeState | null {
+  if (!d || typeof d !== 'object') return null;
+  const n = d as Record<string, unknown>;
+  if (typeof n.id !== 'string' || !n.id || n.id.length > 80) return null;
+  const amount = Number(n.amount), at = Number(n.at);
+  if (!Number.isFinite(amount) || !Number.isFinite(at)) return null;
+  // um relógio adiantado não pode congelar o recurso no futuro
+  return { id: n.id, amount: Math.min(10_000, Math.max(0, amount)), at: Math.min(at, now) };
+}
+/** Fica com o aviso mais recente (dois avisos do mesmo recurso podem chegar fora de ordem). */
+export const newerNode = (cur: { at: number } | null | undefined, next: SharedNodeState) => !cur || next.at >= cur.at;

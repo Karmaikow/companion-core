@@ -15,7 +15,7 @@ import { ownedTools, wearTool, superiorBlock, classInfo, lumes } from './pacto.t
 export class EcosError extends Error { constructor(public status: number, msg: string) { super(msg); } }
 
 const REASON: Record<string, string> = {
-  'esgotado': 'Esse recurso está esgotado por enquanto — ele volta sozinho.',
+  'esgotado': 'Esse recurso está esgotado por enquanto (outro Companion pode ter colhido antes) — ele volta sozinho.',
   'mochila-cheia': 'A mochila está cheia: nada foi coletado (nem gasto). Libere espaço.',
   'cedo': 'Ainda está coletando…',
   'nao-iniciada': 'Essa coleta não foi começada (ou expirou). Tente de novo.',
@@ -80,7 +80,8 @@ export async function ecosState(db: SupabaseClient, cid: string, ecfg: EcosConfi
   const [prof, bag, nodes, sites, proj, mine] = await Promise.all([
     db.from('ecos_profile').select('tools,seen,known_materials,techniques,chain,unlocks').eq('companion_id', cid).maybeSingle(),
     db.from('ecos_bag').select('batch_key,qty').eq('companion_id', cid),
-    db.from('ecos_nodes').select('node_id,amount,at').eq('companion_id', cid).gt('at', new Date(Date.now() - 2 * 86_400_000).toISOString()),
+    // um recurso para todos (mundo compartilhado): a quantidade vem da linha comum de cada recurso
+    db.from('ecos_world_nodes').select('node_id,amount,at').gt('at', new Date(Date.now() - 2 * 86_400_000).toISOString()),
     db.from('ecos_sites').select('site_id,stored,at,cared_at,created_at').eq('companion_id', cid),
     db.from('ecos_projects').select('project_id,stage,progress,started_at,completed_at').eq('project_id', PONTE.id).maybeSingle(),
     db.from('ecos_contributions').select('stage,need,qty').eq('companion_id', cid).eq('project_id', PONTE.id),
@@ -186,7 +187,7 @@ export async function ecosAction(action: string, body: Record<string, unknown>, 
     // afinar o eco: o servidor recalcula a nota dos três pulsos (com teto); a Companion sozinha afina como "bom"
     const tune = scoreTune(body.by === 'companion' ? COMPANION_TUNE : cleanTune(body.tune));
     const items = rollGather(node, ap, request, tune.bonus).map((b) => ({ key: b.key, qty: b.qty }));
-    const r = await rpc<{ ok: boolean; reason?: string; items?: { key: string; qty: number }[]; repeat?: boolean; wait?: number }>(db, 'ecos_finish_gather', {
+    const r = await rpc<{ ok: boolean; reason?: string; items?: { key: string; qty: number }[]; repeat?: boolean; wait?: number; amount?: number }>(db, 'ecos_finish_gather_shared', {
       p_request: request, p_cid: cid, p_node: node.id, p_approach: ap.id, p_cost: ap.cost, p_cap: kind.capacity, p_regen: kind.regenPerHour,
       p_min_seconds: ap.seconds * ecfg.timeSlack, p_items: items, p_bag_cap: ecfg.bag,
     });
@@ -194,7 +195,9 @@ export async function ecosAction(action: string, body: Record<string, unknown>, 
     if (r.ok && !r.repeat) {
       if (ap.tool) await wearTool(db, cid, ap.tool);
     }
-    return { gather: { ok: r.ok, reason: r.reason ?? null, message: r.ok ? null : reasonText(r.reason), wait: r.wait ?? null, items: r.ok ? r.items : [], repeat: !!r.repeat, tune }, clue, ecos: await ecosState(db, cid, ecfg) };
+    // `node`: o que sobrou no recurso agora — o cliente avisa os outros jogadores por perto para o recurso esvaziar lá também
+    const left = typeof r.amount === 'number' && Number.isFinite(r.amount) ? { id: node.id, amount: r.amount, at: Date.now() } : null;
+    return { gather: { ok: r.ok, reason: r.reason ?? null, message: r.ok ? null : reasonText(r.reason), wait: r.wait ?? null, items: r.ok ? r.items : [], repeat: !!r.repeat, tune, node: left }, clue, ecos: await ecosState(db, cid, ecfg) };
   }
 
   if (action === 'ecos.inspect') {
