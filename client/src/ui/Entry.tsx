@@ -28,18 +28,36 @@ export function Entry() {
   const [password, setPassword] = useState('');
   const [msg, setMsg] = useState<{ text: string; tone: 'ok' | 'err' } | null>(null);
   const [busy, setBusy] = useState(false);
+  /** conta guardada neste aparelho quando a pessoa foi trazida de volta para cá (e-mail, ou "convidado") */
+  const [saved, setSaved] = useState<string | null>(null);
+  const notice = useGame((s) => s.notice);
 
   useEffect(() => {
     const auth = supabase().auth;
     const { data: sub } = auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY') { setMode('recover'); setMsg(null); }
     });
-    // sessão existente: entra direto (exceto quando veio do link de redefinição)
+    // Sessão existente: entra direto (exceto quando veio do link de redefinição). Se a pessoa acabou de sair do jogo
+    // (voltou ao início, a sessão caiu, a conta abriu em outra aba), NÃO entra sozinho: mostra as opções. Entrar
+    // sozinho aqui devolvia a pessoa para o mesmo erro, num laço sem saída.
     if (!isRecoveryUrl()) {
-      auth.getSession().then(({ data }) => { if (data.session) setBackend(new OnlineBackend()); }).catch(() => undefined);
+      auth.getSession().then(({ data }) => {
+        if (!data.session) return;
+        if (useGame.getState().stayOut) setSaved(data.session.user.is_anonymous ? 'convidado' : data.session.user.email ?? 'sua conta');
+        else setBackend(new OnlineBackend());
+      }).catch(() => undefined);
     }
     return () => sub.subscription.unsubscribe();
   }, [setBackend]);
+
+  /** Sai da conta guardada neste aparelho (sem depender do servidor responder). */
+  const signOutSaved = () => act(async () => {
+    if (saved === 'convidado' && !confirm('Você está jogando como convidado. Se sair, não será possível voltar a este Companion. Sair mesmo assim?')) return;
+    await supabase().auth.signOut({ scope: 'local' });
+    setSaved(null);
+    useGame.setState({ notice: null });
+    setMsg({ text: 'Você saiu da conta neste aparelho.', tone: 'ok' });
+  });
 
   async function act(fn: () => Promise<void>) {
     setBusy(true);
@@ -93,7 +111,15 @@ export function Entry() {
     <div className="entry">
       <div className="entry-card">
         <h1>Companion Core</h1>
-        {mode === 'start' && (
+        {notice && <p className="msg err" role="status">{notice}</p>}
+        {mode === 'start' && saved && (
+          <>
+            <p className="lede">{saved === 'convidado' ? 'Há um Companion de convidado guardado neste aparelho.' : <>Você está com a conta <b>{saved}</b> neste aparelho.</>}</p>
+            <button className="primary" disabled={busy} onClick={() => setBackend(new OnlineBackend())}>Voltar ao meu Refúgio</button>
+            <button className="ghost" disabled={busy} onClick={signOutSaved}>Sair desta conta</button>
+          </>
+        )}
+        {mode === 'start' && !saved && (
           <>
             <p className="lede">No centro do Refúgio, um núcleo de luz acabou de nascer. Ele vai descobrir quem é conversando com você.</p>
             <button className="primary" onClick={() => { setMode('signup'); setMsg(null); }}>Criar conta e começar</button>

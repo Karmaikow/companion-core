@@ -52,6 +52,7 @@ import { useCarry } from './ui/bag';
 import { useToolBelt } from './ui/toolBelt';
 import { WeatherOverlay } from './ui/WeatherOverlay';
 import { supabase } from './backend/online';
+import { OTHER_TAB_TEXT, claimTab } from './net/tabGuard';
 
 /** Menu lateral em grupos: o Companion, a jornada, a bolsa, os ofícios e os ajustes. A Forja só aparece para Taurinas. */
 const TAB_GROUPS: { label: string; tabs: { key: Tab; label: string }[] }[] = [
@@ -90,6 +91,14 @@ export function App() {
     // Sem Companion ainda: o ritual de criação aparece (não cria automaticamente).
     void run((b) => b.state());
   }, [backend, run]);
+
+  // Uma aba por conta (online): se a mesma conta entrar no jogo em outra aba deste navegador, esta sai para a tela
+  // de entrada com o aviso — em vez de as duas disputarem o mesmo Companion e uma delas travar num erro de sessão.
+  const companionId = backend?.kind === 'online' ? snap?.companion?.id ?? null : null;
+  useEffect(() => {
+    if (!companionId) return;
+    return claimTab(companionId, () => useGame.getState().leave(OTHER_TAB_TEXT));
+  }, [companionId]);
 
   useEffect(() => {
     if (!lastReply) return;
@@ -580,7 +589,10 @@ export function App() {
       <div className="toasts" aria-live="polite">
         {toasts.map((t) => <div key={t.id} className={'toast ' + t.tone}>{t.text}</div>)}
         {error && <div className="toast warn" onClick={() => useGame.setState({ error: null })}>{error}</div>}
-        {backend && !snap && error && <button className="toast warn" onClick={() => setBackend(null)}>Voltar ao início</button>}
+        {/* o Refúgio não abriu: tentar de novo (falha passageira) ou sair para a tela de entrada — e ficar lá, sem
+            entrar sozinho de novo com a sessão guardada (era o que fazia este botão "não funcionar") */}
+        {backend && !snap && error && !busy && <button className="toast warn" onClick={() => void run((b) => b.state())}>Tentar de novo</button>}
+        {backend && !snap && error && <button className="toast warn" onClick={() => useGame.getState().leave()}>Voltar ao início</button>}
       </div>
     </div>
   );
