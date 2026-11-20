@@ -11,7 +11,7 @@ import { Canvas, useFrame, type ThreeEvent } from '@react-three/fiber';
 import { Clone, Html, useGLTF } from '@react-three/drei';
 import { EffectComposer, Bloom, Vignette, ToneMapping, SMAA } from '@react-three/postprocessing';
 import { AdaptiveResolution } from './AdaptiveResolution';
-import { ToneMappingMode } from 'postprocessing';
+import { SMAAPreset, ToneMappingMode } from 'postprocessing';
 import { fitTextures } from './fitTextures';
 import * as THREE from 'three';
 import {
@@ -730,7 +730,7 @@ export function AsterScene(props: AsterSceneProps) {
         <Bloom mipmapBlur intensity={0.55 + night * 0.45} luminanceThreshold={0.78 - night * 0.12} luminanceSmoothing={0.2} />
         <Vignette offset={0.3} darkness={0.3} />
         <ToneMapping mode={ToneMappingMode.NEUTRAL} />
-        <SMAA />
+        <SMAA preset={SMAAPreset.ULTRA} />
       </EffectComposer>
     </Canvas>
     </LabelLayer.Provider>

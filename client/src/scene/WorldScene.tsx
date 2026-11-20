@@ -7,7 +7,7 @@ import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, type ThreeEvent } from '@react-three/fiber';
 import { EffectComposer, Bloom, Vignette, ToneMapping, SMAA } from '@react-three/postprocessing';
 import { AdaptiveResolution } from './AdaptiveResolution';
-import { ToneMappingMode } from 'postprocessing';
+import { SMAAPreset, ToneMappingMode } from 'postprocessing';
 import * as THREE from 'three';
 import { gameTime, CHUNK, WORLD_WALK_R, WORLD_ROLE, layerRole, type CompanionWorld, type WorldSite, type BiomePalette, type CreatureDef } from '@rules';
 import { WorldCreatures } from './WorldCreatures';
@@ -386,7 +386,7 @@ export function WorldScene(props: WorldSceneProps) {
         <Bloom mipmapBlur intensity={0.5 + night * 0.45} luminanceThreshold={0.8 - night * 0.12} luminanceSmoothing={0.2} />
         <Vignette offset={0.3} darkness={0.32} />
         <ToneMapping mode={ToneMappingMode.NEUTRAL} />
-        <SMAA />
+        <SMAA preset={SMAAPreset.ULTRA} />
       </EffectComposer>
     </Canvas>
   );
