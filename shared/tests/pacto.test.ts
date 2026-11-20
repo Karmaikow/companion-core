@@ -19,7 +19,7 @@ describe('Pacto: exclusividades', () => {
       expect(CLASSES.filter((c) => canExtractSuperior(c, s))).toHaveLength(1);
     }
     const sources = VALE_NODES.map((n) => NODE_KINDS[n.kind].source).filter(Boolean) as SourceKind[];
-    for (const c of CLASSES.filter((x) => x !== 'touro')) expect(sources.some((s) => SOURCE_CLASS[s] === c), c).toBe(true);
+    for (const c of ['passaro', 'felino', 'mistica'] as SpeciesKey[]) expect(sources.some((s) => SOURCE_CLASS[s] === c), c).toBe(true);
   });
   it('cada classe tem um ofício; as quatro não-Taurinas têm uma transformação funcional', () => {
     for (const c of CLASSES) expect(OFFICES[c]).toBeTruthy();

@@ -22,7 +22,7 @@ import { LocationHud, QuestTracker } from './ui/GameHud';
 import { ChatComposer } from './ui/ChatComposer';
 import { Joystick, RotateHint, useTouchLandscape } from './ui/TouchControls';
 import { useSkills } from './ui/skillState';
-import { joinWorld, type PresenceMap, type RemoteInfo } from './net/presence';
+import { joinWorld, updatePresenceInfo, type PresenceMap, type RemoteInfo } from './net/presence';
 import { SocialPanel } from './ui/SocialPanel';
 import { useSocialLoop, useSocial } from './net/social';
 import { HudGlyph } from './ui/HudGlyph';
@@ -305,13 +305,19 @@ export function App() {
 
   // presença (MMO fase 1): no Companion World e em Áster, os Companions de outros jogadores aparecem na mesma tela
   // (só quem está no mesmo mapa). Online: canal do Supabase Realtime; no dev, `?eco` testa entre abas.
+  const animMap = useSkills((s) => s.animMap);
+  const slotSig = ['idle', 'walk', 'run', 'talk', 'sit', 'wave'].map((k) => animMap['slot:' + k] ?? '').join('|');
+  const animsSig = (model?.anims ?? []).map((a) => a.url.split('?')[0]).join(',');
   const presenceKey = place !== 'refuge' && c?.id && (backend?.kind === 'online' || (import.meta.env.DEV && new URLSearchParams(location.search).has('eco'))) ? place + '|' + c.id + '|' + (model?.url.split('?')[0] ?? '') + '|' + c.discoveries.name : '';
   const presenceMe = useRef<RemoteInfo | null>(null);
-  presenceMe.current = c ? { id: import.meta.env.DEV && new URLSearchParams(location.search).get('eco') ? c.id + ':' + new URLSearchParams(location.search).get('eco') : c.id, name: c.discoveries.name ?? 'Companion', color: visual.glow, model: model ?? null, pronoun: c.discoveries.pronoun, slots: Object.fromEntries(['idle', 'walk', 'run'].map((k) => [k, useSkills.getState().animMap['slot:' + k] ?? '']).filter(([, v]) => v)) } : null;
+  presenceMe.current = c ? { id: import.meta.env.DEV && new URLSearchParams(location.search).get('eco') ? c.id + ':' + new URLSearchParams(location.search).get('eco') : c.id, name: c.discoveries.name ?? 'Companion', color: visual.glow, model: model ?? null, pronoun: c.discoveries.pronoun, slots: Object.fromEntries(['idle', 'walk', 'run', 'talk', 'sit', 'wave'].map((k) => [k, animMap['slot:' + k] ?? '']).filter(([, v]) => v)) } : null;
   useEffect(() => {
     if (!presenceKey || !presenceMe.current) return;
     return joinWorld(presenceMe.current, backend?.kind !== 'online', place as PresenceMap);
   }, [presenceKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (presenceKey && presenceMe.current) updatePresenceInfo(presenceMe.current);
+  }, [presenceKey, slotSig, animsSig]);
 
   useSocialLoop({ on: backend?.kind === 'online' && c?.stage === 'awakened', inWorld: place === 'world', me: c?.id ?? null });
   // grupo: o líder explora sozinho quando o grupo está explorando ou caçando (os outros vão atrás dele)

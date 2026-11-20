@@ -83,7 +83,7 @@ export const companionPose = { yaw: 0, down: false };
  * MMO: quando outro Companion está perto, o seu para e conversa com ele (até `until`, olhando para x/z) — a não ser
  * que a pessoa mande andar. `follow`: posição do líder do grupo, para ir junto (caçar/coletar); null = sem grupo.
  */
-export const socialHold = { until: 0, x: 0, z: 0, follow: null as null | { x: number; z: number; t: number }, /** grupo no piloto automático */ group: null as null | { role: 'leader' | 'member'; activity: 'cacar' | 'explorar' | 'conversar' }, /** a pessoa mexeu: o grupo espera até aqui (performance.now) */ pausedUntil: 0 };
+export const socialHold = { until: 0, x: 0, z: 0, follow: null as null | { x: number; z: number; t: number }, /** grupo no piloto automático */ group: null as null | { role: 'leader' | 'member'; activity: 'cacar' | 'coletar' | 'missao' | 'explorar' | 'conversar' }, /** a pessoa mexeu: o grupo espera até aqui (performance.now) */ pausedUntil: 0 };
 
 /** Pedido de "anda até aqui" (clique/toque no chão). O id muda a cada clique. */
 /** `user`: o id do último pedido feito pela pessoa (clique no chão); os outros são da própria Companion (coleta, baú) */

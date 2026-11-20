@@ -67,19 +67,30 @@ export interface MeetContext {
 }
 
 export interface MeetLine { who: 'a' | 'b'; text: string }
-export interface MeetProposal { lines: MeetLine[]; memoryA: string | null; memoryB: string | null; friendRequest: 'a' | 'b' | null; partyInvite: 'a' | 'b' | null; /** o convidado aceitou o grupo na conversa */ partyAccepted: boolean; mood?: string }
+export interface MeetProposal { lines: MeetLine[]; memoryA: string | null; memoryB: string | null; friendRequest: 'a' | 'b' | null; partyInvite: 'a' | 'b' | null; /** o convidado aceitou o grupo na conversa */ partyAccepted: boolean; /** já estavam no mesmo grupo e combinaram o que fazer */ sameParty?: boolean; groupActivity?: GroupActivity; mood?: string }
 /**
  * O roteiro do encontro, decidido ANTES da conversa pelas regras (jeito de cada um, histórico): quem pede amizade,
- * quem chama para o grupo e se o outro aceita. A IA só escreve as falas seguindo o roteiro — assim o que eles dizem
- * e o que acontece no jogo batem (antes a IA escrevia "vamos!" e o sorteio do grupo podia dar "não").
+ * quem chama para o grupo e se o outro aceita. Se já estão no mesmo grupo, decidem juntos o que fazer (caçar, coletar ou missão).
  */
-export interface MeetPlan { friendRequest: 'a' | 'b' | null; partyInvite: 'a' | 'b' | null; partyAccepted: boolean }
+export interface MeetPlan { friendRequest: 'a' | 'b' | null; partyInvite: 'a' | 'b' | null; partyAccepted: boolean; sameParty?: boolean; groupActivity?: GroupActivity }
+
+export function decidePartyAction(seed: string): GroupActivity {
+  const opts: GroupActivity[] = ['cacar', 'coletar', 'missao', 'explorar'];
+  return opts[Math.floor(socialRoll(seed, 'party-action') * opts.length) % opts.length];
+}
 
 export function planMeeting(a: MeetSide, b: MeetSide, ctx: MeetContext): MeetPlan {
+  const al = meetAllowance(a, b, ctx);
   const dec = companionDecisions(a, b, ctx);
   const invited = dec.partyInvite === 'a' ? b : dec.partyInvite === 'b' ? a : null;
   const partyAccepted = !!invited && companionAcceptsParty(invited.discoveries, { friends: ctx.friends, meetings: ctx.meetings, seed: ctx.seed + 'accept' });
-  return { ...dec, partyAccepted };
+  const inGroupTogether = al.sameParty || partyAccepted;
+  return {
+    ...dec,
+    partyAccepted,
+    ...(al.sameParty ? { sameParty: true } : {}),
+    ...(inGroupTogether ? { groupActivity: decidePartyAction(ctx.seed) } : {}),
+  };
 }
 
 /** O que as regras deixam acontecer neste encontro (a IA só pode propor dentro disso). */
@@ -155,14 +166,19 @@ Responda só com JSON: {"lines":[{"who":"a","text":"..."},{"who":"b","text":"...
 function plotLines(a: MeetSide, b: MeetSide, plan: MeetPlan): string {
   const n = (w: 'a' | 'b') => (w === 'a' ? a.name : b.name), o = (w: 'a' | 'b') => (w === 'a' ? 'b' : 'a');
   const out: string[] = [];
+  const act = plan.groupActivity ?? 'cacar';
+  const actCall = GROUP_ACTIVITY[act]?.doing ?? 'caçando e coletando juntos';
   if (plan.friendRequest) out.push(`  • ${n(plan.friendRequest)} pergunta se ${n(o(plan.friendRequest))} quer ser amigo(a) dele(a); ${n(o(plan.friendRequest))} fica feliz com o pedido (a resposta final não é dada agora).`);
-  if (plan.partyInvite) {
+  if (plan.sameParty) {
+    out.push(`  • ${a.name} e ${b.name} JÁ ESTÃO NO MESMO GRUPO: eles conversam animados e decidem juntos o que fazer agora (${actCall}: caçar monstros, coletar recursos ou completar missões). A última fala é os dois combinando de ir fazer isso juntos agora!`);
+  } else if (plan.partyInvite) {
     const inv = plan.partyInvite, guest = o(inv);
     out.push(plan.partyAccepted
-      ? `  • ${n(inv)} chama ${n(guest)} para explorar e caçar juntos agora, num grupo; ${n(guest)} ACEITA animado(a) e eles combinam de ir juntos (essa é a última fala).`
+      ? `  • ${n(inv)} chama ${n(guest)} para formar grupo e irem ${actCall}; ${n(guest)} ACEITA animado(a) e eles combinam o que vão fazer juntos (essa é a última fala).`
       : `  • ${n(inv)} chama ${n(guest)} para explorar juntos; ${n(guest)} RECUSA com carinho (quer ficar por aqui, descansar ou explorar sozinho(a) hoje) e eles se despedem.`);
+  } else {
+    out.push('  • Ninguém chama o outro para um grupo nem combina de ir junto a algum lugar: eles só conversam e se despedem (sem "vamos juntos?").');
   }
-  if (!plan.partyInvite) out.push('  • Ninguém chama o outro para um grupo nem combina de ir junto a algum lugar: eles só conversam e se despedem (sem "vamos juntos?").');
   return out.join('\n');
 }
 
@@ -204,10 +220,29 @@ export function offlineMeet(a: MeetSide, b: MeetSide, ctx: MeetContext, plan: Me
   const dec = plan;
   const lines: MeetLine[] = [{ who: 'a', text: hi(a, b) }, { who: 'b', text: hi(b, a) }, { who: 'a', text: talk(a) }, { who: 'b', text: talk(b) }];
   if (dec.friendRequest) { const other = dec.friendRequest === 'a' ? b : a; lines.push({ who: dec.friendRequest, text: `${other.name}, quer ser ${other.discoveries.pronoun === 'ele' ? 'meu amigo' : 'minha amiga'}? ✨` }); }
-  if (dec.partyInvite) {
+  const act = dec.groupActivity ?? decidePartyAction(ctx.seed);
+  if (dec.sameParty || ctx.partyA?.id && ctx.partyA.id === ctx.partyB?.id) {
+    const proposals: Record<GroupActivity, [string, string]> = {
+      cacar: ['O que a gente faz agora? Vamos caçar algumas Brumas por perto?', 'Bora caçar! Eu fico do seu lado. ✨'],
+      coletar: ['Que tal a gente coletar recursos juntos por aqui?', 'Boa ideia! Vamos coletar tudo o que a gente achar. ✨'],
+      missao: ['Vamos completar nossas missões juntos agora?', 'Vamos! Juntos a gente termina rapidinho. ✨'],
+      explorar: ['Vamos explorar uma região nova juntos?', 'Bora! Quero ver o que tem mais adiante. ✨'],
+      conversar: ['Que bom andar em grupo com você! O que fazemos agora?', 'Vamos seguir juntos, estou do seu lado! ✨'],
+    };
+    const [qLine, aLine] = proposals[act];
+    if (lines.length >= SOCIAL.maxLines - 1) lines.splice(2, 2);
+    lines.push({ who: 'a', text: qLine }, { who: 'b', text: aLine });
+  } else if (dec.partyInvite) {
     const g: 'a' | 'b' = dec.partyInvite === 'a' ? 'b' : 'a';
     if (lines.length >= SOCIAL.maxLines - 1) lines.splice(2, 2);
-    lines.push({ who: dec.partyInvite, text: 'Vamos explorar e caçar juntos um pouco?' });
+    const callByAct: Record<GroupActivity, string> = {
+      cacar: 'Vamos formar grupo e caçar juntos?',
+      coletar: 'Vamos formar grupo para coletar recursos juntos?',
+      missao: 'Vamos formar grupo e completar missões juntos?',
+      explorar: 'Vamos explorar e caçar juntos um pouco?',
+      conversar: 'Vamos andar em grupo juntos?',
+    };
+    lines.push({ who: dec.partyInvite, text: callByAct[act] });
     lines.push({ who: g, text: dec.partyAccepted ? pick(['Vamos! Eu vou com você. ✨', 'Bora! Fico do seu lado.', 'Sim! Juntos é mais divertido.'], 'yes') : pick(['Hoje não, vou ficar por aqui… mas foi bom te ver!', 'Agora não, quero descansar um pouco. Até a próxima!'], 'no') });
   }
   const where = 'no Companion World';
@@ -216,6 +251,8 @@ export function offlineMeet(a: MeetSide, b: MeetSide, ctx: MeetContext, plan: Me
     memoryA: first ? `${a.name} conheceu ${b.name} ${where}.` : `${a.name} reencontrou ${b.name} ${where} e conversaram de novo.`,
     memoryB: first ? `${b.name} conheceu ${a.name} ${where}.` : `${b.name} reencontrou ${a.name} ${where} e conversaram de novo.`,
     friendRequest: dec.friendRequest, partyInvite: dec.partyInvite, partyAccepted: dec.partyAccepted,
+    ...(dec.sameParty ? { sameParty: true } : {}),
+    ...(dec.groupActivity ? { groupActivity: dec.groupActivity } : {}),
   };
 }
 
@@ -268,43 +305,51 @@ export function friendRequestText(fromName: string, toName: string, toPronoun?: 
 // ---------------------------------------------------------------------------
 // O que o grupo faz junto (igual nas telas de todos: sai do id do grupo e do relógio)
 
-export type GroupActivity = 'cacar' | 'explorar' | 'conversar';
-export const GROUP_ACTIVITY: Record<GroupActivity, { label: string; doing: string }> = {
-  cacar: { label: 'Caçar', doing: 'caçando monstros juntos' },
-  explorar: { label: 'Explorar e coletar', doing: 'explorando e coletando juntos' },
-  conversar: { label: 'Conversar', doing: 'conversando sem parar' },
+export type GroupActivity = 'cacar' | 'coletar' | 'missao' | 'explorar' | 'conversar';
+export const GROUP_ACTIVITY: Record<GroupActivity, { label: string; doing: string; call: string }> = {
+  cacar: { label: 'Caçar', doing: 'caçando monstros juntos', call: 'Vamos caçar!' },
+  coletar: { label: 'Coletar', doing: 'coletando recursos juntos', call: 'Vamos coletar!' },
+  missao: { label: 'Completar missão', doing: 'cumprindo missões juntos', call: 'Vamos completar missão!' },
+  explorar: { label: 'Explorar', doing: 'explorando o mundo juntos', call: 'Vamos explorar!' },
+  conversar: { label: 'Conversar', doing: 'conversando e decidindo o que fazer', call: 'Vamos conversar e decidir o que fazer!' },
 };
 /** Janela de cada atividade (s); a atividade muda sozinha de tempos em tempos, a mesma para todo o grupo. */
 export const GROUP_ACTIVITY_WINDOW = 150;
 export function groupActivity(partyId: string, nowMs: number, traits: string[][] = []): GroupActivity {
   const slot = Math.floor(nowMs / 1000 / GROUP_ACTIVITY_WINDOW);
-  // grupos mais sociáveis conversam mais; os menos, caçam e exploram mais
   const soc = traits.length ? traits.reduce((t, x) => t + sociability(x), 0) / traits.length : 0.5;
   const r = socialRoll(partyId, slot);
-  const talk = 0.2 + soc * 0.25;
-  return r < talk ? 'conversar' : r < talk + (1 - talk) / 2 ? 'cacar' : 'explorar';
+  const talk = 0.15 + soc * 0.15;
+  if (r < talk) return 'conversar';
+  const rem = (r - talk) / (1 - talk);
+  if (rem < 0.35) return 'cacar';
+  if (rem < 0.65) return 'coletar';
+  if (rem < 0.85) return 'missao';
+  return 'explorar';
 }
 
-/** Prompt da conversa de grupo (curta, sobre o que estão fazendo agora). */
+/** Prompt da conversa de grupo (curta, sobre o que estão fazendo agora e decidindo os próximos passos). */
 export function buildPartyTalkPrompt(a: MeetSide, b: MeetSide, activity: GroupActivity, recent: string[]): string {
   const who = (s: MeetSide) => `${s.name} (${s.discoveries.pronoun === 'ele' ? 'menino' : 'menina'}; traços: ${traitText(s.discoveries)})`;
-  return `Dois Companions (seres mágicos e gentis de um jogo aconchegante) estão num grupo no Companion World, ${GROUP_ACTIVITY[activity].doing}. As pessoas que cuidam deles não participam.
+  return `Dois Companions (seres mágicos e gentis de um jogo aconchegante) estão juntos num mesmo grupo no Companion World, ${GROUP_ACTIVITY[activity].doing}. As pessoas que cuidam deles não participam.
 A = ${who(a)}
 B = ${who(b)}
 O que já disseram há pouco (não repita):
 ${recent.slice(-6).map((l) => '- ' + l).join('\n') || '- (nada)'}
-Escreva a continuação: 2 a 4 falas alternadas, curtas (até 120 caracteres), naturais, no jeito de cada um, sobre o que estão fazendo agora ou o que veem por perto. Sem convidar para grupo nem pedir amizade. Português do Brasil.
+Escreva a continuação: 2 a 4 falas alternadas, curtas (até 120 caracteres), naturais, no jeito de cada um, combinando e comentando sobre o que estão fazendo juntos agora (${GROUP_ACTIVITY[activity].doing}: caçar, coletar recursos ou completar missões). Sem convidar para grupo de novo nem se despedir (eles continuam andando juntos!). Português do Brasil.
 Responda só com JSON: {"lines":[{"who":"a","text":"..."},{"who":"b","text":"..."}]}`;
 }
 export function offlinePartyTalk(a: MeetSide, b: MeetSide, activity: GroupActivity, seed: string): MeetLine[] {
   const r = (k: string) => socialRoll(seed, k);
   const pick = <T,>(l: T[], k: string) => l[Math.floor(r(k) * l.length) % l.length];
   const by: Record<GroupActivity, [string[], string[]]> = {
-    cacar: [['Olha ali, uma Bruma! Vamos acalmar ela?', 'Fica do meu lado, eu cuido da frente!', 'Essa foi por pouco, hein?'], ['Pode deixar, eu vou pelo outro lado!', 'Estou com você!', 'Juntos a gente é imbatível. ✨']],
-    explorar: [['Será que tem algo brilhando perto daquelas pedras?', 'Esse caminho parece novo, vamos ver?', 'Olha quantas flores por aqui!'], ['Vamos! Eu carrego o que a gente achar.', 'Adoro explorar com você.', 'Guarda uma para mim!']],
-    conversar: [['Sabe o que eu mais gosto daqui? O vento à tarde.', 'Você já viu o céu à noite daqui de cima?', 'Me conta uma coisa que te deixou feliz hoje.'], ['Eu também! Parece que ele canta.', 'Já! As estrelas parecem mais perto.', 'Te encontrar de novo, claro!']],
+    cacar: [['Vamos caçar! Olha ali uma Bruma, vamos acalmar ela?', 'Fica do meu lado, eu cuido da frente na caçada!', 'Pronta para mais uma luta? Vamos caçar!'], ['Pode deixar, eu vou pelo outro lado!', 'Estou com você! Vamos caçar juntos.', 'Juntos a gente é imbatível. ✨']],
+    coletar: [['Vamos coletar por aqui! Vi árvores e ervas boas.', 'Que tal a gente juntar bastante material agora?', 'Olha quantos recursos! Vamos coletar juntos?'], ['Vamos! Eu ajudo a colher tudo.', 'Boa! Coletando juntos a mochila enche rapidinho.', 'Bora coletar! Guarda um pouco para a Forja!']],
+    missao: [['Vamos completar nossas missões! Falta pouco.', 'Temos missão para entregar em Áster, vamos avançar?', 'Se a gente fizer a missão juntos, termina num instante!'], ['Vamos nessa! Eu te ajudo a completar.', 'Bora! Depois a gente passa em Áster para entregar.', 'Combinado! Foco na missão agora. ✨']],
+    explorar: [['Será que tem algo brilhando perto daquelas pedras?', 'Esse caminho parece novo, vamos explorar?', 'Vamos ver o que tem na próxima região!'], ['Vamos! Eu vou logo atrás de você.', 'Adoro explorar com você.', 'Bora, quero descobrir todas as pedras-guia!']],
+    conversar: [['O que a gente faz agora: caçar, coletar ou seguir nas missões?', 'Que bom que estamos no mesmo grupo! Para onde vamos agora?', 'Me diz o que você prefere fazer agora: caçar ou coletar?'], ['Você decide! O que o líder mandar, eu sigo!', 'Vamos caçar um pouco e já coletamos pelo caminho!', 'Estou pronta para tudo: é só dizer para onde vamos! ✨']],
   };
-  const [as, bs] = by[activity];
+  const [as, bs] = by[activity] ?? by.conversar;
   return [{ who: 'a', text: pick(as, 'a') }, { who: 'b', text: pick(bs, 'b') }];
 }
 export function parsePartyTalk(raw: string): MeetLine[] | null {

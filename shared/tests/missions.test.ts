@@ -92,19 +92,23 @@ describe('missões das escolas', () => {
 });
 
 describe('missões lendárias', () => {
-  it('a Seiva Azul é uma cadeia que termina revelando a Nascente Azul', async () => {
-    const { DEFAULT_MISSIONS, parseBatchKey, MATERIALS, DEFAULT_BIOME_RESOURCES, NODE_KINDS, BREWS } = await import('../rules/index');
+  it('a Seiva Azul entrega a Lágrima da Nascente Azul e libera a missão repetível de destilação, sem nós de poça no mapa', async () => {
+    const { DEFAULT_MISSIONS, parseBatchKey, MATERIALS, DEFAULT_BIOME_RESOURCES, NODE_KINDS, BREWS, REFINES } = await import('../rules/index');
     const by = (s: string) => DEFAULT_MISSIONS.find((m) => m.slug === s)!;
     expect(by('seiva-azul-2').req.after).toEqual(['seiva-azul-1']);
     const fim = by('seiva-azul-3');
-    expect(fim).toMatchObject({ rarity: 'lendaria', req: { after: ['seiva-azul-2'] }, rewards: { unlock: 'lendaria:nascente-azul' } });
+    expect(fim).toMatchObject({ rarity: 'lendaria', req: { after: ['seiva-azul-2'] } });
     expect(parseBatchKey(fim.rewards.materials[0].key)?.material).toBe('lagrima-da-nascente');
+    expect(by('destilar-lagrima').req.after).toEqual(['seiva-azul-3']);
     expect(by('coracao-rachado').rewards.unlock).toBe('lendaria:arvore-ancestral');
     for (const id of ['lagrima-da-nascente', 'cerne-ancestral']) expect(MATERIALS[id].legendary).toBe(true);
-    for (const k of ['nascente-azul', 'arvore-ancestral']) {
-      expect(NODE_KINDS[k]).toBeTruthy();
-      expect(DEFAULT_BIOME_RESOURCES.find((r) => r.kind === k)?.unlock).toMatch(/^lendaria:/);
-    }
+    expect(NODE_KINDS['nascente-azul']).toBeUndefined();
+    expect(NODE_KINDS['remanso-profundo']).toBeUndefined();
+    expect(DEFAULT_BIOME_RESOURCES.some((r) => r.kind === 'nascente-azul' || r.kind === 'remanso-profundo')).toBe(false);
+    expect(NODE_KINDS['arvore-ancestral']).toBeTruthy();
+    expect(DEFAULT_BIOME_RESOURCES.find((r) => r.kind === 'arvore-ancestral')?.unlock).toMatch(/^lendaria:/);
+    expect(REFINES.some((r) => r.to === 'agua-da-nascente')).toBe(true);
+    expect(REFINES.some((r) => r.to === 'lagrima-da-nascente')).toBe(true);
     expect(BREWS.some((b) => b.inputs.some((i) => i.material === 'lagrima-da-nascente'))).toBe(true);
   });
 });

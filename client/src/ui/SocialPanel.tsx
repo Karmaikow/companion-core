@@ -6,13 +6,13 @@
  * Não existe chat entre pessoas: as conversas são dos Companions (Encontros).
  */
 import { useEffect, useState } from 'react';
-import { GROUP_ACTIVITY } from '@rules';
+import { GROUP_ACTIVITY, type GroupActivity } from '@rules';
 import { remotePoses } from '../net/presence';
 import { companionFocus, socialHold } from '../scene/world';
 import { vitals } from '../scene/vitals';
 import { blueprintById } from '@rules';
 import { batchLabel } from '../ecos/ecosStore';
-import { socialCall, useSocial, type SocialCard, type SocialState, type TradeView } from '../net/social';
+import { socialCall, setGroupDecision, useSocial, type SocialCard, type SocialState, type TradeView } from '../net/social';
 
 type Item = { kind: 'material'; key: string; qty: number } | { kind: 'equipment'; id: string };
 
@@ -245,10 +245,30 @@ function PartyCard({ party, me, busy, onKick }: { party: NonNullable<SocialState
           })}
         </svg>
         <div className="party-doing">
-          <b>{group ? GROUP_ACTIVITY[group.activity].label : '—'}</b>
+          <b>{group ? GROUP_ACTIVITY[group.activity].label : '—'}{group?.custom ? ' (decisão do líder)' : ''}</b>
           <small>{paused ? 'Você está no controle; o grupo espera.' : group ? `O grupo está ${GROUP_ACTIVITY[group.activity].doing}.` : 'No Companion World o grupo age junto.'}</small>
         </div>
       </div>
+      {party.leader === me && (
+        <div className="party-leader-orders" role="group" aria-label="Decisão do líder do grupo" style={{ display: 'flex', flexWrap: 'wrap', gap: 6, margin: '8px 0' }}>
+          {(['cacar', 'coletar', 'missao', 'explorar', 'conversar'] as GroupActivity[]).map((act) => (
+            <button
+              key={act}
+              type="button"
+              className={group?.activity === act && group?.custom ? 'primary' : 'ghost'}
+              onClick={() => setGroupDecision(act)}
+              title={GROUP_ACTIVITY[act].call}
+            >
+              {GROUP_ACTIVITY[act].call}
+            </button>
+          ))}
+          {group?.custom && (
+            <button type="button" className="ghost" onClick={() => setGroupDecision(null)} title="Deixar os Companions decidirem conversando">
+              Automático
+            </button>
+          )}
+        </div>
+      )}
       <ul className="party-list">
         {rows.map(({ m, mine, here, dx, dz, d, hp, down }) => (
           <li key={m.id}>

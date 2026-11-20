@@ -7,6 +7,7 @@ import { BANK_EVENTS, DEFAULT_INTENT, bark, fillBark, normalize, parseCommand, t
 import { useGame } from '../store';
 import { settings } from '../settings';
 import { useEcos, intentFromCommand } from '../ecos/ecosStore';
+import { setGroupDecision, useSocial } from '../net/social';
 import { useChests } from '../chests/chestStore';
 import { companionFocus } from './world';
 import { releaseControl } from './comboState';
@@ -162,6 +163,21 @@ export function findPlace(name: string): Place | null {
 
 /** Entende uma ordem do chat e já reage (fala + ordem). Devolve o comando entendido (ou null). */
 export function handleCommand(text: string): Command | null {
+  const norm = normalize(text);
+  const party = useSocial.getState().data?.party;
+  if (party && party.members.length >= 2) {
+    if (/\b(vamos\s+cacar|bora\s+cacar)\b/.test(norm)) { setGroupDecision('cacar'); }
+    else if (/\b(vamos\s+coletar|bora\s+coletar|vamos\s+colher)\b/.test(norm)) { setGroupDecision('coletar'); }
+    else if (/\b(vamos\s+(fazer|completar|cumprir)\s+(a\s+|as\s+)?(missao|missoes|quest|quests)|bora\s+missao)\b/.test(norm)) {
+      setGroupDecision('missao');
+      releaseControl();
+      return { kind: 'attack' };
+    } else if (/\b(vamos\s+explorar|bora\s+explorar)\b/.test(norm)) {
+      setGroupDecision('explorar');
+      releaseControl();
+      return { kind: 'attack' };
+    }
+  }
   const names = brain.creatures.flatMap((c) => [c.name, c.name.split(' ')[0]]);
   const cmd = parseCommand(text, { places: brain.places.map((p) => p.name), creatures: names });
   if (!cmd) return null;
@@ -169,7 +185,7 @@ export function handleCommand(text: string): Command | null {
   // uma ordem é para agora: não espera o tempo de "a pessoa está no controle"
   releaseControl();
   switch (cmd.kind) {
-    case 'attack': brain.order = { kind: 'attack', until: now + 60_000 }; say('order-attack', {}, { force: true }); break;
+    case 'attack': brain.order = { kind: 'attack', until: now + 60_000 }; setGroupDecision('cacar', { announce: false }); say('order-attack', {}, { force: true }); break;
     case 'flee': brain.order = { kind: 'flee', until: now + 7_000 }; say('order-flee', {}, { force: true }); break;
     case 'stop': brain.order = null; if (useEcos.getState().auto.on) useEcos.getState().stopIntent(); say('order-stop', {}, { force: true }); break;
     case 'clear': {
@@ -184,6 +200,7 @@ export function handleCommand(text: string): Command | null {
       if (g.backend?.ecos && g.snap?.companion?.stage === 'awakened' && brain.places.length) {
         const intent = intentFromCommand(cmd.what, cmd.count);
         useEcos.getState().startIntent(intent);
+        setGroupDecision('coletar', { announce: false });
         emitNow(`Deixa comigo! ${intent.target?.label ?? 'Coletar'}: ${cmd.count}. Vou procurar por aqui.`);
       } else say('order-gather', { n: cmd.count }, { force: true });
       break;
@@ -200,6 +217,7 @@ export function handleCommand(text: string): Command | null {
       const c = cmd.creature ? brain.creatures.find((x) => normalize(x.name) === normalize(cmd.creature!) || normalize(x.name).startsWith(normalize(cmd.creature!))) ?? null : null;
       const p = cmd.place ? findPlace(cmd.place) : null;
       brain.order = { kind: 'hunt', count: cmd.count, done: 0, creature: c?.slug ?? null, creatureName: c?.name ?? null, place: p, arrived: !p };
+      setGroupDecision('cacar', { announce: false });
       say('order-hunt', { n: cmd.count }, { force: true });
       break;
     }

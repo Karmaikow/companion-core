@@ -52,7 +52,7 @@ export const remotePoses = new Map<string, Tracked>();
 export const farPoses = new Map<string, Tracked>();
 
 const STALE_MS = 8000;
-let current: { t: Transport; id: string; map: PresenceMap } | null = null;
+let current: { t: Transport; id: string; map: PresenceMap; setInfo: (i: RemoteInfo) => void } | null = null;
 const extraHandlers = new Map<string, Set<(d: unknown, from: string) => void>>();
 /** Meu id na presença (null fora dos mapas compartilhados). */
 export const presenceId = () => current?.id ?? null;
@@ -100,11 +100,11 @@ function localTransport(onMsg: (m: Msg) => void): Transport {
 }
 
 /** Modelo com endereços absolutos (um caminho relativo do teste vale para quem recebe no mesmo site). */
-const absolute = (m: CompanionModelFiles | null, slots: Record<string, string> = {}): CompanionModelFiles | null => {
+const absolute = (m: CompanionModelFiles | null): CompanionModelFiles | null => {
   if (!m) return null;
   const abs = (u: string) => { try { return new URL(u, location.href).href; } catch { return u; } };
-  // só o que a presença usa: corpo + parado/andando/correndo
-  return { url: abs(m.url), anims: m.anims.filter((a) => a.url === m.url || ['idle', 'walk', 'run'].includes(a.kind) || Object.values(slots).some((v) => v.startsWith('anim:' + a.name + '|'))).map((a) => ({ ...a, url: abs(a.url) })) };
+  // envia todos os pacotes de animação do modelo (ex.: padrao-m2m retargetado, salvo com kind 'special')
+  return { url: abs(m.url), anims: m.anims.map((a) => ({ ...a, url: abs(a.url) })) };
 };
 
 /**
@@ -112,7 +112,14 @@ const absolute = (m: CompanionModelFiles | null, slots: Record<string, string> =
  * mesmo canal: cada mensagem diz o mapa, e só quem está no mesmo aparece na cena. `local`: BroadcastChannel (dev).
  */
 export function joinWorld(me: RemoteInfo, local = false, map: PresenceMap = 'world'): () => void {
-  return connect({ ...me, model: absolute(me.model, me.slots) }, local, map);
+  return connect({ ...me, model: absolute(me.model) }, local, map);
+}
+
+/** Atualiza a ficha do próprio Companion na presença (quando animMap ou animações terminam de carregar) e avisa o mapa. */
+export function updatePresenceInfo(me: RemoteInfo) {
+  if (!current || current.id !== me.id) return;
+  const next = { ...me, model: absolute(me.model) };
+  current.setInfo(next);
 }
 
 /** Só observa quem está nos mapas (o Administrador no Refúgio, para o teleporte): não manda posição nem ficha. */
@@ -147,7 +154,7 @@ function connect(info: RemoteInfo | null, local: boolean, map: PresenceMap | nul
       if (!m.info?.id || m.info.id === info?.id) return;
       const id = m.info.id, moved = setMap(id, mapOf(m.map)), known = infos.has(id);
       infos.set(id, { id, name: String(m.info.name ?? '').slice(0, 40) || 'Companion', color: /^#[0-9a-f]{6}$/i.test(m.info.color) ? m.info.color : '#9fd8ff', model: m.info.model ?? null, pronoun: m.info.pronoun, slots: m.info.slots && typeof m.info.slots === 'object' ? m.info.slots : undefined });
-      if (!known || moved) publish();
+      publish();
       if (m.ask && info) t.send({ type: 'hello', info, map: map! }); // alguém novo pediu as fichas: responde com a minha
       const P = poses(id);
       if (!P.has(id)) P.set(id, { x: NaN, z: NaN, yaw: 0, down: false, t: performance.now(), px: NaN, pz: NaN, pt: 0 });
@@ -167,7 +174,7 @@ function connect(info: RemoteInfo | null, local: boolean, map: PresenceMap | nul
     }
   };
   const t = local ? localTransport(onMsg) : supabaseTransport(onMsg);
-  if (info) current = { t, id: info.id, map: map! };
+  if (info) current = { t, id: info.id, map: map!, setInfo: (next) => { info = next; t.send({ type: 'hello', info: next, map: map! }); } };
   t.send(askFor());
   let last = { x: NaN, z: NaN, yaw: NaN, down: false, at: 0, hp: -1 };
   const poseTimer = window.setInterval(() => {
