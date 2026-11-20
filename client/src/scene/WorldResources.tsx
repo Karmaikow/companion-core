@@ -9,6 +9,7 @@ import { Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { NODE_KINDS, chunkResources, type CompanionWorld, type WeatherConfig, type ResourceNode, type WorldNode } from '@rules';
 import { useEcos, amountOf, work, toolBelt } from '../ecos/ecosStore';
+import { quickGather } from '../ecos/quickGather';
 import { hoverCursor } from '../ui/gameCursor';
 import { setEcosWorld, findNode, isAvailable } from '../ecos/worldNodes';
 import { colliders, companionFocus } from './world';
@@ -235,7 +236,8 @@ export function WorldResources({ cw, center, weather }: { cw: CompanionWorld; ce
     const cat = NODE_KINDS[n.kind].category, y = cw.heightAt(n.x, n.z);
     burst(gameVfx, VFX_OF[cat] ?? 'impacto', new THREE.Vector3(n.x, y + 0.6, n.z), COLOR_OF[cat] ?? '#ffffff', 0.45, y);
   });
-  const pick = (e: ThreeEvent<MouseEvent>, id: string) => { e.stopPropagation(); useEcos.getState().select(id); };
+  // um clique já coleta (do jeito mais leve que der); não abre mais a janela do recurso
+  const pick = (e: ThreeEvent<MouseEvent>, id: string) => { e.stopPropagation(); quickGather(id); };
   // a plaquinha aparece no selecionado, no que está sendo coletado e no mais perto do Companion (ao alcance)
   const me = companionFocus;
   const closest = shown.reduce<{ id: string; d: number } | null>((a, n) => { const d = Math.hypot(n.x - me.x, n.z - me.z); return d < 4.5 && (!a || d < a.d) ? { id: n.id, d } : a; }, null)?.id;

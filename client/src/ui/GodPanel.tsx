@@ -229,7 +229,7 @@ function Gather({ world, place }: { world: CompanionWorld; place: TpPlace }) {
   const kinds = Object.keys(NODE_KINDS).filter((k) => found.best.has(k) || !found.done);
   const go = (n: WorldNode) => {
     useGod.getState().teleportTo('world', n.x + 1.6, n.z + 1.2);
-    // já abre o painel do recurso ao chegar
+    // ao chegar, o recurso fica marcado (o anel no chão); um clique nele já coleta
     window.setTimeout(() => useEcos.getState().select(n.id), 1500);
     toast(`Teleporte: ${nodeName(n)}.`, 'gold');
   };
