@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame, type ThreeEvent } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 import * as THREE from 'three';
+import { BudgetLight } from './lightBudget';
 import { NODE_KINDS, chunkResources, type CompanionWorld, type WeatherConfig, type ResourceNode, type WorldNode } from '@rules';
 import { useEcos, amountOf, work, toolBelt } from '../ecos/ecosStore';
 import { ResourceChoices } from './ResourceChoices';
@@ -100,7 +101,7 @@ function LegendGlow({ color, y }: { color: string; y: number }) {
   return (
     <group>
       <mesh ref={ref} position={[0, y, 0]}><icosahedronGeometry args={[0.22, 0]} /><meshBasicMaterial color={color} toneMapped={false} /></mesh>
-      <pointLight position={[0, y, 0]} color={color} intensity={1.6} distance={8} decay={1.6} />
+      <BudgetLight position={[0, y, 0]} color={color} intensity={1.6} distance={8} decay={1.6} />
     </group>
   );
 }
@@ -135,7 +136,7 @@ function InscribedStone({ amount }: { amount: number }) {
     <group>
       <mesh position={[0, 0.75, 0]} castShadow><boxGeometry args={[0.7, 1.5, 0.28]} /><meshLambertMaterial color="#77737c" flatShading /></mesh>
       {[0, 1, 2].map((i) => <mesh key={i} position={[0, 0.45 + i * 0.35, 0.15]}><boxGeometry args={[0.36, 0.05, 0.02]} /><meshBasicMaterial color={lit ? '#c9a8ff' : '#55505c'} toneMapped={false} /></mesh>)}
-      {lit && <pointLight position={[0, 1, 0.5]} color="#b994ff" intensity={0.8} distance={4} decay={1.8} />}
+      {lit && <BudgetLight position={[0, 1, 0.5]} color="#b994ff" intensity={0.8} distance={4} decay={1.8} />}
     </group>
   );
 }

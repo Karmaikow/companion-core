@@ -8,6 +8,7 @@ import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame, type ThreeEvent } from '@react-three/fiber';
 import { Html, useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
+import { BudgetLight } from './lightBudget';
 import { sharpTextures } from './fitTextures';
 import { CHEST_TIERS, type CompanionWorld } from '@rules';
 import { useChests, type ChestView } from '../chests/chestStore';
@@ -134,7 +135,7 @@ function Chest({ c, y }: { c: ChestView; y: number }) {
       {/* brilho do tipo no chão */}
       <mesh ref={ring} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.03, 0]}><ringGeometry args={[0.3, 0.42, 32]} /><meshBasicMaterial color={color} transparent opacity={0.4} depthWrite={false} toneMapped={false} /></mesh>
       {c.crystals > 0 && c.state === 'fechado' && <mesh ref={glow} position={[0, 0.65, 0]}><octahedronGeometry args={[0.09, 0]} /><meshBasicMaterial color="#b9a5ff" toneMapped={false} /></mesh>}
-      {(c.tier !== 'comum' || c.crystals > 0) && c.state !== 'vazio' && <pointLight position={[0, 0.5, 0]} color={c.crystals ? '#b9a5ff' : color} intensity={0.9} distance={4} decay={1.8} />}
+      {(c.tier !== 'comum' || c.crystals > 0) && c.state !== 'vazio' && <BudgetLight position={[0, 0.5, 0]} color={c.crystals ? '#b9a5ff' : color} intensity={0.9} distance={4} decay={1.8} />}
       {/* o que saiu do baú (alguns segundos) */}
       {showReveal && (
         <Html position={[0, 0.95, 0]} center distanceFactor={9} zIndexRange={[30, 0]} style={{ pointerEvents: 'none' }}>

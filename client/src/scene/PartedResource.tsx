@@ -11,6 +11,7 @@ import { Component, Suspense, useMemo, useRef, type ReactNode } from 'react';
 import { useGLTF } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
+import { BudgetLight } from './lightBudget';
 import { NODE_KINDS } from '@rules';
 import { useEcos } from '../ecos/ecosStore';
 import { fitTextures } from './fitTextures';
@@ -242,7 +243,7 @@ function Model({ spec, nodeId, kind, amount }: { spec: PartedSpec; nodeId: strin
     <group>
       <primitive object={model} dispose={null} />
       {spec.water && surface && <WaterFx surface={surface} color={spec.water.color} motes={!!spec.water.motes} />}
-      {spec.light && <pointLight position={[0, spec.size * spec.light.y, 0]} color={spec.light.color} intensity={1.6} distance={spec.size * 2.4} decay={1.6} />}
+      {spec.light && <BudgetLight position={[0, spec.size * spec.light.y, 0]} color={spec.light.color} intensity={1.6} distance={spec.size * 2.4} decay={1.6} />}
     </group>
   );
 }

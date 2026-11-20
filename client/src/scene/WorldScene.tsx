@@ -9,6 +9,7 @@ import { EffectComposer, Bloom, Vignette, ToneMapping, SMAA } from '@react-three
 import { AdaptiveResolution } from './AdaptiveResolution';
 import { SMAAPreset, ToneMappingMode } from 'postprocessing';
 import * as THREE from 'three';
+import { BudgetLight, LightBudget, LIGHT_BUDGET } from './lightBudget';
 import { gameTime, CHUNK, WORLD_WALK_R, WORLD_ROLE, layerRole, type CompanionWorld, type WorldSite, type BiomePalette, type CreatureDef } from '@rules';
 import { WorldCreatures } from './WorldCreatures';
 import { WorldResources } from './WorldResources';
@@ -193,7 +194,7 @@ function Portal({ color }: { color: string }) {
         <cylinderGeometry args={[0.25, 0.55, 10, 24, 1, true]} />
         <meshBasicMaterial color={tint} transparent opacity={0.1} blending={THREE.AdditiveBlending} depthWrite={false} side={THREE.DoubleSide} toneMapped={false} />
       </mesh>
-      <pointLight position={[0, 1.4, 0]} color={color} intensity={2.2} distance={9} decay={1.6} />
+      <BudgetLight position={[0, 1.4, 0]} color={color} intensity={2.2} distance={9} decay={1.6} />
     </group>
   );
 }
@@ -252,7 +253,7 @@ function Waystone({ site, y, lit, palette }: { site: WorldSite; y: number; lit: 
       <mesh position={[0, 0.5, 0]} castShadow receiveShadow scale={[0.75, 1.0, 0.75]}><dodecahedronGeometry args={[0.8, 0]} /><meshLambertMaterial color={palette.rockSide} flatShading /></mesh>
       <mesh position={[0, 1.15, 0]} castShadow scale={[0.32, 1.1, 0.32]}><octahedronGeometry args={[1, 0]} /><meshLambertMaterial color={palette.rockBottom} flatShading /></mesh>
       <mesh ref={gem} scale={[0.22, 0.38, 0.22]}><octahedronGeometry args={[1, 0]} /><meshBasicMaterial color={glow} toneMapped={false} /></mesh>
-      {lit && <pointLight position={[0, 2.2, 0]} color={glow} intensity={1.4} distance={7} decay={1.6} />}
+      {lit && <BudgetLight position={[0, 2.2, 0]} color={glow} intensity={1.4} distance={7} decay={1.6} />}
     </group>
   );
 }
@@ -381,6 +382,8 @@ export function WorldScene(props: WorldSceneProps) {
       <CombatFx world={shape} />
       </Suspense>
       <WorldLogic cw={cw} discovered={props.discovered} explore={props.explore} goal={goal} onCenter={setCenter} onRegion={(s) => { setRegion(s); props.onRegion(s); }} onDiscover={props.onDiscover} onHome={props.onHome} onAster={props.onAster} />
+      {/* luzes pontuais em número fixo: luz entrando e saindo recompilava todos os materiais (travadas) */}
+      <LightBudget count={high ? LIGHT_BUDGET.high : LIGHT_BUDGET.low} />
       <AdaptiveResolution high={high} />
       <EffectComposer multisampling={0} enableNormalPass={false}>
         <Bloom mipmapBlur intensity={0.5 + night * 0.45} luminanceThreshold={0.8 - night * 0.12} luminanceSmoothing={0.2} />
