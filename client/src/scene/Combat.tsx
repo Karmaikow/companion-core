@@ -11,7 +11,7 @@ import { settings } from '../settings';
 import { Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { playVfxLayers } from './vfx/layers';
-import { techniqueFx } from './vfx/techniques';
+import { techniqueFlight, techniqueFx } from './vfx/techniques';
 import { gameVfx } from './vfx/engine';
 import { VfxLayer } from './vfx/VfxLayer';
 import { area, aura, beam, burst, Charge, cone, Missile, missile, slash } from './vfx/recipes';
@@ -377,7 +377,8 @@ function runSkill(ev: Extract<FxEvent, { kind: 'skill' }>, world: WorldShape, po
         let best: Target | null = null, bf = s.range + 0.5;
         targets.forEach((t) => { const dx = t.x - feet.x, dz = t.z - feet.z, f = dx * fw.x + dz * fw.z, l = Math.abs(dx * fw.z - dz * fw.x); if (f > 0 && f < bf && l <= s.radius + t.r + 0.2) { bf = f; best = t; } });
         const hit = best as Target | null, to = hit ? at(hit) : chest.clone().addScaledVector(fw, s.range);
-        missile(V, { style: st, color: col, from: chest.clone().addScaledVector(fw, 0.4), to, duration: Math.max(0.15, chest.distanceTo(to) / 14), arc: 0.3, size: Math.max(0.55, s.radius * 1.3), onArrive: (p) => {
+        // técnica com voo próprio (flecha, runa, estrela); as magias seguem com o projétil genérico
+        (techniqueFlight(s.slug) ?? missile)(V, { style: st, color: col, from: chest.clone().addScaledVector(fw, 0.4), to, duration: Math.max(0.15, chest.distanceTo(to) / 14), arc: 0.3, size: Math.max(0.55, s.radius * 1.3), onArrive: (p) => {
           burst(V, st, p, col, 0.85, gy(p.x, p.z));
           if (hit) { afflict(hit); weight([hit]); }
           if (hit && ev.damage > 0) { markCombat(); const d = hit.hit(ev.damage, ev.info); pop(p.clone().setY(p.y + 0.4), String(typeof d === 'number' ? d : ev.damage), false); }

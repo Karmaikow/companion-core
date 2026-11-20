@@ -9,7 +9,7 @@
  */
 import * as THREE from 'three';
 import { K, type Col, type VfxStore } from './engine';
-import { bolt, burst, missile, palette, type Palette } from './recipes';
+import { bolt, burst, palette, type Palette } from './recipes';
 
 type V3 = THREE.Vector3;
 const R = Math.random;
@@ -136,6 +136,96 @@ const fwd = (k: Kit, d: number, y = 0) => k.c.chest.clone().addScaledVector(k.fw
 const groundAt = (k: Kit, p: V3) => v3(p.x, k.c.ground(p.x, p.z), p.z);
 /** O toque do elemento num ponto (clarão + detritos do estilo), pequeno para não cobrir o desenho do golpe. */
 const element = (k: Kit, at: V3, scale = 0.45, delay = 0) => { const go = () => burst(k.s, k.c.style, at, k.c.color, scale, k.c.ground(at.x, at.z)); if (delay) k.s.after(delay, go); else go(); };
+
+/** Nó do Raio Encadeado: anel de runas que abre e seis pontinhas girando em volta. */
+function runeNode(k: Kit, at: V3, size: number) {
+  ringAir(k, at, size * 0.3, size * 1.6, k.P.light, 0.3); ringAir(k, at, size * 1.4, size * 0.6, k.P.main, 0.26, 0.04);
+  for (let i = 0; i < 6; i++) { const a = (i / 6) * 6.28; k.s.emit({ k: K.STAR, pos: at.clone().addScaledVector(k.right, Math.cos(a) * size * 0.7).addScaledVector(UP, Math.sin(a) * size * 0.7), life: 0.3, size: 0.16, size1: 0.04, spin: 7, c1: k.P.flash }); }
+}
+
+/** Uma célula do escudo em favo: hexágono deitado na superfície (normal `n`), que se desenha e some. */
+function hexagon(k: Kit, center: V3, n: V3, size: number, delay: number) {
+  const u = v3(n.z, 0, -n.x); if (u.lengthSq() < 1e-6) u.set(1, 0, 0); u.normalize();
+  const w = n.clone().cross(u).normalize();
+  const pts = Array.from({ length: 7 }, (_, i) => { const t = (i / 6) * 6.28 + 0.52; return center.clone().addScaledVector(u, Math.cos(t) * size).addScaledVector(w, Math.sin(t) * size); });
+  k.s.after(delay, () => {
+    k.s.line({ color: k.P.light, w: 0.05, mode: 1, life: 0.85, pts, max: 8, profile: () => 1, alphaAt: (q, l) => (q > Math.min(1, l.age / 0.16) ? 0 : 1 - Math.max(0, (l.age - 0.55) / 0.3)) });
+    k.s.emit({ k: K.GLOW, pos: center, life: 0.5, size: size * 1.6, size1: size * 2, c1: k.P.main, alpha: 0.18 });
+  });
+}
+
+/* ------------------------------------------------------------- voos próprios ------------------------------------------------------------- */
+/**
+ * Projéteis de técnica: no lugar do projétil genérico das magias (a bolinha com rastro de energia), cada um tem o
+ * seu voo. O Combat chama no lugar do `missile` (mesmas opções; `onArrive` aplica o acerto). O toque do elemento na
+ * chegada continua sendo do Combat (a essência infundida).
+ */
+export interface FlightOpts { style: string; color: Col; from: V3; to: V3; duration: number; arc?: number; size?: number; onArrive?: (at: V3) => void }
+type Flight = (s: VfxStore, o: FlightOpts) => void;
+
+/** Leva um ponto de `from` até `to` (com arco); `step` desenha a cada quadro, `land` na chegada. */
+function travel(s: VfxStore, o: FlightOpts, duration: number, arc: number, step: (at: V3, dir: V3, u: number, t: number) => void, land: (at: V3, dir: V3) => void, wobble?: (u: number) => V3) {
+  let t = 0;
+  const at = v3(), prev = o.from.clone(), dir = o.to.clone().sub(o.from).normalize();
+  s.every((dt) => {
+    t += dt;
+    const u = Math.min(1, t / duration);
+    at.lerpVectors(o.from, o.to, u); at.y += Math.sin(u * Math.PI) * arc;
+    if (wobble) at.add(wobble(u));
+    const d = at.clone().sub(prev); if (d.lengthSq() > 1e-8) dir.copy(d.normalize());
+    step(at, dir, u, t); prev.copy(at);
+    if (u >= 1) { land(at.clone(), dir.clone()); o.onArrive?.(at.clone()); return false; }
+    return true;
+  });
+}
+
+/** Flecha de verdade: haste fina e rápida, rastro curto e reto, e a ponta que crava (sem a bolinha de energia). */
+export const arrowFlight: Flight = (s, o) => {
+  const P = palette(o.style, o.color);
+  const trail = s.line({ color: P.light, w: 0.07, mode: 2, max: 7, profile: (u) => u, alphaAt: (u) => u * 0.9 });
+  travel(s, o, o.duration * 0.6, (o.arc ?? 0) * 0.25, (at, dir) => {
+    s.push(trail, at);
+    s.emit({ k: K.STREAK, pos: at, vel: dir.clone().multiplyScalar(14), drag: 30, life: 0.05, size: 0.07, stretch: 0.32, c1: '#ffffff' });
+  }, (at, dir) => {
+    s.release(trail);
+    s.emit({ k: K.STAR, pos: at, life: 0.18, size: 0.5, size1: 0.06, spin: 6, c1: P.flash });
+    sparks(s, at, dir.clone().negate(), 5, P.spark, 4, 0.5);
+  });
+};
+
+/** Seta Arcana: um disco de runa girando, que larga glifos pelo caminho e se abre em anel ao chegar. */
+const runeFlight: Flight = (s, o) => {
+  const P = palette(o.style, o.color);
+  let drop = 0;
+  travel(s, o, o.duration, (o.arc ?? 0) * 0.5, (at, _dir, _u, t) => {
+    s.emit({ k: K.RING, pos: at, life: 0.06, size: 0.5, size1: 0.5, c1: P.light, alpha: 0.9 });
+    s.emit({ k: K.STAR, pos: at, life: 0.06, size: 0.32, rot: t * 9, c1: P.flash });
+    if ((drop -= 1 / 60) <= 0) { drop = 0.05; s.emit({ k: K.STAR, pos: at.clone().add(v3(rr(-0.12, 0.12), rr(-0.12, 0.12), rr(-0.12, 0.12))), life: 0.4, size: 0.16, size1: 0.02, spin: rr(-6, 6), c1: P.main, alpha: 0.8 }); }
+  }, (at) => {
+    s.emit({ k: K.RING, pos: at, life: 0.3, size: 0.3, size1: 1.6, c1: P.light, alpha: 0.85 });
+    s.emit({ k: K.STAR, pos: at, life: 0.3, size: 1.2, size1: 0.1, spin: 5, c1: P.flash });
+  });
+};
+
+/** Disparo Mágico: uma estrelinha que pisca e voa em zigue-zague, soltando pontinhos de luz. */
+const starFlight: Flight = (s, o) => {
+  const P = palette(o.style, o.color);
+  const side = v3(o.to.z - o.from.z, 0, -(o.to.x - o.from.x)).normalize();
+  travel(s, o, o.duration * 0.85, 0.1, (at, _dir, _u, t) => {
+    s.emit({ k: K.STAR, pos: at, life: 0.05, size: 0.42 + Math.sin(t * 40) * 0.12, rot: t * 6, c1: P.flash });
+    s.emit({ k: K.GLOW, pos: at, life: 0.35, size: 0.14, size1: 0.02, c1: P.light, alpha: 0.7 });
+  }, (at, dir) => {
+    s.emit({ k: K.STAR, pos: at, life: 0.25, size: 0.9, size1: 0.08, spin: 9, c1: P.flash });
+    sparks(s, at, dir, 6, P.spark, 4, 0.9);
+  }, (u) => side.clone().multiplyScalar(Math.sin(u * Math.PI * 5) * 0.32 * Math.sin(u * Math.PI)));
+};
+
+const FLIGHTS: Record<string, Flight> = {
+  'arco-tiro-preciso': arrowFlight, 'arco-tiro-duplo': arrowFlight,
+  'cajado-seta-arcana': runeFlight, 'varinha-disparo-magico': starFlight,
+};
+/** O voo próprio da técnica (projéteis), ou null para o projétil genérico. */
+export function techniqueFlight(slug: string): Flight | null { return FLIGHTS[slug] ?? null; }
 
 /* ---------------------------------------------------------------- técnicas ---------------------------------------------------------------- */
 
@@ -364,23 +454,28 @@ const FX: Record<string, Fx> = {
     sparks(k.s, at, k.fw, 6, k.P.spark, 4, 0.7);
     return { hit: 0, generic: true };
   },
-  // o raio que salta em três pernas, com um clarão em cada nó
+  // fios de luz retos que saltam de nó em nó, com um anel de runas acendendo em cada um (o raio quebrado é das magias)
   'varinha-raio-encadeado': (k) => {
     const pts = [fwd(k, 0.4)];
     for (let i = 1; i <= 3; i++) pts.push(fwd(k, (k.c.range * i) / 3, rr(-0.25, 0.35)).addScaledVector(k.right, (i % 2 ? 1 : -1) * rr(0.35, 0.8)));
     for (let i = 0; i < 3; i++) k.s.after(i * 0.07, () => {
-      bolt(k.s, pts[i], pts[i + 1], k.P.light, 0.2, 0.3); bolt(k.s, pts[i], pts[i + 1], k.P.main, 0.11, 0.24);
-      k.s.emit({ k: K.BURST, pos: pts[i + 1], life: 0.22, size: 0.3, size1: 1, c1: '#ffffff', c2: k.P.main });
+      lance(k.s, pts[i], pts[i + 1], 0.16, k.P.main, 0.34); lance(k.s, pts[i], pts[i + 1], 0.05, '#ffffff', 0.3);
+      runeNode(k, pts[i + 1], 0.5 + i * 0.08);
     });
     return { hit: 0.08 };
   },
-  // a bolha que incha em volta, com bolhinhas subindo por dentro
+  // um escudo em favo de mel que se monta em volta, fileira por fileira (a bolha d'água é da magia Bolha)
   'varinha-bolha-protetora': (k) => {
-    const c = k.c.chest.clone();
-    k.s.emit({ k: K.RING, pos: c, life: 0.9, size: 0.6, size1: k.c.radius * 2, c1: k.P.light, alpha: 0.7 });
-    k.s.emit({ k: K.GLOW, pos: c, life: 0.8, size: 1, size1: k.c.radius * 2.2, c1: k.P.main, alpha: 0.22 });
-    ringFlat(k, k.c.feet, 0.5, k.c.radius * 2.1, k.P.main, 0.8, 0, 0.6);
-    for (let i = 0; i < 12; i++) { const a = R() * 6.28, d = Math.sqrt(R()) * k.c.radius * 0.8; k.s.emit({ k: K.RING, pos: v3(k.c.feet.x + Math.cos(a) * d, k.c.feet.y + rr(0.1, 0.4), k.c.feet.z + Math.sin(a) * d), vel: v3(0, rr(0.7, 1.5), 0), delay: rr(0, 0.5), life: rr(0.5, 0.8), size: rr(0.12, 0.24), size1: rr(0.2, 0.34), c1: k.P.light, alpha: 0.85 }); }
+    const c = k.c.chest.clone(), R0 = Math.max(0.9, k.c.radius * 0.85);
+    const rows: [number, number, number][] = [[0.12, 9, 0], [0.62, 7, 0.35], [1.12, 4, 0.7]];
+    rows.forEach(([elev, n, twist], row) => {
+      for (let i = 0; i < n; i++) {
+        const a = (i / n) * 6.28 + twist, nrm = v3(Math.cos(elev) * Math.sin(a), Math.sin(elev), Math.cos(elev) * Math.cos(a));
+        hexagon(k, c.clone().addScaledVector(nrm, R0), nrm, R0 * (0.62 / Math.sqrt(n)) + 0.08, row * 0.09 + i * 0.012);
+      }
+    });
+    k.s.emit({ k: K.GLOW, pos: c, life: 0.8, size: 1, size1: R0 * 2.2, c1: k.P.main, alpha: 0.16 });
+    ringFlat(k, k.c.feet, 0.5, R0 * 2.1, k.P.main, 0.8, 0, 0.6);
     return { hit: 0.1 };
   },
   // quatro estouros de elementos diferentes pipocando dentro do círculo
@@ -440,7 +535,7 @@ const FX: Record<string, Fx> = {
   'arco-tiro-duplo': (k) => {
     const from = fwd(k, 0.4), to = fwd(k, k.c.range);
     ringAir(k, from, 1.2, 0.2, k.P.flash, 0.2);
-    k.s.after(0.09, () => missile(k.s, { style: k.c.style, color: k.c.color, from: from.clone().addScaledVector(k.right, 0.18), to: to.clone().addScaledVector(k.right, 0.18), duration: Math.max(0.15, from.distanceTo(to) / 14), arc: 0.3, size: 0.5 }));
+    k.s.after(0.09, () => arrowFlight(k.s, { style: k.c.style, color: k.c.color, from: from.clone().addScaledVector(k.right, 0.18), to: to.clone().addScaledVector(k.right, 0.18), duration: Math.max(0.15, from.distanceTo(to) / 14), arc: 0.3, size: 0.5 }));
     return { hit: 0, generic: true };
   },
   // o selo que cai sobre o alvo e levanta as grades em volta
