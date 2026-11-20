@@ -8,6 +8,7 @@ import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame, type ThreeEvent } from '@react-three/fiber';
 import { Html, useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
+import { sharpTextures } from './fitTextures';
 import { CHEST_TIERS, type CompanionWorld } from '@rules';
 import { useChests, type ChestView } from '../chests/chestStore';
 import { useGame } from '../store';
@@ -31,7 +32,7 @@ const OPEN_WIDTH_PER_HEIGHT = 0.95 / 1.15;
 function useChestModel(url: string, width: number) {
   const { scene } = useGLTF(url);
   return useMemo(() => {
-    const o = scene.clone(true);
+    const o = sharpTextures(scene.clone(true));
     const b = new THREE.Box3().setFromObject(o), s = b.getSize(new THREE.Vector3()), c = b.getCenter(new THREE.Vector3());
     const k = width / Math.max(1e-3, s.x);
     o.scale.setScalar(k); o.position.set(-c.x * k, -b.min.y * k, -c.z * k);

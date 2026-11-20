@@ -35,17 +35,37 @@ function shrink(t: THREE.Texture, max: number) {
   done.set(t, max);
 }
 
-/** Reduz as texturas de todos os materiais do objeto para no máximo `max` px no lado maior. */
-export function fitTextures(root: THREE.Object3D, max = 1024) {
+/**
+ * Filtro anisotrópico: a câmera do jogo olha o chão e os modelos de lado, e sem ele a placa usa a versão reduzida
+ * (mipmap) da textura nessa inclinação — a textura fica borrada. 8 amostras custam quase nada numa placa de hoje
+ * (o three limita ao máximo que a placa aceita).
+ */
+export const MODEL_ANISOTROPY = 8;
+
+function eachTexture(root: THREE.Object3D, fn: (t: THREE.Texture) => void) {
   root.traverse((o) => {
     const mats = (o as THREE.Mesh).material;
     if (!mats) return;
     for (const m of Array.isArray(mats) ? mats : [mats]) {
       const r = m as unknown as Record<string, THREE.Texture | null | undefined>;
-      for (const k of MAP_KEYS) if (r[k]?.isTexture) shrink(r[k]!, max);
+      for (const k of MAP_KEYS) if (r[k]?.isTexture) fn(r[k]!);
     }
   });
+}
+
+/** Liga o filtro anisotrópico nas texturas do modelo (antes do primeiro desenho; depois disso precisa reenviar). */
+export function sharpTextures(root: THREE.Object3D, anisotropy = MODEL_ANISOTROPY) {
+  eachTexture(root, (t) => {
+    if (t.anisotropy >= anisotropy) return;
+    t.anisotropy = anisotropy; t.needsUpdate = true;
+  });
   return root;
+}
+
+/** Reduz as texturas de todos os materiais do objeto para no máximo `max` px no lado maior (e liga o filtro anisotrópico). */
+export function fitTextures(root: THREE.Object3D, max = 1024) {
+  eachTexture(root, (t) => shrink(t, max));
+  return sharpTextures(root);
 }
 
 /**
