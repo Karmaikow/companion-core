@@ -58,8 +58,7 @@ export async function loadCompanionBundle(files: CompanionModelFiles): Promise<L
         src: name,
       }),
     );
-  // várias animações num arquivo só: o tipo vem do nome de cada clipe; uma só: do nome do arquivo
-  add(gltf.animations, gltf.animations.length > 1 ? null : animKind(files.url.split('?')[0]), 'corpo');
+  // pacotes de animação dedicados (ex.: padrao-m2m retargetado) vêm primeiro para prevalecer sobre clipes antigos embutidos no corpo
   for (const a of files.anims) {
     if (a.url === files.url) continue;
     try {
@@ -69,6 +68,8 @@ export async function loadCompanionBundle(files: CompanionModelFiles): Promise<L
       /* animação que falhou só fica de fora */
     }
   }
+  // várias animações num arquivo só: o tipo vem do nome de cada clipe; uma só: do nome do arquivo
+  add(gltf.animations, gltf.animations.length > 1 ? null : animKind(files.url.split('?')[0]), 'corpo');
   return { gltf, clips };
 }
 

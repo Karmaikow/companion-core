@@ -79,7 +79,7 @@ export const MATERIALS: Record<string, MaterialDef> = Object.fromEntries([
   M({ id: 'quartzo-azul', name: 'Quartzo Azul', category: 'gema', rarity: 3, uses: ['Focos mágicos (inteiro)', 'Pó de encantamento (fragmentos)'], ranges: { integridade: [70, 98] }, fixed: { afinidade: 'água' } }),
   // superiores (Pacto das Cinco): extraídos só pela classe da fonte; têm alternativas comuns nas receitas
   M({ id: 'cerne-salgueiro', name: 'Cerne de Salgueiro Antigo', category: 'madeira', rarity: 3, uses: ['Cerne Preservado (Feral) para escudos e arcos superiores'], ranges: { flexibilidade: [70, 98], resistencia: [55, 88] }, fixed: { afinidade: 'água' } }),
-  M({ id: 'agua-da-nascente', name: 'Água de Remanso Profundo', category: 'magico', rarity: 3, uses: ['Agente de Têmpera (Dracônica) no lugar da seiva'], ranges: {}, fixed: { efeito: 'pureza aquática', estabilizacao: 'frasco fechado, frio' } }),
+  M({ id: 'agua-da-nascente', name: 'Orvalho Purificado', category: 'magico', rarity: 3, uses: ['Agente de Têmpera (Dracônica) no lugar da seiva', 'Obtido por refino na Casa dos Ecos ou em missões'], ranges: {}, fixed: { efeito: 'pureza aquática', estabilizacao: 'frasco fechado, frio' } }),
   M({ id: 'fibra-aerea', name: 'Fibra dos Ventos', category: 'madeira', rarity: 3, uses: ['Tramas leves (Alada)', 'Cordas de arco'], ranges: { flexibilidade: [80, 99], resistencia: [20, 45] }, fixed: { afinidade: 'vento' } }),
   M({ id: 'cristal-inscrito', name: 'Cristal Inscrito', category: 'gema', rarity: 3, uses: ['Suporte de matrizes rúnicas (Feérica)'], ranges: { integridade: [75, 98] }, fixed: { afinidade: 'luz' } }),
   M({ id: 'quartzo-fragmento', name: 'Fragmentos de Quartzo', category: 'gema', rarity: 2, uses: ['Pó de encantamento', 'Lanternas'], ranges: { integridade: [8, 32] }, fixed: { afinidade: 'água' } }),
@@ -87,7 +87,7 @@ export const MATERIALS: Record<string, MaterialDef> = Object.fromEntries([
   M({ id: 'erva-lunar', name: 'Erva Lunar', category: 'planta', rarity: 3, uses: ['Poção de Vida Grande e Elixir Lunar (Escola do Veneno)', 'Remédios raros'], ranges: { potencia: [70, 98], estabilidade: [70, 98] }, fixed: { parte: 'folhas lunares' } }),
   M({ id: 'minerio-prata', name: 'Prata Nativa', category: 'minerio', rarity: 3, uses: ['Lâminas e peças superiores (Escola da Forja)', 'Aceita onde a Forja pede cobre'], ranges: { pureza: [55, 95] }, fixed: { composicao: 'prata' } }),
   // lendários: só das fontes que as missões lendárias revelam (rendem muito pouco)
-  M({ id: 'lagrima-da-nascente', name: 'Lágrima da Nascente Azul', category: 'magico', rarity: 3, legendary: true, uses: ['Água da Vida (Escola do Veneno)', 'Encantamentos lendários'], ranges: {}, fixed: { efeito: 'cura completa e afinidade de água', estabilizacao: 'frasco de cristal, longe da luz' } }),
+  M({ id: 'lagrima-da-nascente', name: 'Lágrima da Nascente Azul', category: 'magico', rarity: 3, legendary: true, uses: ['Água da Vida (Escola do Veneno)', 'Obtida nas missões de A Seiva Azul e por refino na Casa dos Ecos'], ranges: {}, fixed: { efeito: 'cura completa e afinidade de água', estabilizacao: 'frasco de cristal, longe da luz' } }),
   M({ id: 'cerne-ancestral', name: 'Cerne Ancestral', category: 'madeira', rarity: 3, legendary: true, uses: ['Arcos, cajados e escudos lendários (Forja)', 'Aceito onde a Forja pede madeira'], ranges: { flexibilidade: [85, 99], resistencia: [85, 99] }, fixed: { afinidade: 'natureza' } }),
   // refinados (Casa dos Ecos): muitos materiais comuns viram um melhor; a qualidade vem da média do que entrou
   M({ id: 'extrato-de-orvalho', name: 'Extrato de Orvalho', category: 'planta', rarity: 3, uses: ['Poções e comidas superiores (Escola do Veneno)', 'Unguentos fortes'], ranges: { potencia: [30, 95], estabilidade: [30, 95] }, fixed: { parte: 'extrato' } }),
@@ -284,13 +284,6 @@ export const NODE_KINDS: Record<string, ResourceNodeKind> = {
       { id: 'cerne-volume', label: 'Abrir o galho inteiro', seconds: 16, cost: 3, tool: null, yields: [{ material: 'cerne-salgueiro', qty: [2, 2], guaranteed: 2 }], risk: 'galho pesado (leve)', riskLevel: 1, effect: 'O galho some até a árvore soltar outro (~6 h).', pitch: 'Mais cerne de uma vez.' },
     ],
   },
-  'remanso-profundo': {
-    kind: 'remanso-profundo', name: 'Remanso Profundo', category: 'magico', zone: 'riacho', capacity: 4, regenPerHour: 1, source: 'aquatica', sign: 'Um poço fundo no riacho onde a água fica azul e pesada.',
-    approaches: [
-      { id: 'decantar', label: 'Decantar com paciência', seconds: 12, cost: 1, tool: null, yields: [{ material: 'agua-da-nascente', qty: [1, 1], guaranteed: 1 }], risk: 'nenhum', riskLevel: 0, effect: 'Nenhum.', pitch: 'Água pura, sem turvar o poço.' },
-      { id: 'mergulhar', label: 'Mergulhar no fundo', seconds: 8, cost: 2, tool: null, yields: [{ material: 'agua-da-nascente', qty: [1, 2], guaranteed: 1 }], risk: 'correnteza (leve)', riskLevel: 1, effect: 'Turva o poço por ~2 h.', pitch: 'Mais rápido, às vezes traz mais.' },
-    ],
-  },
   'liquen-dos-ventos': {
     kind: 'liquen-dos-ventos', name: 'Líquen dos Ventos', category: 'madeira', zone: 'afloramento', capacity: 4, regenPerHour: 0.8, source: 'corrente', sign: 'Fios prateados que dançam no alto da rocha, onde venta.',
     approaches: [
@@ -310,13 +303,6 @@ export const NODE_KINDS: Record<string, ResourceNodeKind> = {
     approaches: [
       { id: 'garimpar', label: 'Garimpar o entorno', seconds: 7, cost: 1, tool: null, yields: [{ material: 'minerio-prata', qty: [1, 1], guaranteed: 1 }], risk: 'nenhum', riskLevel: 0, effect: 'Nenhum.', pitch: 'Pouca prata, sem mexer no veio.' },
       { id: 'escavar', label: 'Escavar o veio', seconds: 10, cost: 3, tool: 'picareta', yields: [{ material: 'minerio-prata', qty: [2, 3], guaranteed: 2 }], risk: 'pedra solta (leve)', riskLevel: 1, effect: 'O veio fica raso por ~2 h.', pitch: 'Mais prata de uma vez.' },
-    ],
-  },
-  'nascente-azul': {
-    kind: 'nascente-azul', name: 'Nascente Azul', category: 'magico', zone: 'riacho', capacity: 1, regenPerHour: 1 / 24, sign: 'Água que brilha azul e não corre para lugar nenhum.',
-    approaches: [
-      { id: 'recolher-lagrima', label: 'Recolher uma lágrima', seconds: 18, cost: 1, tool: null, yields: [{ material: 'lagrima-da-nascente', qty: [1, 1], guaranteed: 1 }], risk: 'nenhum', riskLevel: 0, effect: 'A nascente leva um dia para chorar de novo.', pitch: 'Uma por dia. Lendária.' },
-      { id: 'encher-frascos', label: 'Encher frascos de água', seconds: 10, cost: 1, tool: null, yields: [{ material: 'agua-da-nascente', qty: [2, 3], guaranteed: 2 }], risk: 'nenhum', riskLevel: 0, effect: 'Gasta a lágrima do dia.', pitch: 'Água pura em vez da lágrima.' },
     ],
   },
   'arvore-ancestral': {
@@ -367,7 +353,6 @@ export const VALE_NODES: ResourceNode[] = [
   { id: 'cobre-veio', kind: 'cobre', x: 12.4, z: 39 },
   { id: 'geodo-fenda', kind: 'geodo', x: 7.4, z: 45 },
   { id: 'salgueiro-antigo', kind: 'salgueiro-antigo', x: -12.8, z: 42 },
-  { id: 'remanso-profundo', kind: 'remanso-profundo', x: -3.4, z: 46.2 },
   { id: 'liquen-dos-ventos', kind: 'liquen-dos-ventos', x: 10.4, z: 46.8 },
   { id: 'pedra-inscrita', kind: 'pedra-inscrita', x: 5.4, z: 48.2 },
   { id: 'erva-leste-1', kind: 'erva', x: 6.8, z: 25, needs: 'ponte', name: 'Erva da Margem Leste' },

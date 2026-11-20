@@ -109,10 +109,19 @@ const FALLBACK: Record<CursorKind, string> = {
   seta: 'default', apontar: 'pointer', atacar: 'crosshair', pegar: 'grab', segurar: 'grabbing', proibido: 'not-allowed',
   machado: 'pointer', picareta: 'pointer', faca: 'pointer', 'machado-x': 'not-allowed', 'picareta-x': 'not-allowed', 'faca-x': 'not-allowed',
 };
+const IMG_HOT: Record<CursorKind, [number, number]> = {
+  seta: [3, 2], apontar: [8, 2], pegar: [18, 18], segurar: [18, 18],
+  atacar: [2, 2], proibido: [3, 2],
+  machado: [3, 11], 'machado-x': [3, 11],
+  picareta: [3, 18], 'picareta-x': [3, 18],
+  faca: [3, 18], 'faca-x': [3, 18],
+};
 const VALUE = {} as Record<CursorKind, string>;
 for (const k of Object.keys(FALLBACK) as CursorKind[]) {
   const [base, x] = k.split('-') as [keyof typeof ICONS | 'proibido', string?];
-  VALUE[k] = `${base === 'proibido' ? draw(ICONS.seta, true) : draw(ICONS[base], !!x)}, ${FALLBACK[k]}`;
+  const svgFallback = base === 'proibido' ? draw(ICONS.seta, true) : draw(ICONS[base], !!x);
+  const [hx, hy] = IMG_HOT[k];
+  VALUE[k] = `url("/assets/cursors/${k}.png") ${hx} ${hy}, ${svgFallback}, ${FALLBACK[k]}`;
 }
 
 const state = { object: null as CursorKind | null, held: false };

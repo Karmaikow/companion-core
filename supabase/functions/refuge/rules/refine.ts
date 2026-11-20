@@ -13,6 +13,8 @@ export const REFINES: RefineDef[] = [
   { id: 'bloco-lapidado', to: 'bloco-lapidado', from: ['pedra-granito', 'pedra-seixo'], label: 'Granito ou Seixo' },
   { id: 'lingote-de-cobre', to: 'lingote-de-cobre', from: ['minerio-cobre'], label: 'Cobre Nativo' },
   { id: 'quartzo-lapidado', to: 'quartzo-lapidado', from: ['quartzo-fragmento'], label: 'Fragmentos de Quartzo' },
+  { id: 'agua-da-nascente', to: 'agua-da-nascente', from: ['seiva-azul', 'erva-orvalho-folha'], label: 'Seiva Azul ou Folhas de Erva-de-orvalho' },
+  { id: 'lagrima-da-nascente', to: 'lagrima-da-nascente', from: ['seiva-azul', 'quartzo-azul'], label: 'Seiva Azul ou Quartzo Azul' },
 ];
 export const refineById = (id: string) => REFINES.find((r) => r.id === id) ?? null;
 

@@ -256,11 +256,13 @@ export function EquipmentPanel({ onClose, menu }: { onClose?: () => void; menu?:
   // livro: página da esquerda (personagem) e da direita (sacola ou ficha); no celular, uma página por vez
   const art = useGame((s) => s.snap?.visualJob?.artUrl ?? null);
   const model = useGame((s) => s.snap?.visualJob?.model ?? null);
-  const worn = useMemo(() => equippedItems(equipped, items).map((w) => w.item), [equipped, items]);
+  const wornList = useMemo(() => equippedItems(equipped, items), [equipped, items]);
+  const worn = useMemo(() => wornList.map((w) => w.item), [wornList]);
+  const wornSlots = useMemo(() => Object.fromEntries(wornList.map((w) => [w.item.slug, w.slot])), [wornList]);
   const stage = (big = false) => (
     <div className={'ib-portrait' + (big ? ' big' : '') + (model ? ' live' : '')} style={{ ['--glow' as string]: glow }}>
       <span className="ib-emblem" aria-hidden />
-      {model && c ? <Suspense fallback={<span className="ib-orb" aria-hidden />}><CompanionStage url={model.url} companionId={c.id} items={worn} /></Suspense>
+      {model && c ? <Suspense fallback={<span className="ib-orb" aria-hidden />}><CompanionStage url={model.url} anims={model.anims} companionId={c.id} items={worn} slots={wornSlots} /></Suspense>
         : art ? <img src={art} alt={`Retrato de ${name}`} /> : <span className="ib-orb" aria-hidden />}
       {model && <small className="ib-drag" aria-hidden>arraste para girar</small>}
     </div>

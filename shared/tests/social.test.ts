@@ -91,10 +91,22 @@ describe('grupo: atividade e conversa', () => {
     const seen = new Set(Array.from({ length: 40 }, (_, i) => groupActivity('p1', t + i * GROUP_ACTIVITY_WINDOW * 1000)));
     expect(seen.size).toBeGreaterThan(1);
   });
-  it('conversa de grupo: lê o JSON e tem reserva sem IA', async () => {
+  it('conversa de grupo: lê o JSON e tem reserva sem IA para caçar, coletar e missão', async () => {
     const { parsePartyTalk, offlinePartyTalk } = await import('../rules/social.ts');
     expect(parsePartyTalk('{"lines":[{"who":"a","text":"Olha!"},{"who":"b","text":"Que lindo!"}]}')).toHaveLength(2);
     expect(parsePartyTalk('{"lines":[{"who":"a","text":"Olha!"}]}')).toBeNull();
     expect(offlinePartyTalk(A, B, 'cacar', 's')).toHaveLength(2);
+    expect(offlinePartyTalk(A, B, 'coletar', 's')).toHaveLength(2);
+    expect(offlinePartyTalk(A, B, 'missao', 's')).toHaveLength(2);
+  });
+  it('quando já estão no mesmo grupo, conversam e decidem juntos o que fazer (sem se despedir como estranhos)', () => {
+    const sameCtx = ctx({ friends: true, meetings: 3, partyA: { id: 'p1', size: 2 }, partyB: { id: 'p1', size: 2 } });
+    const plan = planMeeting(A, B, sameCtx);
+    expect(plan.sameParty).toBe(true);
+    expect(plan.groupActivity).toBeTruthy();
+    expect(buildMeetPrompt(A, B, sameCtx, plan)).toMatch(/JÁ ESTÃO NO MESMO GRUPO/);
+    const off = offlineMeet(A, B, sameCtx, plan);
+    expect(off.sameParty).toBe(true);
+    expect(off.groupActivity).toBe(plan.groupActivity);
   });
 });

@@ -44,8 +44,6 @@ export const RESOURCE_MODELS: Partial<Record<string, PartedSpec>> = {
   // modelos próprios (Tripo, em partes)
   'liquen-dos-ventos': { url: '/ecos_liquen.glb', size: 1.3 },
   'arvore-ancestral': { url: '/ecos_ancestral.glb', size: 7.5, glow: '#ffd27a', light: { color: '#ffd27a', y: 0.55 } },
-  'remanso-profundo': { url: '/ecos_remanso.glb', size: 3.4, whole: true, water: { color: '#3fb6ff' } },
-  'nascente-azul': { url: '/ecos_nascente.glb', size: 3.2, whole: true, water: { color: '#7fd6ff', motes: true }, light: { color: '#7fd6ff', y: 0.35 } },
   // pacote Stylized Nature (Quaternius, CC0): árvore de tronco + copa; pedras com as menores em volta
   carvalho: { url: '/assets/natureza/CommonTree_3.glb', size: 4.4 },
   granito: { url: '/assets/natureza/Rock_Medium_2.glb', size: 1.5, copies: [[0.9, 0.5, 0.38, 1.2], [-0.8, 0.6, 0.3, 2.4], [0.2, -0.9, 0.32, 0.7]] },

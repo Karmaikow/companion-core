@@ -313,7 +313,8 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
       else if (!driving && !cs.charging && !hold) {
         let threat: Target | null = null, td = Infinity, prey: Target | null = null, pd = Infinity;
         // com uma ordem de caça ela procura longe (antes: 18 m, e sem nada perto ficava passeando)
-        const huntR = order?.kind === 'hunt' ? 40 : clear ? 80 : socialHold.group?.activity === 'cacar' ? 16 : 12;
+        const grpHunt = socialHold.group?.activity === 'cacar' || socialHold.group?.activity === 'missao';
+        const huntR = order?.kind === 'hunt' ? 40 : clear ? 80 : grpHunt ? 22 : 12;
         targets.forEach((tg) => {
           const c = tg.creature; if (!c || tg.r < 0 || c.hp() <= 0) return;
           const dd = Math.hypot(tg.x - r.position.x, tg.z - r.position.z);
@@ -330,7 +331,7 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
         } else {
           const exploring = !!roam.goal?.current;
           // em grupo (seguindo o líder) também caça o que aparecer perto, junto com ele
-          const hunting = order?.kind === 'attack' || order?.kind === 'hunt' || clear?.phase === 'fight' || (exploring && conf.posture === 'cacadora') || (socialHold.group?.activity === 'cacar' && conf.posture !== 'pacifica');
+          const hunting = order?.kind === 'attack' || order?.kind === 'hunt' || clear?.phase === 'fight' || (exploring && conf.posture === 'cacadora') || (grpHunt && conf.posture !== 'pacifica');
           if (hunting && prey) ai.target = prey;
           else if (conf.posture !== 'pacifica' && threat && td < 7) ai.target = threat; // se defende de quem vem brigar
         }
@@ -380,7 +381,9 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
         holdYaw = Math.atan2(socialHold.x - r.position.x, socialHold.z - r.position.z);
       } else if (socialHold.follow && nowMs - socialHold.follow.t < 3000) {
         const f = socialHold.follow, dx = f.x - r.position.x, dz = f.z - r.position.z, dd = Math.hypot(dx, dz);
-        if (dd > 3.2) { s.target.set(f.x - (dx / dd) * 2, 0, f.z - (dz / dd) * 2); s.running = dd > 6; s.player = false; s.sitting = false; s.wait = 1; }
+        // se está coletando um recurso perto do líder (< 12 m), termina a coleta antes de correr atrás dele
+        const busyGather = (work.on || !!useEcos.getState().run) && dd < 12;
+        if (!busyGather && dd > 3.2) { s.target.set(f.x - (dx / dd) * 2, 0, f.z - (dz / dd) * 2); s.running = dd > 6; s.player = false; s.sitting = false; s.wait = 1; }
       }
     }
 

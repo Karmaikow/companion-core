@@ -93,7 +93,6 @@ export interface MissionDef {
 export const UNLOCKS: Record<string, string> = {
   'variedade:erva-lunar': 'A Erva-de-orvalho Lunar passa a aparecer no mundo para você',
   'variedade:veio-prateado': 'Veios Prateados passam a aparecer no mundo para você',
-  'lendaria:nascente-azul': 'A Nascente Azul (lendária) passa a aparecer no mundo para você',
   'lendaria:arvore-ancestral': 'A Árvore Ancestral (lendária) passa a aparecer no mundo para você',
 };
 export const unlockText = (id: string) => UNLOCKS[id] ?? `Desbloqueio: ${id}`;
@@ -280,24 +279,30 @@ export const DEFAULT_MISSIONS: MissionDef[] = [
     objectives: [{ kind: 'fabricar', qty: 1, recipe: 'lingote-de-cobre' }, { kind: 'entregar', qty: 1, material: 'lingote-de-cobre' }],
     rewards: { lumes: 80, bond: 30, materials: [], items: [], unlock: 'variedade:veio-prateado' },
   })!,
-  // ---- lendária: A Seiva Azul (a antiga descoberta do vale, em três partes)
+  // ---- lendária: A Seiva Azul (em três partes, liberando Orvalho Purificado e a Lágrima da Nascente Azul sem depender de poças no mapa)
   sanitizeMission({
     slug: 'seiva-azul-1', name: 'A Seiva Azul · I. Casca que brilha', description: 'Alguns salgueiros soltam uma seiva azul. A Mestra Ilvana quer saber de onde vem esse brilho: traga madeira e a própria seiva.',
     rarity: 'epica', repeat: 'unica', giver: 'casa-dos-ecos', req: { after: ['primeiras-ervas'], bond: 3, schools: [], classes: [], essences: [] },
     objectives: [{ kind: 'coletar', qty: 6, material: 'madeira-salgueiro' }, { kind: 'entregar', qty: 2, material: 'seiva-azul' }],
-    rewards: { lumes: 80, bond: 40, materials: [], items: [] },
+    rewards: { lumes: 80, bond: 40, materials: [{ key: batchKey('agua-da-nascente', {}), qty: 2 }], items: [] },
   })!,
   sanitizeMission({
-    slug: 'seiva-azul-2', name: 'A Seiva Azul · II. Pistas na correnteza', description: 'Os fragmentos de quartzo têm o mesmo azul da seiva. Lapide um deles e veja o que a luz mostra.',
+    slug: 'seiva-azul-2', name: 'A Seiva Azul · II. Brilho no cristal', description: 'Os fragmentos de quartzo têm o mesmo azul da seiva. Lapide um deles na Casa dos Ecos para condensar o orvalho mágico.',
     rarity: 'epica', repeat: 'unica', giver: 'casa-dos-ecos', req: { after: ['seiva-azul-1'], bond: 3, schools: [], classes: [], essences: [] },
     objectives: [{ kind: 'coletar', qty: 10, material: 'pedra-seixo' }, { kind: 'fabricar', qty: 1, recipe: 'quartzo-lapidado' }],
-    rewards: { lumes: 100, bond: 50, materials: [], items: [] },
+    rewards: { lumes: 100, bond: 50, materials: [{ key: batchKey('agua-da-nascente', {}), qty: 3 }], items: [] },
   })!,
   sanitizeMission({
-    slug: 'seiva-azul-3', name: 'A Seiva Azul · III. A Nascente Azul', description: 'O quartzo lapidado aponta uma nascente que só aparece para quem já viu o brilho. Os Distorcidos rondam a água: limpe o caminho e entregue o quartzo.',
+    slug: 'seiva-azul-3', name: 'A Seiva Azul · III. A Lágrima de Seiva', description: 'Com o quartzo lapidado e a seiva dos salgueiros, a Casa dos Ecos consegue destilar a Lágrima da Nascente Azul. Afaste os Distorcidos e entregue os reagentes.',
     rarity: 'lendaria', repeat: 'unica', giver: 'casa-dos-ecos', req: { after: ['seiva-azul-2'], bond: 5, schools: [], classes: [], essences: [] },
     objectives: [{ kind: 'cacar', qty: 5, family: 'distorcidos' }, { kind: 'entregar', qty: 1, material: 'quartzo-lapidado' }, { kind: 'entregar', qty: 3, material: 'seiva-azul' }],
-    rewards: { lumes: 250, bond: 120, materials: [{ key: batchKey('lagrima-da-nascente', {}), qty: 1 }], items: [], unlock: 'lendaria:nascente-azul' },
+    rewards: { lumes: 250, bond: 120, materials: [{ key: batchKey('lagrima-da-nascente', {}), qty: 2 }, { key: batchKey('agua-da-nascente', {}), qty: 3 }], items: [] },
+  })!,
+  sanitizeMission({
+    slug: 'destilar-lagrima', name: 'Destilação da Seiva Azul', description: 'Entregue Seiva Azul na Casa dos Ecos para receber uma Lágrima da Nascente Azul e Orvalho Purificado prontos para alquimia e têmpera.',
+    rarity: 'epica', repeat: 'semanal', giver: 'casa-dos-ecos', req: { after: ['seiva-azul-3'], bond: 5, schools: [], classes: [], essences: [] },
+    objectives: [{ kind: 'entregar', qty: 3, material: 'seiva-azul' }, { kind: 'cacar', qty: 4, family: 'distorcidos' }],
+    rewards: { lumes: 140, bond: 50, materials: [{ key: batchKey('lagrima-da-nascente', {}), qty: 1 }, { key: batchKey('agua-da-nascente', {}), qty: 2 }], items: [] },
   })!,
   // ---- lendária: O Coração Rachado (o MVP dos Distorcidos)
   sanitizeMission({

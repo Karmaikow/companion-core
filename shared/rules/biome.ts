@@ -68,13 +68,11 @@ export const DEFAULT_BIOME_RESOURCES: BiomeResource[] = [
   { kind: 'geodo', density: 0.04, time: 'sempre', weather: [], terrain: 'qualquer' },
   { kind: 'salgueiro-antigo', density: 0.02, time: 'sempre', weather: [], terrain: 'mata' },
   { kind: 'liquen-dos-ventos', density: 0.02, time: 'sempre', weather: [], terrain: 'aberto' },
-  { kind: 'remanso-profundo', density: 0.03, time: 'sempre', weather: ['chuva', 'tempestade'], terrain: 'qualquer' },
   { kind: 'pedra-inscrita', density: 0.025, time: 'noite', weather: [], terrain: 'qualquer' },
   // variedades: só para quem concluiu a missão da escola (Admin → Missões, prêmio "desbloqueio")
   { kind: 'erva-lunar', density: 0.12, time: 'sempre', weather: [], terrain: 'qualquer', unlock: 'variedade:erva-lunar' },
   { kind: 'veio-prateado', density: 0.06, time: 'sempre', weather: [], terrain: 'qualquer', unlock: 'variedade:veio-prateado' },
   // lendárias: raríssimas, só para quem concluiu a missão lendária que as revela
-  { kind: 'nascente-azul', density: 0.012, time: 'sempre', weather: [], terrain: 'aberto', unlock: 'lendaria:nascente-azul' },
   { kind: 'arvore-ancestral', density: 0.01, time: 'sempre', weather: [], terrain: 'mata', unlock: 'lendaria:arvore-ancestral' },
 ];
 /** Tabela de um bioma: a dele (até 24 linhas, um tipo por linha) ou null para usar a padrão. */

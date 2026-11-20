@@ -70,7 +70,7 @@ export const SEIVA_AZUL: DiscoveryChain = {
     },
   ],
   choices: {
-    extrair: { label: 'Extrair os cristais', detail: 'Agora: 2 Quartzo Azul íntegro + 3 Seiva Azul.', tradeoff: 'A nascente adormece; nada de jardim aqui.' },
+    extrair: { label: 'Extrair os cristais e a lágrima', detail: 'Agora: 2 Quartzo Azul íntegro + 2 Seiva Azul + 1 Lágrima da Nascente Azul.', tradeoff: 'A fonte adormece; nada de jardim aqui.' },
     preservar: { label: 'Preservar e cultivar', detail: 'Cria o Jardim da Nascente: raízes de erva excelentes, aos poucos, para sempre.', tradeoff: 'Nenhum cristal agora.' },
   },
 };
@@ -108,7 +108,8 @@ export function cluesFor(c: DiscoveryChain, st: ChainState | null | undefined, n
 export function chainReward(choice: ChainChoice): MaterialBatch[] {
   if (choice === 'extrair') return [
     { key: 'quartzo-azul|integridade:alta', material: 'quartzo-azul', bands: { integridade: 'alta' }, qty: 2 },
-    { key: 'seiva-azul', material: 'seiva-azul', bands: {}, qty: 3 },
+    { key: 'seiva-azul', material: 'seiva-azul', bands: {}, qty: 2 },
+    { key: 'lagrima-da-nascente', material: 'lagrima-da-nascente', bands: {}, qty: 1 },
   ];
   return [];
 }
