@@ -643,6 +643,21 @@
 .res-tag.empty { border-color: #6a6f80; }
 .res-tag.empty b { color: #c9ccd6; }
 
+/* cartão do recurso clicado: as formas de coletar (mesmo estilo da plaquinha, um pouco maior) */
+.res-menu { display: grid; gap: 6px; width: max-content; max-width: min(300px, 86vw); margin-bottom: 10px; padding: 8px 10px 10px; border-radius: 4px 12px 4px 12px; background: #0d1638f0; border: 1px solid #b79d61; color: #f4ead2; box-shadow: 0 6px 18px #000a; font: 600 0.8rem var(--serif); }
+.res-menu header { display: flex; align-items: center; gap: 8px; }
+.res-menu header b { color: #f6dfa8; font-weight: 700; }
+.res-menu-x { margin-left: auto; min-width: 32px; min-height: 32px; background: transparent; border: 0; color: #c9d2e6; font-size: 1.2rem; line-height: 1; cursor: pointer; }
+.res-opt { display: grid; gap: 2px; min-height: 44px; padding: 6px 10px; text-align: left; border-radius: 8px; background: #1a2550; border: 1px solid #3b4a80; color: inherit; font: inherit; cursor: pointer; }
+.res-opt:hover:not(:disabled), .res-opt:focus-visible { background: #24336b; border-color: #c9ab6c; outline: none; }
+.res-opt.rec { border-color: #b79d61; }
+.res-opt.off { opacity: 0.62; cursor: not-allowed; }
+.ro-top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.ro-top b { color: #fff2d8; }
+.ro-meta { font: 500 0.72rem var(--sans); color: #c9d2e6; white-space: nowrap; }
+.ro-out, .ro-why { font: 500 0.7rem var(--sans); color: #c9d2e6; white-space: normal; }
+.ro-why { color: #ffcf8a; }
+
 
 /* baú: o que saiu dele e o que ficou dentro */
 .chest-reveal { display: grid; justify-items: center; gap: 3px; pointer-events: none; }

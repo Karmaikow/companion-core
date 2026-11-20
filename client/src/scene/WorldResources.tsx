@@ -9,10 +9,10 @@ import { Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { NODE_KINDS, chunkResources, type CompanionWorld, type WeatherConfig, type ResourceNode, type WorldNode } from '@rules';
 import { useEcos, amountOf, work, toolBelt } from '../ecos/ecosStore';
-import { quickGather } from '../ecos/quickGather';
+import { ResourceChoices } from './ResourceChoices';
 import { hoverCursor } from '../ui/gameCursor';
 import { setEcosWorld, findNode, isAvailable } from '../ecos/worldNodes';
-import { colliders, companionFocus } from './world';
+import { colliders, companionFocus, moveRequest } from './world';
 import { gameVfx } from './vfx/engine';
 import { burst } from './vfx/recipes';
 import { PartedResource, RESOURCE_MODELS, PARTED_NEAR } from './PartedResource';
@@ -236,8 +236,20 @@ export function WorldResources({ cw, center, weather }: { cw: CompanionWorld; ce
     const cat = NODE_KINDS[n.kind].category, y = cw.heightAt(n.x, n.z);
     burst(gameVfx, VFX_OF[cat] ?? 'impacto', new THREE.Vector3(n.x, y + 0.6, n.z), COLOR_OF[cat] ?? '#ffffff', 0.45, y);
   });
-  // um clique já coleta (do jeito mais leve que der); não abre mais a janela do recurso
-  const pick = (e: ThreeEvent<MouseEvent>, id: string) => { e.stopPropagation(); quickGather(id); };
+  // clique no recurso: a plaquinha vira o cartão com as formas de coletar (de novo no mesmo: fecha)
+  const pick = (e: ThreeEvent<MouseEvent>, id: string) => {
+    e.stopPropagation();
+    useEcos.getState().select(useEcos.getState().selected === id ? null : id);
+  };
+  // último "anda até ali" da pessoa quando o recurso foi marcado (por clique, lista ou teleporte do ADM)
+  const pickedAt = useRef(-1);
+  useEffect(() => { pickedAt.current = moveRequest.user; }, [selected]);
+  // o cartão fecha quando a pessoa manda andar para outro lugar ou a Mayuna fica longe do recurso
+  useFrame(() => {
+    if (!selected) return;
+    const n = findNode(selected);
+    if (!n || moveRequest.user !== pickedAt.current || Math.hypot(n.x - companionFocus.x, n.z - companionFocus.z) > 30) useEcos.getState().select(null);
+  });
   // a plaquinha aparece no selecionado, no que está sendo coletado e no mais perto do Companion (ao alcance)
   const me = companionFocus;
   const closest = shown.reduce<{ id: string; d: number } | null>((a, n) => { const d = Math.hypot(n.x - me.x, n.z - me.z); return d < 4.5 && (!a || d < a.d) ? { id: n.id, d } : a; }, null)?.id;
@@ -250,9 +262,9 @@ export function WorldResources({ cw, center, weather }: { cw: CompanionWorld; ce
         const near = Math.hypot(n.x - me.x, n.z - me.z) < PARTED_NEAR;
         const tag = sel || n.id === closest || (run?.node === n.id && ['andando', 'coletando', 'confirmando'].includes(run.phase));
         return (
-          <group key={n.id} position={[n.x, y, n.z]} onClick={(e) => pick(e, n.id)} onPointerOver={(e) => { e.stopPropagation(); hoverCursor(gatherCursor(n)); }} onPointerOut={() => hoverCursor(null)}>
+          <group key={n.id} position={[n.x, y, n.z]} onClick={(e) => pick(e, n.id)} onPointerDown={(e) => e.stopPropagation()} onPointerOver={(e) => { e.stopPropagation(); hoverCursor(gatherCursor(n)); }} onPointerOut={() => hoverCursor(null)}>
             <NodeMesh node={n} amount={amount} near={near} />
-            {tag && <ResourceTag node={n} amount={amount} height={TAG_Y[n.kind] ?? 1.5} />}
+            {sel ? <ResourceChoices node={n} amount={amount} height={TAG_Y[n.kind] ?? 1.5} /> : tag && <ResourceTag node={n} amount={amount} height={TAG_Y[n.kind] ?? 1.5} />}
             {/* área de clique generosa (toque) */}
             <mesh position={[0, 0.8, 0]} visible={false}><cylinderGeometry args={[0.9, 0.9, 1.8, 8]} /><meshBasicMaterial /></mesh>
             {sel && <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.05, 0]}><ringGeometry args={[0.95, 1.12, 40]} /><meshBasicMaterial color={empty ? '#9aa3ad' : '#d9f0ff'} transparent opacity={0.85} toneMapped={false} /></mesh>}
