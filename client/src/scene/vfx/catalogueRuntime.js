@@ -10,8 +10,14 @@ import { patchOnBeforeCompile } from '../../vendor/threejs-vfx/utils/shaderPatch
 import { globals } from '../../vendor/threejs-vfx/config/globals.js';
 
 const MAX_ACTIVE = 4;
-/** Depois de tantos tipos carregados (a galeria da Forja), o que ficou parado é liberado. */
-const TRIM_TYPES = 12;
+/**
+ * Depois de tantos tipos carregados (a galeria da Forja, com 100+), o que ficou parado é liberado. No jogo são ~20
+ * (as habilidades da Companion e dos monstros): era 12, e passar disso jogava fora os efeitos já compilados — o
+ * próximo lançamento compilava tudo de novo (travadas de 1–2,6 s).
+ */
+const TRIM_TYPES = 40;
+/** Espera um pouco sem segurar a tela (o próximo quadro, ou um tempo curto se a aba estiver em segundo plano). */
+const breathe = () => new Promise((r) => (typeof document !== 'undefined' && !document.hidden && typeof requestAnimationFrame === 'function' ? requestAnimationFrame(() => r()) : setTimeout(r, 16)));
 const WARM_AT = new THREE.Vector3(5000, 0, 5000), WARM_DIR = new THREE.Vector3(0, 0, 1), WARM_DT = 1 / 30, WARM_SECONDS = 8;
 
 /**
@@ -110,7 +116,26 @@ export class CatalogueRuntime {
         this.warmRoot.add(copy.group);
         copy.spawn(WARM_AT, WARM_DIR, 4);
         for (let t = 0; t < WARM_SECONDS && !copy.isFinished; t += WARM_DT) copy.update(WARM_DT);
-        try { await this.gl.compileAsync(this.warmRoot, this.camera, this.scene); } catch { /* compila no primeiro uso */ }
+        const before = new Set(this.gl.info.programs);
+        // O jogo desenha a cena numa imagem intermediária (os efeitos de tela), e não direto na tela: para o three
+        // isso é outra versão de cada shader (a saída é linear, não sRGB). Compilar sem isso preparava a versão
+        // errada, e o primeiro uso de verdade compilava tudo de novo (medido: 12 shaders, 3 s de tela parada).
+        const target = this.warmTarget ??= new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType });
+        const previous = this.gl.getRenderTarget();
+        let compiling = null;
+        this.gl.setRenderTarget(target);
+        try { compiling = this.gl.compileAsync(this.warmRoot, this.camera, this.scene); } catch { /* compila no primeiro uso */ }
+        finally { this.gl.setRenderTarget(previous); }
+        try { await compiling; } catch { /* compila no primeiro uso */ }
+        // Sem compilação paralela (KHR_parallel_shader_compile — falta, por exemplo, numa AMD integrada com Direct3D),
+        // o compileAsync só cria os programas e o navegador compila de verdade no primeiro desenho, no meio da luta:
+        // medido, 1–2,6 s de tela parada. Aqui cada programa novo é usado agora (getUniforms obriga a terminar a
+        // compilação), um por quadro: em vez de um congelamento, pequenos picos antes do efeito precisar existir.
+        for (const program of this.gl.info.programs) {
+          if (before.has(program) || !this.alive) continue;
+          try { program.getUniforms(); } catch { /* erro de shader aparece no primeiro uso, como antes */ }
+          await breathe();
+        }
         copy.destroy();
         ctx.particles.reset(); ctx.decals.clear(); ctx.fissures.clear(); ctx.bursts.clear(); ctx.lights.reset();
         if (!this.alive) { copy.dispose(); return; }
@@ -181,6 +206,7 @@ export class CatalogueRuntime {
     this.pools.clear();
     this.disposeWarm();
     this.particles.dispose(); this.lights.dispose(); this.decals.dispose(); this.fissures.dispose(); this.bursts.dispose(); this.depth.dispose();
+    this.warmTarget?.dispose();
     this.root.removeFromParent(); this.camera.layers.mask = this.previousMask;
   }
 }
