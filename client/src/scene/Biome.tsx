@@ -6,6 +6,7 @@ import { Component, Suspense, useEffect, useLayoutEffect, useMemo, useRef, type 
 import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
 import { fitTextures } from './fitTextures';
+import { cameraFrustum, cullInstances, instanceSphere } from './instanceCulling';
 import * as THREE from 'three';
 import { BIOME_ROLES, type ModelLook, type BiomeAsset, type BiomeConfig, type BiomePalette, type BiomeZone } from '@rules';
 import { lookUniforms, setLook, withLook } from './look';
@@ -179,7 +180,7 @@ function bakeGeometry(src: THREE.BufferGeometry, m: THREE.Matrix4) {
  */
 export function GlbInstances({ url, spots, world, height, wind = 0, shadows = false, hideNearCamera = false, solid = 0, layer, capacity, look }: { /** cor/luz/brilho deste bioma */ look?: ModelLook; /** reserva de cópias (o mundo aberto troca os pontos sem recriar a malha) */ capacity?: number; url: string; spots: Spot[]; world: WorldShape; height: [number, number]; wind?: number; shadows?: boolean; hideNearCamera?: boolean; /** fração do pé do modelo que bloqueia (0 = passa por cima/através) */ solid?: number; layer?: string }) {
   const { scene } = useGLTF(url);
-  const { parts, foot, trunk, lu } = useMemo(() => {
+  const { parts, foot, trunk, lu, bounds } = useMemo(() => {
     fitTextures(scene, 1024);
     const lu = lookUniforms();
     scene.updateMatrixWorld(true);
@@ -205,7 +206,11 @@ export function GlbInstances({ url, spots, world, height, wind = 0, shadows = fa
       const d = xs.map((x, i) => Math.hypot(x - cx, zs[i] - cz)).sort((a, b) => a - b);
       return { cx, cz, r: d[Math.floor(d.length * 0.9)] };
     };
-    return { parts: out, foot: footAt(0.5), trunk: footAt(0.15), lu };
+    // esfera que envolve o modelo inteiro (1 m de altura), para o corte por câmera
+    const all = new THREE.Box3();
+    for (const p of out) { p.geo.computeBoundingBox(); all.union(p.geo.boundingBox!); }
+    const bounds = all.isEmpty() ? new THREE.Sphere(new THREE.Vector3(0, 0.5, 0), 1) : all.getBoundingSphere(new THREE.Sphere());
+    return { parts: out, foot: footAt(0.5), trunk: footAt(0.15), lu, bounds };
   }, [scene, wind]);
   useEffect(() => setLook(lu, look), [lu, look]);
   useEffect(() => () => parts.forEach((p) => { p.geo.dispose(); p.mat.dispose(); }), [parts]);
@@ -214,11 +219,16 @@ export function GlbInstances({ url, spots, world, height, wind = 0, shadows = fa
   const cap = Math.max(1, capacity && capacity >= spots.length ? capacity : spots.length);
   const mats = useMemo(() => {
     const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), v = new THREE.Vector3(), s = new THREE.Vector3();
-    return spots.map((t) => { const h = height[0] + t.s * (height[1] - height[0]); return { m: m4.compose(v.set(t.x, world.heightAt(t.x, t.z) - 0.05, t.z), q.setFromEuler(e.set(0, t.rot, 0)), s.set(h, h, h)).clone(), x: t.x, z: t.z, h, rot: t.rot }; });
-  }, [spots, world, height]);
+    return spots.map((t) => { const h = height[0] + t.s * (height[1] - height[0]), y = world.heightAt(t.x, t.z) - 0.05; return { m: m4.compose(v.set(t.x, y, t.z), q.setFromEuler(e.set(0, t.rot, 0)), s.set(h, h, h)).clone(), x: t.x, z: t.z, h, rot: t.rot, sphere: instanceSphere(bounds, t.x, y, t.z, h, shadows) }; });
+  }, [spots, world, height, bounds, shadows]);
+  const spheres = useMemo(() => mats.map((k) => k.sphere), [mats]);
+  // cópias que estão na tela agora (índices em `mats`), na ordem em que foram para a placa
+  const shown = useRef<{ list: number[]; n: number; dirty: boolean }>({ list: [], n: -1, dirty: true });
   useLayoutEffect(() => {
     hidden.current = [];
+    // até o primeiro quadro, todas (o corte por câmera entra no próximo useFrame)
     refs.current.forEach((im) => { if (!im) return; mats.forEach((k, i) => im.setMatrixAt(i, k.m)); im.count = mats.length; im.instanceMatrix.needsUpdate = true; });
+    shown.current = { list: [], n: -1, dirty: true };
   }, [mats, parts, cap]);
   // obstáculos (só o que é alto o bastante; o que tem menos de ~45 cm dá para passar por cima)
   useEffect(() => {
@@ -232,19 +242,32 @@ export function GlbInstances({ url, spots, world, height, wind = 0, shadows = fa
     }));
     return () => { colliders.delete(layer); };
   }, [mats, foot, trunk, solid, layer]);
-  // árvores altas entre a câmera e o Companion saem da frente
-  const zero = useMemo(() => new THREE.Matrix4().makeScale(0, 0, 0), []);
+  const frustum = useMemo(() => ({ f: new THREE.Frustum(), m: new THREE.Matrix4(), vis: [] as number[] }), []);
   useFrame(({ camera }) => {
-    if (!hideNearCamera) return;
-    // entre a câmera e o Companion (companionFocus), perto da linha de visão
-    const fx = companionFocus.x, fz = companionFocus.z, cx = camera.position.x - fx, cz = camera.position.z - fz, cl = Math.hypot(cx, cz) || 1;
-    let changed = false;
-    mats.forEach((k, i) => {
-      const rx = k.x - fx, rz = k.z - fz, along = (rx * cx + rz * cz) / cl, lat = Math.abs((-rx * cz + rz * cx) / cl);
-      const hide = along > 1.5 && along < cl && lat < 2.2 + along * 0.25;
-      if (hidden.current[i] !== hide) { hidden.current[i] = hide; changed = true; refs.current.forEach((im) => im?.setMatrixAt(i, hide ? zero : k.m)); }
+    // árvores altas entre a câmera e o Companion (companionFocus), perto da linha de visão, saem da frente
+    if (hideNearCamera) {
+      const fx = companionFocus.x, fz = companionFocus.z, cx = camera.position.x - fx, cz = camera.position.z - fz, cl = Math.hypot(cx, cz) || 1;
+      mats.forEach((k, i) => {
+        const rx = k.x - fx, rz = k.z - fz, along = (rx * cx + rz * cz) / cl, lat = Math.abs((-rx * cz + rz * cx) / cl);
+        hidden.current[i] = along > 1.5 && along < cl && lat < 2.2 + along * 0.25;
+      });
+    }
+    // só as cópias na tela vão para a placa; reenvia apenas quando a lista muda
+    const vis = frustum.vis, sh = shown.current;
+    const skip = hideNearCamera ? hidden.current : undefined;
+    // em desenvolvimento, `window.__noCull = true` desliga o corte (para comparar o quadro com e sem)
+    const n = import.meta.env.DEV && (window as { __noCull?: boolean }).__noCull
+      ? mats.reduce((c, _, i) => (skip?.[i] ? c : ((vis[c] = i), c + 1)), 0)
+      : cullInstances(spheres, cameraFrustum(camera, frustum.f, frustum.m), vis, skip);
+    let changed = sh.dirty || n !== sh.n;
+    for (let j = 0; !changed && j < n; j++) changed = vis[j] !== sh.list[j];
+    if (!changed) return;
+    sh.list = vis.slice(0, n); sh.n = n; sh.dirty = false;
+    refs.current.forEach((im) => {
+      if (!im) return;
+      for (let j = 0; j < n; j++) im.setMatrixAt(j, mats[vis[j]].m);
+      im.count = n; im.instanceMatrix.needsUpdate = true;
     });
-    if (changed) refs.current.forEach((im) => { if (im) im.instanceMatrix.needsUpdate = true; });
   });
   return (
     <group>

@@ -5,7 +5,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { releaseClone } from './fitTextures';
+import { fitTextures, releaseClone } from './fitTextures';
 import * as THREE from 'three';
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { attackVariant, strideSpeed, gameTime, COMPANION_ANIM_SLOTS, parseAnimRef, gatherSlot } from '@rules';
@@ -94,6 +94,8 @@ function Walker({ loaded, world, burstKey, speech, roam, appendages, speed, gear
     // cópia com esqueleto próprio: o React pode repetir este cálculo, e o original não pode ser movido entre grupos
     const model = cloneSkinned(loaded.gltf.scene);
     sanitizeSkins(model);
+    // texturas de 2048 (~22 MB de vídeo cada) para um boneco de 1 m na tela: 1024 basta, como os outros jogadores
+    fitTextures(model, 1024);
     model.traverse((o) => { if ((o as THREE.Mesh).isMesh) { o.castShadow = true; o.frustumCulled = false; } });
     const box = restBox(model), size = box.getSize(new THREE.Vector3()), c = box.getCenter(new THREE.Vector3());
     const scale = 1.0 / Math.max(0.05, size.y); // todo Companion fica com ~1 m na primeira forma
