@@ -1,26 +1,21 @@
 /**
  * Interface do Ecos da Terra na cena (no Companion World, onde os recursos nascem por todas as regiões):
  *  - topo esquerdo: objetivo da coleta (e a Companion coletando por conta), só quando há um;
- *  - direita (no celular, bandeja de baixo): o recurso selecionado, propriedades conhecidas, adequação e abordagens;
  *  - embaixo: a ação em andamento com cancelar (Esc); embaixo à esquerda: últimos materiais.
  * Tudo funciona com teclado (Tab/Enter/Esc) e toque, e o estado nunca depende só de cor.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  MATERIALS, NODE_KINDS, CATEGORIES, TOOLS, PROP_LABEL, BAND_LABEL, nodeName, RESOURCE_TIMES, WEATHERS,
-  expectedOutcome, msUntilAvailable, batchQuality, parseBatchKey, slotFit, RECIPES, superiorBlockFor, pulseTimes, gradeOf, TUNE_LABEL,
-  type ResourceNode, type Approach, type PropKey, type Band, type TuneGrade,
+  NODE_KINDS, CATEGORIES, nodeName, batchQuality, parseBatchKey, pulseTimes, gradeOf, TUNE_LABEL, type TuneGrade,
 } from '@rules';
 import {
-  useEcos, toolBelt, amountOf, bagUsedOf, bagBatches, matchesObjective, batchLabel, knownNow, suggestionsNow,
-  type RunPhase,
+  useEcos, bagUsedOf, bagBatches, matchesObjective, batchLabel, knownNow, type RunPhase,
 } from '../ecos/ecosStore';
-import { findNode, ecosWorld } from '../ecos/worldNodes';
-import { usePacto } from '../pacto/pactoStore';
+import { findNode } from '../ecos/worldNodes';
+import { quickGather } from '../ecos/quickGather';
 import { useGame } from '../store';
 
 const PHASE_LABEL: Record<RunPhase, string> = { andando: 'Indo até lá…', coletando: 'Coletando…', confirmando: 'Confirmando no servidor…', concluido: 'Concluído', interrompido: 'Interrompido', erro: 'Não deu' };
-const fmtTime = (ms: number) => { const m = Math.ceil(ms / 60000); return m >= 60 ? `${Math.floor(m / 60)} h ${m % 60 ? (m % 60) + ' min' : ''}` : `${m} min`; };
 
 /** Quantos lotes da mochila atendem o objetivo. */
 function objectiveCount(): number {
@@ -43,7 +38,6 @@ export function EcosHud({ panelOpen = false }: { panelOpen?: boolean }) {
   return (
     <div className="ecos-hud" aria-label="Coleta: Ecos da Terra">
       {!panelOpen && <GoalPill />}
-      {!panelOpen && <ContextPanel />}
       <ActionBar />
       <RecentLoot />
     </div>
@@ -92,93 +86,6 @@ export function ObjectiveSummary() {
 function AutoTuneToggle() {
   const on = useEcos((s) => s.autoTune);
   return <label className="ecos-autotune"><input type="checkbox" checked={on} onChange={(e) => useEcos.getState().setAutoTune(e.target.checked)} /> Afinação automática (sem o desafio de ritmo)</label>;
-}
-
-function ApproachRow({ node, ap, state }: { node: ResourceNode; ap: Approach; state: { blocked: string | null } }) {
-  const view = useEcos((s) => s.view), obj = useEcos((s) => s.objective);
-  const [info, setInfo] = useState(false);
-  const known = view?.profile.knownMaterials ?? [];
-  const outs = expectedOutcome(node, ap);
-  const fits = obj ? outs.some((o) => { const m = MATERIALS[o.material]; const bands = obj.match.prop ? (o.bands[obj.match.prop] ?? []) : ['alta' as Band]; return bands.some((b) => matchesObjective(obj.match, { material: m.id, bands: obj.match.prop ? { [obj.match.prop]: b } : {} })); }) : null;
-  return (
-    <li className={'ecos-ap' + (state.blocked ? ' blocked' : '')}>
-      <div className="ap-head">
-        <b>{ap.label}</b><span className="ap-time">{ap.seconds} s</span>
-        {ap.tool && <span className="ap-tool" title={TOOLS[ap.tool].label}>{TOOLS[ap.tool].icon} {TOOLS[ap.tool].label}</span>}
-      </div>
-      <p className="ap-short">
-        {outs.map((o) => { const m = MATERIALS[o.material]; const qty = o.chance !== undefined ? `às vezes` : o.qty[0] === o.qty[1] ? `×${o.qty[0]}` : `×${o.qty[0]}–${o.qty[1]}`; return <span key={o.material}>{CATEGORIES[m.category].icon} {m.name} {qty}</span>; })}
-        {fits !== null && <span className={'fit ' + (fits ? 'ok' : 'no')}>{fits ? '✓ objetivo' : '✗ objetivo'}</span>}
-        <button type="button" className="link" aria-expanded={info} onClick={() => setInfo(!info)}>{info ? 'menos' : 'detalhes'}</button>
-      </p>
-      {info && <>
-        <ul className="ap-out">
-          {outs.map((o) => {
-            const m = MATERIALS[o.material], k = known.includes(o.material);
-            const qty = o.qty[0] === o.qty[1] ? `${o.qty[0]}` : `${o.qty[0]}–${o.qty[1]}`;
-            return (
-              <li key={o.material}>
-                {CATEGORIES[m.category].icon} {m.name}: {o.chance !== undefined ? <><em>às vezes</em> ({Math.round(o.chance * 100)}%) </> : <>garantido {o.guaranteed}{o.qty[1] > o.guaranteed ? <>, <em>estimado</em> {qty}</> : null} </>}
-                {Object.keys(o.bands).length > 0 && <span className="ap-bands">{k ? Object.entries(o.bands).map(([p, b]) => `${PROP_LABEL[p as PropKey].toLowerCase()} ${(b as Band[]).map((x) => BAND_LABEL[x]).join('–')}`).join(' · ') : 'propriedades desconhecidas (colete uma vez)'}</span>}
-              </li>
-            );
-          })}
-        </ul>
-        <p className="ap-meta"><span>{ap.pitch}</span> <span>Ambiente: {ap.effect}</span> {ap.risk !== 'nenhum' && <span>Risco: {ap.risk}</span>}</p>
-      </>}
-      <button type="button" className="primary" disabled={!!state.blocked} onClick={() => useEcos.getState().gather(node.id, ap.id)} aria-describedby={state.blocked ? `why-${node.id}-${ap.id}` : undefined}>
-        {state.blocked ? 'Indisponível' : 'Coletar'}
-      </button>
-      {state.blocked && <small id={`why-${node.id}-${ap.id}`} className="ap-why">{state.blocked}</small>}
-    </li>
-  );
-}
-
-function ContextPanel() {
-  const selected = useEcos((s) => s.selected), view = useEcos((s) => s.view), intent = useEcos((s) => s.intent);
-  const [more, setMore] = useState(false);
-  const cls = usePacto((s) => (s.view?.cls.forms?.length ? s.view.cls.forms : s.view?.cls.effective ?? null));
-  const node = selected ? findNode(selected) : null;
-  const sugg = useMemo(() => (node && view ? suggestionsNow(view, intent ?? { mode: 'abastecer', target: null, risk: 1, reserve: 4, tools: [], prefer: null, gentle: true }).find((x) => x.node.id === node.id && !x.blocked) : null), [node, view, intent]);
-  if (!node) return null;
-  const k = NODE_KINDS[node.kind], amount = amountOf(view, node), now = Date.now();
-  const free = (view?.config.bag ?? 60) - bagUsedOf(view);
-  const tools = view?.profile.tools ?? [];
-  const superior = superiorBlockFor(node.id, cls);
-  const states = k.approaches.map((ap) => {
-    if (superior) return superior;
-    if (ap.tool && !tools.includes(ap.tool)) return `precisa de ${TOOLS[ap.tool].label} (Loja de Equipamentos de Áster ou a Forja de uma Taurina)`;
-    if (ap.tool && toolBelt.get(ap.tool) === false) return `${TOOLS[ap.tool].label} está guardada: equipe no Inventário → Ferramentas`;
-    if (amount < ap.cost) return `resta ${Math.floor(amount)}; esta coleta precisa de ${ap.cost}`;
-    const wait = msUntilAvailable(node, ap, view?.nodes[node.id] ?? null, now);
-    if (wait > 0) return `esgotado: volta em ~${fmtTime(wait)}`;
-    if (free < ap.yields.reduce((a, y) => a + y.qty[1], 0)) return 'mochila cheia (ou quase): libere espaço';
-    return null;
-  });
-  const anyOk = states.some((x) => !x);
-  const mats = [...new Set(k.approaches.flatMap((a) => a.yields.map((y) => y.material)))];
-  return (
-    <aside className="ecos-panel ecos-card" aria-label={`Recurso: ${nodeName(node)}`}>
-      <header>
-        <div><small className="ecos-eyebrow">{CATEGORIES[k.category].icon} {CATEGORIES[k.category].label} · {ecosWorld()?.biomes.find((b) => b.slug === node.biome)?.name ?? 'Mundo'}</small><h3>{nodeName(node)}</h3></div>
-        <button type="button" className="close" aria-label="Fechar" onClick={() => useEcos.getState().select(null)}>×</button>
-      </header>
-      <p className="ecos-state"><span className={'pill ' + (anyOk ? 'ok' : 'off')}>{anyOk ? 'Disponível' : 'Indisponível'}</span> Abundância {Math.floor(amount)}/{k.capacity} · <em>{k.sign}</em></p>
-      {(node.time !== 'sempre' || node.weather.length > 0) && <p className="hint">Aparece {[node.time !== 'sempre' ? RESOURCE_TIMES[node.time].toLowerCase() : '', node.weather.length ? 'com ' + node.weather.map((w) => WEATHERS[w].label.toLowerCase()).join(' ou ') : ''].filter(Boolean).join(', ')}.</p>}
-      {sugg && <p className="ecos-sugg">💬 {sugg.reason}</p>}
-      <button type="button" className="ghost ecos-more" aria-expanded={more} onClick={() => setMore(!more)}>{more ? 'Menos detalhes' : 'Para que serve'}</button>
-      {more && (
-        <ul className="ecos-uses">
-          {mats.map((id) => <li key={id}><b>{MATERIALS[id].name}</b> (raridade {['', 'comum', 'incomum', 'rara'][MATERIALS[id].rarity]}): {MATERIALS[id].uses.join('; ')}.{RECIPES.some((r) => r.slots.some((s) => slotFit(s, { material: id, bands: Object.fromEntries(Object.keys(MATERIALS[id].ranges).map((p) => [p, 'alta'])) as Partial<Record<PropKey, Band>> }) !== 'nao-serve')) ? ' Entra em receita.' : ''}</li>)}
-        </ul>
-      )}
-      <ul className="ecos-aps">
-        {k.approaches.map((ap, i) => <ApproachRow key={ap.id} node={node} ap={ap} state={{ blocked: states[i] }} />)}
-      </ul>
-      {superior && (Array.isArray(cls) ? cls.includes('touro') : cls === 'touro') && !usePacto.getState().view?.simulated && <button type="button" className="ghost" onClick={() => void usePacto.getState().call('pacto.board.post', { kind: 'oportunidade', text: `${nodeName(node)} localizado em ${ecosWorld()?.biomes.find((b) => b.slug === node.biome)?.name ?? 'algum lugar do mundo'} (abundância ${Math.floor(amount)}/${k.capacity}).`, node: node.id }).then((r) => r && useGame.getState().toast('Oportunidade anunciada no quadro do Pacto', 'gold'))}>📣 Anunciar oportunidade</button>}
-      <button type="button" className="ghost" onClick={() => useEcos.getState().inspect(node.id)}>👁 Observar com calma</button>
-    </aside>
-  );
 }
 
 function ActionBar() {
@@ -284,7 +191,7 @@ export function NearbyList() {
   if (!list.length) return <p className="hint">Nenhum recurso à vista. Ande pelo Companion World: árvores, ervas e pedras nascem em todas as regiões.</p>;
   return (
     <ul className="ecos-near">
-      {list.map(({ node, dist }) => <li key={node.id}><button type="button" className="ghost" onClick={() => useEcos.getState().select(node.id)}>{CATEGORIES[NODE_KINDS[node.kind].category].icon} {nodeName(node)} · {Math.round(dist)} m</button></li>)}
+      {list.map(({ node, dist }) => <li key={node.id}><button type="button" className="ghost" onClick={() => quickGather(node.id)}>{CATEGORIES[NODE_KINDS[node.kind].category].icon} {nodeName(node)} · {Math.round(dist)} m</button></li>)}
     </ul>
   );
 }

@@ -872,7 +872,6 @@ body:has(.admin), #root:has(.admin) { height: auto; min-height: 100%; overflow: 
 .ecos-hud { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
 .ecos-hud > * { pointer-events: auto; }
 .ecos-card { background: var(--panel); border: 1px solid var(--brass-dim); border-radius: var(--ecos-radius); box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--night) 70%, transparent), inset 0 0 0 4px color-mix(in srgb, var(--brass) 35%, transparent), 0 10px 30px rgba(0, 0, 0, 0.45); backdrop-filter: blur(6px); color: var(--parchment); }
-.ecos-eyebrow { color: var(--brass); font-size: 0.78rem; font-weight: 600; }
 .ecos-card .bar, .ecos-tab .bar { height: 6px; border-radius: 99px; background: rgba(255, 255, 255, 0.12); overflow: hidden; margin: 4px 0; }
 .ecos-card .bar i, .ecos-tab .bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--ecos-moss-2), var(--ecos-glow)); }
 .ecos-hud button:focus-visible, .ecos-tab button:focus-visible, .ecos-tab input:focus-visible { outline: 2px solid var(--ecos-glow); outline-offset: 2px; }
@@ -896,27 +895,10 @@ body:has(.admin), #root:has(.admin) { height: auto; min-height: 100%; overflow: 
 .mm-node.sel { stroke: #fff; stroke-width: 2; }
 .mm-me { fill: #ffe9a8; stroke: #0d1726; }
 .mm-clue { fill: var(--ecos-warn); font: 700 12px var(--sans); }
-.ecos-panel { position: absolute; right: 14px; top: calc(max(14px, env(safe-area-inset-top)) + 160px); width: min(360px, calc(100vw - 28px)); max-height: calc(100vh - 260px); overflow: auto; padding: 12px 14px; display: grid; gap: 8px; }
-.ecos-clues + .ecos-panel { right: 266px; }
-.ecos-panel header { display: flex; justify-content: space-between; align-items: flex-start; }
-.ecos-panel h3 { margin: 2px 0 0; font-family: var(--serif); color: var(--ecos-silver); font-size: 1.2rem; }
-.ecos-panel .close { min-width: var(--ecos-touch); min-height: var(--ecos-touch); background: transparent; border: 0; color: inherit; font-size: 1.4rem; }
-.ecos-state { margin: 0; font-size: 0.84rem; color: #dfe6dc; }
 .pill { display: inline-block; padding: 0 8px; border-radius: 99px; font-size: 0.72rem; margin-right: 6px; border: 1px solid currentColor; }
 .pill.ok { color: var(--ecos-ok); } .pill.off { color: var(--ecos-off); }
-.ecos-sugg { margin: 0; padding: 6px 10px; border-left: 3px solid var(--ecos-glow); background: rgba(143, 216, 255, 0.08); border-radius: 6px; font-size: 0.86rem; }
-.ecos-aps { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
-.ecos-ap { padding: 8px 10px; border-radius: 10px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(201, 209, 214, 0.18); display: grid; gap: 4px; }
-.ecos-ap.blocked { opacity: 0.78; }
-.ap-head { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
-.ap-time, .ap-tool { font-size: 0.75rem; color: var(--ecos-silver); }
-.ap-out { list-style: none; margin: 0; padding: 0; font-size: 0.8rem; }
-.ap-bands { display: block; color: var(--ecos-silver-dim); font-size: 0.74rem; }
-.ap-meta { margin: 0; font-size: 0.74rem; color: #cfd8cc; display: flex; flex-wrap: wrap; gap: 4px 10px; }
 .fit.ok { color: var(--ecos-ok); } .fit.no { color: var(--ecos-off); }
-.ecos-ap .primary, .ecos-panel .ghost { min-height: var(--ecos-touch); }
 .ap-why { color: var(--ecos-warn); font-size: 0.76rem; }
-.ecos-uses { margin: 0; padding-left: 18px; font-size: 0.8rem; }
 .ecos-action { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(96px + env(safe-area-inset-bottom)); width: min(420px, calc(100vw - 28px)); padding: 8px 12px; display: grid; gap: 4px; }
 .ecos-action .ea-top { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; font-size: 0.85rem; }
 .ecos-action .ea-phase { color: var(--ecos-silver); }
@@ -964,9 +946,7 @@ body:has(.admin), #root:has(.admin) { height: auto; min-height: 100%; overflow: 
   .ecos-objective b { font-size: 0.85rem; }
   .ecos-clues { width: 150px; right: 8px; top: calc(max(14px, env(safe-area-inset-top)) + 172px); max-height: 30vh; font-size: 0.76rem; padding: 6px 8px; }
   .ecos-clues .ecos-minimap { width: 110px; height: 110px; }
-  .ecos-panel, .ecos-clues + .ecos-panel { left: 8px; right: 8px; top: auto; bottom: calc(8px + env(safe-area-inset-bottom)); width: auto; max-height: 52vh; border-radius: 16px 16px 12px 12px; }
   .ecos-action { bottom: calc(8px + env(safe-area-inset-bottom)); }
-  .ecos-panel ~ .ecos-action { bottom: calc(52vh + 16px); }
   .ecos-recent { display: none; }
   .choice-row { grid-template-columns: 1fr; }
 }
@@ -1312,8 +1292,6 @@ body:has(.admin), #root:has(.admin) { height: auto; min-height: 100%; overflow: 
 .ecos-vale-map > div { flex: 1; min-width: 160px; }
 .ecos-clue-list { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 6px; font-size: .82rem; }
 .ecos-clue-list .tag { display: inline-block; margin-right: 6px; padding: 0 6px; border-radius: 99px; font-size: .66rem; text-transform: uppercase; letter-spacing: .05em; border: 1px solid currentColor; }
-.ecos-ap .ap-short { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; margin: 2px 0 6px; font-size: .82rem; }
-.ecos-ap .ap-short .fit.ok { color: #9fe0a0; } .ecos-ap .ap-short .fit.no { color: #ffb4a8; }
 
 /* ---- Bolsa e equipamento (Inventário) ---- */
 .bag-panel { display: grid; gap: 10px; }
