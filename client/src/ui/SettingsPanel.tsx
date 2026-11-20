@@ -75,6 +75,7 @@ export function SettingsPanel() {
         <small className="hint">{touch ? 'Arraste ataque, pular, defender, sentar e as habilidades para onde ficar melhor para o dedo; dá para mudar o tamanho também.' : 'Disponível no celular deitado, onde os botões aparecem na tela.'}</small>
       </fieldset>
       <Choice k="damageNumbers" label="Números de dano" options={[[true, 'Mostrar'], [false, 'Esconder']]} />
+      <Choice k="groundDetail" label="Chão do mundo (em teste)" options={[[false, 'Liso'], [true, 'Detalhado']]} hint="Detalhado põe fiapos de grama, grão de terra e pedrinhas por cima das cores de cada bioma." />
       <button type="button" className="link" onClick={() => s.reset()}>voltar tudo ao padrão</button>
     </div>
   );

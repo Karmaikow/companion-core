@@ -32,11 +32,13 @@ export interface Settings {
   /** ordens no chat ("ataque!", "fuja!") também vão para a conversa com a IA (ela responde do jeito dela) */
   ordersToChat: boolean;
   damageNumbers: boolean;
+  /** chão do mundo aberto com textura de detalhe (em teste) */
+  groundDetail: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
   click: 'andar', attackAim: 'mouse', skillAim: 'mouse', posture: 'defensiva', fleeAt: 0.3, aiWait: 6, chatter: 'normal', barkSource: 'ia',
-  voiceOut: false, voiceName: '', voiceAutoSend: true, micMode: 'sempre', ordersToChat: true, damageNumbers: true,
+  voiceOut: false, voiceName: '', voiceAutoSend: true, micMode: 'sempre', ordersToChat: true, damageNumbers: true, groundDetail: false,
 };
 
 const KEY = 'companion-core:settings:v2';

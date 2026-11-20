@@ -23,7 +23,8 @@ import { CompanionModel, type Roam } from './CompanionModel';
 import { RemoteCompanions } from './RemoteCompanions';
 import { brain, notifyPlayer, primeBarks, sayMoment, type Place } from './brain';
 import { useGame } from '../store';
-import { settings } from '../settings';
+import { settings, useSettings } from '../settings';
+import { GROUND_DETAIL_PERIOD, groundDetailOn, groundDetailTexture } from './groundDetail';
 import { companionFocus, groundDown, groundMove, colliders, smooth, type WorldShape } from './world';
 import { GrassBlades, GlbInstances, AssetBoundary, Sky, CameraRig, WindClock, ClickMarker, Ambient, type Spot } from './Biome';
 import { runeTexture } from './textures';
@@ -74,11 +75,12 @@ function TerrainChunk({ cw, pals, cx, cz, walkable }: { cw: CompanionWorld; pals
     // alturas com uma borda extra: as normais batem com as do chunk vizinho (sem costura de luz)
     const H = new Float32Array(W * W);
     for (let j = -1; j <= N + 1; j++) for (let i = -1; i <= N + 1; i++) H[(j + 1) * W + (i + 1)] = cw.heightAt(x0 + i * step, z0 + j * step);
-    const V = (N + 1) * (N + 1), pos = new Float32Array(V * 3), nor = new Float32Array(V * 3), col = new Float32Array(V * 3), idx: number[] = [];
+    const V = (N + 1) * (N + 1), pos = new Float32Array(V * 3), nor = new Float32Array(V * 3), col = new Float32Array(V * 3), uv = new Float32Array(V * 2), idx: number[] = [];
     const n = new THREE.Vector3(), a = new THREE.Color(), b = new THREE.Color(), t = new THREE.Color();
     for (let j = 0; j <= N; j++) for (let i = 0; i <= N; i++) {
       const v = j * (N + 1) + i, x = x0 + i * step, z = z0 + j * step, h = (ii: number, jj: number) => H[(jj + 1) * W + (ii + 1)];
       pos.set([x, h(i, j), z], v * 3);
+      uv.set([x / GROUND_DETAIL_PERIOD, z / GROUND_DETAIL_PERIOD], v * 2); // detalhe do chão pelas coordenadas do mundo: emenda entre pedaços
       n.set(h(i - 1, j) - h(i + 1, j), 2 * step, h(i, j - 1) - h(i, j + 1)).normalize();
       nor.set([n.x, n.y, n.z], v * 3);
       const hit = cw.regionAt(x, z), w = 0.5 + 0.5 * smooth(0, 10, hit.edge), k = cw.noise(x * 0.2 + 11, z * 0.2);
@@ -98,6 +100,7 @@ function TerrainChunk({ cw, pals, cx, cz, walkable }: { cw: CompanionWorld; pals
     g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
     g.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
     g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
     g.setIndex(idx);
     g.computeBoundingSphere();
     return g;
@@ -107,7 +110,15 @@ function TerrainChunk({ cw, pals, cx, cz, walkable }: { cw: CompanionWorld; pals
   const onPointerDown = walkable ? (e: ThreeEvent<PointerEvent>) => groundDown(e, settings().click === 'atacar' ? 2 : 0) : undefined;
   const onPointerMove = walkable ? (e: ThreeEvent<PointerEvent>) => groundMove(e) : undefined;
   const onContextMenu = walkable ? (e: ThreeEvent<MouseEvent>) => { if (settings().click === 'atacar') e.nativeEvent.preventDefault(); } : undefined;
-  return <mesh geometry={geo} receiveShadow onPointerDown={onPointerDown} onPointerMove={onPointerMove} onContextMenu={onContextMenu}><meshLambertMaterial vertexColors /></mesh>;
+  // Chão detalhado (em teste): a textura só clareia e escurece por cima das cores de hoje; a cor do material
+  // compensa a média dela, para o chão não ficar mais escuro no geral
+  const detail = groundDetailOn(useSettings((st) => st.groundDetail));
+  const tex = detail ? groundDetailTexture() : null;
+  return (
+    <mesh geometry={geo} receiveShadow onPointerDown={onPointerDown} onPointerMove={onPointerMove} onContextMenu={onContextMenu}>
+      {tex ? <meshLambertMaterial key="detalhe" vertexColors map={tex.tex} color={new THREE.Color(1, 1, 1).multiplyScalar(1 / tex.mean)} /> : <meshLambertMaterial key="liso" vertexColors />}
+    </mesh>
+  );
 }
 
 // ---------------------------------------------------------------------------
